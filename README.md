@@ -12,6 +12,6 @@ all but [sp51](sp51/criptwar) encrypted distributives cracked:
 [sp47](sp47/criptwar/krupnik), [sp54](sp54/forum/c-club/martynov),
 [sp55](sp55/benefic/krupnik/cript), [sp57](sp57/forum/potapkin).
 
-As translation is semi-automatic, some files, like configuration or help files,
+As conversion is semi-automatic, some files, like configuration or help files,
 could have been erroneously translated. In this case, please open the github issue
 and get the original files from the [original archives folder](sparc) as a temporary workaround.
