@@ -1,0 +1,112 @@
+
+{*****************************************************************************}
+{                                                                             }
+{  Назначение : построение гистограммы                                        }
+{             :                                                               }
+{  Параметры  : /S=s  s- символ дли гистограммы ( по умолчанию = ▀ )          }
+{             : /W=n  n - ширина поля гистограммы ( по умолчанию вписывается  }
+{             :           в правую границу текста )                           }
+{             :                                                               }
+{  Замечания  : 1. Гистограмма строится только для положительных чисел        }
+{             : 2. Перед вызовом должен быть помечен прямоугольный блок       }
+{             :    с числовой информацией                                     }
+{             :                                                               }
+{  Автор      : v2.0 Е.Чалюк г.Харьков 1991                                   }
+{*****************************************************************************}
+
+$MACRO_FILE Gisto;
+$MACRO Gisto FROM Edit;
+
+   Def_Int(NumOldWin);     { Номер окна, из которого запускается макрос }
+   Def_Int(NumNewWin,      { Номер окна графика                         }
+           LastLine);      { Всего помечено строк                       }
+   Def_Str(NameOld,
+           Graf_Chars,
+           ws);
+
+   Def_Int(I,J,j0);
+   def_Real(Y,Y0,K_Y,Max_Y,Min_Y);
+   Def_Real(Len_Y);
+
+   i := Parse_Int('/W=' , MParm_Str);   { ширина поля графика }
+   if (i <= 0) then
+      Len_Y := REAL_I(RIGHT_MARGIN - 4 - BLOCK_COL2 + BLOCK_COL1);
+      if (Len_Y > 132.) then Len_Y := 132.; end;
+   else
+      Len_Y := REAL_I(i - 4 - BLOCK_COL2 + BLOCK_COL1);
+   end;
+
+   ws := Parse_Str('/S=',MParm_Str);
+   if (ws = '') then
+      ws := '▀';                 { символ по умолчанию }
+   end;
+   Graf_Chars := '';
+
+   i := 0;
+   while (i < INT_R(Len_Y) * 2) Do          { формируем строку для диаграммы }
+      Graf_Chars := Graf_Chars + ws;
+      ++i;
+   end;
+
+   NumOldWin := CUR_WINDOW;
+   NameOld := File_Name;
+
+   if (BLOCK_STAT <> 2) then
+      Make_Message('Не помечен столбцовый блок !');
+      Beep;
+      Goto Exit1;
+   end;
+
+   Make_Message('Making diagram.');
+   CREATE_WINDOW;
+   File_Name := Truncate_Extension(NameOld) + '.GRF';
+
+   NumNewWin := CUR_WINDOW;
+   Window_Copy(NumOldWin);     { слева - оцифровка }
+
+{********************************************************************}
+
+   EOF;
+   LastLine := C_Line;
+
+   TOF;                         { определим Max, Min и масштабный множитель}
+   Max_Y := -1000000000.;
+   Min_Y :=  1000000000.;
+   i := 1;
+   while (i <= LastLine) Do
+      ws := GET_LINE;
+      if (Rval(Y,ws) <> 0) then
+         Make_Message('Ошибка преобразования в число в строке ' + Str(i));
+         beep;
+         goto Exit1;
+      end;
+
+      IF (Y > Max_Y ) THEN
+         Max_Y := Y;
+      END;
+      IF (Y < Min_Y ) THEN
+         Min_Y := Y;
+      END;
+
+      ++i;
+      GOTO_LINE(i);
+   end;
+
+   K_Y := (Max_Y) / Len_Y;
+
+   TOF;
+   i := 1;
+   while (i <= LastLine) Do
+      if (Rval(Y,GET_LINE) <> 0) then; end;
+      EOL;
+      text(' │ ');
+      text(copy(Graf_Chars,1,INT_R(Y / K_Y)));
+      ++i;
+      GOTO_LINE(i);
+   end;
+
+   TOF;
+   BLOCK_OFF;
+
+Exit1:
+END_MACRO;

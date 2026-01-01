@@ -1,0 +1,290 @@
+From: rhagen@awi-bremerhaven.de (RICK HAGE)
+Newsgroups: comp.lang.tcl
+Subject: Tcl/Tk and C interaction: an example
+Date: Tue, 21 Feb 1995 11:09:29 -0500
+Organization: Alfred Wegener Institute for Polar Research
+Message-ID: <rhagen-2102951109290001@batm3.awi-bremerhaven.de>
+
+
+Hello,
+
+A couple weeks ago I posted a question about making C and Tcl work
+together. I received some helpful email responses, and also several
+responses from people with the same problem but who were perhaps
+too shy to post :)
+
+I put together an example program that demonstrates what I've learned
+in the past couple weeks about Tcl and C interaction. I've appended
+it below and offer it to the other beginners out there as an example.
+
+My understanding is that there are three ways to communicate between
+Tcl and C:
+
+1. have variables in C and in Tcl that are linked together (Tcl_LinkVar)
+2. return data from C in the tcl result string (Tcl_setResult,
+    Tcl_AppendResult, Tcl_AppendElement)
+3. let C directly modify a tcl variable with TCL_SetVar, or read
+   a Tcl variable with TCL_GetVar
+
+The code appended below demonstrates 2 and 3a. I also experimented with 1,
+but it didn't fit my needs so I haven't used it and don't have an
+example handy.
+
+Rick Hagen
+
+
+There are three files appended:
+1st the example.tk file that contains the Tcl/Tk code
+2nd the example.c file with the C code
+3rd the makefile for the C code
+The C code requires that the example.tk file have that specific name
+
+------------ example.tk --------------
+# example.tk
+# Demonstrates Tcl/Tk and C interaction while doing something useful!
+# Originally written entirely in Tcl/Tk but added C calls as a demo.
+
+# 20 Feb 1995 - R. Hagen rhagen@awi-bremerhaven.de
+
+# -------------------------------------------------
+# A simple decimal degree to deg,min,sec converter
+# -------------------------------------------------
+
+# -------------------------
+# set up the user interface
+# -------------------------
+label .title -text "Lat/Lon Converter"
+
+frame .convert
+
+label .deglabel -text "degrees "
+label .minlabel -text "minutes "
+label .seclabel -text "seconds "
+label .deg -width 5 -relief sunken -bd 2 -bg LightGoldenrod1 \
+        -textvariable degrees
+label .min -width 6 -relief sunken -bd 2 -bg LightGoldenrod1 \
+        -textvariable minutes
+label .sec -width 6 -relief sunken -bd 2 -bg LightGoldenrod1 \
+        -textvariable seconds
+label .eqlabel -text " = "
+entry .decdeg -width 11 -relief sunken -bd 2 -bg PowderBlue \
+        -textvariable decDegrees
+ 
+ 
+# --------------------------------------------
+# Make the return key execute the calculations
+# --------------------------------------------
+bind .decdeg <Return> {okCommand}
+
+# ------------------
+# Set up the buttons
+# ------------------
+frame .bframe
+button .okbutton -text OK -command {okCommand}
+button .exitbutton -text Exit -command exit
+button .clearbutton -text Clear -command clearCmd
+radiobutton .ddm -text "deg + decimal min" -variable mode -value 0 \
+    -anchor w
+radiobutton .dms -text "deg + min + sec" -variable mode -value 1 \
+    -anchor w
+
+# --------------- 
+# Pack everything
+# ---------------
+pack .title -side top
+pack .convert -side top -padx 2m -pady 2m
+pack .decdeg .eqlabel .deg .deglabel .min .minlabel .sec .seclabel \
+    -in .convert -side left
+pack .bframe -side top
+pack .okbutton .exitbutton .clearbutton -in .bframe -side left -padx 2m
+pack .ddm .dms -in .bframe -side right -padx 2m
+ 
+# -------------------------------------------------
+# set the initial focus to the decimal degree entry
+# -------------------------------------------------
+focus .decdeg
+ 
+# -------------------
+# initialize the mode
+# -------------------
+set mode 1
+
+# ------------------------------------
+# Procedure to execute the decimal to deg min sec calculation
+# here we do the calculation in C as an example.
+# Also as an example we return the data in two ways, by having
+# the C program reach in and directly change the degrees value,
+# and by returning the minutes and seconds data in the result.
+# ------------------------------------
+proc okCommand {} {
+    global degrees minutes seconds decDegrees mode
+ 
+    if {$decDegrees != ""} {
+ 
+#       call the C routine, returning data in degList. We return 
+#       deg min sec, but degrees was already set by the C routine 
+#       and is already displayed, so we ignore the returned value.
+ 
+        set degList "[eval calculate $decDegrees]"
+        set minutes [lindex $degList 1]
+        set seconds [lindex $degList 2]
+ 
+        if {$mode == "0"} {
+            set minutes [format "%6.3f" [expr $minutes + ($seconds / 60)]]
+            set seconds ""
+        }
+    }
+}
+ 
+# ------------------------------
+# Procedure to clear all entries
+# ------------------------------
+proc clearCmd {} {
+    global degrees minutes seconds decDegrees
+ 
+    foreach thing {degrees minutes seconds decDegrees} {
+ 
+        set $thing ""
+    }
+}
+
+-------------example.c------------------
+
+/* example.c
+  Demonstrates Tcl/Tk and C interaction.
+  The main() routine below was pretty much copied from the draft of the
+  Brent Welch book "Practical Programming in Tcl and Tk"
+
+  20 Feb 1995 - R. Hagen rhagen@awi-bremerhaven.de
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <tcl.h>
+#include <tk.h>
+
+#define TCLGO     TCL_GLOBAL_ONLY
+
+/* Here we define a C function to be called as a Tcl command */
+static int calculate(ClientData dummy, Tcl_Interp* interp, int argc, 
+                                                       char* argv[])
+{
+    int degPart, minPart;
+    float decimalDegrees, fractionPart, decimalMinutes, decimalSeconds;
+    char temp[12] = {0};
+
+    if(argc != 2) return ;
+
+    decimalDegrees = atof(argv[1]); /* argv[1] contains value passed
+                                       from Tcl */
+    degPart = (int) decimalDegrees;
+    fractionPart = fabs(decimalDegrees - degPart);
+    decimalMinutes = fractionPart * 60.0;
+    minPart = (int) decimalMinutes;
+    fractionPart = decimalMinutes - minPart;
+    decimalSeconds = fractionPart * 60.0;
+
+    /* we must convert our ints and floats to strings for Tcl using sprintf */
+    sprintf(temp,"%d",degPart);
+    Tcl_SetVar(interp, "degrees",temp,TCLGO); /* set the tcl variable */
+    Tcl_AppendElement(interp, temp);         /* append to the result string */
+    sprintf(temp,"%d", minPart);
+    Tcl_AppendElement(interp, temp);         /* append to the result string */
+    sprintf(temp,"%6.3f", decimalSeconds);
+    Tcl_AppendElement(interp, temp);         /* append to the result string */
+ 
+    return TCL_OK;
+        
+}
+ 
+int Example_Init(Tcl_Interp* interp)
+{
+/* Here we tell the Tcl interpreter about our calculate C function
+   and "link" it to a Tcl name. Here the C and Tcl names are the same
+   but it is not required.
+
+                               Tcl name    C name */ 
+    Tcl_CreateCommand(interp, "calculate", calculate,(ClientData) 0,
+            (void (*)()) NULL);
+ 
+    return TCL_OK;
+}
+ 
+ 
+main(int argc, char *argv[])
+{
+    Tcl_Interp *interp;
+    Tk_Window mainWindow;
+    int error;
+    char *trace;
+ 
+/*  first we create a Tcl interpreter */
+
+    interp = Tcl_CreateInterp();
+ 
+/*  now we create a Tk main window */
+
+    mainWindow = Tk_CreateMainWindow(interp, getenv("DISPLAY"),
+                        "example","Tk");
+ 
+    if(mainWindow == NULL) {
+        fprintf(stderr, "%s\n", interp->result);
+        exit(1);
+    }
+ 
+/*  now we initialize our interpreter for Tcl,Tk,and our personal
+    example C commands */
+
+    if(Tcl_Init(interp) != TCL_OK) {
+        fprintf(stderr, "Tcl_Init failed: %s\n", interp->result);
+    }
+    if(Tk_Init(interp) != TCL_OK) {
+        fprintf(stderr, "Tk_Init failed: %s\n", interp->result);
+    }
+    if(Example_Init(interp) != TCL_OK) {
+        fprintf(stderr, "Example_Init failed: %s\n", interp->result);
+    }
+
+/*  now we tell the interpreter which Tcl/Tk file to use */
+
+    error = Tcl_EvalFile(interp, "example.tk");
+    if(error != TCL_OK) {
+        fprintf(stderr, "%s: %s\n", "example.tk", interp->result);
+        trace = Tcl_GetVar(interp, "errorInfo", TCL_GLOBAL_ONLY);
+        if(trace != NULL) {
+            fprintf(stderr, "*** TCL TRACE ***\n");
+            fprintf(stderr, "%s\n", trace);
+        }
+    }
+
+/* finally we enter the event loop and wait for user input */
+
+    Tk_MainLoop();
+}
+
+--------------makefile---------------
+
+#
+# makefile for example program
+
+CC = acc
+
+# I have to explicitly specify include files and libs because our
+# computer group set up the system here stupidly. Here I specify where
+# the tcl and tk libs are and also where the X11 stuff is.
+
+#             Tcl and Tk includes               X11 includes
+INC = -I/bats1/user2/rhagen/Xtools/include -I/applic/openwin3/include
+
+#         Tcl and Tk lib. locations         X11 lib. location
+LIBS = -L/bats1/user2/rhagen/Xtools/lib -L/applic/openwin3/lib -ltcl -ltk
+-lm -lX11
+
+DEBUG = -g
+
+CFLAGS = $(DEBUG) $(INC)
+
+example : example.o
+   $(CC) -o example example.o $(LIBS)
+

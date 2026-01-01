@@ -1,0 +1,517 @@
+@echo off
+cls
+echo %@upper[%0]:
+text
+
+     This file contains several sample batch files.  We invite you to study
+     them in conjunction with your 4DOS manual and documentation. You may
+     want to PRINT or LIST the contents and modify any part you wish. The
+     various segments are separated from each other by a line of hyphens
+     ("-") so you can easily extract the specific component you're most
+     interested in.
+
+     Included are:
+
+       STATUS.BTM    - Gives a quick description of your system.
+       4MENU.BTM     - A very simple menuing system.
+       ONCEADAY.BTM  - Runs a command during the first boot of the day.
+     * FRAC.BTM      - Computes the fractional part of a number
+     * HMENU.BTM     - A powerful menuing system which you must customize
+                       for your system.
+     * WHICH.BTM     - Ready to use convenient way to detect "WHICH" process
+                       (internal command, alias, executable extension,
+                       external command, or batch file) is run when you
+                       invoke a command.
+
+   * Note: These three batch files were originally contributed by long-time 
+           4DOS user and supporter Ray Tackett. Thanks, Ray!
+endtext
+pause
+
+: ---------------------------------------------------------------------
+rem STATUS.BTM
+rem
+rem      This sample batch file will use some internal 4DOS variable
+rem      functions to try to describe your current configuration.
+rem
+cls
+echo.^echo.
+echo System status:
+echo.
+echo Date: %_dow %_date
+echo Time: %_time
+echo 4DOS version: %_4ver
+echo OS: %_dos
+echo DOS version: %_dosver
+echos `CPU: `
+iff %_cpu == 86 then
+  echo 8088/8086
+elseiff %_cpu == 186 then
+  echo 80188/80186
+elseiff %_cpu == 200 then
+  echo V20/V30
+elseiff %_cpu == 286 then
+  echo 80286
+elseiff %_cpu == 386 then
+  echo 80386
+elseiff %_cpu == 486 then
+  echo 80486
+endiff
+if %_ndp ne 0 echo %_ndp Numeric Coprocessor detected
+echo Video: %_video
+echo Monitor type: %_monitor
+quit
+
+
+: ---------------------------------------------------------------------
+: 4MENU.BTM
+:      This sample batch file will create a simple "menu" to run
+:      your commonly used programs.
+:
+:      Note that, instead of REM statements, it uses the alternative
+:      practice of creating "do-nothing" labels by starting comment
+:      lines such as this one with a ":"
+:
+@echo off
+:      First, we define a couple of aliases which will be used several
+:      times in the remainder of this batch file, after first saving
+:      any existing alias by the same name with the SETLOCAL command.
+setlocal
+alias in `pushd %1 ^ %2& ^ popd`
+alias choice `elseiff "%userchoice" == "%1" then`
+:
+:       Start with a clear screen
+cls
+:dispmenu
+:       Position the cursor
+screen 8 0
+:       Display the menu choices
+text
+
+ Enter your choice:
+
+      0. EXIT
+      1. Word Processing
+      2. Spreadsheet
+      3. Communications
+
+endtext
+:      Ask the user to enter a value for environment variable CHOICE
+inkey Which? %%userchoice
+:      Does the user want to exit the menu?
+iff "%userchoice" == "0" then ^ quit
+:      Check the valid options
+:      Each line correspond to a menu choice
+:      The paranmeters are a directory to go to, then the program to run
+  choice 1 ^ in c:\letters c:\ws\ws.exe
+  choice 2 ^ in d:\finance c:\quattro\q.exe
+  choice 3 ^ in c:\comm    c:\procomm\pcplus.exe /fprofile
+else
+:      The user entered an invalid option
+  scrput 23 0 bri whi on red Invalid choice, try again
+endiff
+:      Loop back to the beginning
+goto dispmenu
+
+
+: ---------------------------------------------------------------------
+: ONCEADAY.BTM
+@echo off
+:
+:       This batch file will start a specified command the first time it
+:       called each day after 6:00 in the morning
+:       example:
+:               ONCEADAY DEFRAG C:
+:
+:      Note that, instead of REM statements, it uses the alternative
+:      practice of creating "do-nothing" labels by starting comment
+:      lines such as this one with a ":"
+:
+:
+:       First, we reset environment variable LASTDATE after saving any
+:       current value it may already have with the SETLOCAL command
+setlocal
+set lastdate=0
+:       Is there already a file called ONCEADAY.DAT in the
+:       root directory of the boot drive?
+iff exist %_boot:\onceaday.dat then
+:       If so, set LASTDATE to the contents of the first line
+  set lastdate=%@line[%_boot:\onceaday.dat,0]
+endiff
+:       Is the date in the file greater than today's date?
+:       (the @DATE function turns a date into an integer number)
+iff %@date[%_date] gt %lastdate then
+:       If so, is it currently past 6:00? (an arbitrary time)
+  iff %@time[%_time] gt %@time[06:00] then
+:       Yes! Invoke whatever command was passed as an argument to this
+:       batch file, then return
+    call %&
+:       After executing the command, place today's date in integer
+:       format into file ONCEADAY.DAT
+    echo %@date[%_today] >! %_boot:\onceaday.dat
+  endiff
+endiff
+:
+
+
+: ---------------------------------------------------------------------
+: FRAC.BTM
+@echo off
+rem 4DOS provides an internal function, @int[], but not a way
+rem to get the fractional part of a number.  Here's a tool.
+rem This is also a simple illustration of modifying an environment
+rem variable whose name is passed in.
+
+rem The key lesson in this example is the use and modification of
+rem the VALUE of a variable given its NAME in %1.
+
+rem This .btm is meant to be CALLed from another batch file.
+rem
+if "%1" == "" .or. "%[%1]" == "" goto help
+rem  !                !
+rem  !                The VALUE of variable "name"
+rem  The NAME of a variable
+
+
+rem The following sets the given variable to the fractional part.
+rem Note the function nesting.
+
+rem The third argument of @substr is omitted, referring to the rest
+rem of the string by default [4DOS 4.0 enhancement]
+
+rem The length of the integer portion is used as the offset into the
+rem string to begin and extract the fraction portion.
+
+set %1=%@substr[%[%1],%@len[%@int[%[%1]]]]
+:exit
+quit 0
+
+:help
+rem
+rem  Note the use of the name of the command the user typed, even
+rem  though this .btm file may have been renamed.
+rem
+echo Usage: %@name[%0]  var
+echo.
+echo   var =  Any environment variable whose value is the input
+echo New value returned in var, replacing original value.
+echo New value is the fraction portion of a floating point value.
+echo Example: set foo=12.345
+echo          %@name[%0] foo
+echo          set foo
+echo          .345
+quit 4
+
+
+: ---------------------------------------------------------------------
+:  HMENU.BTM
+
+rem This batch file will NOT run on your system without modification, and
+rem is provided as an example only.
+
+@echo off
+cd d:\
+cd c:\
+set lastx=0
+set lasty=0
+:start
+unset thingie tofile fromfile wtf>& nul
+cls
+drawbox 0 0 24 79 2 white on blue fill blue
+scrput 2  8 white on blue --------- Function Keys ------   ------ Shift Function Keys ------
+scrput 3  8 white on blue f1  Kings                        *f1  Gomoku
+scrput 5  8 white on blue f2  Show document directory      *f2  Communications
+scrput 7  8 white on blue f3  Manual command               *f3  First Publisher
+scrput 9  8 white on blue f4  Edit a document              *f4  Shooting gallery
+scrput 11 8 white on blue f5  Mahjongg                     *f5  Breakout
+scrput 13 8 white on blue f6  Solitare                     *f6  Reset Trackball
+scrput 15 8 white on blue f7  Copy a file                  *f7  DB3+
+scrput 17 8 white on blue f8  Envelope on Daisy Wheel      *f8  Epson printer page eject
+scrput 19 8 white on blue f9  Epson printer reset          *f9  Super Fly
+scrput 21 8 white on blue f10 DOS Environment              *f10 Shut down system
+iff "%lastx%" ne "0" then^scrput %lasty% %lastx% bright white on blue @^endiff
+rem drawvline 0 39 25 1 white on blue
+:timeloop
+screen 0 0
+scrput 1 30 white on blue %_date   %_time
+inkey /w1 %%WTF
+if "%WTF%" == "" goto timeloop
+rem
+if %WTF% == @59 goto dof1
+if %WTF% == @60 goto dof2
+if %WTF% == @61 goto dof3
+if %WTF% == @62 goto dof4
+if %WTF% == @63 goto dof5
+if %WTF% == @64 goto dof6
+if %WTF% == @65 goto dof7
+if %WTF% == @66 goto dof8
+if %WTF% == @67 goto dof9
+if %WTF% == @68 goto dof10
+if %WTF% == @84 goto doshf1
+if %WTF% == @85 goto doshf2
+if %WTF% == @86 goto doshf3
+if %WTF% == @87 goto doshf4
+if %WTF% == @88 goto doshf5
+if %WTF% == @89 goto doshf6
+if %WTF% == @90 goto doshf7
+if %WTF% == @91 goto doshf8
+if %WTF% == @92 goto doshf9
+if %WTF% == @93 goto doshf10
+if %WTF% == @113 goto doshf10
+rem
+goto start
+:dof1
+ set lastx=11
+ set lasty=3
+ c:\games\kings
+ goto start
+:dof2
+ cls
+ dir /4apv c:\budnick\*.*
+ pause
+ set lastx=11
+ set lasty=5
+ goto start
+:dof3
+ scrput 2 27 bright yel on blue "?" will abort the command
+ scrput 8 8 white on blue Command:
+ scrput 8 16 bright yellow on blue _____________________________________________________________
+ screen 8 16
+ input %%thingie
+ cls
+ if "%thingie%" == "?" goto start
+ set lastx=11
+ set lasty=7
+ %thingie%
+ pause
+ goto start
+:dof4
+ scrput 2 27 bright yel on blue "?" will abort the command
+ scrput 10 8 white on blue Document name:
+ scrput 10 22 bright yellow on blue ____________
+ screen 10 22
+ input %%thingie
+ if "%thingie%" == "?" goto start
+ set lastx=11
+ set lasty=9
+ cls
+ rem call hdb %thingie%
+ ws c:\budnick\%thingie%
+ fr
+ goto start
+:dof5
+ scrput 12 8 white on blue Board number:
+ scrput 12 21 bright yellow on blue ______
+ screen 12 21
+ input %%thingie
+ set lastx=11
+ set lasty=11
+ iff "%thingie%" == "" then^c:\games\mahjongg -y -f -m -n^
+          else^c:\games\mahjongg -y -f -m -n -b%thingie%^endiff
+ goto start
+:dof6
+ keystack "NNS1Hanny" 13 "YYY" 0 0 "x"^c:\games\solitare
+ set lastx=11
+ set lasty=13
+ goto start
+:dof7
+ scrput 2 27 bright yel on blue "?" will abort the command
+ scrput 16 8 white on blue Copy from:
+ scrput 16 18 bright yellow on blue ___________________________________________________
+ screen 16 18
+ input %%fromfile
+ if "%fromfile%" == "" goto dof7
+ if "%fromfile%" == "?" goto start
+ if not exist %fromfile% goto dof7
+:doof7
+ scrput 16 8 white on blue Copy to:
+ scrput 16 16 bright yellow on blue ____________________________________________________
+ screen 16 16
+ input %%tofile
+ if "%tofile%" == "?" goto start
+ if "%tofile%" == "" goto doof7
+ set lastx=11
+ set lasty=15
+ cls
+ copy %fromfile% %tofile%
+ pause
+ goto start
+:dof8
+ scrput 2 27 bright yel on blue "?" will abort the command
+ scrput 18 8 white on blue Document name:
+ scrput 18 22 bright yellow on blue ____________
+ screen 18 22
+ input %%thingie
+ if "%thingie%" == "" goto dof8
+ if "%thingie%" == "?" goto start
+ if not exist c:\budnick\%thingie% goto dof8
+ set lastx=11
+ set lasty=17
+ envelope c:\budnick\%thingie% /c > com2
+ goto start
+:dof9
+ pinit
+ set lastx=11
+ set lasty=19
+ goto start
+:dof10
+ unset wtf
+ cls
+ echo type HMENU at any DOS prompt to return to the main menu
+ quit
+:doshf1
+ set lastx=45
+ set lasty=3
+ c:\games\gomoku
+ goto start
+:doshf2
+ cls
+ call tc
+ set lastx=45
+ set lasty=5
+ goto start
+:doshf3
+ e:
+ cd e:\pub
+ fp
+ cd e:\
+ c:
+ colset 17 50 5a 03
+ set lastx=45
+ set lasty=7
+ goto start
+:doshf4
+ to c:\games^shoot^fr
+ set lastx=45
+ set lasty=9
+ goto start
+:doshf5
+ c:\games\breakout S-6
+ set lastx=45
+ set lasty=11
+ goto start
+:doshf6
+ trakball dos
+ set lastx=45
+ set lasty=13
+ goto start
+:doshf7
+ trakball dbase^to db3^dbase^fr
+ set lastx=45
+ set lasty=15
+ goto start
+:doshf8
+ pff
+ set lastx=45
+ set lasty=17
+ goto start
+:doshf9
+ pushd c:\games
+ fly
+ popd
+ set lastx=45
+ set lasty=19
+ goto start
+:doshf10
+ cls
+ sysdown
+ quit
+
+
+: ---------------------------------------------------------------------
+:  WHICH.BTM
+rem Determine "WHICH" command will be executed -- internal,
+rem alias, external, executable extension, etc.
+
+rem None of the rems is necessary to proper operation and may be
+rem deleted for ordinary use.
+
+setlocal
+
+rem See if a command to check was supplied.
+
+iff "%1" == "" then ^ echo Syntax: where command ^ quit
+ else
+ rem
+ rem separate the name and the extension (if any)
+ rem
+ set targ=%@upper[%@name[%1]]
+ set ex=%@upper[%@ext[%1]]
+endiff
+
+rem Skip some stuff if no extension
+
+if "%ex" == "" goto noext
+
+rem See if the extension is one of the usual executables
+
+if %ex == COM .or. %ex == EXE .or. %ex == BTM .or. %ex == BAT goto catext
+
+rem There is an extension, but it's not a normal executable.  See if there's
+rem such an extension in the environment -- i.e., a user-defined executable
+rem extension.
+
+set ey=.%ex
+iff "%[%ey]" ne "" then
+
+   rem It's a defined executable extension.  Tell the user.
+
+   echo Executable extension: %@upper[%[%ey]]
+
+   rem Now find out whether the program which is supposed to be run
+   rem against the executable extension file is there!
+
+   iff "%@path[%[%ey]]" == "" then
+     %0 %@name[%[%ey]].%@ext[%[%ey]]
+   endiff
+   iff not exist %@full[%[%ey]] then
+     echo Extension program not found
+   endiff
+ else
+   echo Executable extension .%ex definition not found
+endiff
+ goto cleanup
+
+rem Above was for executable extensions.  What follows is the branch
+rem label for normal executables (.BTM, .BAT, .COM, and .EXE)
+
+:catext
+
+rem Put the file name back together with its extension.
+
+set targ=%targ.%ex
+:noext
+
+rem Check for alias or internal first, because they would be found first.
+
+iff isalias %targ then
+  echos Alias:` `
+  alias %targ
+  goto cleanup
+ elseiff isinternal %targ then
+  echo %@upper[%1] is an internal command
+  goto cleanup
+endiff
+
+rem It wasn't an alias or an internal, look down the PATH
+
+set targ=%@search[%targ]
+iff "%targ" ne "" then
+  iff "%@ext[%targ]" == "bat" .or. "%@ext[%targ]" == "btm" then
+    echo Batch File: %targ
+  else
+    echo Program: %targ
+  endiff
+else
+ echo %@upper[%1] is an unknown command!
+ beep
+endiff
+goto cleanup
+:cleanup
+endlocal
+
+rem The branches to "cleanup" and the "endlocal" are not strictly necesary.
+rem They could all have been "quit", but I like programs to have a single
+rem exit point and exit in a way which is obviously clean.
+
+

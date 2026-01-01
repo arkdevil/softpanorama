@@ -1,0 +1,242 @@
+$MACRO Install;
+	{ Multi-Edit 5.00 macro. Installs Additional Macros v.3.1.
+	  Written by Alex Romanov, 1991.								}
+	Def_Int (old_ignore_case, old_reg_exp_stat, old_explosions, old_insert_mode);
+	Def_Int (readme_win_id, i);
+
+	If Not (XPos ('/R INSTALL', Caps (Remove_Space (Make_Str (PSP_SEG, $81, Peek (PSP_SEG, $80)))), 1)) Then
+		Make_Message (' Run this macro from Multi-Edit command line: Type ME /R INSTALL at DOS prompt.');
+		GoTo walk_out;
+	End;
+	If Not (File_Exists ('macros31.exe')) Then
+		Beep;
+		Rest_Dos_Screen;
+		Write_Sod (' The self-extracting archive MACROS31.EXE should be in current directory!');
+		Quit (1);
+	End;
+
+	Make_Message ('');
+	Update_Status_Line;
+	Refresh := FALSE;
+	Undo_Stat := FALSE;
+	old_explosions := Explosions;
+	old_insert_mode := Insert_Mode;
+	old_ignore_case := Ignore_Case;
+	old_reg_exp_stat := Reg_Exp_Stat;
+	Insert_Mode := TRUE;
+	Explosions := TRUE;
+	Ignore_Case := TRUE;
+	Reg_Exp_Stat := TRUE;
+	If Disk_Free (Ascii (Me_Path) - 64) < 100000 Then
+		RM ('Userin^Verify /S=1/BL=INSUFFICIENT DISK SPACE!/T= At least 100 Kb of free disk space on drive ' + Copy (Me_Path,1,2) + ' needed. Continue? ');
+		If Not (Return_Int) Then
+			Rest_Dos_Screen;
+			Quit (0);
+		End;
+	End;
+
+	Put_Box (10,4,72,16,0,Error_Color,'',TRUE);
+	Write ('Welcome to Additional Macros v.3.1 Installation Routine!', 12,5,0,Error_Color);
+	Write ('Written by Alex Romanov, 1991', 25,7,0,Error_Color);
+	Write ('This routine will help you install', 23,9,0,Error_Color);
+	Write ('Additional Macros on your computer.', 23,10,0,Error_Color);
+	Write ('   OK   ', 35,13,0,Button_Color);
+	While Not (Check_Key) and ((System_Timer - Last_Keypress_Time) < 300) Do
+		{ Wait a moment ... }
+	End;
+	Kill_Box;
+
+	Refresh := FALSE;
+	Working;
+	RM ('Meerror^MessageBox /NW=1/T=INSTALLING ADDITIONAL MACROS v.3.1/M=  Extracting KEYMAP.ADD and README31 ... ');
+	Return_Str := 'macros31.exe -y ' + Me_Path + ' keymap.add readme31 > nul';
+	RM ('Meutil1^Exec /MEM=16000/CMD=1');
+	Load_File (Me_Path + 'readme31');
+	readme_win_id := Window_Id;
+	Kill_Box;
+	Refresh := TRUE;
+	New_Screen;
+	Return_Str := Me_Path + Parse_Str('FN=', Global_Str('@KEYMAP_NAME@')) + '.DB';
+ try_again_1:
+	If File_Exists (Return_Str) Then
+		RM ('Meerror^MessageBox /NW=1/T=INSTALLING ADDITIONAL MACROS v.3.1/M=       Loading keymap database...');
+		Refresh := FALSE;
+		Working;
+		Create_Window;
+		Load_File (Return_Str);
+	Else
+		RM ('Userin^Querybox /L=6/W=17/ML=64/T=KEYMAP DATABASE/P=Install cannot find your keymap database. Please help! /H=ME.HLX^INKE');
+		If Return_Int = 1 Then
+			GoTo try_again_1;
+		Else
+			GoTo say_goodbye;
+		End;
+	End;
+	If Search_Fwd ('MF=AUGMENTA',0) Then
+		RM ('Userin^Verify /BL=KEY ASSIGNMENTS OF A PREVIOUS VERSION FOUND!/T= Should Install remove older key assignments for the additional macros? /H=ME.HLX^INKE');
+		If Return_Int Then
+			Kill_Box;
+			RM ('Meerror^MessageBox /NW=1/T=INSTALLING ADDITIONAL MACROS v.3.1/M=     Removing older key assignments...');
+			Refresh := FALSE;
+			Working;
+			Tof;
+			While Search_Fwd ('MF={AUGMENTA}||{DISP_RAM}||{CONVERT}||{VIEW}||{REFORMAT}||{MACROLAN}',0) Do
+				Del_Line;
+				Goto_Col (1);
+			End;
+			Tof;
+			While Search_Fwd ('{AUGMENTA.MAC}||{DISP_RAM.MAC}||{CONVERT.MAC}||{VIEW.MAC}||{REFORMAT.MAC}||{MACROLAN.MAC}',0) Do
+				Del_Line;
+				Goto_Col (1);
+			End;
+		End;
+	End;
+	Eof;
+	Goto_Col (1);
+	If Length (Get_Line) Then
+		Down;
+	End;
+	Return_Int := Window_Id;
+	Refresh := FALSE;
+	Working;
+	Create_Window;
+	Load_File (Me_Path + 'KEYMAP.ADD');
+	Block_Begin;
+	Eof;
+	Block_End;
+	i := Cur_Window;
+	Switch_Win_Id (Return_Int);
+	Window_Copy (i);
+	Block_Off;
+	Switch_Window (i);
+	Delete_Window;
+	Switch_Win_Id (Return_Int);
+	Del_File (Me_Path + 'KEYMAP.ADD');
+	Kill_Box;
+	i := C_Line;
+
+	Set_Global_Int ('Inst_Iint_2',1);
+	Set_Global_Int ('Inst_Iint_5',1);
+	Set_Global_Int ('Inst_Iint_7',1);
+	Set_Global_Int ('Inst_Iint_10',1);
+	Set_Global_Int ('Inst_Iint_12',1);
+	Set_Global_Int ('Inst_Iint_14',1);
+
+	Set_Global_Str ('Inst_Iparm_1','/TP=10/T=AUGMENTA.MAC is a collection of simple but very useful editing tools./C=2/L=1');
+	Set_Global_Str ('Inst_Iparm_2','/TP=13/T=Install AUGMENTA.MAC/C=2/L=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_3','/TP=10/T=REFORMAT.MAC recognizes Russian prefixes and disallows awkward hyphenations /L=4/C=2');
+	Set_Global_Str ('Inst_Iparm_4','/TP=10/T=such as разб-расывать, выг-лядеть, etc. -- without missing the good ones!/L=5/C=2');
+	Set_Global_Str ('Inst_Iparm_5','/TP=13/T=Yes! I want to install REFORMAT.MAC! (Default key assignment: <CtrlF>)/L=6/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_6','/TP=10/T=CONVERT.MAC allows you to convert your texts to ChiWriter format./L=8/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_7','/TP=13/T=Install CONVERT.MAC (Default key assignment: <CtrlC>)/L=9/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_8','/TP=10/T=DISP_RAM.MAC is a live show of any portion of 1 Mb real mode address space/L=11/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_9','/TP=10/T=(including HMA). You can actually see TSRs operate before your eyes!/L=12/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_10','/TP=13/T=Yes! I want to install DISP_RAM.MAC! (Default key assignment: <CtrlX>)/L=13/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_11','/TP=10/T=VIEW.MAC (invoked from Multi-Edit DOS Shell) is a programmer''s file viewer./L=15/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_12','/TP=13/T=Install VIEW.MAC (Default key assignment: <AltV>)/L=16/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_13','/TP=10/T=MACROLAN.MAC provides context-sensitive Help for Multi-Edit macro language./L=18/C=2/H=ME.HLX^DATABOX');
+	Set_Global_Str ('Inst_Iparm_14','/TP=13/T=Install MACROLAN.MAC (Default key assignment: <CtrlH>)/L=19/C=2/H=ME.HLX^DATABOX');
+	RM ('Userin^Data_In /#=14/PRE=Inst_/S=1/A=0/T=ADDITIONAL MACROS INSTALLATION/H=ME.HLX^DATABOX');
+	If Not (Return_Int) Then
+		GoTo say_goodbye;
+	End;
+	Refresh := FALSE;
+	Working;
+	Return_Str := '';
+	If Global_Int ('Inst_Iint_2') Then
+		Return_Str := Return_Str + ' AUGMENTA.*';
+	Else
+		While Search_Fwd ('AUGMENTA',0) Do
+			Del_Line;
+			Goto_Col (1);
+		End;
+		Goto_Line (i);
+	End;
+	If Global_Int ('Inst_Iint_5') Then
+		Return_Str := Return_Str + ' REFORMAT.*';
+	Else
+		While Search_Fwd ('REFORMAT',0) Do
+			Del_Line;
+			Goto_Col (1);
+		End;
+		Goto_Line (i);
+	End;
+	If Global_Int ('Inst_Iint_7') Then
+		Return_Str := Return_Str + ' CONVERT.*';
+	Else
+		While Search_Fwd ('CONVERT',0) Do
+			Del_Line;
+			Goto_Col (1);
+		End;
+		Goto_Line (i);
+	End;
+	If Global_Int ('Inst_Iint_10') Then
+		Return_Str := Return_Str + ' DISP_RAM.*';
+	Else
+		While Search_Fwd ('DISP_RAM',0) Do
+			Del_Line;
+			Goto_Col (1);
+		End;
+		Goto_Line (i);
+	End;
+	If Global_Int ('Inst_Iint_12') Then
+		Return_Str := Return_Str + ' VIEW.*';
+	Else
+		While Search_Fwd ('VIEW',0) Do
+			Del_Line;
+			Goto_Col (1);
+		End;
+		Goto_Line (i);
+	End;
+	If Global_Int ('Inst_Iint_14') Then
+		Return_Str := Return_Str + ' MACROLAN.*';
+	Else
+		While Search_Fwd ('MACROLAN',0) Do
+			Del_Line;
+			Goto_Col (1);
+		End;
+		Goto_Line (i);
+	End;
+	If Return_Str = '' Then
+ say_goodbye:
+		Put_Box (10,4,72,16,0,M_B_Color,'',TRUE);
+		Write ('Goodbye from Additional Macros v.3.1 Installation Routine!', 12,5,0,M_S_Color);
+		Write ('Alas, this time you decided not to install any beautiful', 13,7,0,M_T_Color);
+		Write ('additional macros. You can always run this macro again', 14,8,0,M_T_Color);
+		Write ('by typing ME /R INSTALL at DOS prompt --', 20,9,0,M_T_Color);
+		Write ('if you change your mind.', 27,10,0,M_T_Color);
+		Write ('   OK   ', 35,13,0,Button_Color);
+		While Not (Check_Key) and ((System_Timer - Last_Keypress_Time) < 300) Do
+			{ Just dawdle away a few seconds ... }
+		End;
+		Kill_Box;	{ trying to be neat }
+		Rest_Dos_Screen;
+		Quit (0);
+	End;
+	Save_File;
+	Switch_Win_Id (readme_win_id);
+	Refresh := TRUE;
+	New_Screen;
+
+	RM ('Meerror^MessageBox /NW=1/T=INSTALLING ADDITIONAL MACROS v.3.1/M= Extracting macro-files from archive...');
+	Explosions := old_explosions;
+	Insert_Mode := old_insert_mode;
+	Ignore_Case := old_ignore_case;
+	Reg_Exp_Stat := old_reg_exp_stat;
+	Undo_Stat := TRUE;
+	Return_Str := 'macros31 -y ' + Me_Path + Return_Str + ' DOSERROR.MAC > nul';
+	RM ('Meutil1^Exec /MEM=16000/CMD=1');
+	Kill_Box;
+	Refresh := TRUE;
+	New_Screen;
+	Set_Global_Int ('Setup_Changed', 3);
+	RM ('Setup^SetSave');
+	Refresh := TRUE;
+	New_Screen;
+
+	Make_Message (' Additional Macros v.3.1 installation complete.');
+	Delay (3000);	{ we may be overwritten by startup2 }
+
+ walk_out:
+
+END_MACRO;

@@ -1,0 +1,513 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+   <TITLE>Qusay H. Mahmoud. Resolving Internet Addresses Using Java</TITLE>
+   <META NAME="GENERATOR" CONTENT="Mozilla/3.0Gold (Win95; I) [Netscape]">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" LINK="#0000EE" VLINK="#551A8B" ALINK="#FF0000">
+
+<H1 ALIGN=CENTER>Resolving Internet Addresses using Java</H1>
+
+<H2 ALIGN=CENTER><FONT SIZE=+1>Understanding how Internet addresses are
+formed and how to convert between symbolic names and IP Internet addresses
+and vice versa using Java</FONT></H2>
+
+<H4 ALIGN=CENTER>By<BR>
+<A HREF="mailto:qmahmoud@unbsj.ca"></A><BR>
+</H4>
+
+<P><B>Summary</B>: <I>It is easier for us, humans, to remember symbolic
+names rather than a bunch of numbers, for example it is easier to memorize
+the string fundy.csd.unbsj.ca rather than 138.119.1.2. This article gives
+a brief introduction to Internet addressing and naming, then it shows how
+to translate symbolic names into Internet addresses and visa versa using
+Java. We conclude by implementing a utility that checks for the reachablity
+of a remote machine.</I> </P>
+
+<H2>Introduction to Internet Addressing/Naming</H2>
+
+<P>The Internet uses symbolic names for hostnames and networks, such as
+prep.ai.mit.edu or columbia.edu. These symbolic names are called domain
+names, and they are convenient for us, humans; however, these symbolic
+names have to be translated to Internet addresses (IP addresses, IP stands
+for Internet Protocol) before they can be used as communication identifiers.
+IP address are 32-bit numeric identifiers containing a network identifier
+and a host identifier that uniquely identify the network and a host on
+that particular network. The translation from symbolic names to IP identifiers
+is usually done by a name service. This service is known as the Domain
+Name System (DNS). </P>
+
+<P>IP identifiers are used when a host is sending packets to other hosts
+on the same network or another network, or receiving packets from hosts
+on the same network or another network. If a host is sending packets to
+another host on the same network, only the host identifier is used to locate
+that host on the network. On the other hand, if a host is sending packets
+to a host on another network then both the host and network identifiers
+are used to locate that foreign host. The process of locating networks
+and hosts, and delivering packets to them is called routing. A router on
+a network contains an IP layer that implements a routing algorithm that
+moves packets to their destinations. It is the IP layer responsibility
+for moving packets from source to destination on the Internet. IP forwards
+each packet based on a four-byte destination address known as the IP number.
+Ranges (see below) of IP numbers are assigned by the Internet authorities,
+Network Information Center (NIC), to different organizations which in turn
+assign numbers to departments. </P>
+
+<P>While data is being routed, the data can be lost in intermediate networks.
+Thus, it is the responsiblity of the underlying transmission protocol used
+to verify the correct delivery of data from source to destination. For
+example, TCP (Transfer Control Protocol) has support to detect errors or
+lost data and to re-transmit data until it is correctly received. </P>
+
+<P>There are three classes of Internet addresses: A, B, and C. Also, there
+is another class known as &quot;Multicast&quot; which is implemented on
+some Internet hosts. These different classes of addresses meet the requirement
+of different organizations. For example, class A addresses are used for
+large networks that have more than 65,536 hosts. Class B addresses are
+used for intermediate size networks that have more than 255 but less than
+65,536 hosts. Class C addresses are used for networks that have less than
+256 hosts. </P>
+
+<P>The decimal representation of the various classes of Internet Addresses
+is shown below: <BR>
+Class A: </P>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD valign="top" width="25%">Network ID</TD>
+
+<TD align="center" valign="top" width="75%">Host ID</TD>
+</TR>
+</TABLE>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="25%">1 to 127</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+</TR>
+</TABLE>
+
+<P><BR>
+Class B: </P>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="50%">Network ID</TD>
+
+<TD align="center" valign="top" width="50%">Host ID</TD>
+</TR>
+</TABLE>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="25%">128 to 191</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+</TR>
+</TABLE>
+
+<P><BR>
+Class C: </P>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="75%">Network ID</TD>
+
+<TD align="center" valign="top" width="25%">Host ID</TD>
+</TR>
+</TABLE>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="25%">191 to 233</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">1 to 254</TD>
+</TR>
+</TABLE>
+
+<P><BR>
+Multicast: </P>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="100%">Multicast</TD>
+</TR>
+</TABLE>
+
+<TABLE BORDER=1 CELLPADDING=5 WIDTH="100%" >
+<TR>
+<TD align="center" valign="top" width="25%">234 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">0 to 255</TD>
+
+<TD align="center" valign="top" width="25%">1 to 254</TD>
+</TR>
+</TABLE>
+
+<P><BR>
+</P>
+
+<P>The decimal numbers shown above represent the permissible range values
+for each class of addresses. </P>
+
+<P>The numbers 0 and 255 have special meanings. The number 0 is reserved
+for machines that do not know their address. In certain cases (misconfiguration),
+it is possible for a machine not to know its own identifier or the identifier
+of the network it is running on. For example, a machine in class C with
+the number 0.0.0.42 would represent a machine that knew its number, 42,
+but didn't know the number of the network it is running on. </P>
+
+<P>The number 255 is used for broadcasting. Broadcast is a message that
+when you send out you want it to be seen by every machine on the network.
+</P>
+
+<P>Hopefully, the very brief introduction above has given you a basic understanding
+of Internet addresses and how they are constructed. Now, let's see how
+Java can help us in determining host name, IP addresses, and converting
+from symbolic names to IP addresses and vice versa. </P>
+
+<P>Sometimes, you are interested in getting the IP address of the network
+you are running on, or some other hosts IP addresses. This can be done
+using the java.net.InetAddress class found in the java.net package. For
+example, if you want to get the IP address of the network you are running
+on then you would want to call the <B>getLocalHost()</B> and <B>getAddress()</B>
+methods of the class InetAddress in the package java.net. The method <B>getLocalHost()</B>
+returns an InetAddress object, and <B>getAddress()</B> returns a byte array
+of four bytes. </P>
+
+<P>If you are writing a network-based application, you may need to know
+the symbolic name (hostname) or the IP address of the machine the application
+is going to run on. If you are running the application on your machine
+and you know the symbolic or IP address of your machine then you could
+hard-code the machine name, for example: String localHost = &quot;machine-name&quot;;
+however, if your application is going to run on different machines then
+having the localHost hard-coded is not a good idea. You would rather want
+your program to be able to figure out the hostname of the machine it is
+running on automatically. The following snippet of code shows an example
+of how you could find the symbolic name of the machine you are working
+on: </P>
+
+<PRE><TT><FONT COLOR="#0000A0">/*
+ *  Program: GetName.java
+ *  @author: Qusay H. Mahmoud <k3is@unb.ca>
+ * @version: Oct 29, 1996
+ */
+
+import java.net.*;
+
+public class GetName {
+    public static void main(String argv[]) throws Exception {
+        InetAddress host = null;
+        host = InetAddress.getLocalHost();
+        System.out.println(host.getHostName());
+    }
+}</FONT></TT>
+</PRE>
+
+<P>InetAddress is a class in the java.net package. In the above code, we
+are saying that host is of type InetAddress; the assignment host = InetAddress.getLocalHost()
+returns an InetAddress. for example if your machine name is &quot;tucker&quot;
+and its IP number is &quot;138.119.1.10&quot; then the variable, host,
+would have the value: &quot;tucker/138.119.1.10&quot;. However, since we
+are interested in the symbolic name only then we can use the method getHostname()
+to print the machine name, tucker. </P>
+
+<P>Internet addresses are in digit formats, they are normally called IP
+addresses. The above program returns the machine name (hostname). But,
+if you want to return the IP number, i.e. &quot;138.119.1.10&quot; then
+we could modify the above program so that it would return the IP number
+of the local host we are working on, as follows: </P>
+
+<PRE><TT><FONT COLOR="#0000A0">/*
+ *  Program: GetAddress.java
+ *  @author: Qusay H. Mahmoud <k3is@unb.ca>
+ * @version: Oct 29, 1996
+ */
+
+import java.net.*;
+
+public class GetAddress {
+    public static void main(String argv[]) throws Exception {
+        InetAddress host = null;
+        host = InetAddress.getLocalHost();
+        byte ip[] = host.getAddress();
+        for (int i=0; i&lt;ip.length; i++) {
+	   if (i &gt; 0) System.out.print(&quot;.&quot;);
+           System.out.print(ip[i] &amp; 0xff);
+        }
+        System.out.println();
+    }
+}</FONT></TT>
+</PRE>
+
+<P>The method, getAddress() returns a byte array of four bytes. For example,
+if your IP address is: 138.119.1.10 then the byte array ip defined above
+would have the following values: </P>
+
+<PRE>ip[0] = 138
+ip[1] = 119
+ip[2] = 1
+ip[3] = 10
+</PRE>
+
+<P>As mentioned above, all computers on the Internet have addresses. Each
+computer has a unique IP address and name that identifies it. Why do we
+need addresses anyway? Addresses are important since they help us identify
+location of persistence resources, as well as to support routing. </P>
+
+<P>There is a huge number of names and IP addresses on the Internet, thus
+a name services is needed to map each name to an IP address. This service
+is what is known as DNS (Domain Name System). An example of a naming service
+(a sophisticated DNS client is the nslookup utility found on UNIX systems).
+Using nslookup, one can find the hostname for an IP address or the IP address
+for a hostname. It is a very useful utility nevertheless. Let's write a
+utility that will allow us to find the IP address for any accessible hostname
+on the Internet. </P>
+
+<PRE><TT><FONT COLOR="#0000A0">/*
+ *  Program: nslookup.java
+ *  @author: Qusay H. Mahmoud <k3is@unb.ca>
+ * @version: Oct 29, 1996
+ */
+
+import java.net.*;
+public class nslookup {
+    // Usage: java nslookup hostname
+    public static void main(String argv[]) throws Exception {
+        String host = argv[0];
+        InetAddress address = null;
+        try {
+          address = InetAddress.getByName(host);
+        } catch(UnknownHostException e) {
+             System.out.println(&quot;Unknown host&quot;);
+             System.exit(0);
+        }
+        byte[] ip = address.getAddress();
+        for (int i=0; i&lt;ip.length; i++) {
+	   if(i &gt; 0) System.out.print(&quot;.&quot;);
+           System.out.print((ip[i]) &amp; 0xff);
+        }
+        System.out.println();
+    }
+}</FONT></TT>
+</PRE>
+
+<P>Writing a utility to convert IP addresses to symbolic names was not
+an easy task in JDK1.0.2 due to a bug in the method getHostName() in the
+InetAddress class. However, this bug has been fixed in JDK1.1beta, so the
+following code should work on JDK1.1. </P>
+
+<PRE><TT><FONT COLOR="#0000A0">/*
+ *   Program: GetIP.java
+ *   @author: Qusay H. Mahmoud <k3is@unb.ca>
+ *  @version: Nov 2, 1996 (doesn't work with JDK1.0.2
+ * @modified: Dec 9, 1996 (works with JDK1.1beta
+ */
+
+import java.net.*;
+public class GetIP {
+    public static void main(String argv[]) throws Exception {
+        String host = argv[0];
+        InetAddress address = null;
+        try {
+          address = InetAddress.getByName(host);
+        } catch (UnknownHostException e) {
+            System.out.println(&quot;invalid IP - malformed IP&quot;);
+            System.exit(0);
+        }
+        System.out.println(address.getHostName());
+    }
+}</FONT></TT>
+</PRE>
+
+<P>Up to now, we have given an introduction to Internet addresses and how
+to convert symbolic names into IP address and vice versa using Java. Now,
+let's write a utility that will allow us to test for the reachability of
+destinations on the Internet. </P>
+
+<P>Ping (which stands for Packet InterNet Groper) is a program found on
+UNIX systems. The purpose of this program is to check for reachability
+of remote hosts by sending them an ICMP (Internet Control Message Protocol)
+echo request and waiting for a reply. The ICMP (Internet Control Message
+Protocol), which was initially designed to allow routers to report the
+cause of delivery errors, allows routers and hosts to send error or control
+messages to other routers and hosts. </P>
+
+<P>Ping is implemented on UNIX systems by sending an ICMP echo request
+to a remote host and waiting for a reply; if the reply contains exactly
+the same data that was sent in the request then the remote host is reachable.
+On the other hand, if the router gateway can not deliver the echo request
+then it send an unreachable message (with an error code) back to the host.
+The error code can be one of the following integer values: </P>
+
+<PRE>        Value                   What it means
+        0                       Network Unreachable
+        1                       Host Unreachable
+        2                       Protocol Unreachable
+        3                       Port Unreachable
+        4                       Fragmentation Needed (fragment: dividing a datagram into packets)
+        5                       Source Route Failed
+</PRE>
+
+<P>Unfortunately, Java does not have support for ICMP packets. ICMP packets
+can be created via a socket with the SOCK_RAW type, but Java only supports
+SOCK_STREAM (TCP) and SOCK_DGRAM (UDP) sockets. Also, it is important to
+note that the ICMP protocol requires all programs using it to be run as
+root or be setuid to root; however, the TCP and UDP protocols do not require
+that special privilege. </P>
+
+<P>All hope is not lost.....we still would like to develop a ping utility
+that will help us to test for the reachability of remote destinations.
+The utility can be developed using either the TCP or UDP protocol. If ping
+was to be developed using UDP then one could approach it by sending a packet
+to the remote host's echo port (port 7), and if echo reply contains the
+same data that was sent in the sending packet then the host is considered
+reachable. Note that UDP is not a reliable protocol, and thus the packet
+you send/receive may not be received/sent in the same order they were sent/received;
+however, one advantage of using UDP is that it is a connectionless protocol
+and thus it is unlike TCP where a connection must be opened and closed,
+i.e. there is no communication overhead when using UDP. </P>
+
+<P>I prefer using TCP, so we will develop the ping program using the TCP
+protocol. Using TCP, the ping utility can be developed as follows: we attempt
+to establish a connection to the remote host's port number (again, port
+7), if the connection is successfully established then the remote host
+is considered reachable. We then close the connection. Note that we do
+not need to send any data to the echo server! </P>
+
+<PRE><FONT COLOR="#0000A0">/*
+ *  Program: ping.java
+ *  @author: Qusay H. Mahmoud <k3is@unb.ca>
+ * @version: Nov 2, 1996
+ */
+
+import java.io.*;
+import java.net.*;
+
+public class ping {
+    public final static int ECHO_PORT = 7;
+    public static void main(String argv[]) {
+        if (argv.length != 1) {
+          System.out.println(&quot;Usage: java ping hostname&quot;);
+          System.exit(0);
+        }
+        if (alive(argv[0])) {
+          System.out.println(argv[0] + &quot; is alive&quot;);
+        } else {
+         System.out.println(&quot;No response from &quot; + argv[0] +&quot;. Host is down or does not exist&quot;);
+        }
+    }
+
+    public static boolean alive(String host) {
+        Socket pingSocket = null;
+        try {
+            pingSocket = new Socket(host, ECHO_PORT);
+        } catch (UnknownHostException e) {
+            System.err.println(&quot;UnknownHostException: &quot; +e);
+        } catch (IOException io) {
+            System.out.println(&quot;IOException: &quot; + io);
+        }
+        if (pingSocket != null) {
+           try {
+              pingSocket.close();
+           } catch (IOException e) {
+                System.err.println(&quot;IOException: &quot; + e);
+           }
+           return true;
+        } else {
+           return false;
+        }
+    }
+}</FONT>
+</PRE>
+
+<P><B>Conclusion</B>:<BR>
+Internet addresses, actually, refer to communication paths rather than
+computer names. They help TCP/IP applications to hide physical network
+details. Thus, the Internet appears as a single uniform virtual network.
+Each host on the Internet consists of a 32-bit Internet address that is
+used as a communication identifier. <BR>
+Java provides, through the class <B>java.net.InetAddress</B>, a nice way
+to represent Internet addresses. The class has some useful methods that
+you can use in your network applications. </P>
+
+<P><B>About the author</B>:<BR>
+Qusay H. Mahmoud is a graduate student in Computer Science at the University
+of New Brunswick, Saint John, Canada. This term he is teaching a course
+on <I>Multimedia and the Information Highway</I> at the university. As
+part of his thesis, he is developing a distributed computing system over
+the Web using Java. You can reach him at: <A HREF="mailto:k3is@fundy.csd.unbsj.ca">k3is@fundy.csd.unbsj.ca</A>
+</P>
+
+<P><B>Resources</B>: </P>
+
+<UL>
+<LI>The java.net package in JDK1.1: <A HREF="http://www.javasoft.com:80/products/JDK/1.1/docs/api/Package-java.net.html">http://www.javasoft.com:80/products/JDK/1.1/docs/api/Package-java.net.html</A>
+</LI>
+
+<LI>Book: Internetworking with TCP/IP, Principles, Protocols, and Architecture.
+By Douglas Comer. Prentice Hall. </LI>
+</UL>
+
+<BR>
+<! Template of bottom Info for English ----------------------------------------><TT>
+</TT><BR>
+<!ssi-bottommenuUS.txt------------------------------------------------------------->
+<center>
+	<img src="/US/home/rule.gif" naturalsizeflag="0" height=2 width=400 align=bottom>
+	<br><br>
+	<a href="/US/home/"			>[Home]</a>
+	<a href="/US/search/"		>[Collection]</a>
+	<a href="/US/tools/"		>[Tools]</a>
+	<a href="/US/reference/"	>[Reference]</a>
+	<a href="/US/events/"		>[Events]</a>
+	<a href="/" target="_top"	>[Language]</a>
+	<a href="/US/Links/"		>[Links]</a>
+	<br>
+</center>
+<!------------------------------------------------------------------------------->
+<!ssi-bottominfo.txt--------------------------------------------------------------------------->
+<center>
+	<img src="/US/home/rule.gif" naturalsizeflag="0" height=2 width=400 align=bottom>
+	<p><i><font size=-1>
+		<a href="http://java.sun.com/trademarks.html" target="NEW LINK">
+			Java and all Java-based trademarks and logos are trademarks or registered<br>
+			trademarks of Sun Microsystems, Inc. in the U.S. and other countries.<br>
+		</a>
+		<br>
+		<a href="/US/copyright.html">
+			Copyright Notice: &copy; 1996 Digital Cat,LLC
+		</a>
+	</font></i></p>
+	<p><b><font face="arial" color="#808090" size=-2>
+		953 Industrial Ave., Suite 125 - Palo Alto, California 94303<br>
+		Tel: 415.555.1212 - Fax: 415.555.1212<br>
+		<a href="mailto:webmaster@javacats.com"><i>webmaster@javacats.com</i></a><br>
+	</font></b>
+</center>
+<center>&nbsp;</center>
+<center>&nbsp;</center>
+<center>&nbsp;</center>
+<center>&nbsp;</center>
+<center>&nbsp;</center>
+<!--------------------------------------------------------------------------------------------->
+<!-----------------------------------------------------------------------------></P></CENTER>
+
+</BODY>
+</HTML>
+

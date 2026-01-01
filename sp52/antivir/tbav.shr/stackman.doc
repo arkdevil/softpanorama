@@ -1,0 +1,268 @@
+
+Documentation for StackMan Stack Manager.
+
+
+What can StackMan do for you?
+
+    Have you ever experienced your machine hanging unexpectedly? Have
+    you ever experienced programs dumping beeping garbage on the screen?
+    Ever found your overnight working machine hanging when you return
+    to work even though the same programs work well during the day? Ever
+    seen the message "Stack overflow"? Found some resident or background
+    software to hang the machine as soon as you want to activate them?
+    Does your system run unreliably when you put the statement
+    "Stacks=0,0" in your Config.Sys file? Do some programs crash when
+    using them in combination with some TSR's?
+
+    If you can answer all these questions with "No" the Stack Manager
+    will not be useful for you.
+
+    If some of these events frequently happen to you, these problems are
+    likely caused by stack overflows. Mostly these problems can be
+    solved by using the Config.Sys statement "Stacks 9,256". Sometimes
+    not. Anyway, the "Stacks" statement consumes precious memory and it
+    is hard to guess the correct values. The "Stacks" statement is not
+    explained very well in most documentations. Only a few users seem
+    to understand its purpose.
+
+
+What is a stack and how does it fail?
+
+    A stack is a memory buffer used by software and the processor itself
+    to store temporary data. All programs establish a stack when they
+    are executed, but background or resident software have to use the
+    stack of the foreground program. As soon as you press a key the
+    processor is interrupted by the keyboard processor to fetch the
+    pressed key. Every timer tick the processor is interrupted to
+    increase the system timer. All these background processes consume
+    some stack space. Sometimes there is a timer tick, a keyboard
+    interrupt and another interrupt at the same time. It will not happen
+    often, but when it happens, all these processes need some stack
+    space at the same time. If it is not available the system will
+    simply hang... And as you might expect, these random events are hard
+    to reproduce...
+
+    Although it is recommended to supply plenty of stack space in a
+    program, many programmers keep the stack very small to save memory,
+    especially if the program is intended to remain resident in memory.
+    Of course resident programs can set up their own temporary stack as
+    soon as they are activated, but before they are able to do that they
+    need to use some of the foreground stack space, and the resident
+    stack is often also very small for obvious reasons. If you have a lot 
+    of resident software and/or background software the stack might be too
+    small in some cases.
+
+    To avoid these problems DOS is able to maintain a stack pool and it
+    switches to a dedicated stack if a hardware interrupt occurs. The
+    "Stacks" statement in the Config.Sys can be used to control this
+    stack pool.
+
+    However, the DOS stack switching has some drawbacks and this is one
+    of the reasons why StackMan has been developed.
+
+
+Features of StackMan
+
+    StackMan offers the same functionality as the DOS "Stacks" command,
+    but in addition to this:
+
+    -   If you use DOS 5.00, StackMan can be loaded high and/or into the
+        HMA. DOS instead always maintains the stack pool in conventional 
+        memory. When using StackMan you free up about 1.5Kb of memory.
+
+    -   The parameters of StackMan are more flexible. You can define just
+        one stack frame if it is sufficient. The minimum of DOS is 8.
+
+    -   StackMan can be loaded AFTER your TSR's become resident. This
+        causes the TSR's to use the stackspace provided by StackMan. The
+        DOS stacks pool however is only available for the DOS and BIOS
+        code. TSR's still use the foreground program's stack, and if this
+        causes problems the DOS stacks command will not solve this.
+
+    -   The DOS stacks command offers the user a type of roulette: the
+        only way to find the correct values is by trial and error. StackMan
+        can print a report and it is easy to find out the stack requirements
+        of your system configuration. It is easy to fine-tune the StackMan
+        parameters to suit your system configuration perfectly.
+
+    -   Sometimes DOS stacks seem to disappear. Although this can be
+        considered as a bug from one of the TSR's or foreground programs
+        it is hard to deal with the resulting DOS message "Stack
+        overflow. System halted". This never happens immediately but a while
+        after the offending program corrupted a stack. StackMan however
+        recognizes this situation and it will automatically recover the lost
+        stack without interrupting the program.
+
+    Although StackMan can be used to replace the DOS stacks command it has
+    additional features:
+
+    -   In some cases the total stack requirements of all resident int 21h
+        handlers may exceed the available stack space, especially if using
+        a program that maintains a tiny stack (like some popular swap
+        utilities). Although these programs may perform well at the machine
+        of the developer, many other users may experience problems.
+        StackMan can be used to force a normal stack space for DOS at all
+        times.
+
+    -   To be safe TSR's should maintain their own stack, but that means
+        that the TSR program would occupy some extra memory to hold the
+        stack. If only 1% of the users need that stack and the other
+        systems can run without it, it is not very convenient to install 
+        a dedicated stack in all cases. Being the author of TbScanX and
+        Thunderbyte this dilemma applies to me. In 99.9% of the
+        configurations my products perform very well, but a few systems
+        hang when these products are used in combination with some other
+        software. Should I convert my products to consume extra memory
+        only to solve the problems of the unhappy few? There should be a
+        better way. And now there is a better way... StackMan is able to
+        handle stack requests, and TSR programs may ask StackMan to
+        setup a temporary stack. Many TSR programs can share a few
+        of the stacks provided by StackMan. The stack is available
+        when the TSR activates, and gone as soon as the TSR resumes
+        system control. It just saves memory...
+
+
+Usage
+
+    Before using StackMan it is recommended to put the statement
+    "Stacks=0,0" into the Config.Sys file. Using any other (or the
+    default values) just causes DOS to waste memory.
+
+    The syntax of StackMan is:
+        StackMan [[=] <num of stacks),<stack size>] [<options...>]
+
+    The best place to invoke StackMan is at the end of your Autoexec.Bat
+    file. This way resident software will use the stacks provided by
+    StackMan automatically.
+
+    You can highload StackMan if you want to.
+
+    As a first test it is recommended to use large values like:
+        StackMan = 18,384
+
+    Now use the system as you do normally and test if some of the
+    problems are solved. Invoke all TSR's you have and try also to
+    activate multiple TSR's at the same time. Use your modem, mouse,
+    etc. It is not necessary to execute large programs since they have
+    their own stack and they will not affect the results of StackMan.
+
+    Now run StackMan again. You should see something like this:
+
+    ┌─────────────────────────────────────────────────────────────┐
+    │                                                             │
+    │   StackMan already installed, with 18 stacks of 384 bytes.  │
+    │   Maximum stacks/space ever used:  6 stacks of 112 bytes.   │
+    │                                                             │
+    └─────────────────────────────────────────────────────────────┘
+
+    You can now reduce the parameter values of StackMan.
+    It is highly recommended to maintain some extra overhead. "Special
+    events" are very hard to reproduce. Reliable values for this example
+    are: "StackMan = 8,192".
+
+    If the first value of the StackMan report is below or equal to 3 and
+    the second does not exceed 48 you can use your system without
+    StackMan. In other cases unlikely events are able to crash the
+    machine and you should use StackMan to avoid random problems.
+
+    It is recommended to check the output of StackMan once in a while
+    to fine-tune the system and anticipate on increasing stack requirements
+    of your configuration.
+
+
+    If still some of the problems occur you can test if the -dos parameter
+    solves it. Specify this on the command line after a reboot:
+        StackMan = 18,384 -dos -noirq
+
+    The report of StackMan should now be treated differently: the first
+    value will always show the maximum stacks amount available, only
+    the stackspace used is reliable. If this value exceeds 48 you should
+    consider use of the -dos option of StackMan.
+
+    If the first test shows that you have to use StackMan anyway you should
+    remove the -noirq option. If only DOS needs StackMan you can keep this
+    parameter. If you use the -dos option you should allocate two extra
+    stack frames in addition to the values achieved by the first test.
+
+
+Options available
+
+    The following options are available:
+
+    -help
+        This option shows a little help screen.
+
+    -dos
+        This option causes StackMan to force a fresh stack before
+        entering DOS. This may solve some problems, especially if they
+        occur at program startup or termination or in combination with
+        swapping shell programs.
+
+    -noirq
+        If you specify this option StackMan will not switch the stack
+        after an interrupt occurs. The only functionality left in this
+        case is the -dos option and the stack sharing of StackMan-
+        supporting TSR programs.
+
+    -hma
+        This option can only be specified if you are using DOS 5+ when
+        DOS is loaded into the HMA (with the dos=high statement). You
+        can not use this option in combination with the -dos option.
+        The -hma option causes StackMan to keep the stacks in the HMA
+        space left by DOS. Although this saves memory you should test
+        very thoroughly if your system allows the use of the HMA by
+        StackMan.
+
+
+StackMan API
+
+    If you are software developer and wish to make use of StackMan this
+    chapter will be useful for you.
+
+    Your TSR program should check the segment pointed to by int B4h.
+    If you find the string "STACKXXX' at offset 0Ah the stack manager
+    is installed. The next byte (at offset 12h) contains the version
+    number of StackMan in BCD form. The word at offset 14h contains the
+    number of stacks available, and the word at offset 16h specifies the
+    size of each stack.
+
+    To request a new stack execute "Int B4h". All registers and flags are
+    preserved. The interrupt returns with a new private stack.
+
+    To restore the original stack execute "Int B5h". Of course all
+    registers and flags are preserved. Register SP should have the value
+    provided by "Int B4h" before executing "Int B5h". This will normally
+    automatically be the case.
+
+    StackMan will issue an install-broadcast when it goes resident. The
+    broadcast is issued by invoking int 2Fh with the value C9FFh in
+    register AX, the BCD version number in register BL, the number of
+    stacks in register CX and the stacksize in register DX.
+
+    Hint: If StackMan is not installed make Int B4h and Int B5h point to
+    an "iret" instruction. If you do this you don't have to make decisions
+    in the resident part of your program. Just execute Int B4h/B5h whether
+    StackMan is installed or not.
+
+
+License agreement
+
+    StackMan is FreeWare. As long as you meet these requirements/restrictions
+    you are entitled to use and distribute it:
+
+    -   StackMan.Exe and StackMan.Doc are copyrighted by Thunderbyte B.V.
+
+    -   It is not allowed to spread modified parts of the StackMan package.
+
+    -   Thunderbyte B.V. nor Frans Veldman accepts any responsibilities for
+        the use or results of the use of StackMan. Being the user of
+        StackMan you are fully responsible for the results of StackMan.
+
+    -   You are allowed to distribute StackMan with your products as long
+        as credit is given to Thunderbyte B.V. AND Frans Veldman.
+
+
+    StackMan is written by Frans Veldman, chief executive of Thunderbyte
+    B.V. in The Netherlands.
+
+

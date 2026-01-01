@@ -1,0 +1,115 @@
+From: gray@cac.washington.edu (Terry Gray)
+Newsgroups: comp.mail.pine
+Subject: Email at the University of Washington
+Date: 17 Feb 1995 22:11:13 -0800
+Organization: PSGnet mail to news gate
+Message-ID: <Pine.ULT.3.92.950217211438.6311P-100000@shiva2.cac.washington.edu>
+
+Folks,
+Recently several of you have asked how email is handled at UW.
+Herewith a brief overview of the central email facilities...
+
+-teg
+
+---------------------
+
+As of Feb 1995, UW's central computing service has the following properties:
+
+ o Currently 45,000 user accounts.
+ o Unrelenting growth in every dimension.
+ o Mail is the most heavily used application.
+ o Almost everyone uses Pine, though other mailers are available.
+ o Total messages (in + out) on a typical sample day last December: 
+   -During 24-hour period: over 215,000 messages handled.
+   -During the peak hour: nearly 20,000 messages handled.
+ o There are two systems that provide just Pine and information access
+   services, and that's where most of the accounts are:
+   -a large Sequent multiprocessor.
+   -a large cluster of RS6000/AIX machines.
+
+The AIX cluster carries the heaviest load, peaking at about 1300 active
+concurrent users (2/95), with that peak number growing lately by >100 each
+month.  The cluster includes 12 IMAP servers, although 4 were just added
+to accommodate expected growth.  We figure each of these IMAP servers can
+handle at least 200 concurrent sessions. 
+
+We also have some smaller departmental clusters using DECstation 5000s, 
+with a single IMAP server accommodating roughly 100 concurrent sessions.
+
+Each IMAP server in the main cluster is an RS/6000 model 250 "powerPC" 
+with a 80Mhz CPU, 256MB of RAM with two 2GB disk drives.  
+
+Even during very heavy loading these machines are not constrained by CPU
+cycles, network bandwidth or memory.  Rather, the bottleneck is seek
+bandwidth: the ability of the 2 drives to seek quickly to locate various
+users' files and (especially) to create the incoming temporary sendmail
+work files.  So more smaller drives would probably work better. 
+
+We are using Tenex format mailboxes, because Tenex is more
+memory-efficient than Bky mbox format, and it also permits concurrent
+access.  Later this year we plan to develop a C-Client driver for a still
+more efficient mailbox format modeled after one designed by CMU for their
+IMAP server. 
+
+Mail is vectored to the appropriate IMAP server using a home-grown
+database and a modified sendmail on the MX mail forwarders for the
+"u.washington.edu" subdomain.  Once it arrives at the designated IMAP
+server, mail is delivered directly into pseudo-home directories in order
+to facilitate quotas and to avoid having all inboxes in one partition. 
+Delivery is done by our "tmail" program, which understands Tenex format
+mailboxes, extended "user+folder" addresses, and quota constraints.  There
+is a common password file for all the machines in a given cluster, but
+users are not permitted to get a login shell on the IMAP servers. 
+Eventually we expect to use a single Kerberos authentication database
+across all of the central clusters. 
+
+That we have multiple IMAP servers is transparent to Unix Pine users, but
+not yet to PC-Pine users.  We intend to implement IMSP to facilitate
+automatic server vectoring, but haven't done so yet.  For now, this is
+handled for Unix Pine users via a global pine.conf inbox-path entry that
+references an environment variable set at login time.  The environment
+variable contains the name of the IMAP server for the given user. 
+However, PC-Pine users must manually configure the IMAP server name. 
+
+Procmail or other delivery filters are not supported on the IMAP servers,
+but we do support extended addresses of the form:
+
+   user+folder@u.washington.edu
+
+Such a message would be placed in the (pre-existing) folder named
+"folder", or if such folder did not exist, would be placed in the normal
+INBOX. This allows some filtering with cooperating senders... clearly only
+a partial solution. There is also a project underway to allow setting up
+vacation processing, using email as the method of interaction with the
+vacation robot.  It would be nice to generalize this approach to allow
+other kinds of delivery processing, but we don't have the resources right
+now. 
+
+At the moment, only INBOX (or other incoming message folders) are stored
+on the IMAP servers; however, in the future we may reconsider this and
+change to storing secondary (saved message) folders on the primary IMAP
+servers rather than on the home-directory NFS servers (which also run
+imapd so that PC-Pine users can easily get at secondary folders.) We
+didn't do this initially because we thought folks might need to access
+their folders using tools such as "grep", and not having to export the
+folders from the primary IMAP servers via NFS was a plus.  In retrospect,
+just using Pine's Export command for cases when the message is needed in
+the home directory is probably sufficient for most of our constituency. We
+also thought we might want to treat backup of INBOX servers differently
+than normal fileservers, or even replicate them, but there are arguments
+on the other side.  Using the same IMAP servers for both incoming and
+saved-message folders would accommodate some older IMAP clients, such as
+Mailstrom, that only know how to copy between folders on the same host,
+and it would also be more efficient, since saving messages would be done
+locally by the IMAP server, rather than by the client in a two-step
+process.  Using the same server for both functions would also simplify
+client configuration a bit, and obviate the need for running imapd on the
+home-directory servers. 
+
+Notwithstanding the question about where best to store secondary mail
+folders, the basic architecture seems very solid and the system appears
+to be working quite well.  Still, there is more to be done, and the
+environment is still evolving. 
+
+
+

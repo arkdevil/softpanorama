@@ -1,0 +1,398 @@
+BACKGROUND
+==========
+
+"dte" is a simple full-screen text editor suitable for editing program
+source code. It was designed with the following goals:
+    1. To perform well over slow serial communication lines;
+    2. To imitate the command keys used in WordStar / Turbo Pascal;
+    3. To be readily portable to different hardware.
+
+Slow serial communication lines pose some unique problems for full-
+screen text editors. On a 1200 baud line, a 24 line by 80 column
+screen can take up to 16 seconds to transmit (although with normal
+program text 8 seconds would be more typical, since most lines will
+not be the full 80 columns). Most text editors simply input a command,
+update the screen to show the effect of the command, then input
+another command and so on. Usually this is acceptable. However,
+consider the case where the user types the command to move a page down
+in the file, then immediately changes his mind and types the command
+to move back up a page. Between when the user entered the first
+command and when he entered the second command, the computer might
+have updated one or two lines on the screen. After the second command
+was entered, the computer should only have had to undo these few
+changed lines. However, with many text editors, the computer would
+completely finish updating the screen before the second command was
+even registered, and then have to completely redraw the screen to make
+it the way it used to be - a total of about 16 wasted seconds for the
+poor user! "dte" notices commands as soon as they are typed, and
+always updates the screen to match the desired final state.
+
+If the user is to be able to take full advantage of this ability to
+enter new commands before the screen is completely updated from
+earlier ones, then it would be helpful if the lines closest to the
+cursor could be updated before the rest of the screen; this would give
+the user a context in which to decide what to do next. "dte" always
+updates the cursor line first, and then alternately updates lines
+above and below the cursor until the screen is complete.
+
+There has been much debate over whether modeless editors are
+intrinsically easier to use than editors with all sorts of modes. My
+personal view is that modes are acceptable in two situations:
+    1. The mode can be left set for an entire editing session;
+    2. The mode only lasts for the next keystroke, then reverts to
+       normal automatically.
+I believe the problems usually arise when modes last for some time,
+but must be changed periodically during a normal editing session. The
+problem is increased if the difference between what the same
+keystrokes achieve is drastically different between different modes.
+
+"dte" has several modes in the first class. Insert mode determines
+whether normal printable characters typed will be inserted in front of
+the cursor, or whether they will overwrite the character under the
+cursor. Insert mode will usually be left on all the time, and if the
+user forgets which mode he is using, the worst effect will be the loss
+of a few characters that get overwritten by characters that were
+intended to be inserted. Indent mode determines whether, when the user
+types the carriage return key, the new line inserted will begin in
+column 0, or will be indented to match the line above. Indent mode
+will usually be left on for program editing, and if the user forgets
+which mode is in effect all that will be needed to correct the problem
+is to insert or delete a few spaces. Finally, unindent mode determines
+whether, when the cursor is on the first non-blank character of a line
+and the user types backspace, just one character should be deleted, or
+whether enough characters should be deleted to match the indentation
+of an earlier line. Unindent mode will normally be on for program
+editing, and if the user forgets which mode is in effect, the only
+problem will be a few too many or too few spaces deleted.
+
+"dte" also has several modes in the second class. Since "dte" has over
+50 different commands, it was not possible to use a different control
+key for each command. Therefore, some control keys have been reserved
+as "escape" keys, to create two-key commands. In these cases, the mode
+is indicated by a small marker in the top left corner of the screen,
+and the mode only lasts until the next single key has been pressed.
+
+"dte" does have a few commands that do not fit either class. For
+example, the command to find the next occurrence of a particular
+string requires the user to enter the search string. In these cases,
+the user is prompted for whatever needs to be entered. These
+exceptions seem inevitable - after all, if normal characters were
+always inserted at the cursor, it would not (readily) be possible to
+search for a string containing normal characters!
+
+Since "dte" was to be a relatively modeless editor, and yet at the
+same time was to work with typical so-called "intelligent" terminals,
+it was assumed that only printable ASCII characters and control codes
+could be returned by the terminal. Thus all of the "dte" commands had
+to be constructed from the control codes. My personal view is that
+MicroPro did an excellent job of this mapping with WordStar, and
+evidently Borland agree since the default commands for Turbo Pascal
+are also WordStar compatible where appropriate. Even if I had not
+liked this set of commands, I would still have been almost forced to
+use it, since most of my potential users were already familiar with
+Turbo Pascal.
+
+This is the other major advantage of "dte" over the existing full-
+screen text editors on our UNIX minicomputer: it uses a set of
+commands that are already familiar to most of the staff and students
+from using microcomputers. For a student who normally uses Turbo
+Pascal on a microcomputer, and only logs in to the minicomputer to
+send electronic mail, it is very frustrating to have to learn a
+complete new set of editor commands! Many simply ignore the electronic
+mail facility, which makes life difficult for staff who have to try to
+debug programs by telephone instead!!
+
+One of my more interesting design decisions was what to do about
+moving the cursor beyond the last character in a line. WordStar does
+not allow this (the cursor simply cannot be moved anywhere unless
+there is actually a character there in the text). On the other hand,
+Turbo Pascal permits the cursor to be placed anywhere. Since "dte" was
+to be a program editor, I chose the Turbo Pascal approach. However, I
+then had the problem of what to do about trailing white space at the
+end of a line. All the user has to do is type a character when the
+cursor is beyond the end of a line, and then delete the character
+again, and there will be a number of spaces hanging at the end of the
+line wasting memory. If this trailing space is removed as soon as the
+cursor leaves the line (the Turbo Pascal approach), then there is a
+problem: if the cursor is beyond the end of the line, and the user
+types the carriage return key, then changes his mind and types the
+backspace key, the cursor finishes up at the end of the visible text
+of the line, not where it started from. To avoid this, I have left the
+trailing space there, but removed it when starting to edit a line (by
+which time the cursor is already positioned). Trailing space is also
+removed as the file is being saved to disk. Thus, although it is
+possible to get some wasted memory in trailing space, the problem is
+not likely to accumulate over time!
+
+Initially, "dte" did not worry about file attributes (read/write/
+execute) at all: if a file was read only, then after editing it had to
+be saved to a different name, and every file saved was simply given
+the default attributes. However, this caused problems with editing
+shell scripts, since every time a file was saved it lost its "execute"
+attribute! Now "dte" notes the attributes of a file when it starts
+editing, changes these attributes temporarily so the owner can write
+the file to save an edited version (if the file was read only), and
+finally changes the attributes back to what they were originally. The
+assumption is that if the user explicitly asks to edit a given file,
+then the editor should automatically perform any necessary "chmod"
+operations, rather than forcing the user to do this manually. (The
+user is asked to confirm before a read only file is overwritten.) This
+is very convenient for editing AUTOEXEC.BAT if it is a hidden read-
+only file. An interesting side effect of this under the Novell LAN is
+that a shareable/read-only file can be edited and remain
+shareable/read-only!
+
+Although the features of this editor have generally been kept to the
+absolute workable minimum, I could not resist the temptation of
+implementing multiple windows. Turbo Pascal does not quite support
+this, although it comes half way by remembering the cursor position
+and marked blocks in files that have been edited in the current
+session. WordStar (5.0) does support multiple windows, but only two.
+WordStar also has the problem (I think it is a problem, anyway - the
+manual suggests some possible benefits!) that if the same file is
+loaded into both windows, and both windows are edited, then changes
+made in one window do not appear in the other window, and the window
+that is saved last will overwrite the first one! "dte" supports
+multiple windows (only limited by the number of lines available on the
+screen), and if two windows are opened with the same file name, then
+the windows actually reference the same file text. This means that if
+two windows contain the same section of the same file, then any
+changes made in one window will simultaneously appear in the other
+window. If for some reason it is actually desirable to open a window
+on the original version of a file (for example, to restore something
+that has accidentally been deleted), the same file can be accessed
+with a different name (for example, "fred" in one window, and "./fred"
+in the other). "dte" is not clever about recognizing alternative
+paths!
+
+I chose this design because I often find it convenient to view (say)
+type declarations at the start of a file, and code accessing variables
+of the various types in the middle of the file. It is nice to be able
+to see both at once without having to get a printout, and it is even
+nicer if both the code and the types can be changed at the same time.
+
+Since Turbo Pascal has no window commands, I restricted myself to the
+two WordStar window commands: open/change window, and resize window.
+In WordStar, if there is only one window, the open/change command
+opens a new window, and if there are two windows, it moves the cursor
+to the other window. In "dte", there may be multiple windows, so the
+open/change command has to ask the user which window to change to, or
+whether the user would like a new window. Windows are numbered
+relatively from the current window, so selecting "-1" (or just "-")
+moves to the previous window, and selecting "1" moves to the next
+window down. Selecting "new" (the default) will cause the user to be
+prompted for a new file name (for which the default is the same file
+as the current window). In WordStar, the new window automatically
+takes up half the screen. In "dte", the cursor line becomes the bottom
+line of the current window, and the new window starts from the line
+below the cursor, and continues down to what used to be the bottom of
+the current window. The resize command is similar: the cursor line
+becomes the bottom line of the current window (or the top line if the
+current window is at the bottom of the screen).
+
+WordStar provides commands for copying and moving blocks between
+windows. Since in "dte" it would be necessary to specify which window,
+I decided these commands would be more trouble to use than they were
+worth. It is always possible to write a block to a file, change
+windows, and then read the block back in again.
+
+Originally, "dte" refused to edit files containing control or other
+unprintable characters. However, this caused problems with some mainly
+text files (which sometimes needed to contain form feed characters),
+and also made reading files rather slow. Therefore, "dte" now copes
+with control characters, by displaying (say) control-A as a capital A
+with highlighting to distinguish it from a normal A.
+
+
+MAJOR DATA STRUCTURES
+===== ==== ==========
+
+The main data structure used by "dte" is an enormous character array
+that stores all the files being edited. However, inserting individual
+characters by moving the entire remainder of the file (and any
+subsequent files) was too slow, so the current line is copied into a
+special buffer for editing, and the buffer is inserted into the main
+text when the cursor is moved off the line. This causes numerous
+complications, since position markers (for example, marking the
+beginning and end of a block) may be set within the line buffer, and
+there may be no corresponding position in the main text buffer until
+the text from the line buffer gets inserted.
+
+Another significant data structure is a copy of the current terminal
+screen, complete with characters and attributes. Whenever the screen
+needs to be updated, this copy is compared with what should be there,
+so that only the parts of the screen that have actually changed need
+to be transmitted to the terminal. I was originally going to use the
+curses package, but I gave up on this when curses failed to take
+advantage of a delete line command and instead redrew the entire
+screen after the top line had been deleted!!! Since I had to choose
+some data structure to represent characters and attributes, I chose
+the one actually used by the screen memory of the IBM PC. This means
+that it is possible to actually use the video display RAM directly
+rather than having a separate copy - see "hwibm.c" for more details.
+
+In addition to the screen image, there is quite a bit of other
+information which is global to an editing session. This includes
+things like the current insert, indent and unindent modes, and the
+current tab interval. Rather than use global variables for each of
+these on the one hand, or pass countless parameters on the other,
+"dte" defines a special structure (status_infos) with fields for each
+of these parameters. See the structure definition in "common.h" for
+details.
+
+The other major data structures are for windows and files. For every
+window, we need to know where the cursor is (both on the screen and in
+the text), which file is displayed in the window, which screen lines
+are allocated to the window and so on. For each file, we need to know
+the file name, the positions of any markers set in the text, the start
+and end of the file text in the text buffer and so on. This
+information needs to be kept separate from the window data, since it
+is quite possible to have two windows open in the same file.
+
+It is perhaps worth noting here my use of the "text_ptr" type. On most
+UNIX systems, this will simply be defined (in "common.h") as a normal
+character pointer. However, on the PC and possibly other computers
+with segmented architectures, normal character pointers are restricted
+to 64K objects. This was not sufficient for "dte", since I wanted to
+be able to cope with files as large as could be fitted in memory.
+Fortunately Turbo C provides a qualifier called "huge", which allows a
+pointer to work with objects larger than 64K. Since this is not
+standard, I have used the "text_ptr" type everywhere that I might need
+to increment a pointer over a 64K boundary. (For other segmented
+machines, it might be important to note that Turbo C normalizes huge
+pointers so that the segment contains 16 bits of the address, and the
+offset contains only 4 bits. This means that a huge pointer can be
+assigned to a normal pointer, and the normal pointer can then be
+incremented at least 64K - 16 bytes before any problems occur. I have
+taken advantage of this to use normal pointers when I know I will only
+be looking at a small section of the text buffer.)
+
+
+ALGORITHMS
+==========
+
+Knowing the commands that must be supported (see dte.hlp) and the
+major data structures used, the algorithms generally follow
+automatically. The main loop of this program repeatedly calls the
+"update display to match what it should look like" routine. This
+routine updates the display, and then waits for a command, then
+executes the command, and then returns. However, if a command is
+entered while the display is being updated, the update is aborted and
+the command executed immediately. Next time the display routine is
+called, it can complete the previous update if this is still
+appropriate.
+
+The following source files have been used:
+    ed.c      - the main editor module, and a number of the smaller
+                miscellaneous editing commands which did not seem to
+                belong in any of the other files
+              - code for dispatching commands
+                                1
+    block.c   - all the commands that manipulate blocks (block move,
+                copy, read, write etc)
+              - code for setting position markers
+    findrep.c - the functions relating to finding text and replacing
+                text
+              - the code for moving the cursor to various other
+                positions in the file (such as the start of the marked
+                block)
+    window.c  - the code associated with opening and sizing windows,
+                and also displaying the help window
+    utils.c   - miscellaneous functions that were required in more
+                than one of the other files, or were thought to be
+                likely to be used elsewhere in the future
+              - the code for updating the display to match what it
+                should look like
+    hwind.c   - the code to interface the rest of the editor to the
+                display and input hardware
+    hwXYZ.c   - all the code that needs to be different on different
+                hardware (for example, "hwhpux.c" for HP-UX, "hwibm.c"
+                for IBM PC and so on)
+
+See the source code for full details.
+
+
+LIMITATIONS
+===========
+
+"dte" will only edit a file that will fit into memory. It is up to the
+individual implementor to decide what is a reasonable limit, or to
+work out how much memory is actually available.
+
+"dte" does not do a good job of handling lines greater than 80
+characters wide. Such lines are permitted (up to a certain limit), but
+only the first 80 characters can be seen on the terminal. No attempt
+is made at horizontal scrolling or wrapping of long lines. It is my
+belief that program source code should not contain lines longer than
+80 characters anyway...
+
+"dte" will not let the user enter control characters into the files it
+is editing (with the exception of tab characters, which are expanded
+into the required number of spaces). Support for anything other than
+plain ASCII text files is very limited.
+
+"dte" does not handle tab characters in the files it edits. If a file
+contains tab characters, these will usually be displayed just like any
+other control characters, unless the user requests a file to be read
+with tab expansion. Once tabs have been expanded, only spaces will be
+present in the output file.
+
+"dte" distinguishes control characters by using video attributes. On
+terminals without video attributes, control characters will not be
+distinguishable from ordinary characters!
+
+"dte" does not attempt to use highlighting on "magic cookie"
+terminals. This makes it hard to remember exactly where a marked block
+is. If anyone can think of a really good way of doing highlighting on
+these terminals, please give me your suggestions!
+
+"dte" is reasonably efficient in the number of characters that it
+transmits to a terminal, but not very efficient of CPU time in working
+out what needs to be transmitted. This becomes obvious in the PC
+version, where on a standard 4.77 MHz PC "dte" only manages the
+equivalent of about 4800 baud!
+
+"dte" is a text editor, NOT a word processor.
+
+
+LICENSING
+=========
+
+It is not my intention to restrict the use of this source code in any
+way. However, common courtesy dictates that my original authorship
+should be acknowledged, and if you are providing modified source code
+I would appreciate it if you could make clear which parts of the code
+were modified by you.
+
+I have often felt frustrated that I cannot use even small sections of
+an existing program due to copyright restrictions, and instead have to
+reinvent the wheel. It is for this reason that I release this source
+code into the public domain.
+
+
+ORIGIN
+======
+
+This entire editor was written by Douglas Thomson, a computing
+lecturer at Monash University College Gippsland. Any ideas for
+improvements should ideally be reported by e-mail to:
+    doug@giaea.oz
+Alternatively, mail to:
+    Douglas Thomson
+    c/- Computing
+    M.U.C.G.
+    Switchback Road
+    Churchill
+    Victoria   3842
+    AUSTRALIA
+
+Even if you have no suggestions for improvements, I would still like
+to hear from anyone who actually makes any use of this code. If I hear
+nothing, I will conclude that I am wasting my time posting this sort
+of thing!
+
+Note: Although I will try to solve any problems found with this
+      editor, I cannot guarantee how long it will be before I have
+      time to even look at a given problem! Since I have provided the
+      source code, there are many other programmers just as capable of
+      fixing any problems as I.

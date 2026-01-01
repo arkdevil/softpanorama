@@ -1,0 +1,153 @@
+	     COPYRIGHT (c) 1995 WESTERN DIGITAL CORPORATION
+			    WDCDRV.DOC
+		    READ ME FILE FOR WDCDRV.386
+
+WDCDRV.386
+Version:    2.6
+Date:       1/6/95
+Size:       16,475 BYTES
+
+
+				 DESCRIPTION
+
+WDCDRV.386 is a "Fastdisk" hard disk driver for use under Microsoft's 
+Windows 3.1 and Microsoft's Windows For Workgroups 3.11 on 386 or higher
+based systems. WDCDRV.386 is a direct replacement for the built-in
+Microsoft 32-Bit Disk Access driver WDCTRL.
+
+Its main benefit is its ability to work with drives with more than 1,024
+cylinders and capacities greater than 528 Million bytes (516 Megabytes).
+WDCDRV.386 also has the ability to transfer data from the hard disk in either
+a Block Mode PIO fashion, EISA type 'B' DMA fashion, or PCI type 'F' fashion.
+
+Block Mode PIO is a means of transferring multiple sectors at a time between 
+the host and hard disk as opposed to transferring one sector at a time. 
+Normally in an AT compatible machine a hardware interrupt occurs for each 
+sector transferred to/from the hard disk. Under Block Mode PIO one interrupt 
+will occur for a block of sectors. The number of sectors that are to be 
+transferred per interrupt is programmable by the host and is referred to as 
+the blocking factor. The driver will determine if block mode is enabled for 
+the drive when you start Windows. If block mode is detected then the blocking 
+factor programmed is used as the default value for the Fastdisk driver. If 
+block mode was not enabled for the drive when Windows was started the default 
+blocking factor used equals the maximum blocking factor supported that is 
+reported by the drive on an Identify Drive command.
+
+Transferring data via Block Mode PIO increases throughput by eliminating
+the inter-sector overhead associated with each sector. This is most
+beneficial when the hard disk is transferring data out of its cache. 
+Block Mode data transfers are enabled by default.
+
+This driver also supports EISA type 'B' DMA transfers for drives that
+support this feature and are installed in an EISA system. Data is
+transferred at a rate of 4 MB/sec which is about double that of a
+6 MHz AT. The standard Read DMA and Write DMA commands as described in
+the CAM ATA specification are used.
+
+Furthermore, type 'F' DMA is supported in PCI based systems. Data is
+transferred at a rate of between 6 and 8 MB/sec using type 'F' DMA.
+The same Read DMA and Write DMA op codes are used, the only difference
+is in the programming of the DMA controller on the motherboard.
+
+Transferring drive data via DMA allows the host CPU to work on other tasks
+while hard disk data transfers are taking place. This increases the
+overall CPU bandwidth which is critical in multi-tasking environments.
+
+This driver only runs Block Mode PIO and DMA on Western Digital drives.
+To use the DMA feature the drive must be installed in an EISA or PCI 
+system and the DMARQ and DMACK- signals on the the 40 pin cable must be 
+connected to the proper DMA request and acknowledge signals on the EISA 
+or ISA bus.
+
+This revision of the WDCDRV driver automatically supports Logical Block 
+Addressing (LBA) on drives that support this feature. When Translating BIOS
+is detected in the system, the driver will support the drive in LBA mode if
+LBA is supported by the drive, otherwise it will support the drive in
+Translating CHS mode.
+
+This revision of WDCDRV drive automatically detects DMA channel and system
+bus type being EISA, PCI/ISA or PCI/EISA.
+
+				 NOTES ON OPERATION
+
+There are several issues related to operation of the driver that the user
+may need to be aware of. These are detailed in this section and may cover
+potential incompatibilities or may simply be more detailed information on
+driver operation or installation.  Not all information will be needed by
+every user and may often be skipped or ignored.
+
+Known Problems:
+
+1) This driver will not operate with the version of EMM386.EXE supplied with
+   MS-DOS 5.0.  This version should not be in use since Windows 3.1 setup
+   will replace the lines in CONFIG.SYS to load HIMEM.SYS and EMM386.EXE
+   with lines to load these files from the Windows directory.  New versions
+   of these files supplied with Windows 3.1 operate correctly with WDCDRV.386.
+   The versions of EMM386.EXE supplied with MS-DOS 6.0 and MS-DOS 6.2 have
+   also been verified to operate correctly with WDCDRV.386.
+
+Operational Notes:
+
+1) The driver will always operate in LBA mode if the drive is capable of
+   using LBA mode commands. This reduces overhead in the driver and the
+   drive firmware slightly and will not impact drive operation in any other
+   way.
+
+2) When Windows is configured for a temporary swap file it performs accesses
+   to that swap file through the PC BIOS. A potential conflicts between one
+   blocking factor being used for swap file accesses by the BIOS and another
+   blocking factor being used by all other Windows disk accesses the driver
+   requires special processing by the driver.  Thus the driver will not allow
+   the blocking factor to be changed from that selected by the BIOS when a
+   temporary swap file is in use by Windows.  Any attempt to change the
+   blocking factor in the SYSTEM.INI file will be ignored.  The driver will
+   continue to use block mode transfers using the blocking factor selected by
+   the system BIOS at power-on.
+
+			     INSTALLATION INSTRUCTIONS
+
+You must have Windows 3.1 installed on your hard disk prior to performing any 
+installation of the WDCDRV.386 driver. You then have two methods for 
+installation of the driver.  The first, and recommended, method is the 
+automatic installation procedure which only requires you to run the SETUP.EXE 
+utility from Windows 3.1. This DMCFIG.EXE and the associated files are located 
+on the distribution floppy containing the WDCDRV.386 driver. Information on 
+running the automated installation procedure can be found in the README.DOC 
+file on the WDCDRV.386 distribution floppy.
+
+Manual Installation Procedure:
+
+	1. Copy WDCDRV.386 to the Windows directory of your hard disk. This 
+       directory is normally C:\WINDOWS but may be different for your system
+       configuration.
+	2. Edit the SYSTEM.INI file as follows:
+
+		OLD:                            NEW:
+
+		[386Enh]                        [386Enh]
+        device=*wdctrl                  ;device=*wdctrl
+					device=c:\windows\wdcdrv.386
+
+	Putting a 'REM' in front of "device=*wdctrl" will cause Windows to 
+	ignore this line. The second statement defines the path to the 
+	Western Digital driver WDCDRV.386 which is replacing the wdctrl 
+	FastDisk driver from Microsoft. If WDCDRV.386 is not in the c:\windows 
+	directory then simply type in the proper path to its location in the 
+	device statement.
+
+	3. Run Windows and select the "Control Panel" icon. Then select the
+	   "386 Enhanced" icon. Next select the "Virtual Memory..." option.
+	   Select "Change>>" and then check the "Use 32-bit Access" option.
+	   The "Use 32-bit Access" option must be on in order for the 
+	   WDCDRV.386 FastDisk driver to be loaded. Windows will reboot and 
+	   WDCDRV.386 will become active.
+
+
+>>>>>>  IF you do not see 32 bit Disk access flag displayed at above window
+	Please enter following lines in [386Enh] section of system.ini file:
+
+	[386Enh]
+	32BitDiskAccess=ON / Off
+	device=*int13
+	device=C:\WDCDRV.386
+>>>>>>>

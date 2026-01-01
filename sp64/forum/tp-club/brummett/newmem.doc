@@ -1,0 +1,75 @@
+NewMem v1.0 Programmer's Manual  Copyright 1994 Anthony Brummett
+
+Contents:
+1 - Introduction
+2 - Description of procedures
+
+Section 1 - Introduction
+
+The heap manager in Turbo Pascal uses free lists to manage the memory.
+After many calls to GetMem and FreeMem, the list of free memory can become
+fragmented. An application I am writing needed to use a small amount of
+heap memory as efficiently as possible. That's why I wrote this unit.
+It is designed to use a chunk of memory as efficiently as possible using 
+a bitmap to mark used and unused memory. This is a little slower, but is
+much less prone to fragmentation. It also lowers the need for garbage
+collection. It also allows several chunks of memory to allocate from,
+independant of each other.
+
+
+Section 2 - Description of procedures
+
+function AllocateBuffer(size:word; gran:word):MemTypePtr;
+
+Allocates memory for a header (MemType), bitmap array and data block from
+the heap. size is the size of the data block. gran is the "granularity"
+of the data block, or the smallest amount of data you can allocate at one
+time. It returns a pointer to a header block (MemType) which is used in
+other procedures to allocate memory from this block. Note that due to a
+limitation in the DOS memory scheme, you can only allocate a maximum of a
+little less that 64K of memory for each block (64K-8 bytes I think). Be
+careful in the value you use for gran. Too small a number and the bitmap
+and sizes array will get quite large. Too large a number and you will
+waste memory. For example, if you set gran to be 8, and ask for 10 bytes,
+16 bytes will actually be allocated.
+
+function MemGet(ptr:MemTypePtr; ReqSize:word):pointer;
+
+Allocates some memory from the block headed by ptr of size ReqSize. ReqSize
+is first rounded to the smallest multiple of the block's granularity greater
+than or equal to ReqSize before marking the memory as used. Memory is
+allocated in a first-fit fashion. The next version of this unit may support
+best-fit and last-fit algorithms as well.
+
+procedure MemFree(ptr:MemTypePtr; p:pointer);
+
+Frees some memory back to a block. The pointer must have been previously
+allocated with MemGet before freeing it.
+
+procedure FreeAll(ptr:MemTypePtr);
+
+Marks all memory associated with the header ptr as unused.
+
+procedure ReleaseBlock(ptr:MemTypePtr);
+
+Releases all memory associated with ptr back to the heap including the
+header, bitmap array, and data block.
+
+procedure ReleaseAllBuffers;
+
+Releases all memory associated with all headers currently active.
+
+function MemLeft(ptr:MemTypePtr):word;
+
+Returns the amount of unallocated space in the data block controlled by
+the header ptr.
+
+function MaxLeft(ptr:MemTypePtr):word;
+
+Returns the largest amount of contiguous memory in a block. This is the
+largest object you can allocate from this block.
+
+function HexStr(q:word):string;
+
+Returns string of hexadecimal digits equal to q.
+

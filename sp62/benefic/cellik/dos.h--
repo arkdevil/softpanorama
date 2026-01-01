@@ -1,0 +1,151 @@
+/*
+    SPHINX Programming (C) 1993.
+    NAME:  DOS.H--
+    DESCRIPTION:  This file defines procedures whos functions are associated
+                  with or use DOS.
+    LAST MODIFIED:  22 July 1993
+    PROCEDURES DEFINED IN THIS FILE:
+        : void ABORT()
+        : void ALLOCBESTFIT()
+        : void ALLOCFIRSTFIT()
+        : void ALLOCLASTFIT()
+        : word ALLOCSTRATEGY()
+        : void ENVSTR(environ_string)
+        : void EXIT(byte returnvalue)
+        : void KEEP( , , ,offset_of_end_of_program)
+        : word spawn(word filename,commandline,environment)
+*/
+
+
+// default offset address of Disk Transfer Area:
+
+?define  DTA_ADDRESS  0x80
+
+
+// Procedure Definitions:
+
+
+: void ABORT ()
+{
+?DOSrequired 0x0100
+$INT 0x20
+}
+
+
+: void ENVSTR ()  /* AX = offset of string of environment variable name */
+                  /* DS must equal the segment address of the PSP, in other
+                     words, the same value it had when the program started
+                     executing, this should be the same as CS. 
+                  */
+/*
+    attempts to retrive an environmental variable 
+*/
+{BX = AX;
+ES = DSWORD[0x2C];
+DI = 0;
+TOP: SI = BX;
+$ CMP ESBYTE[DI],0
+$ JE FINISHED
+CX = 100;
+$ REPZ
+$ CMPSB
+SI--;
+$ CMP DSBYTE[SI],0
+$ JNE HERE
+$ CMP ESBYTE[DI-1],'='
+$ JE PREFINISHED
+HERE: DI++;
+$ CMP ESBYTE[DI],0
+$ JNE HERE
+DI++;
+$ JMP TOP
+PREFINISHED:
+// DI++;
+FINISHED:
+}
+/*  RETURNS:   AX,BX,CX,SI = undefined
+               ES:DI = environment string
+*/
+
+
+
+: word spawn (word filenameaddress,commandlineaddress,environmentaddress)
+{$ PUSH CS
+AX = 0x6C;
+$ PUSH AX
+$ PUSH CS
+AX = 0x5C;
+$ PUSH AX
+$ PUSH DS
+$ PUSH commandlineaddress
+$ PUSH environmentaddress
+ES = SS;
+BX = SP;
+DX = filenameaddress;
+AX = 0x4B00;
+$ INT 0x21
+?DOSrequired 0x0300
+IF( NOTCARRYFLAG )
+    $ XOR AX,AX
+SP += 14;
+}
+/*  RETURNS:  BX,DX,ES = undefined
+              If successful:
+                  AX = 0
+              If unsuccessful:
+                  AX = error code 
+*/
+
+
+: void ALLOCBESTFIT ()
+{
+?DOSrequired 0x300
+AX = 0x5801;
+BX = 1;
+$ INT 0x21
+}
+
+
+: void ALLOCFIRSTFIT ()
+{
+?DOSrequired 0x300
+AX = 0x5801;
+BX = 0;
+$ INT 0x21
+}
+
+
+: void ALLOCLASTFIT ()
+{
+?DOSrequired 0x300
+AX = 0x5801;
+BX = 2;
+$ INT 0x21
+}
+
+
+: word ALLOCSTRATEGY ()
+{
+?DOSrequired 0x300
+AX = 0x5800;
+$ INT 0x21
+IF( CARRYFLAG )
+    AX = -1;
+}
+
+
+: void KEEP ()  // DX = end offset address of program block to keep resident.
+{
+?DOSrequired 0x0100
+$ INT 0x27
+}
+
+
+: void EXIT ()  /* AL = value to return */
+{
+AH = 0x4C;
+$ INT 0x21
+}
+
+
+/* end of DOS.H-- */

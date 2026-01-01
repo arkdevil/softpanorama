@@ -1,0 +1,197 @@
+
+@DefineProject
+	@Name = "VirusScan"
+	@Version = "2.5.2"
+	@OutDrive = C
+	@Subdir = "\\MCAFEE"
+	@AssumeHardDisk = 1
+@EndProject
+
+
+@ClearOption(1001)
+@ClearOption(1002)
+@ClearOption(2001)
+@ClearOption(2002)
+@ClearOption(3001)
+@ClearOption(3002)
+@ClearOption(4001)
+@ClearOption(4002)
+@ClearOption(5000)
+@ClearOption(5001)
+@ClearOption(9000)
+@ClearOption(9001)
+
+@DefineVars
+	@Drive @SCANDrive = C
+	@Dir @SCANDir = "\\MCAFEE\\VIRUSCAN"
+@EndVars
+
+@Display
+@cls
+
+		  Welcome to McAfee VirusScan Installation!
+
+
+	  This Install program will copy the VirusScan files to your
+	 system, back-up and update your AUTOEXEC.BAT if you allow it.
+
+
+
+		  Thank you for purchasing McAfee VirusScan
+
+
+
+
+		Press Escape at any time to abort installation
+
+     Copyright (c) 1994-1996 McAfee Associates, Inc..  All right reserved.
+
+
+				       @Pause
+@EndDisplay
+
+GetAll:
+@ClearOption(4001)
+@ClearOption(4002)
+@GetOutDrive @SCANDrive
+  @suppress(A)
+  @suppress(B)
+  @Cls
+			 VirusScan Installation Drive
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     This allows you to specify which hard disk or partition to install
+     the VirusScan files on.  This includes the program and documentation
+     files, along with the other companion files for the program.  The
+     next screen will allow you to specify which directory to install
+     VirusScan in.
+@EndOutDrive
+
+@GetSubDir @SCANDir
+ In which directory of your @SCANDrive drive should all VirusScan files be installed?
+
+
+@EndSubDir
+
+@If (@Exists("@SCANDrive:\\@SCANDir\\SCAN.EXE"))
+  @Goto Update
+@EndIf
+@If (@Exists("@SCANDrive:\\@SCANDir\\CLEAN.EXE"))
+  @Goto Update
+@EndIf
+@If (@Exists("@SCANDrive:\\@SCANDir\\VSHIELD.EXE"))
+  @Goto Update
+@EndIf
+
+@Goto SCAN_OK
+
+Update:
+  @GetOption
+  VirusScan appears to be installed in @SCANDrive:@SCANDir.
+  Do you wish to update the prior version?
+  @Option 4001 = "Yes, Update prior version"
+  @Option 4002 = "No,  Select another drive"
+  @EndOption
+  @If (4002 [= @Option) @Goto GetAll  @EndIf
+
+SCAN_OK:
+
+
+@If (@Exists("C:\\AUTOEXEC.BAT"))
+  @GetOption
+		  Back-Up and Update Your AUTOEXEC.BAT File
+
+
+
+
+
+
+
+  To fully install VirusScan, a few changes should be made to your
+  AUTOEXEC.BAT file. Your PATH statement will be updated to include the
+  MCAFEE directory, and VShield statements will be added to allow VShield
+  to load each time you reboot your machine.
+
+  Do you want Install to do this for you?
+    @Option 5000 = "Yes,  Back-Up and Modify AUTOEXEC.BAT."
+    @Option 5001 = "No,  Save sample modification to MCAFEE.BAT."
+  @EndOption
+@else
+@display
+  The AUTOEXEC.BAT file cannot be found in your root directory.
+  Normal Installation would modify this file to load
+  VirusScan's VShield automatically when you reboot your machine
+
+  A sample file is provided in @SCANDrive:@SCANDir\VSH.TXT
+@pause
+@enddisplay
+@EndIf
+@endif
+
+
+/*
+ * All information available now, go ahead and copy files
+ */
+
+CompleteInstall:
+  @copy("C:\\AUTOEXEC.BAT","C:\\AUTOEXEC.MCF")
+  @If (@Exists("C:\\MCAFEE.BAT"))
+    @system("del C:\\MCAFEE.BAT > nul")
+  @endif
+  @system("echo REM >>  C:\\MCAFEE.BAT")
+  @system("echo REM This line loads McAfee VSHIELD >>  C:\\MCAFEE.BAT")
+  @system("echo @SCANDrive:@SCANDir\\VSHIELD >>  C:\\MCAFEE.BAT")
+  @system("echo REM >>  C:\\MCAFEE.BAT")
+  @system("type C:\\AUTOEXEC.BAT >> C:\\MCAFEE.BAT")
+  @system("echo REM >>  C:\\MCAFEE.BAT")
+  @system("echo REM This line reloads McAfee VSHIELD after any network or keyboard drivers >>  C:\\MCAFEE.BAT")
+  @system("echo @SCANDrive:@SCANDir\\VSHIELD /reconnect >>  C:\\MCAFEE.BAT")
+  @system("echo REM >>  C:\\MCAFEE.BAT")
+  @if (5001 [= @Option)
+  @else
+    @copy("C:\\MCAFEE.BAT","C:\\AUTOEXEC.BAT")
+    @setautoexec
+      @Overwrite
+      @path = "@SCANDrive:\\@SCANDir;"
+    @endautoexec
+    @copy("C:\\AUTOEXEC.BAT","C:\\MCAFEE.BAT")
+  @endif
+  
+@If (!(@Exists("@SCANDrive:\\@SCANDir")))
+  @MkDir ("@SCANDrive:\\@SCANDir")
+@EndIf
+
+@MoveCStr(01,01,31," Copying VirusScan for DOS files... ")
+@Copy("SCAN.EXE","@SCANDrive:\\@SCANDir\\*.*")
+@Copy("SCAN.DAT","@SCANDrive:\\@SCANDir\\*.*")
+@Copy("NAMES.DAT","@SCANDrive:\\@SCANDir\\*.*")
+@Copy("CLEAN.DAT","@SCANDrive:\\@SCANDir\\*.*")
+  
+@DefineDisk
+	@Label = "Disk #1"
+	@BeginLib SCNI252E.001
+                @F PACKING.LST @S 1733 @O @scandrive:\\@scandir\PACKING.LST
+                @F FILE_ID.DIZ @S 143 @O @scandrive:\\@scandir\FILE_ID.DIZ
+                @F WHATSNEW.TXT @S 15277 @O @scandrive:\\@scandir\WHATSNEW.TXT
+                @F VSHLDCRC.EXE @S 45003 @O @scandrive:\\@scandir\VSHLDCRC.EXE
+                @F VALIDATE.EXE @S 16326 @O @scandrive:\\@scandir\VALIDATE.EXE
+                @F VSHEML.EXE @S 34055 @O @scandrive:\\@scandir\VSHEML.EXE
+                @F AGENTS.TXT @S 28927 @O @scandrive:\\@scandir\AGENTS.TXT
+                @F README.1ST @S 15844 @O @scandrive:\\@scandir\README.1ST
+                @F VSHIELD.EXE @S 207881 @O @scandrive:\\@scandir\VSHIELD.EXE
+                @F CHKVSHLD.EXE @S 18947 @O @scandrive:\\@scandir\CHKVSHLD.EXE
+	@EndLib
+@EndDisk

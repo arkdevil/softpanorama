@@ -1,0 +1,865 @@
+<<title Pascal display functions>>
+<<uicode>>
+*****************************************************************************
+*                   Р А Б О Ч А Я    В Е Р С И Я !!!
+*  Эта библиотека предназначена для генерации Pascal-программ
+*  Прообраз - DispClip.tlb
+*
+* TitlePas()
+* display_text():
+* display_box(box):
+* display_box_no_color(box):
+*
+*****************************************************************************
+*
+* TitlePas()
+*
+*****************************************************************************
+function PasTitle
+
+private S,ws
+
+S=array("C",20)
+
+S[ 1]='%{╔════════════════════════════════════════════════════════════════════════════╗%}'
+S[ 2]='%{║   ┌────────────────────────────────────────────────────────────────────┐   ║%}'
+S[ 3]='%{║   │  ∙ JOHN (¤) ∙ Eugene Chalyuk, Kharkov Polytechnic Institute, USSR  │   ║%}'
+S[ 4]='%{║   └────────────────────────────────────────────────────────────────────┘   ║%}'
+S[ 5]='%{╠════════════════════════════════════════════════════════════════════════════╣%}'
+S[ 6]='%{║ ░░░░░░░░░░░░░░░░░  This program was generated with UI-2  ░░░░░░░░░░░░░░░░░ ║%}'
+S[ 7]='%{╟────────────────┬───────────────────────────────────────────────────────────╢%}'
+S[ 8]='%{║                │                                                           ║%}'
+ws=upper(striptag(stripdir({wwfile}))+'.TEM')
+S[ 9]='%{║ Input file     │ '+ws+space(46-len(ws)+12)+'║%}'
+ws=upper(striptag(stripdir(  {file}))+gentag)
+S[10]='%{║ Output file    │ '+ws+space(46-len(ws)+12)+'║%}'
+S[11]='%{║ Date           │ '+date+space(58-len(date))+'║%}'
+S[12]='%{║ Time           │ '+time+space(50)+'║%}'
+S[13]='%{║                │                                                           ║%}'
+S[14]='%{╚════════════════╧═══════════════════════════════════════════════════════════╝%}'
+
+   for i=1 to 14
+      ? S[i]
+   endfor
+
+return
+
+*******
+* end *
+*******
+
+*****************************************************************************
+*
+* display_text():
+*
+*****************************************************************************
+
+function display_text
+
+private lastcolor
+
+* first, draw the background screen
+lastcolor = ''
+
+*!!!!!!!!!
+?
+? '%{ ------------- Background screen --------------- %}'
+?
+draw_no_outline_box(screen,screen.color)
+* draw all boxes that aren't popups
+lastcolor=screen.color
+
+*for all boxes where .not. box.popup
+for all boxes
+*!!!!!!!!!
+?
+? '%{ ------------- Box N {count} --------------- %}'
+?
+  if box.contents.color <> lastcolor        ** contents color is different
+    lastcolor=box.contents.color
+    display_box(box)
+  else                                      ** it's the same, check other stuff
+    if box.outline.type
+      if box.outline.color <> lastcolor     ** outline color is different
+        lastcolor=box.contents.color
+        display_box(box)
+      else                                  ** same, no new color sets
+        display_box_no_color(box)
+      endif
+    else                                    ** no outline, no new ...
+      display_box_no_color(box)
+    endif
+  endif
+endfor
+
+return
+*******
+* end *
+*******
+
+
+*****************************************************************************
+* display_box(box):
+*
+*   Generates Pascal display code for the box (b) passed
+*   as the argument
+*
+* Notes:
+*
+*   1. display_box(b) simply calls the appropriate internal function.
+*      these functions are defined and described below.
+*****************************************************************************
+function display_box
+param b
+
+if .not.b
+   return
+endif
+
+if b.outline.type
+  draw_outline_box(b,b.outline.color,b.contents.color)
+else
+  draw_no_outline_box(b,b.contents.color)
+endif
+
+return
+*******
+* end *
+*******
+
+
+*****************************************************************************
+* display_box_no_color(box):
+*
+*   same as display_box, but with no color sets
+*****************************************************************************
+function display_box_no_color
+param b
+
+if b.outline.type
+  draw_outline_box(b,'','')
+else
+  draw_no_outline_box(b,'')
+endif
+
+return
+*******
+* end *
+*******
+
+
+************************* internal functions ****************************
+*
+* The following functions are used by the preceding functions. In general,
+* I wouldn't recommend calling them directly from templates. Whatever goes
+* on in them should be invisible to the highest level of template
+* generation. That is, it should be possible to modify these functions
+* considerably without having to make changes in  templates that call the
+* display functions above.
+*
+* Note also that other template libraries (notably OPTFUNS.TLB) call
+* functions defined here.
+**********************************************************************
+
+
+*****************************************************************************
+* draw_outline_box(box, olcolor, ctcolor):
+*
+*   Generates Pascal 2 display code for a box with
+*   an outline
+*
+* Parameters:
+*   b           the box (the object itself, not the name)
+*   olcolor     outline color (usually the same as b.outline.color)
+*   ctcolor     contents color (usually the same as b.contents.color)
+*
+* Notes:
+*   1. if either olcolor or ctcolor is the null string (''), the corresponding
+*      'set color to' statement will not be generated.
+*****************************************************************************
+function draw_outline_box
+param b,olcolor,ctcolor,WorkColor
+
+private i,line,xline,startrow,startcol,olstring
+
+if b.height < 2 .or. b.width < 2
+   return
+endif
+
+* OUTLINE *
+
+* get outline string for box command.
+* if contents and outline are the same color, we can use a single command
+* to clear both, specifying ' ' as the last char in the outline string.
+* if they're different colors, we'll have to do the interior later.
+
+olstring= iif(olcolor=ctcolor,;
+              b.outline.string,;
+              substr(b.outline.string,1,8))
+
+* set color to box's outline color
+if .not. empty(olcolor)
+* ?"color = {hash_color(olcolor)};"
+*!!!NEW!!!
+endif
+
+
+* draw the outline
+FrameWindow(b.top,b.left,b.bottom,b.right,olstring,;
+              (empty(olcolor))?b.outline.color:olcolor)
+*?'atbox({b.top},{b.left},{b.bottom},{b.right},"{olstring}");'
+
+* throw in any nonstandard outline stuff
+draw_strange_outline_text(b)
+
+if b.height >= 3 .and. b.width >= 3
+   * CONTENTS *
+   ClearWindow(b.top+1,b.left+1,b.bottom-1,b.right-1,;
+              (empty(ctcolor))?b.contents.color:ctcolor)
+endif
+
+* display text in box interior
+write_box_interior(b)
+
+* if any paint-o-matic action in the box, do that display now
+if box_is_painted(b)
+  write_painted_text(b)
+endif
+
+return
+*******
+* end *
+*******
+
+
+*****************************************************************************
+* draw_no_outline_box(box, color):
+*
+*   Generates Pascal display code for a box with
+*   no outline
+*
+* Parameters:
+*
+*   box         the box (the object itself, not the name)
+*   color       color (usually the same as b.contents.color)
+*
+* Notes:
+*
+*   1. if color is the empty string, no 'set color to' statement will be
+*      generated.
+*****************************************************************************
+function draw_no_outline_box
+param b,color
+
+private i,line,xline,startrow,startcol
+
+* set to interior color
+if .not. empty(color)
+*  ?"color = {hash_color(color)};"
+endif
+
+* clear box region
+do case
+*  case b.hei =1
+*    * one line high: just say the untrimmed line
+*!!!
+*    SayText(b.top+1,b.left+1,box_text(b,0,0),color)
+
+  case b.hei = 25 .and. b.wid = 80
+    * screen full of box: do a straight clear
+
+    ClearScreen(screen.contents.color)
+    * write the text contained in the box
+    write_box_interior(b)
+
+  otherwise
+    * normal box: first clear the region
+    ClearWindow(b.top,b.left,b.bottom,b.right,color)
+    * then write the text contained in the box
+    write_box_interior(b)
+endcase
+
+* if any paint-o-matic action in the box, do that display now
+if box_is_painted(b)
+  write_painted_text(b)
+endif
+
+return
+*******
+* end *
+*******
+
+
+*****************************************************************************
+* write_box_interior(box):
+*
+*   Generates @..SAY statements for text contained within the passed box
+*
+* Notes:
+*
+*   1. contains no set color commands. Any color sets required must be done
+*      outside this function, presumably by the function that calls it.
+*
+*   2. if the box passed to this function has an outline, it is excluded
+*      from the generated display code. Display code for the outline is
+*      assumed to have been taken care of elsewhere.
+*
+*   3. this function currently ignores any changes in color inside the box
+*      (for example, regions modified by paint-O-matic). This failing
+*      will be rectified in a subsequent version of this template library.
+*
+*   4. the function digest_text() (defined and described below) is used to
+*      prepare a line of text for output into the generated
+*      file. In general digest_text() should be used on any literal text
+*      that's about to go into an @..SAY statement in a similar fashion.
+*
+* !!5!! Выводится только нераскрашенный текстб ибо раскрашеннай будет
+*       выводится дальще процедурой write_painted_text
+*
+*****************************************************************************
+function write_box_interior
+param b
+
+private i,startrow,startcol,margin,xline
+
+if b.outline.type
+  if b.height < 3 .or. b.width < 3
+     return             ** No real interior
+  endif
+  * if the box has an outline, restrict the region scanned for text
+  margin = 1
+  * and check if the thing's empty
+  if box_is_empty(b,margin,margin,b.hei-2,b.wid-2)
+    return
+  endif
+else
+  margin = 0
+  if(box_is_empty(b))
+    return
+  endif
+endif
+
+* loop through each row in the box interior
+
+*!!! NEW !!! аналогично write_painted_text, но для нераскрашенного текста
+
+*gen_msg('b.contents.color="{b.contents.color}"')
+
+for i=margin to b.hei-1-margin
+*  if .not. box_is_painted(b,i,margin,1,b.wid-2*margin)
+*    loop
+*  endif
+
+  j=margin
+  do while j<b.wid-margin
+    line = box_color_text_at(b,i,j)
+    color = box_color_at(b,i,j)
+           ** !NEW! только для нераскращенного текста
+    if color = b.contents.color ;
+       .and. .not. empty(line)
+
+       * trim leading & trailing spaces
+       xline = alltrim(line)
+
+       * get coordinates (note compensation in startcol for leading trim)
+
+       SayText(b.top+i,b.col        ;
+             +j+at(xline[1],line)-1,xline,color)
+*       gen_msg('в write_box_interior line ="{line}", color ="{color}"')
+    endif
+
+    j = j + len(line)
+  end
+endfor
+*? '*  - - - -      Нераскрашенный текст закончиля !      - - - -'
+
+return
+*******
+* end *
+*******
+
+
+*****************************************************************************
+* write_painted_text(box):
+*
+*   generates @..SAY statements for text in the passed box that has been
+*   painted -- i.e. colored with paint-o-matic. Any text within the
+*   box that appears in the expected colors -- box.outline.color for
+*   outline text (if an outline exists), or box.contents.color for
+*   interior text -- is ignored. See notes.
+*
+*
+* Notes:
+*
+*   1. this function generates set color statements. In order to preserve
+*      the currency of the 'lastcolor' flag variable in functions several
+*      levels above this one (display_text(), for example), this function
+*      will write into that variable when a set color statement is
+*      generated. If 'lastcolor' doesn't exist when this function is
+*      called, the variable will of course be local to this function and
+*      redundant, but that's not too big a deal.
+*
+*   2. The display code generated by this arrangement (i.e. code for a
+*      'normal' version of a box, and then display code for the strange
+*      stuff that overwrites to some extent) may at first seem inefficient.
+*      But in all but the most pathological cases, it turns out to be
+*      faster than code which economizes on @..SEZ and contains insane
+*      numbers of color sets, among other things.
+*****************************************************************************
+function write_painted_text
+param b
+
+private i,j,line,color,margin
+
+if .not. lastcolor                      ** make sure lastcolor's a string
+  lastcolor = ''
+endif
+
+if b.outline.type
+  if box_is_painted(b,0,0,1,b.wid)      ** if top line's painted
+    j=0
+    do while j<b.wid
+      line = box_color_text_at(b,0,j)
+      color = box_color_at(b,0,j)
+
+      if color <> b.outline.color
+        if lastcolor <> color
+          lastcolor = color
+*          ?"color = {hash_color(color)};"
+        endif
+        SayText(b.top,b.col+j,line,color)
+*        ?"   FastWrite({digest_text(line)},{b.top+1},{(b.col+j+1)},{hash_colr_attr(color)});"
+      endif
+
+      j = j + len(line)
+    enddo
+  endif
+
+  if box_is_painted(b,b.hei-1,0,1,b.wid)    ** if bottom line's painted
+    j=0
+    do while j<b.wid
+      line = box_color_text_at(b,b.hei-1,j)
+      color = box_color_at(b,b.hei-1,j)
+
+      if color <> b.outline.color
+        if lastcolor <> color
+          lastcolor = color
+*          ?"color = {hash_color(color)};"
+        endif
+        SayText(b.bottom,b.col+j,line,color)
+*        ?"   FastWrite({digest_text(line)},{b.bottom},{(b.col+j)},{hash_color_attr(color)});"
+      endif
+
+      j = j + len(line)
+    end
+  end
+
+  for i = 1 to b.hei-2                      ** check sides of outline
+    if box_is_painted(b,i,0,1,1)
+      color = box_color_at(b,i,0)
+      if color <> lastcolor
+        lastcolor = color
+*        ?"color = {hash_color(color)};"
+      endif
+
+        SayText(b.top+i,b.left,box_text(b,i,0),color)
+*      ?"   FastWrite({digest_text(box_text(b,i,0))},{(b.top+i)},{b.left},{hash_color_attr(color)});"
+    endif
+
+    if box_is_painted(b,i,b.wid-1,1,1)
+      color = box_color_at(b,i,b.wid-1)
+      if color <> lastcolor
+        lastcolor = color
+*        ?"color = {hash_color(color)};"
+      endif
+
+        SayText(b.top+i,b.right,box_text(b,i,b.wid-1),color)
+*      ?"   FastWrite({digest_text(box_text(b,i,b.wid-1))},{(b.top+i)},{b.right},{hash_color_attr(color)});"
+    endif
+  endfor
+
+  margin =1
+else
+  margin =0
+endif
+
+for i=margin to b.hei-1-margin
+  if .not. box_is_painted(b,i,margin,1,b.wid-2*margin)
+    loop
+  endif
+
+  j=margin
+  do while j<b.wid-margin
+    line = box_color_text_at(b,i,j)
+    color = box_color_at(b,i,j)
+
+    if color <> b.contents.color
+      if lastcolor <> color
+        lastcolor = color
+*        ?"color = {hash_color(color)};"
+      endif
+        SayText(b.top+i,b.col+j,line,color)
+*      ?"   FastWrite({digest_text(line)},{(b.top+i)},{(b.col+j)},{hash_color_attr(color)});"
+    endif
+
+    j = j + len(line)
+  end
+endfor
+
+return
+*******
+* end *
+*******
+
+*****************************************************************************
+* draw_strange_outline_text(box):
+*
+*   Generates @..SAY statements for any outline characters in the passed
+*   box (b) that aren't standard outline characters -- like a title on
+*   top of the box, joined characters, etc.
+*
+*   Also, this function generates @..SEZ for any pieces of the outline
+*   that have been painted.
+*
+* Notes:
+*
+*   1. No other display code is generated. The code for displaying the
+*      standard outline (which this code will overwrite) should be generated
+*      prior to calling this function.
+*
+*   2. The method of dealing with strange characters used here (i.e.
+*      displaying an entire 'standard' version of the outline, and
+*      then redrawing the strange stuff) may seem inefficient. However,
+*      the alternative is to forego the use of the box command entirely
+*      and go through the excruciating process of generating the entire
+*      outline using standard @..SAY statements, rather than one of the
+*      box commands. In all but the most pathological cases, the method
+*      used here is much faster.
+*****************************************************************************
+function draw_strange_outline_text
+param b
+
+private line,testline,strange,i,j
+
+* quick check of entire outline
+if ! strange_outline(b,-1)
+  return
+endif
+
+* check top line
+if strange_outline(b,0)
+  * get box's top line
+  line = box_text(b,0,0)
+  * build a standard outline
+  testline = b.outl.str[1] + replicate(b.outl.str[2],b.wid-2) + b.outl.str[3]
+  i=1
+
+  do while i <= len(line)              ** scan the outline
+    do while i <= len(line)
+      if line[i] <> testline[i]     ** go to first difference
+        exit
+      endif
+      i=i+1
+    enddo
+
+    if i > len(line)                ** if no difference, drop out
+      exit
+    endif
+
+    strange=line[i]                 ** begin the deviant string
+    j=i+1
+
+    do while j <= len(line)
+      if line[j] = testline[j]      ** add until lines stop being different
+        exit
+      endif
+      strange=strange+line[j]
+      j=j+1
+    enddo
+
+    * generate the display code for this deviant chunk
+    SayText(b.top,b.left+i-1,strange,b.contents.color)
+*    ?"   FastWrite({digest_text(strange)},{b.top},{(b.left+i-1)},{hash_color_attr(b.contents.color)});"
+
+    i=j+1                           ** continue scanning from here
+  enddo
+endif
+
+* check sides
+for i=1 to b.hei-2
+  if ! strange_outline(b,i)
+    loop
+  endif
+
+  line=box_text(b,i,0)
+
+  if line[1] <> b.outl.str[8]
+    SayText(b.top+i,b.left,line[1],b.contents.color)
+*    ?"   FastWrite('{line[1]}',{(b.top+i)},{b.left},{hash_color_attr(b.contents.color)});"
+  endif
+
+  if line[b.wid] <> b.outl.str[4]
+    SayText(b.top+i,b.right,line[b.wid],b.contents.color)
+*    ?"   FastWrite('{line[b.wid]}',{(b.top+i)},{b.right},{hash_color_attr(b.contents.color)});"
+  endif
+endfor
+
+if strange_outline(b,b.hei-1)
+  line = box_text(b,b.hei-1,0)
+  testline = b.outl.str[7] + replicate(b.outl.str[6],b.wid-2) + b.outl.str[5]
+  i=1
+
+  do while i <= len(line)
+    do while i <= len(line)
+      if line[i] <> testline[i]
+        exit
+      endif
+      i=i+1
+    enddo
+
+    if i > len(line)
+      exit
+    endif
+
+    strange=line[i]
+    j=i+1
+
+    do while j <= len(line)
+      if line[j] = testline[j]
+        exit
+      endif
+      strange=strange+line[j]
+      j=j+1
+    enddo
+
+    SayText(b.bottom,b.left+i-1,strange,b.contents.color)
+*    ?"   FastWrite({digest_text(strange)},{b.bottom},{(b.left+i-1)},hash_color_attr(b.contents.color));"
+    i=j+1
+  enddo
+endif
+
+return
+*******
+* end *
+*******
+
+
+************************************************************************
+*                     color stuff
+************************************************************************
+
+
+************************************************************************
+* hash_color
+*
+* produces a C hash-defined color specification from a Dbase colorspec
+* passed as the argument. The hash-defined color spec this function
+* produces is not universal: it uses the color names, etc. found
+* in the file CDRIVER.H. However, it should be fairly easy to modify
+* this function to work with other schemes.
+************************************************************************
+function hash_color
+param dbc
+
+private hashc,fore,back
+
+* get foreground
+fore = clrconvert( upper( substr( dbc, 1, at('/',dbc)-1 ) ) )
+back = clrconvert( upper( substr( dbc, at('/',dbc)+1, len(dbc) ) ) )
+
+
+hashc = fore + 'ON' + back
+
+if at('*',dbc)
+  hashc =  hashc + '* Blink)'
+endif
+
+return hashc
+***********************************************************************
+function hash_color_Attr
+param dbc
+return   '$'+strx(int_color(dbc))
+
+***********************************************************************
+function clrconvert
+param dbshade
+
+do case
+  case dbshade= "N"
+    return "Black"
+  case dbshade= "B"
+    return "Blue"
+  case dbshade= "G"
+    return "Green"
+  case dbshade= "BG"
+    return "Cyan"
+  case dbshade= "R"
+    return "Red"
+  case dbshade= "BR"
+    return "Magenta"
+  case dbshade= "GR"
+    return "Brown"
+  case dbshade= "W"
+    return "LightGray"
+
+  case dbshade= "+N"
+    return "DarkGray"
+  case dbshade= "+B"
+    return "LightBlue"
+  case dbshade= "+G"
+    return "LightGreen"
+  case dbshade= "+BG"
+    return "LightCyan"
+  case dbshade= "+R"
+    return "LightRed"
+  case dbshade= "+BR"
+    return "LightMagenta"
+  case dbshade= "+GR"
+    return "YELLOW"
+  case dbshade= "+W"
+    return "White"
+endcase
+
+return "<no idea>"
+
+***********************************************************************
+***********************************************************************
+
+***********************************************************************
+* SayText : Высветить текст с заданной позиции экрана
+***********************************************************************
+function SayText
+param R,C,TextOut,ColorOut
+private ws
+
+ws=digest_text(TextOut)
+
+* Паскалевский формат : X,Y; x=1..80, y=1.25
+?"   FastWrite({ws},{R+1},{C+1},{hash_color_attr(ColorOut)});"
+return
+***********************************************************************
+* SayTextWindow : Высветить текст с заданной позиции окна
+***********************************************************************
+function SayTextWindow
+param b,R,C,TextOut,ColorOut
+private ws,margin
+
+margin = (b.outline.type) ? 1 : 0
+ws=digest_text(TextOut)
+
+* Паскалевский формат : X,Y; x=1..80, y=1.25
+?"   FastWrite({ws},{b.left+margin+R+1},{b.top+margin+C+1},{hash_color_attr(ColorOut)});"
+return
+
+***********************************************************************
+function FrameWindow
+param b_top,b_left,b_bottom,b_right,olstring,olcolor
+private Attr
+?"   FrameChars:='{olstring[1]+;
+                   olstring[7]+;
+                   olstring[3]+;
+                   olstring[5]+;
+                   olstring[2]+;
+                   olstring[4]}';"
+
+Attr=hash_color_Attr(olcolor)
+
+* Паскалевский формат : X,Y; x=1..80, y=1.25
+?"   FrameWindow({b_left+1},{b_top+1},{b_right+1},{b_bottom+1},{Attr},{Attr},'');"
+
+return
+***********************************************************************
+function ClearWindow
+param b_top,b_left,b_bottom,b_right,olcolor
+
+* Паскалевский формат : X,Y; x=1..80, y=1.25
+?"   Window({b_left+1},{b_top+1},{b_right+1},{b_bottom+1});"
+
+ClearScreen(olcolor)
+
+return
+***********************************************************************
+function ClearScreen
+param dbc
+
+?"   TextAttr:={hash_color_Attr(dbc)};"
+?"   ClrScr;"
+
+return
+
+*****************************************************************************
+* digest_text(s):
+*
+*   Prepares a line of text for output into a generated file (typically
+*   as part of an @..SAY statement).
+*
+*   Two transformations are performed:
+*
+*       1. The string is quoted appropriately (i.e. quotes are used that
+*          don't appear in the source string). If all three quote types
+*          (',",[]) are used in the source string, then the double quotes
+*          within the string are broken out and doubles are used.
+*
+*       2. If there are any control characters (i.e. asc(char)<32) within
+*          the string, they are broken out into ...+chr(n)+... format.
+*
+* Parameters:
+*   s       the string to prepare
+*
+* Returns:
+*   the digested string
+*
+* Notes:
+*
+*   1. If you intend on changing the organization of the template libraries,
+*      it's important to note that this is NOT the same as the definition
+*      of digest_text() found in DTCLIP.TLB. Square brackets are legal
+*      quotes in the implementations of Dbase and not in others.
+*****************************************************************************
+function digest_text
+param s
+private i,ws
+
+s=strtran(s,"'","''")       ** break out any backslashes
+s="'"+s+"'"
+if .not. ctrl_in_str(s)
+   return s
+endif
+
+quote="'"
+
+* check for control characters
+if ctrl_in_str(s)
+
+  if asc(s[1])<32                   ** check first character
+    s = "chr("+asc(s[1])+")+"+quote+substr(s,2)
+  endif
+
+  if asc(s[len(s)])<32              ** check last character
+    s = substr(s,1,len(s)-1)+quote+"+chr("+asc(s[len(s)])+")"
+  endif
+
+  for i=2 to len(s)-1               ** scan interior
+
+    if asc(s[i])<32
+
+      ** break control char into '...+chr(n)+...' format
+      s=substr(s,1,i-1)+quote+"+chr("+asc(s[i])+")+"+quote+substr(s,i+1)
+
+      i=i+7+(asc(s[i])>9)           ** compensate for length increase in s
+
+    endif
+
+  endfor
+
+  * remove any embedded null concatenations
+  s=strtran(s,'+{quote}{quote}+','+')
+
+endif
+
+return s
+*******
+* end *
+*******
+
+<<enduicode>>

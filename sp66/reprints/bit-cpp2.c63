@@ -1,0 +1,1351 @@
+*****  Computer Select, March 1994  : Articles *****
+
+Journal:    C Users Journal  Jan 1994 v12 n1 p91(19)
+COPYRIGHT R & D Publications Inc. 1994
+-------------------------------------------------------------------------
+Title:     Bit handling in C++, part 2.
+             (includes related article on function and class templates)
+             (Code Capsules)
+Author:    Allison, Chuck
+
+
+Abstract:  The bits class is one of two classes of the standard C++
+           library, which allows easy access to bits, adds important
+           functionality and allows a fixed and arbitrary number of bits
+           in a bitset. Descriptions for each member function are
+           provided via a modified excerpt from the official proposal.
+           Listing 1 provides a function template for swapping objects of
+           the same type. Listing 2 provides a class for a stack of
+           integers. Listing 3 provides out-of-line functions for the
+           stack class. Listing 4 gives a class template for homogeneous
+           stacks and Listing 5 illustrates the stack template class.
+           Listings 6 and 7 describe the bits class template interface
+           and an implementation of this class. Having an expression as a
+           template parameter allows a bits-object to be stack-based,
+           resulting in better performance than bitstring objects. The
+           bits class also includes a set of integers.
+-------------------------------------------------------------------------
+Full Text:
+
+The bits Class Template
+
+The standard C++ library has two classes for bit manipulation: bitstring
+and bits. Last month I discussed the bitstring class, which defines
+objects that behave like an array of bits that expands or contracts
+according to your needs. This month's installment explains the bits
+class, an abstraction which extends C's bitwise semantics by allowing
+easy access to bits, by allowing an arbitrary (but fixed) number of bits
+in a bitset, and by adding important new functionality. Following last
+month's format, I present here an excerpt from the official proposal
+accepted by the standards committee, a working implementation, and
+examples of how to use the class.
+
+Class bits accommodates a fixed-length collection of bits. You can think
+of a bits object as an arbitrarily large unsigned integer. It is actually
+a class template, with a number of bits in the collection as the template
+parameter. (See the sidebar "Templates in a Nutshall.") It is highly
+suitable for interfacing with the host operating system, and is designed
+for efficiency. (It can be stack-based.) Here's a sample program run on a
+machine with 16-bit integers:
+
+// tbits.ccp:
+
+// Set some bits // and display the result - #include <iostream.h>
+#include <stddef.h> #include <limits.h> #include "bits.h"
+
+main() { const size[underscore]t SIZE = CHAR[underscore]BIT *
+sizeof(int); bits<SIZE> flags; enum open[underscore]mode {in, out, ate,
+app, trunc, binary};
+
+flags.set(in); flags.set(binary); cout << "flags << " (0x" << hex <<
+flags.to[underscore]ushort() << ")/n"; cout << "binary? " <<
+(flags.test(binary) ? "yes" : "no") << end1; return 0;
+
+}
+
+Output flats: 0000000000100001 (0x21) binary? yes
+
+Member Function Descriptions
+
+This section is a modified excerpt from the official proposal which
+describes the semantics of each member function. For a quick look at the
+class interface, see Listing 6. Since the library group of the joint C++
+standards committee is still deciding how to integrate exceptions into
+the standard library, I just mention them briefly here. The names and
+uses of exceptions are subject to change. I use asserts in place of
+exceptions in the implementation (see Listing 7).
+
+1.0 Constructors
+
+Synopsis bits() bits(unsigned long n) bits(const string& s) bits(const
+bits<N>& b)
+
+1.1 Constructor bits()
+
+Description
+
+Initializes all bits to zero.
+
+1.2 Constructor bits(unsigned long n)
+
+Description
+
+Initializes the object with the bits of n. If N >sizeof(unsigned long) *
+CHAR[underscore]BIT, sets the extra bits to zero.
+
+1.3 Constructor bits (const string& s)
+
+Description
+
+Each character of s is interpreted as a bit ( a string of 1s and 0s is
+expected). In typical integral fashion, treats the last (right-most)
+character of s as bit 0.
+
+Exceptions
+
+Throws invalid[underscore]argument if a character other than 1 or 0 is
+encountered.
+
+1.4 Constructor bits(const bits<N>& b)
+
+Description
+
+Standard copy constructor.
+
+2.0 Destructor No destructor required.
+
+3.0 Other Member Functions
+
+3.1 Function unsigned short to[underscore]ushort() const
+
+Description
+
+Converts the n least significant bits of *this (where n ==
+sizeof(unsigned short) * CHAR[underscore]BIT) to an unsigned short. This
+is useful when the bits represent flags in a word passed to the operating
+system.
+
+Exceptions
+
+Throws overflow iof N > n and any of the bits above position n-1 are set.
+
+3.2 Function unsigned long to[underscore]ulong() const
+
+Description
+
+Converts the n least significant bits of *this (where n ==
+sizeof(unsigned long) *CHAR[underscore]BIT) to an unsigned long.
+
+Exceptions
+
+Throws overflow if N > n and any of the bits above position n-1 are set.
+
+3.3 Function string to[underscore]string() const
+
+Description
+
+Creates a string of 1s and 0s representing the contents of *this. As with
+unsigned integers, treats the last character as bit 0.
+
+Returns
+
+The temporary string of 1s and 0s.
+
+3.4 Function bits<N>& operator=(const bits<N>& b)
+
+Description
+
+Standard assignment operator.
+
+Returns
+
+A reference to *this.
+
+3.5 Function int operator== (const bits<N>& b) const
+
+Description
+
+Compares *this to b for equality. Two bitsets are equal if and only if
+their bit patterns are identical.
+
+Returns
+
+Non-zero if the bitsets are equal, zero otherwise.
+
+3.6 Function int operator!= (const bits<N>& b) const
+
+Descrption
+
+Compares *this to b for inequality. Equivalent to !operator==().
+
+Returns
+
+Zero if the bitsets are equal, non-zero otherwise.
+
+3.7 Function set
+
+Synopsis
+
+bits<N>& set(size[underscore]t, n, int val = 1) bits<N>& set()
+
+Description
+
+These function set one or more bits. The function set (size[underscore]t,
+int) can reset a bit, depending on val.
+
+3.7.1 Function bits<N>& set(size[underscore]t n, int val)
+
+Description
+
+Sets the nth bit if val is non-zero, otherwise resets the bit.
+
+Returns
+
+A reference to *this.
+
+Exceptions
+
+Throws out[underscore]of[underscore]range if n is not in [0,n-1].
+
+3.7.2 Function bits<N>& set()
+
+Description
+
+Sets all bits.
+
+Returns
+
+A reference to *this.
+
+3.8 Functions reset
+
+Synopsis
+
+bits<N>& reset(size[underscore]t n) bits<N>& reset()
+
+Description
+
+These functions reset one or more bits.
+
+3.8.1 Function
+
+bits<N>& reset (size[underscore]t n)
+
+Description
+
+Resets the nth bit.
+
+Returns
+
+A reference to *this.
+
+Exceptions
+
+Throws out[underscore]of[underscore]range if n is not in [[unkeyable],
+N-1].
+
+3.8.2 Function bits<N>& resent()
+
+Description
+
+Resents all bits.
+
+Returns
+
+A reference to *this.
+
+3.9 Functions toggle
+
+Synopsis
+
+bits<N>& toggle(size[underscore]t n) bits<N>& toggle()
+
+Description
+
+These functions toggle one or more bits.
+
+3.9.1 Function bits <N>& toggle(size[underscore]t n)
+
+Description
+
+Toggles the nth bit.
+
+Returns
+
+A reference to *this.
+
+Exceptions
+
+Throws out[underscore]of[underscore]range if n is not in [[unkeyable],
+N-1].
+
+3.9.2 Function bits<N>& toggle()
+
+Description
+
+Toggles all bits.
+
+Returns
+
+A reference to *this.
+
+3.10 Function bits operator~() const
+
+Description
+
+Toggles all the bits of a copy of *this.
+
+Returns
+
+A toggled copy of *this.
+
+3.11 Function int test(size[underscore]t n) const
+
+Description
+
+Tests if bit n is set.
+
+Returns
+
+Non-zero if the bit is set, zero otherwise.
+
+Exceptions
+
+Throws out[underscore]of[underscore]range if n is not in [[underscore],
+N-1].
+
+3.12 Function int any() const
+
+Description
+
+Tests if any bits at all are set.
+
+Returns
+
+[unkeyable] if all bits are [unkeyable], non-zero otherwise.
+
+3.13 Function int none() const
+
+Description
+
+Tests if no bits at all are set.
+
+Returns
+
+None-zero if all bits are [unkeyable], [unkeyable] otherwise.
+
+3.14 Function bits<N>& operator&= (const bits<N>& b)
+
+Description
+
+Performs a destructive bitwise-AND of b into *this.
+
+Returns
+
+A reference to *this.
+
+3.15 Function bits<N>& operator/=(const bits<N>& b)
+
+Description
+
+Performs a destructive bitwise-OR of b into *this.
+
+Returns
+
+A reference to *this.
+
+3.16 Function bits<N>& operator[unkeyable]=(const bits<N> & b)
+
+Description
+
+Performs a destructive bitwise exclusive-OR of b into * this.
+
+Returns
+
+A refernece to *this.
+
+3.17 Function bits<N>& operator>>=(size[unkeyable]t n)
+
+Description
+
+Shifts *this right destructively (i.e., in place) by n bit positions.
+Resets all bits if n > N. To shift "right" by n means that bit 0 receives
+the value of bit n, bit 1 receives bit (n+1), etc.
+
+Returns
+
+A refernce to *this.
+
+3.18 Function bits <N>& operator<<=(size[underscore]t n)
+
+Description
+
+Shifts *this left destructively by n bit positions. Resets all bits if n
+[greater than] N. To shift "left" by n means that bit n receives the
+value of bit 0, bit (n+1) receives bit 1, etc.
+
+Returns
+
+A reference to *this
+
+3.19 Function bits<N> operator [much greater than] (size[underscore]t n)
+const
+
+Description
+
+a non-destrucive version of opertaor [much greater than] = ().
+
+Returns
+
+The results of the shift in a temporary bits object.
+
+3.20 Function bits<N> operator [much less than] (size[underscore]t n)
+const
+
+Description
+
+a non-destrucive version of operator [much less than] = ().
+
+Returns
+
+The results of the shift in a temporary bits object.
+
+3.21 Function size[underscore] count (1) const
+
+Description
+
+Counts the number of bits that are set.
+
+Returns
+
+The number of 1 bits in *this
+
+3.22 Function size[undrescore] lenght() const
+
+Description
+
+Returns the fixed-size length of the object.
+
+Returns
+
+N.
+
+4.0 Global Functions
+
+4.1 Function ostrem& operator[much less than](ostream& os, const bits <N
+>& b)
+
+Description
+
+Sends a sequence of N 1s and 0s corresponding to the bit pattern of *this
+to the stream os.
+
+Returns
+
+A reference to the stream os. 4.2 Function istream& operator>>(istream&
+is, bits<N>& b)
+
+Description
+
+Reads a sequence of up to N 1s and [unkeyable&s from the stream is, after
+skipping whitespace. The first non-bit character thereafter terminates
+the read and remains in the stream. The corresponding bit pattern is
+reproduced in b. Treats the last 1 or [unkeyable] read from the stream as
+bit [unkeyable] of b.
+
+Returns
+
+A reference to the stream is.
+
+4.3 Function bits<N>operator& (const bits<N>& b1, const bits<N>& b2)
+
+Description
+
+Performs a bitwise-AND of b1 and b.
+
+Returns results of the bitwise-AND in a temporary bits object.
+
+4.4 Function bits<N>operator| (const bits<N>& b1, const bits<N>& b2)
+
+Description
+
+Performs a bitwise-OR of b1 and b.
+
+Returns
+
+The results of the exclusive-OR in a temporary bits object.
+
+Design Notes
+
+Having an expression instead of a type as a template parameter hasa the
+following effects:
+
+* A bits-object can be stack-based, since its size is known at compile
+time. This means less run-time overhead and therefore better perforamance
+than bitstring objects.
+
+* Objects of different sizes (i.e., with a different number of bits) are
+different types, and therefore can't be combined in operations.
+
+* No global functions taking bits arguments are allowed under the current
+definition of the language unless you define them inline in the class
+definition. The standards committee is working to fix this. See the
+sidebar, "Templates in a Nutshell," for more detail. Since a bits object
+is an extension of unsigned integers as far as bitwise operations are
+concerned, a collection of bits behaves like a number, in that bit 0 is
+the right-most bit. To be consistent with C bitwise operations, the
+statements
+
+bits<8> b; b |= 5; cout << b << end; give the result
+
+0000101
+
+that is, the bits of 5 are ORed with b (via the construcor bits(un-signed
+long)).
+
+As you can see in Listing 7, I've taken some liberties in the
+implementation of this class by changing the type of the template
+parameter to a size[underscore]t. The reason for originally making the
+number of bits an unsigned long was to guarantee a minimum size across
+platforms (the ANSI C standard states that an unsigned long must be at
+least 32 bits wide). However, this would require that countt and length
+return an unsigned long. As proof that this is unnatural, I offer the
+fact that I forgot to do so (the functions return a size[underscore]t
+because it "feels right") and no one on the committee noticed. (Actually,
+Bill Plauger finally noticed while he was editing the standard library
+documents, but that was four months after the bits class became
+official.) Furthermore, the corresponding functions in the string and
+bitstring classes also return a size[underscore]t. (They have no choice.)
+To be consistent with these classes, therefore, and because it just makes
+sense, I shall propose to the committee that we approve to obvious and
+make the template parameter a size[underscore]t.
+
+I'm also thinking of changing the name from bits to bitset. This would
+allow you to refer to an object as a "bitset" instead of always having to
+say a "bits object." (Who would ever call it a "bits"?) And one could
+argue that the function to[underscore]ushort() is superfluous, since it
+is equivalent to (unsigned short) to[underscore]ulong().
+
+Implementation Notes
+
+The Code Capsuel "Bit Handling in C" (CUJ, November, 1993) provides a
+thorough explanation of the internals of using an integral array to store
+and access individual bits, so I won't repeat it here. The techniques
+found therein serve both the bitstring and bits classes. The
+implementation of the string class is in last month's installment ("Bit
+Handling in C++, Part 1," CUJ, December functions of the bits class.
+
+Sets of Integers
+
+For those of you who miss some of the high-level features of Pascal and
+Modula-2, the bits class gives you sets of integers almost for free. Just
+define a bits object of a size appropriate for your application and do
+the following:
+
+For the set operations:
+
+insert x into s remove x from s x member of s? complement of s s1 + s21
+(union) s1 * s2 (intersection) s1 - s2 (diffrence) s1 <= s2 (subset) s1
+>= s2 (superset)
+
+Do this:
+
+s.set(x) s.reset(x) s.test(x) s.toggle() or [unkeyable]s s1 | s2 s2 & s2
+see below see below see below
+
+If this still seems too "low-level," it is a trivial matter to define a
+set-like interface to the bits class. Listing 9 defines a class template
+called Intset that has all the basic set operations along with an ostream
+inserter. The only operations that take any thought at all (but only very
+little) are set difference and subset. To remove from s1 the elements of
+s2, just reset in s1 the bits that are set in s2:
+
+s1.bitset &= [unkeyable]s2.bitset; // see Intset<N>::operator-
+
+If s1 is a subset of s2, then s1 is nothing more nor less than the
+intersection of the two sets:
+
+s1- == s1 & s2 // true iff s1 <= s2
+
+The test program in Listing 10 shows how to use the Intset class.
+
+Conclusion
+
+The acceptance of these two bit handling classes by the C++ standards
+committee shows that the needs of the sytem programmer have not been
+forgotten. Much of the hullabaloo over object-oriented technology
+emphasizes inheritance hierarchies of polymorphic, high-level abstract
+data types. These concepts are best left to specialized libraries and
+applications while the standard rightly focuses on commonly needed,
+low-level abstractions. If you have any comments on these classes, please
+contact me at the email address in the by-lin at the bottom of the page
+of this article.
+
+Listing 1 A function template for swapping two objects for the same type
+
+// swap.cpp #include <iostream.h>
+
+template<class T> void swap(T& x, T& y) { T temp = x; x = y; y = temp; }
+
+main() { int a = 1, b = 2; double c = 1.1, d = 2.2; char *s = "hello', *t
+= "there"; swap(a,b); cout [much less than] "a = " [much less than] a
+[much less than]", b [much less than] b [much less than] '[unkeyable]n';
+swap(c,d); cout [much less than] "c = " [much less than] c [much less
+than]", d = " [much less than] d [much less than] '[unkeyable]n';
+swap(s,t); cout [much less than] "s = "[much less than]", t = " [much
+less than] t [much less than] '[unkeyable]n'; return 0; } /* Output: a =
+2, b = 1 c = 2.2, d = 1.1 s = there, t = hello
+
+// End of File
+
+Listing 2 A class for a stack of integers
+
+// stackl.h; A C++ integer stack class #include <stddef.h>
+
+class Stack { size[underscore]size; int *data; int ptr;
+
+public: stack(size[underscore]t); ~Stack(); void push(nt); int pop(); int
+empty() const; int full() const; };
+
+inline Stack::Stack(size[underscore] siz) { data = new int[size = siz];
+ptr = 0; }
+
+inline Stack::~Stack() { delete [] data; }
+
+inline int Stack::empty() const { return ptr = = 0; }
+
+inline int Stack::full() const { return ptr = = size; }
+
+// End of File
+
+Listing 3 Out-of-line functions for the stack class
+
+// stackl.cpp #include "stack1.h"
+
+void Stack::push(int x) { if (ptr [less than] size) data[ptr++] = x; }
+
+int Stack::pop() { if (ptr [greater than] 0) --ptr; return data[ptr]; }
+
+// End of File
+
+Listing 4 A class template for homogeneous stacks
+
+// stack2.h: A C++ stack class template #include <stddef.h>
+
+template<class T> class Stack { size[underscore]t size; T *data; int ptr;
+
+public: Stack(size[underscore]t); ~stack(); void push(const T&); T pop();
+int empty() const; int full() const; };
+
+template<class T> inline Stack<T>::Stack(size[underscore]t siz) { data =
+new T[size = siz]; ptr = 0; }
+
+template<class T> inline Stack<T>::~Stack() { delete [] data; }
+
+template<class T> void Stack<T>:;push(const T& x) { if (ptr [less than]
+size) data[ptr++] = x; }
+
+template<class T> T Stack<T>::pop() { if (ptr [greater than] 0) --ptr;
+return data[ptr]; }
+
+template<class T> inline int Stack<T>::empty() const { return ptr = = 0;
+}
+
+template<class T> inline int Stack<T>::full() const { return ptr = =
+size; }
+
+// End of File
+
+Listing 5 Illustrates the stack template class
+
+// tstack2.h #include <lostream.h> #include "stack2.h"
+
+main() { Stack<int> s1(5), s2(5); // Push odds onto s1, evens onto s2:
+for (int i = 1; i [less than] 10; i += 2) { s1.push(i); s2.push(i+1); }
+
+// Retrieve and print in LIFO order: cout [much less than] "Stack 1:
+[unkeyable]n"; while (!s1.empty()) cout [much less than] s1.pop() [much
+less than] end1;
+
+cout [much less than] "Stack 2:[unkeyable]n"; while (!s2.empty()) count
+[much less than] s2.pop() [much less than] end1; return 0; }
+
+/* Output: Stack 1: 9 7 5 3 1 Stack 2: 10 8 6 4 2 */
+
+/* End of File */
+
+Listing 6 The bits class template interface
+
+template<unsinged long N> class bits {
+
+// Friends: // Global I/0 functions frined ostream& operator<<(ostream&,
+const bits<N>&); friend istream& operator>>(istream&, bits<N>&);
+
+/// Global bitwise operators friend bits<N> operator&(const bits<N>&,
+const bits<N>&); friend bits<N> operator|(const bits<N>&, const bits<N
+>&); friend bits<N> operato[unkeyable](const bits<N>&, const bits<N>&);
+
+public: // Constructors bits(); bits(unsigned long n); bits(const bits<N
+>& b); bits(const string& s);
+
+// Conversions unsigned short to[underscore]() const; unsigned long to
+[underscore]() const; string to[underscore]string() const;
+
+// Assignment bits<N>& operator=(const bits<N>& rhs);
+
+// Equality int operator==(const bits<N>& rhs) const; int
+operator!"(const bits<N>& rhs) const;
+
+// Basic bit operations bits<N>& set(size[underscore]t pos, int val = 1);
+bits<N>& set(); bits<N>& reset(size[undrescore]t pos); bits<N>& reset();
+bits<N>& toggle(size[underscore]t pos); bits<N>& toggle(); bits<N>
+operator~() const; int test(size[underscore]t n) const; int any() const;
+int none() const;
+
+// Bit-wise operators bits<N>& operator&= (const bits <N>& rhs); bits<N>&
+operator|=(const bits<N>& rhs); bits<N>& operator[unkeyable]=(const bits
+<N>& rhs);
+
+// Shift operators bits<N>& operator <<=(size[unkeyable]t n); bits<N>&
+operator >>=(size[unkeyable]t n); bits<N>& operator <<=(size[unkeyable]t
+n); const; bits<N>& operator >>=(size[unkeyable]t n); const;
+
+size[underscore]t count() const; size[underscore]t length() const;
+
+};
+
+// End of File
+
+Listing 7 An implementation of the bits class template
+
+// bits.h
+
+#include <iostream.h> #include <stddef.h> #include <limits.h> #include
+<asset.h> #include "string.hpp"
+
+template<size[unkeyalbe]t N> class bits {
+
+// Global I/0 functions friend ostream& operator<<(ostream& os, const
+bits<N>& rhs) {os << rhs.to[unkeyable]string(); return os;} friend
+istream& operator>>(istream& is, bits<N>& rhs) {rhs.read(is); return is;}
+
+// Global bitwise operators frined bits<N> operator&(const bits<N>& b2)
+{bits<N> r(bl); return r &= b2;} friend bits<N> operator|(const bits<N>&
+b1, const bits<N>& b2) {bits<N> r(b1); return r |= b2;} friend bits<N>
+operator[unkeyable](const bits<N>& b1, const bits <N>& b2) {bits<N>
+r(bl); return r [unkeyable]= b2;}
+
+public: // Constructors bits(); bits(unsigned long n); bits(const bits<N
+>& b); bits(const string& s);
+
+// Conversions unsigned short to[unkeyable]unshort() const; unsinged long
+to[underscore]ulong() const; string to[underscore]() const;
+
+// Assignment bits<N>& operator=(const bits <N>& rhs);
+
+// Equality int operator==(const bits <N>& rhs) const; int
+operator!=(const bits <N>& rhs) const;
+
+// Basic bit operations bits<N>& set(size[unkeyable]t pos, int val = 1);
+bits<N>& set(); bits<N>& reset(size[unkeyable]t pos); bits<N>& reset();
+bits<N>& toggle(size[unkeyable]t pos); bits<N>& toggle(); bits<N>
+operator~() const; int test(size[unkeyable]t n) const; int any() const;
+int none() const;
+
+// Bit-wise operators bits<N>& operator&=(const bits<N>& rhs); bits<N>&
+operator|=(const bits<N>& rhs); bits<N>& operator[unkeyable]=(const bits
+<N>& rhs);
+
+// Shift operators bits<N>& operator<<=(size[unkeyable]t n); bits<N>&
+operator>>=(size[unkeyable]t n); bits<N>& operator<<=(size[unkeyable]t n)
+const; bits<N>& operator>>=(size[unkeyable]t n) const;
+
+size[unkeyable]t count() const; site[unkeyable] lenght() const;
+
+private: typedef unsinged int Block; enum {BLKSIZ = CHAR[unkeyable]BIT *
+sizeof (Block)}; enum {nblks[unkeyable]=(N+BLSKSIZ-1) / BLKSIZ};
+
+Block bits[unkeyalbe][nblks];
+
+static size[unkeyable]t word(size]unkeyable] pos) {return nblks[unkeyable
+] - 1 - pos/BLKSIZ;} static size[unkeyable]t offset(size[unkeyable]t pos)
+{return pos % BLKSIZ;} static Block mask1(size[unkeyable]t pos) {return
+Block(1) << offset(pos);} static Block mask0(size[unkeyable]t pos)
+{return ~(Block(1) << offse(pos));}
+
+void cleanup(); void set[unkeyable](size[unkeyable]t pos); int set
+[unkeyable]t pos, int val); void reset[unkeyable](size[unkeyable]t pos);
+int test[unkeyable](size[unkeyable]t pos) const; void from[unkeyable
+]string (const string& s); void read(istream& is); int any(size[unkeyable
+]t start[unkeyable]pos) const; unsigned lont to(size[unkeyable]t) const;
+};
+
+template<size[unkeyable]t N> inline bits<N>::bits() { template<size
+[unkeyable]t N> string bits<N>::to[unkeyable]string() const {
+
+char *s = new char[N+1]; for (int i = 0; i < N; ++i) s[i] = '0' + test
+[unkeyable](N-1-i); s[N] = '/0'; string s2(s); delete [] s; return s2; }
+
+template<size[unkeyable]t N> bits<N>& bits<N>::operator=(const bits<N>&
+b) } if (this != &b) memcyp(bits[unkeyable],b.bits[unkeyable], nblks
+[unkeyable] * sizeof(bit[unkeyable][0])); return *this; }
+
+template<size[unkeyable]t N> inline int bits<N>::operator==(const bits<N
+>& b) const } return !memcmp(bit[unkeyable],bit[unkeyable],nblks
+[unkeyable] * sizeof(bits[unkeyable][0])); }
+
+template<size[unkeyable]t N> inline int bits<N>::operator!=(const bits<N
+>& b) const } return !operator==(b); } template<size[unkeyable]t N>
+inline bits<N>& bits<N>::set(size[unkeyable]t pos, int val0 }
+
+assert(pos < N); (void) set[unkeyable](pos, val); return *this; }
+
+template<size[unkeyable]t N> inline bits<N>& bits<N>::set() } memset(bits
+[unekyable],~0u,nblks[unkeyable] * sizeof bits[unkeyable][0]); cleanup();
+return *this; }
+
+template(size[unkeyable]t N inline bits<N>& bits<N>::reset(size[unkeyable
+]t pos) { assert(pos < N); reset[unkeyable](pos); return *this; }
+
+template<size[unkeyable]t N> inline bits<N>& bits<N>::reset() }
+memset(its[unkeyble],0,nblks[unkeyable] * sizeof bits[unkeyable][0]);
+return *this; }
+
+template<size[unkeyable]t N> inline bits<N>& bits<N>::toggle(size
+[unkeyable]t pos) } asser(pos < N); bits[unkeyable][Word(pos)] [unkeyable
+]= mask1(pos); return *this; } for (int i = 0; i < nblks[underscore];
+++i)
+
+bits[underscore][i] [unkeyable]= rhs.bits[underscore][i];
+
+return *this; } tremplate<size[underscore]t N> bits<N>& bits<N>::operator
+>>=(size[underscore]t n) }
+
+if (n > N)
+
+n = N;
+
+for (int i = 0; i < N-n; ++i)
+
+(void) set[underscore](i,test[underscore](i+n));
+
+for (i = N-n; i < N; ++i)
+
+reset[underscore](i);
+
+return *this; } template<size[underscore]t N> bits<N>& bits<N>::operator<
+<=(size[underscore]t n) }
+
+if (n > N)
+
+n = N;
+
+for 9int i = N-1, i >= n; --i)
+
+(void) set[underscore](i,test(i-n));
+
+for (i = 0; i < n; ++i)
+
+reset[underscore](i);
+
+return *this; }
+
+template<size[underscore]t N> inline bits<N> bits<N>::operator>>(size
+[underscore]t n) const }
+
+bits r(*this);
+
+return r >>= n; }
+
+template<size[underscore]t N> inline bits<N>::operator<<(size[underscore
+]t n) const }
+
+bits r(*this);
+
+return r <<= n; }
+
+template<size[underscore]t N> size[underscore]t bits<N>::count() const }
+
+size[underscore]t sum = 0;
+
+for (int i = 0; i < N; ++i)
+
+if (test[underscore](i))
+
+++sum;
+
+return sum; }
+
+template<size[underscore]t N> inline size[underscore]t bits<N>::length()
+const }
+
+return N; }
+
+// Private functions template<size[underscore]t N> inline void bits<N
+>::set[underscore](size[underscore]t pos) }
+
+bits [word(pos)] |=mask1 (pos); }
+
+template<size[underscore]t N> int bits<N>::set[underscore](size
+[underscore]t pos, int val) }
+
+if (val) template<size[underscore]t N> bits<N>& bits<N>::toggle() }
+
+size[underscore]t nw = nblks[underscore];
+
+while (nw--)
+
+bits[underscore][nw] = [unkeyable]bits[underscore][nw];
+
+cleanup();
+
+return *this; }
+
+template<size[underscore]t N> inline bits<N> bits <N> bits <N>::operator
+[unkeyable]() const }
+
+bits<N> b(*this);
+
+b.toggle();
+
+return b; }
+
+template<size[underscore]t N> inline int bits <N>::test(size[underscore]t
+pos) const }
+
+assert (pos < N);
+
+return test[underscore](pos); }
+
+template<size[underscore]t N> int bits <N>::any() const }
+
+for (int i = 0; i < nblks[underscore]; ++i)
+
+if (bits[underscore][i])
+
+return 1:
+
+return 0; }
+
+template<size[underscore]t N> inline int bits<N>::none() const }
+
+return !any(); }
+
+template<size[unkeyable]t N> bits<N>& bits<N>::operator&=(const bits<N>&
+rhs) }
+
+for (int i = 0; i < nblks[underscore]; ++i)
+
+bits[underscore][i] &= rhs.bits[underscore][i];
+
+return *this; }
+
+template<size[underscore]t N> bits<N>& bits <N>::operator|=(const bits<N
+>& rhs) }
+
+for (int i = 0; i < nblks[unkeyable]; ++i)
+
+bits[unkeyable][i] |= rhs.bits[unkeyable][i];
+
+return *this; }
+
+template<size[underscore]t N> bits <N>& bits <N>::operator[unkeyable
+]=(const bits<N>& rhs) }
+
+set[underscore](pos);
+
+else
+
+reset[underscore](pos);
+
+return !!val; }
+
+template<size[underscore]t N> inline void bits<N>::reset[underscore]t
+pos) }
+
+bits[underscore][word(pos)] &= mask0(pos); }
+
+return !!(bits[underscore][word(pos)] & mask1(pos)); }
+
+template<size[underscore]t N> inline void bits<N>::cleanup() }
+
+// Make sure unused bits don't get set
+
+bits[underscore][0] &= ([unkeyable]Block(0) >> (nblks[underscore] *
+BLKSIZ - N)); }
+
+template<size[underscore]t N> void bits <N>::from[underscore]string(const
+string& s) }
+
+// Assumes s contains only 0's and 1's
+
+size[underscore]t slen = s.length();
+
+reset();
+
+for (int i = slen-1; i >= 0; --i)
+
+if (s.get[underscore]at(i) == '1')set[underscore](slen-i-1); }
+
+template<size[underscore]t N> void bits<N>::read(istream& is) }
+
+char *buf = new char[N]; char c;
+
+is >> ws; for (int i = 0; i < N; ++i) } is. get(c); if (c == '0' || c ==
+'1') buf[i] = c; else } is.putback(c); buf[i] = '/0'; break; } }
+
+if (i == 0) is. clear(ios::failbit); else from[underscore
+]string(string(buf)); delete buf; }
+
+template<size[underscore]t N> int bits<N>::any(size[underscore]t start)
+const { // See if any bit past start (inclusive) is set
+
+for (int i = start; i < N;   i)
+
+if (test[underscore](i)) return 1; return 0; }
+
+template<size[underscore]t N) unsigned long bits<N>:: to size[underscore
+]t nblks) const { if (nblks > 1) { int i; unsigned long n = bits
+[underscore][nblks[underscore] - nblks];
+
+/* Collect low-order sub-blocks into an unsigned */ if (nblks > nblks)
+nblks = nblks[underscore]; while ( - -nblks) n = (n << BLKSIZ) | bits
+[underscore][nblks[underscore] - nblks]; return n; } else return
+(unsigned long) bits[underscore][nblks[underscore] - 1 ]; }
+
+/* End of File */
+
+Listing 8 Tests the bits class
+
+// tbits.cpp #include <iostream.h> #include <iomanip.h> #include
+<stddef.h> #include <limits.h> #include "bits.h"
+
+main() { const sizetunderscore]t SIZE = CHAR[underscore]BIT *
+sizeof(unsigned long); unsigned long n = 0x12345678; bits<SIZE> x(n),
+y(string("10110")), z(x);
+
+cout << "Initial x: " << x << endl; cout << "Initial y: " << y << endl;
+cout << "Initial z: " << z << endl; cout << "Enter new z: "; cin >> z;
+cout << "New z: " << z << endl; cout << "z == " << z.to[underscore
+]ulong() << endl; cout << "y == " << y.to[underscore]ushort() << endl;
+cout << "x == " << x.to[underscore]ulong() << endl;
+
+cout << "x: " << x << " (" << x.count() << " bits set)" << endl; cout <<
+"x == 0x12345678L? " << (x == 0x12345678L) << endl; cout << "x: " << x <<
+endl; cout << "x: " << hex << setfill('0') << setw(sizeof(unsigned
+long)*2) << x. to[underscore]ulong() << dec << endl; cout << "x <<= 6 ==
+" << (x <<= 6) << endl; cout << "x >>= 6 == " << (x >>= 6) << endl; cout
+<< "85 == " << bits<SIZE>(85) << endl; cout << "x [unkeyable] 85 == " <<
+(x [unkeyable] 85) << endl; cout << "x & 85 == " << (x & 85) << endl;
+cout << "85 & x === " << (85 & x) << endl; cout << "[unkeyable]x == " <<
+([unkeyable]x) << " == " << ([unkeyable]x).to[underscore]ulong() << endl;
+
+y = 0x55555550L; cout << "y: " << y << " (" << y.count() << " bits set)"
+<< endl; cout << "y[0]: " << hex << setfill ('0') << setw(sizeof(unsigned
+long)*2) << y.to[underscore]ulong() << dec << endl; cout << "x 8 y == " <
+< (x 8 y) << endl; cout << "x | y == " << (x | y) << endl; cout << "x
+[unkeyable] y == " << (x [unkeyable] y) << endl; cout << "x != y? " << (x
+!= y) << endl; return 0; }
+
+/* Sample Execution: Initial x: 00010010001101000101011001111000 Initial
+y: 00000000000000000000000000010110 Initial z:
+00010010001101000101011001111000 Enter new z: 101001000100001000001 New
+z: 00000000000101001000100001000001 z == 1345601 y == 22 x == 305419896
+x: 00010010001101000101011001111000 (13 bits set) x == 0x12345678L? 1 x:
+00010010001101000101011001111000 x: 12345678 x <<= 6 ==
+10001101000101011001111000000000 x >>= 6 ==
+00000010001101000101011001111000 85 == 00000000000000000000000001010101 x
+[unkeyable] 85 == 000000100011010001101000101011000101101 x & 85 ==
+000000000000000000000000001010000 85 & x ===
+00000000000000000000000001010000 [unkeyable]x ==
+11111101110010111010100110000111 == 4257982855 y:
+0101010101010101010101010101010000 (14 bits set) y[0]: 55555550 x & y ==
+00000000000101000101010001010000 x | y ==
+0101011101110101010101011101111000 x [unkeyable] y ==
+01010111011000010000001100101000 x != y? 1
+
+// End of File
+
+Listing 9 Implementation of sets of integers
+
+#if !defined(INTSET[underscore]H) #define INTSET[underscore]H
+
+#include <iostream.h> #include <stddef.h> #include "bits.h"
+
+template<size[underscore]t N> class Intset {
+
+public:
+
+// NOTE: The following constructors shouldn't be // necessary. The
+compiler-generated ones should // suffice. For some reason, Borland 3.1
+requires // these (WATCOM does not).
+
+// Constructors Intset(); Intset(const Intset<N>& is);
+
+// set operations Intset<N> operator-(const Inset<N>& is) const; Intset<N
+> operator (const Intset<N>& is) const; Intset<N> operator*(const Intset
+<N>& is) const; Intset<N> operator[unkeyable]() const; int
+operator==(const Inset<N>& is) const; int operator!=(const Entset<N>& is)
+const; int operator<=(const Intset<N>& is) const; int operator>=(const
+Intset<N>& is) const;
+
+//Member operations int contains(size[underscore]t n) const; Intset<N>&
+insert(size[underscore]t n); Intset<N>& remove(size[underscore]t n);
+
+size[underscore]t count() const; friend ostream& operator<<(ostream& os,
+const Intset<N>& is) {is.print(os); return os;}
+
+private:
+
+bits<N> bitset;
+
+int subsetof(const Intset<N>& is) const; void print(ostream& os) const;
+};
+
+template<size[underscore]t N> Intset<N>::Intset() {
+
+bitset.reset(); }
+
+template<size[underscore]t N> Intset<N>::Intset(const Intset<N>& is) {
+bitset = is.bitset; }
+
+template<size[underscore]t N> inline Intset<N> Intset<N>::operator-(const
+Intset<N> &is) const {
+
+Intset<N> r(*this); r.bitset &= [tilde]is.bitset; return r; }
+
+template<size[underscore]t N> inline Intset<N> Intset<N>::operator+(const
+Intset<N> &is) const {
+
+Intset<N> r(*this); r.bitset |= is.bitset; return r; }
+
+template<size[underscore]t N> inline Intset<N> Intset<N>::operator*(const
+Intset<N> &is) const {
+
+Intset<N> r(*this); r.bitset &= is.bitset; return r; }
+
+template<size[underscore]t N> inline Intset<N> Intset<N>::operator[tilde
+]() const {
+
+Intset<N> r(*this); r.bitset.toggle(); return r; }
+
+template<size[underscore]t N> inline int Intset<N>::operate==(const
+Intset<N> &is) const {
+
+return bitset == is.bitset; }
+
+template<size[underscore]t N> inline int Intset<N>::operator!=(const
+Intset<N> &is) const {
+
+return bitset ! = is.bitset; }
+
+template<size[underscore]t N> inline int Intset<N>::operator<=(const
+Intset<N> &is) const {
+
+return subsetof(is); }
+
+template<size[underscore]t N> inline int Intset<N>::operator>=(const
+Intset<N> &is) const {
+
+return is.subsetof(*this); }
+
+template<size[underscore]t N> inline int Intset<N>::contains(size
+[underscore]t n) const {
+
+return bitset.test(n) }
+
+template<size[underscore]t N> inline Intset<N>& Intset<N>::insert(size
+[underscore]t N> {
+
+bitset.set(n); return *this; }
+
+template<size[underscore]t N> inline Intset<N>& Intset<N>::remove(size
+[underscore]t n) {
+
+bitset.reset(n); return *this; }
+
+template<size[underscore]t N> inline size[underscore]t Intset<N>::count()
+const {
+
+return bitset.count(); }
+
+template<size[underscore]t N> inline int Intset<N>::subsetof(const Intset
+<N>& is) const {
+
+bits<N> r(bitset); r &= is.bitset; return bitset == r; }
+
+template<size[underscore]t N> void Intset<N>::print(ostream& os) const {
+
+os << '{'; int first[underscore]time = 1; for (int i = 0; i < N; ++i) if
+(bitset.test(i)) {
+
+if (!first[underscore]time) os << ','; os << i; first[underscore]time =
+0; }
+
+os << '}'; }
+
+#endif
+
+/* End of File */
+
+Listing 10 Tests the Intset class
+
+//tintset.cpp #include <iostream.h> #include "intset.h"
+
+main() {
+
+Intset<16> x, y;
+
+for (int i = 0; i < 10; ++i) {
+
+x.insert(i); if (i % 2) y.insert(i); }
+
+cout << "x == " << x << endl; cout << "y == " << y << endl; cout << "y <=
+x? "<< (y <= x) << end; cout << "y >= x? " << (y >= x) << endl; cout <<
+"x - y == " << x - y << endl; cout << "x + y == " << x + y << endl; cout
+<< "x * y == " << x * y << endl; cout << "[tilde]x == " << [tilde]x <<
+endl; cout << "x.contains(2)? " << x.contains(2) << endl; cout <<
+"y.contains(2)? " << y.contains(2) << endl; cout << "x.count() == " <<
+x.count() << endl; cout << "y.count() == " << y.count() << endl; return
+0; }
+
+/* Output; x == {0,1,2,3,4,5,6,7,8,9} y == {1,3,5,7,9} y <= x? 1 y >= x?
+0 x - y == {0,2,4,6,8} x + y == {0,1,2,3,4,5,6,7,8,9} x * y == {1,3,5,7,9
+} [tilde]x == {10,11,12,13,14,15} x.contains(2)? 1 y.contains(2)? 0
+x.count() == 10 y.count() == 5 */
+
+// End of File
+
+Related article: Templates In A Nutshell
+
+A template is a parameterized layout for defining a function of class.
+The parameters are usually types, but class templates can also have value
+parameters. Template definitions allow you to specify the logic of a
+function or class once and then have the compiler create specific
+functions or classes for different types as you need them.
+
+Function Templates
+
+Consider the swap function
+
+void swap(int& x, int& y) {
+
+int temp = x; x = y; temp = y; }
+
+This works only for integer argumants. You need a different version of
+swap for each data type for which you want to swap elements. If you
+inspect the version for doubles:
+
+void swap(double& x, double& y) {
+
+double temp = x; x = y; temp " y; }
+
+you'll notice that the only change was to substitute double for int in
+the text. This suggests a macro solution, with the data type as a
+parameter:
+
+// genswap.h #define genswap(T) void swap(T& x, T& y) / } /
+
+T temp = x; / x = y; / y = temp; / }
+
+To generate different versions of swap, call genswap as needed:
+
+#include <iostream.h> #include "genswap.h"
+
+genswap(int) // Awkward syntax, genswap(double) // I'll admit.
+
+main() {
+
+int i = 1, j = 2; double x = 1.1, y = 2.2; swap(i, j); swap(x,y); cout
+[much less than] i [muchless than] ',' [much less than] j [much less than
+] end1; // 2,1 cout [much less than] x [much less than] ',' [much less
+than] y "much less than] end1, // 2.2,1.1 return 0; }
+
+This has the advantage of allowing you to specift the function logic only
+once.
+
+A function template is much the same as the genswap macro, except that
+you don't have to explicitly generate the functions you need. After
+seeing the template defition
+
+template<class T> void swap(T& x, T& y) {
+
+T temp = x; x = y; y = temp; }
+
+the compiler automatically generates versions as needed when it finds a
+call to swap. (See Listing 1.) You can use any type, including built-ins,
+for the template argument.
+
+Class Templates
+
+You can also parameterize class definitions. A good candidate is a stack,
+since the logic of stack operations is the same no matter what type the
+stack elements are. Listing 2 and 3 have the definition of an integer
+stack class. To templatize this class, procede the class definition with
+the line
+
+template<class T>
+
+as before, and change all occurrences of int that refer to the type of
+elements on the stack to T (see Listing 4). You instantiate a specific
+stack class like this:
+
+Stack<int> s1(5);
+
+This type of s1 is Stack<int> ("stack of int"). The token Stack cannot
+appear unqualified outside of the class template definition. See Listing
+5 for an example of using Stack template classes. (Point of Terminology:
+A "class template" is the original template definition. A "template
+class" is a particular class instantiated from the class template, such
+as Stack<int>.)
+
+Note that there is no separate stack2.cpp file. My compilers (Borland 3.1
+and WATCOM 9.5) require the entire class implementation to be visible
+during compilation, so everything is in an include file.
+
+A class template can also have value parameters. The bits class in this
+article is a good example:
+
+template<size [underscore] t N> class bits {
+
+// ... };
+
+The value for N must be a constant expression when instantiated:
+
+bits<16> b1; // ok const size [underscore] t n = 32; bits<n> b2; // ok
+size [underscore] t m = 64; bits<m> b3; // nope - m not const
+
+Since the specific values of N in a program are known at compile time,
+the array inside a bits<N> object can be placed on the stack, thus
+avoiding the need for dynamic memory management.
+
+A disadvantage of value parameters occurs with friend functions. Consider
+the friend function operator& defined in the bits class. To define this
+outside of the class definition itself, you would have to write:
+
+template<size [underscore] t N> bits<N> operator&(const bits<n>& b1,
+const bits<N>& b2) {
+
+// ... }
+
+Since this is not a member function, the compiler recognizes it as a
+function template definition. Under the current definition of the
+language, global function templates can only have type arguments (e.g.,
+class T), because a compiler uses overloading rules to resolve them.
+That's why I had to fully define all friends inside of the bits<N> class
+template definition. The joint C++ standards comittee voted in November
+to allow out-of-line definitions of friend functions for class templates.
+-------------------------------------------------------------------------
+Type:      Tutorial
+           Column
+Topic:     C Programming Language
+           Object-Oriented Programming
+           Program Development Techniques
+           Bit Manipulation
+           Program Libraries
+           Functions
+           Tutorial
+
+
+Record#:   15 012 510
+                              *** End ***

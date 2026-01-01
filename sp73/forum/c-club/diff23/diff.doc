@@ -1,0 +1,462 @@
+
+
+                           Diff - A Change Bar Tool
+
+
+
+                                  Peter van Es
+                             CompuServe 72677,1417
+          
+         As a person who has to maintain large amounts of
+         documentation and needs to be able to track changes through
+         successive revisions of the same document, I quickly felt the
+         need for a tool which would insert change bars into
+         documents.
+          
+         Remembering an article in Dr. Dobb's Journal, August 1987, by
+         Don Krantz, I found a utility written in C which would insert
+         Change Bars into existing document files in normal ASCII,
+         exactly what I needed.  I entered the program on my system,
+         converting it to Turbo C (mainly using the Turbo C library
+         routines for string comparisons) and tested it.  Whereas the
+         program worked fine on small text files, I had files for a
+         document of 900 K text to process.  The program's limitations
+         became painfully obvious very rapidly.  As it was written,
+         the program could not:
+          
+         -    deal with differences of over 200 lines, since the
+              resync module only looked 200 lines ahead;
+          
+         -    handle large text files since both uppercase and normal
+              versions of the line were stored in memory.
+          
+         Furthermore the program was very slow on dealing with small
+         changes (1 line inserted or deleted) due to the way the
+         resynchronization algorithm was implemented.
+          
+         Rather than re-designing the program I went through a series
+         of revisions on the program, tackling problems in small
+         chunks.  Perhaps it would have been better to re-design the
+         program, but the resulting program has solved all of these
+         limitations, and works just fine for my needs.  Some of the
+         existing limitations are documented at the end of this
+         document.
+          
+         Why have I documented the change process here?  Well, I
+         dislike two things:
+          
+         -    reinventing the wheel;
+          
+         -    optimizing programs by delving into optimizers, or
+              transforming parts into assembler routines.
+          
+         I believe in optimizing programs through the use of
+         different, more efficient algorithms.  Changing a high level
+         language into assembler in selected places may give you a 10%
+         speed increase, or, if you are lucky, a 50% increase.  By
+         altering the algorithm you can achieve improvements of 100%
+         to 1000% much more easily (depending on the problem, of
+         course).  I hope that my thought processes might be of use to
+         someone else, which is why I document them in this document.
+
+
+                                    Page 1
+
+
+
+
+
+                           Diff - A Change Bar Tool
+
+
+
+         The Improvements
+          
+          
+         The first problem was easy to solve.  The original program
+         stored a line read into memory both in normal format and in
+         uppercase format to allow case insensitive change bars to be
+         inserted.  Since Turbo C provides a subroutine to compare two
+         strings either with case sensitivity (strcmp()) or without
+         (stricmp()) the memory use of the program was halved at the
+         cot of some processing speed (deciding which one of the two
+         comparison routines to use).  Since these routines have been
+         optimized by Borland, they actually performed faster than the
+         routine that was originally in the program.
+          
+         The program included a good memory management scheme, which
+         ensured that every line of text was only read once, and
+         allocated memory would be freed at the earliest possible
+         opportunity, when a match has been found.  Since this scheme
+         is quite efficient, I decided to keep it as an essential part
+         of the program.
+          
+         Upon inspection the program was still CPU bound, spending
+         most of its time in string comparisons, with the disk drive
+         being idle.  In order to eliminate the time on most of these
+         comparisons, where the same line of text is compared over and
+         over again with other lines, a simple hash value of the
+         characters in the line is added to the structure containing
+         the line.  This hash value, or checksum, is an exclusive or
+         of all the characters in the line.  Instead of comparing
+         lines, the program now compares the pre-calculated checksums,
+         and only if they are equal, will it compare the line
+         character for character.  This reduced the amount of
+         processing on similar lines considerably.
+          
+         However, the program was still very slow, which was very
+         noticeable on files with lots of small changes.  Furthermore,
+         the program couldn't cope with changes of more than 200 lines
+         of text.  Checking the program revealed why this was so.  The
+         program would always take a line from file 1, and look up to
+         200 lines ahead in file 2, to find the matching line.  Then
+         it would take line 2 of file 1, and look 200 lines ahead from
+         the current line of file 2 again.  And so on, until it had
+         found a minimum of re-sync (which is a command line
+         modifiable value, normally set at 5) of un-changed lines.
+         This meant that in order to detect a 1 line change, the
+         program could perform up to a 1000 line comparisons.
+          
+         Since most changes two documents are small ones, I modified
+         the program so that it now starts by checking only 10 lines
+         ahead.  If that fails, it looks 20 lines ahead, then 40, 80
+         and so on until it runs out of memory.  There is no upper
+         limit on the number of lines, other than constrained by
+         memory.  As a result, a small change requires far fewer
+         comparisons and is detected far more rapidly.
+
+
+                                    Page 2
+
+
+
+
+
+                           Diff - A Change Bar Tool
+
+
+
+          
+         Big changes can also be detected, since the program does not
+         have the artificial constraint of 200 lines look ahead
+         anymore.  If it doesn't match on 80 lines it tries 160, then
+         320 and so on until it runs out of memory.  Since the memory
+         management function is quite efficient (discarding lines as
+         soon as a match has been found) quite a few lines can be
+         stored in memory.  That is also why the compact compilation
+         model is used, maximizing the amount of allocatable memory
+         for a small program.
+          
+         There still turned out a problem with this.  The program
+         could now almost always synchronize, but on extremely large
+         changes this was still very slow.  The reason for this is,
+         that every time the lookahead number of lines is doubled, the
+         program has to start at line 1 of file 1 again, but now
+         checking half the number of lines in file 2 for the second
+         time, and half for the first time.  Ie, the same line would
+         be compared against the same line lots of times anyway.  In
+         order to minimize the amount of repeat lookups which occur
+         every time that the lookahead lines are increased, the
+         program now assumes that after 40 lines couldn't match, the
+         change is probably very big, and the lookahead is set to 400
+         lines.  If it still doesn't match, it sets them at 800, 1600
+         etc until it runs out of memory.
+          
+         Regrettably, although this helped a little bit, it was only a
+         little bit, since for each of the 400 lines in file 1 each
+         and everyone of the 400 lines in file 2 are checked, leaving
+         the program still CPU bound.
+          
+         Then a brainwave hit.  If we can use the checksum (a value
+         between 0 and 255) to compare lines in the files, why can't
+         we use it to quickly locate a line already read in for file
+         2?  So an array was created, with an entry for each possible
+         checksum value.  This entry is the start of an ordered linked
+         list, pointing to lines with the same checksum.  Rather than
+         having to check all lookahead lines in order to resync, the
+         program uses the checksum value of the line in file 1 to
+         index into the array of linked lists.  It then traverses the
+         list of lines with the same checksum, comparing the lines
+         until one has been found which is equal.  If none are found,
+         the program takes the next line from file 1, and repeats the
+         process.  If no match can be found at all, the program
+         restarts the lookahead procedure with twice the number of
+         lines to look ahead.  In order to ensure that sufficient
+         lines are present, lookahead lines are read every time, which
+         means that the memory management still works and memory gets
+         cleared every time a synchronization has been detected.  At
+         one point a resync will either be found, or end of file
+         reached (or memory is full -- this will not happen soon since
+         matched lines are discarded from memory, so the change would
+         have to exceed the size of memory).
+          
+
+
+                                    Page 3
+
+
+
+
+
+                           Diff - A Change Bar Tool
+
+
+
+         However, since file 2 is not scanned sequentially but
+         randomly, the last line before a match (which is used to be
+         able to produce the "deleted from file 2" difference list) is
+         not available any more.  In order to allow for this, the line
+         structure now includes a pointer to the previous line, so
+         that the difference summary can still be printed.
+          
+         The nextline() and discard() functions maintain the line
+         structure list, and have been modified to maintain the
+         checksum array and the previous line list as well.  Resync
+         has been altered substantially in order to take advantage of
+         the array.  Minor modifications have been made to other
+         routines in order to provide extra error checking.
+          
+         As a result of these modifications the program now is much
+         faster especially with lots of small changes (due to the
+         lookahead line policy), and all large changes (due to the
+         checksum linked list).  So much so, in fact, that it is also
+         I/O bound (ie the disk drive is almost operating
+         continuously).  And it can handle bigger changes.  The
+         program now can put change bars into my 900 K of document
+         faster than my word processor can print it.
+          
+          
+         Limitations of the program.
+          
+         The main limitation of the program is due to the resynchro-
+         nization algorithm.  The program considers a file
+         resynchronized if it discovers a number of matched lines.
+         This number is set at 3 as a default, but can be modified
+         using the -r option.  However, the results of this algorithm
+         can be surprising.  When text has been duplicated (with more
+         than resync lines) and sandwiched in between new text, and
+         the old text has been left unchanged after the inserted text
+         (as in the following example), a match will be detected.  In
+         the example assume that resync is 3.
+          
+                      file 1                        file 2
+          
+                        A                             P
+                        B _______                     Q
+                        C        \                    R
+                        D ______  \__________________ B
+                        E ____  \                     C
+                        F     \  \___________________ D
+                        G      \                      S
+                        H _     \                     T
+                        I  \     \                    B
+                            \     \                   C
+                             \     \                  D
+                              \     \________________ E
+                 A false match...                     F
+                                \                     G
+                                 \___________________ H
+
+
+                                    Page 4
+
+
+
+
+
+                           Diff - A Change Bar Tool
+
+
+
+         As can be seen above, BCD in file 1 will match with the first
+         occurrence of BCD in file 2.  And as a result, the second BCD
+         in file 2 will not match with the BCD in file 1.  (The
+         remainder, EFGH will match again).  A more logical match
+         would have been to leave the PQBCDRST sequence as a new
+         insert, and just match on the sequence BCDEFGH.  (Note that
+         the first match could have been avoided by selecting the
+         number of lines to be resynced to be larger than 3).
+          
+         A different algorithm, called the "longest common
+         subsequence" algorithm, will do just that automatically.  It
+         will select the longest matching sequence in the file and use
+         that as a basis for selecting the second longest matching
+         sequence both above and below the longest matching sequence
+         just found, and so on until all sequences have been found.
+         This method is also particularly suitable for implementation
+         using hashing.  However, a disadvantage of this algorithm is
+         that no lines can be discarded until both files have been
+         processed in their entirety.  As a result either lines have
+         to be kept on disk (for instance storing the lseek() value in
+         the line buffer with the checksum, so that lines can be
+         retrieved from disk using direct access), or the size of the
+         files that can be processed is limited.  Furthermore, since
+         the program will recursively check for matching subsequences
+         (compare it for instance with CAR Hoare's QuickSort
+         algorithm) this algorithm will produce better difference
+         reports only at the cost of much more computer time.  Thus
+         this algorithm is used most often on mini-computer systems.
+          
+         Note that a mix between the "longest common subsequence"
+         algorithm as described above, and the "scan until next match"
+         as implemented in the program presented here can be
+         implemented to good effect.  Rather than having a minimum
+         number of lines before resync is achieved, select a maximum
+         number of lines after which a matching subsequence is
+         considered the longest, causing the file to be split.  By
+         setting this number as one larger than the largest sequence
+         which occurs more than once in a file (eg 100 lines) the
+         program will produce the same results as the unconstrained
+         version of the program, in less processing time.
+          
+         A final limitation of the program is due to the fact that it
+         compares files on a line by line basis.  This is fine for for
+         instance program source code, but gives problems with most
+         automatic paragraph reformatting features available in word
+         processors.  The result of inserting a word in one sentence
+         can often be a re-format of several lines of text in the
+         paragraph.  Although in reality those sentences have not
+         changed, the program will think they are changed.
+          
+         The solution is to perform the comparison on a sentence by
+         sentence (or word by word) basis rather than line by line.
+         The difficulty is however not in the synchronization
+         algorithm (since that can stay as it is), but in the
+
+
+                                    Page 5
+
+
+
+
+
+                           Diff - A Change Bar Tool
+
+
+
+         algorithm which inserts change bars on the correct line in
+         the correct place in the document.  You would have to store a
+         representation of the original line of text somewhere, and
+         use a pointer to associate every word with the line from
+         which it came.  This modification is left as an exercise for
+         the reader, however.  If I ever get to it, I'll put the
+         resulting code in Public Domain again.
+          
+          
+         Using the diff program.
+          
+         diff - text file differencer and change barrer
+         usage: diff [option{option}] newfile oldfile [barfile]
+          
+         Where the options are optional and can be inserted in any
+         order except for the -n and -o option (which must appear in
+         that order).  Newfile and Oldfile are required (you don't
+         want to compare a file against nothing, do you?).  Barfile is
+         optional, but required if you want a file with change bars in
+         it as output.
+          
+         The options are:
+          
+           -t   trace operation, default off
+           -b n column of barfile for change bar, default 78
+           -h n lines at top of page to skip for headers, default 0
+           -f n lines at bottom of page to skip for footers,
+                default = 0
+           -p n lines per page (embedded form feeds override),
+                default = 66
+           -c   uppercase/lowercase is significant (default is off)
+           -r n lines that must match before files are considered
+                synced after differences are found. default = 3
+           -w   blank lines are considered significant (default is
+                not)
+           -s   screen listing off (default is on)
+           -n n pages in NEWFILE to skip before compare.  Also sets -
+                o. default = 0
+           -o n pages in OLDFILE to skip before compare.  Must come
+                after -n.  default = 0
+          
+          
+         The Trace option (-t) only shows if the program has been
+         compiled with the debug option on.  It shows debug messages.
+          
+         The Bar-column option (-b) selects the column in which the
+         vertical bar will be placed.  The default is column 78.
+         Column 0 will put it in the left most position on the page.
+         If your program contains embedded tabs, these are not
+         expanded automatically to ensure that when the bar should
+         appear in column 78, it actually does appear there.  So use
+         the option -b 0 in this case.
+          
+          
+
+
+                                    Page 6
+
+
+
+
+
+                           Diff - A Change Bar Tool
+
+
+
+         The Header option (-h) and Footer option (-f) allow you to
+         specify the number of lines to skip at the top of the page
+         and the bottom of the page for headers and footers.  You
+         don't usually want change bars just because the date or page
+         numbering of a file has changed.
+          
+         The Page length option (-p) allows you to specify the number
+         of lines per page.  66 is the Default.
+         The Case Sensitive (-c) option will insert change bars if
+         just the case of text has changed.  The default is no case
+         sensitivity, so that for instance changing "New york" into
+         "New York" does not generate a change bar.  For case
+         sensitive language's program listings you'll want to use the
+         -c option.
+          
+         The Resync option (-r) specifies the number of lines that
+         must match before the files are considered re-synced.  The
+         limitations of this parameter have been discussed above.  The
+         default is 3.  For program source code you'll want to
+         experiment with slightly larger values.
+          
+         The White option (-w) makes blank lines significant.  The
+         default is that they are not significant.  I never use this
+         option, but perhaps you have a need for it.
+          
+         The Screen option (-s) turns off the screen listing of the
+         differences.  This speeds up the program when you are not
+         interested in the differences list, or when you use the
+         program in a batch file.  Note that the program will give an
+         error message if you specify the -s option and no bar file
+         (since then all it would do is waste computer time).  The
+         differences list to screen has the following format:
+          
+         002:12<This text has been added to the newfile on page 2,
+         002:13<lines 12 and 13.
+         002:12>This line has been deleted from oldfile, page 2 and
+         002:13>lines 12 and 13 and 14.  Note that every time a match
+         002:14>has been found a blank line is printed first.
+          
+         (Note the direction of the arrows: < for insertion into the
+         newfile, >for deletion (extraction if you like) from the
+         oldfile to the newfile).
+          
+         The Newfile skip option (-n) and the Oldfile skip option (-o)
+         allow you to skip pages at the beginning of the file for
+         header pages and contents lists and the like, where you are
+         not interested in change bars.  Note that the -n option sets
+         the -o option (unless you override the -o setting by
+         explicitly including it in case contents lists are different
+         lengths).
+
+
+
+
+
+
+                                    Page 7
+
+
+

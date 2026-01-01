@@ -1,0 +1,767 @@
+;22-01-90 Yuri Kozlovski ,Izmail
+;
+;4_________ Structure programming macroses _________
+;
+
+;	General macroses
+use__1	macro	z
+lev__&z =0
+	endm
+
+use__2	macro	y
+lev__&y =lev__&y+1
+	endm
+use__3	macro	x
+cnt__1	=0
+	rept	lev__l
+cnt__1	=cnt__1+1
+	use__2 %cnt__1
+	endm
+	endm
+
+ret__l macro x,y
+old__l	=y-lev__&x
+	endm
+
+	lev__l	=0
+	lev__0	=0
+	beg__f	=0
+	com__c	=0
+	old__l	=0
+	swc__f	=0
+	iif__c	=0
+	els__c	=0
+	mul__f	=0
+
+use__4	macro
+	com__c	=com__c+1
+if	beg__f
+	lev__l	=lev__l+1
+	use__1	%lev__l
+	use__3	%lev__l
+else
+	use__3	%lev__l
+endif
+	beg__f	=1
+	endm
+
+rel__l	 macro x
+	cnt__2=0
+	not$	=0
+	irpc	char,x
+	ifidn	<char>,<n>
+	  not$=1
+	  else
+	   ifidn   <char>,<N>
+	    not$=1
+	   endif
+	endif
+	cnt__2=cnt__2+1
+	endm
+endm
+
+;	do macros
+;	count	- cycle number
+;	step	- cycle grouth step
+;	Reserved symbols: do$,ldo$  labels: $$Dnn  n - number
+
+dom__1	macro	x
+$$A&x&n:
+	endm
+
+do	macro count
+	use__4
+	swc__f=0
+ifnb	<count>
+	ifdif	<count>,<l>
+	ifdif	<count>,<L>
+	push	cx
+	mov	cx,count
+	endif
+	endif
+endif
+	dom__1	%com__c
+	endm
+
+enddo__1 macro	 x
+	loop	$$A&x&n
+$$A&x&e:
+	endm
+enddo__2 macro	 x
+	dec	cx
+	jz	$$A&x&e
+	jmp	$$A&x&n
+$$A&x&e:
+	endm
+
+enddo	 macro	 L
+ife	beg__f
+ret__l	%lev__l,%com__c
+	lev__l	=lev__l-1
+ifb	<L>
+	enddo__1 %old__l
+else
+	enddo__2 %old__l
+endif
+else
+ifb	<L>
+	enddo__1 %com__c
+else
+	enddo__2 %com__c
+endif
+endif
+	beg__f	=0
+	pop	cx
+	endm
+
+UNTIL	macro	reg,rel,arg,L
+ifnb	<reg>
+	cmp	reg,arg
+endif
+ifb    <L>
+	rel__l rel
+endif
+ife	beg__f
+	ret__l	    %lev__l,%com__c
+	lev__l=lev__l-1
+	until1	    %old__l,rel,L
+else
+	until1	    %com__c,rel,L
+endif
+	beg__f	=0
+	endm
+
+until1	macro y,z,w,a
+ifnb	<w>
+	j&z	 $$A&y&e
+	jmp	 $$A&y&n
+ife	mul__f
+$$A&y&e:
+endif
+else
+	ife	not$
+	jn&z	$$A&y&n
+ife	mul__f
+$$A&y&e:
+endif
+	else
+	cnt__3=0
+	ife	cnt__2-2
+	irpc char,z
+	 cnt__3=cnt__3+1
+	  ife	 cnt__3-2
+	   until2  y,char
+	  endif
+	  endm
+	else
+	irpc char,z
+	  cnt__3=cnt__3+1
+	   ife cnt__3-2
+	     cnt__3=0
+	       irpc    ch,z
+		cnt__3=cnt__3+1
+		 ife cnt__3-3
+		  until2  y,char,ch
+		 endif
+	       endm
+	    endif
+	endm
+	endif
+endif
+endif
+	endm
+until2	macro x,c,c1
+	j&c&c1	$$A&x&n
+ife	mul__f
+$$A&x&e:
+endif
+	endm
+
+
+;	switch	 macros
+;	reg - register containing splitting value
+;	p_list list of parameters to fit the reg value
+
+
+SWITCH	macro	reg,p_list,l
+	use__4
+	swc__f=1
+	cnt__4	   =0
+ret__l	%lev__l,%com__c
+irp	p,<p_list>
+	cnt__4	   =cnt__4+1
+	cmp	reg,p
+	switch__1 %com__c,%cnt__4,l
+	endm
+;      break   l
+endm
+
+Switch__1 macro   y,z,w
+ifb	<w>
+	jz	$$A&y&z&c
+else
+	jnz	$$A&y&z&f
+	jmp	$$A&y&z&c
+$$A&y&z&f:
+endif
+	endm
+CASE	macro	cnt__5
+ife	beg__f
+ret__l	%lev__l,%com__c
+	case__1 %old__l,cnt__5
+else
+	case__1 %com__c,cnt__5
+endif
+	endm
+Case__1 macro	y,z
+$$A&y&z&c:
+	endm
+endcase  macro
+	swc__f	=0
+ife	beg__f
+ret__l	%lev__l,%com__c
+	endcase_1 %old__l
+	lev__l=lev__l-1
+else
+	endcase_1 %com__c
+endif
+	beg__f	=0
+	endm
+endcase_1 macro y
+$$A&y&e:
+	endm
+
+;	WHILE macros		04-01-90
+;
+WHILE	macro	reg,rel,arg,L
+	use__4
+	swc__f	=0
+	while2	%com__c
+	while1	%com__c,rel,reg,arg,L
+	endm
+while2	macro	y
+$$A&y&n:
+	endm
+
+while1	macro	y,z,u,v,w,a
+ifnb	<u>
+	cmp	u,v
+endif
+ifb	<w>
+	rel__l z
+	ife	not$
+	jn&z	$$A&y&e
+	else
+	cnt__3=0
+	ife	cnt__2-2
+	irpc char,z
+	 cnt__3=cnt__3+1
+	  ife	 cnt__3-2
+       while$2	y,char
+	  endif
+	  endm
+	else
+	irpc char,z
+	  cnt__3=cnt__3+1
+	   ife cnt__3-2
+	     cnt__3=0
+	       irpc    ch,z
+		cnt__3=cnt__3+1
+		 ife cnt__3-3
+	       while$2	y,char,ch
+		 endif
+	       endm
+	    endif
+	endm
+	endif
+	endif
+
+else
+	j&z	$$A&y&f&a
+	jmp	$$A&y&e
+$$A&y&f&a:
+endif
+	endm
+
+while$2 macro  x,c,c1
+	j&c&c1	$$A&x&e
+	endm
+
+ENDWH	macro	L
+ife	beg__f
+ret__l	%lev__l,%com__c
+	endwh1	%old__l,L
+	lev__l=lev__l-1
+else
+	endwh1	%com__c,L
+endif
+	beg__f	=0
+	endm
+endwh1	macro	y,w
+ifb	<w>
+	jmp	short $$A&y&n
+$$A&y&e:
+else
+	jmp	$$A&y&n
+$$A&y&e:
+endif
+	endm
+
+;	IF$	macros		04-01-90
+;
+IF$	macro	reg,rel,arg,L
+	use__4
+	iif__c=iif__c+1
+ifb	<L>
+rel__l	      rel
+endif
+ifnb	<reg>
+	cmp	reg,arg
+endif
+	if$1  %com__c,rel,L
+	endm
+if$1	macro	y,z,w,a
+ifnb	<w>
+	ifnb	<a>
+	j&z	$$B&y&f&a
+	jmp	$$B&y&el
+$$B&y&f&a:
+	else
+	j&z	$$B&y&f
+	jmp	$$B&y&el
+$$B&y&f:
+	endif
+else
+	ife	not$
+	jn&z	$$B&y&el
+	else
+	cnt__3=0
+	ife	cnt__2-2
+	irpc char,z
+	 cnt__3=cnt__3+1
+	  ife	 cnt__3-2
+	   if$2  y,char
+	  endif
+	  endm
+	else
+	irpc char,z
+	  cnt__3=cnt__3+1
+	   ife cnt__3-2
+	     cnt__3=0
+	       irpc    ch,z
+		cnt__3=cnt__3+1
+		 ife cnt__3-3
+		  if$2	y,char,ch
+		 endif
+	       endm
+	    endif
+	endm
+	endif
+endif
+endif
+	endm
+if$2	macro x,c,c1
+	j&c&c1	$$B&x&el
+	endm
+ELSE$	macro	L
+ife	beg__f
+ret__l	%lev__l,%com__c
+	else__1 %old__l,L
+;;	  lev__l=lev__l-1
+else
+	else__1 %com__c,L
+endif
+	endm
+else__1 macro	y,w
+ifb	<w>
+	jmp	short $$B&y&e
+$$B&y&el:
+else
+	jmp	$$B&y&e
+$$B&y&el:
+endif
+	els__c=els__c+1
+	endm
+
+ENDIF$	macro
+ife	beg__f
+ret__l	%lev__l,%com__c
+	endif__1 %old__l
+	lev__l=lev__l-1
+else
+	endif__1 %com__c
+endif
+	beg__f	=0
+	iif__c	=iif__c-1
+	endm
+
+endif__1  macro y
+ife    iif__c-els__c
+       els__c=els__c-1
+$$B&y&e:
+else
+$$B&y&el:
+endif
+	endm
+
+;	FOR macros
+;
+for   macro   reg,n1,n2,step,L
+	use__4
+	swc__f	=0
+	mov	reg,n1
+	sub	reg,step
+ifnb	 <L>
+	for1  %com__c,reg,n2,step
+else
+	for2  %com__c,reg,n2,step
+endif
+	endm
+
+for1  macro   y,x1,x2,z
+$$A&y&n:
+	cmp	x1,x2
+	jnz	$$A&y&f
+	jmp	$$A&y&e
+$$A&y&f:
+	add	x1,z
+	endm
+for2	macro	y,x1,x2,z
+$$A&y&n:
+	cmp	x1,x2
+	jz     $$A&y&e
+	add	x1,z
+	endm
+ENDFOR	 macro	L
+ife	beg__f
+ret__l	%lev__l,%com__c
+	endfor__1 %old__l,L
+	lev__l=lev__l-1
+else
+	endfor__1 %com__c,L
+endif
+	beg__f	=0
+	endm
+endfor__1  macro   y,w
+ifb	<w>
+	jmp	short $$A&y&n
+$$A&y&e:
+else
+	jmp	$$A&y&n
+$$A&y&e:
+endif
+	endm
+
+cont__1 macro	x,w
+ifb	<w>
+	jmp	short	$$A&x&n
+else
+	jmp	$$A&x&n
+endif
+	endm
+CONTINUE	macro	L
+if	iif__c
+	ife	beg__f
+	cyc__l	=lev__l-iif__c
+	else
+	cyc__l	=lev__l-iif__c+1
+	endif
+ret__l	%cyc__l,%com__c
+	cont__1 %old__l,L
+else
+	ife	beg__f
+	ret__l	%lev__l,%com__c
+	cont__1 %old__l,L
+	else
+	cont__1 %com__c,L
+	endif
+endif
+	endm
+
+break	macro	L
+if	iif__c
+	ife	beg__f
+	cyc__l	=lev__l-iif__c
+	else
+	cyc__l	=lev__l-iif__c+1
+	endif
+ret__l	%cyc__l,%com__c
+	break__1 %old__l,L
+else
+	ife	beg__f
+	ret__l	%lev__l,%com__c
+	break__1 %old__l,L
+	else
+	break__1 %com__c,L
+	endif
+endif
+	endm
+break__1 macro	 x,w
+ifb	<w>
+	jmp	short	$$A&x&e
+else
+	jmp	$$A&x&e
+endif
+	endm
+
+CYCLE	macro
+	use__4
+	cycle__1	%com__c,n
+	endm
+
+cycle__1 macro	x,y
+$$A&x&y:
+	endm
+
+CYCLEEND macro
+ife	beg__f
+ret__l	%lev__l,%com__c
+	cycle__1 %old__l,e
+	lev__l=lev__l-1
+else
+	cycle__1 %com__c,e
+endif
+
+       beg__f  =0
+	endm
+
+
+;	if macros for OR combination
+;	12-07-90
+;	Kozlovski Yuri
+;
+
+if$or	macro	reg_list,rel_list,par_list,L
+	use__4
+	swc__f	=0
+	iif__c=iif__c+1
+	cnt__7=0
+irp	reg,<reg_list>
+	cnt__5=0
+	cnt__7=cnt__7+1
+irp	rel,<rel_list>
+	cnt__6=0
+	cnt__5=cnt__5+1
+
+	ife	cnt__5-cnt__7
+irp	  par,<par_list>
+	  cnt__6=cnt__6+1
+	    ife     cnt__6-cnt__5
+	      cmp     reg,par
+	      if$or1  %com__c,rel
+	    endif
+endm
+	endif
+endm
+endm
+	if$or2	%com__c,L
+	endm
+
+if$or1	macro	y,z
+	j&z	$$B&y&s
+	endm
+
+if$or2	macro	y,w
+	ifnb	<w>
+	jmp   $$B&y&el
+	else
+	jmp   short $$B&y&el
+	endif
+$$B&y&s:
+	endm
+
+
+;	IF$AND	macros		08-10-90
+;
+if$and	macro	reg_list,rel_list,par_list,L
+	use__4
+	swc__f	=0
+	iif__c=iif__c+1
+	cnt__7=0
+irp	reg,<reg_list>
+	cnt__5=0
+	cnt__7=cnt__7+1
+irp	rel,<rel_list>
+	cnt__6=0
+	cnt__5=cnt__5+1
+
+	ife	cnt__5-cnt__7
+irp	  par,<par_list>
+	  cnt__6=cnt__6+1
+	    ife     cnt__6-cnt__5
+	      cmp    reg,par
+	      rel__l rel
+	      if$1   %com__c,rel,L,%cnt__6
+	    endif
+endm
+	endif
+endm
+endm
+endm
+
+
+;    WHILE$AND	macros		05-11-90
+;
+while$and  macro   reg_list,rel_list,par_list,L
+	use__4
+	swc__f	=0
+	cnt__7=0
+	while2 %com__c
+irp	reg,<reg_list>
+	cnt__5=0
+	cnt__7=cnt__7+1
+irp	rel,<rel_list>
+	cnt__6=0
+	cnt__5=cnt__5+1
+
+	ife	cnt__5-cnt__7
+irp	  par,<par_list>
+	  cnt__6=cnt__6+1
+	    ife     cnt__6-cnt__5
+	    while1   %com__c,rel,reg,par,L,%cnt__6
+	    endif
+endm
+	endif
+endm
+endm
+endm
+
+
+;    WHILE$OR  macros	       05-11-90
+;
+while$or  macro   reg_list,rel_list,par_list,L
+	use__4
+	swc__f	=0
+	cnt__7=0
+	while2 %com__c
+irp	reg,<reg_list>
+	cnt__5=0
+	cnt__7=cnt__7+1
+irp	rel,<rel_list>
+	cnt__6=0
+	cnt__5=cnt__5+1
+
+	ife	cnt__5-cnt__7
+irp	  par,<par_list>
+	  cnt__6=cnt__6+1
+	    ife     cnt__6-cnt__5
+	    cmp     reg,par
+	    while3   %com__c,rel,L,%cnt__6
+	    endif
+endm
+	endif
+endm
+endm
+	while4	%com__c,w
+endm
+
+
+while3	 macro y,z
+	j&z	$$A&y&s
+endm
+
+while4	 macro y,w
+	ifb	<w>
+	jmp	short $$A&y&e
+	else
+	jmp	$$A&y&e
+	endif
+$$A&y&s:
+endm
+
+
+;    UNTIL$AND macros	       05-11-90
+;
+until$and macro   reg_list,rel_list,par_list,L
+	mul__f=1
+	cnt__7=0
+ife	beg__f
+	ret__l	    %lev__l,%com__c
+	lev__l=lev__l-1
+endif
+irp	reg,<reg_list>
+	cnt__5=0
+	cnt__7=cnt__7+1
+irp	rel,<rel_list>
+	cnt__6=0
+	cnt__5=cnt__5+1
+
+	ife	cnt__5-cnt__7
+irp	  par,<par_list>
+	  cnt__6=cnt__6+1
+	    ife     cnt__6-cnt__5
+	    cmp     reg,par
+	    rel__l  rel
+ife	beg__f
+	until1	    %old__l,rel,L
+else
+	until1	    %com__c,rel,L
+endif
+	    endif
+endm
+	endif
+endm
+endm
+	beg__f	=0
+	mul__f	=0
+ife	beg__f
+	until5	    %old__l
+else
+	until5	    %com__c
+endif
+endm
+
+
+;    UNTIL$OR macros	      05-11-90
+;
+until$or macro	 reg_list,rel_list,par_list,L
+	cnt__7=0
+ife	beg__f
+	ret__l	    %lev__l,%com__c
+	lev__l=lev__l-1
+endif
+irp	reg,<reg_list>
+	cnt__5=0
+	cnt__7=cnt__7+1
+irp	rel,<rel_list>
+	cnt__6=0
+	cnt__5=cnt__5+1
+
+	ife	cnt__5-cnt__7
+irp	  par,<par_list>
+	  cnt__6=cnt__6+1
+	    ife     cnt__6-cnt__5
+	    cmp     reg,par
+ife	beg__f
+	until3	    %old__l,rel,L
+else
+	until3	    %com__c,rel,L
+endif
+	    endif
+endm
+	endif
+endm
+endm
+ife	beg__f
+	until4	    %old__l,L
+else
+	until4	    %com__c,L
+endif
+	beg__f	=0
+endm
+
+until3	macro	y,z
+	j&z	$$A&y&e
+	endm
+until4	macro	y,w
+	ifb	<w>
+	jmp	short $$A&y&n
+	else
+	jmp	$$A&y&n
+	endif
+$$A&y&e:
+	endm
+until5	macro	y
+$$A&y&e:
+	endm
+

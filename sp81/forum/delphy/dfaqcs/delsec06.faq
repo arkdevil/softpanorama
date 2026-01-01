@@ -1,0 +1,568 @@
+SECTION 6 - Delphi Database
+
+This document contains information that is most often provided  to users of
+this
+section.  There is a listing of common Technical Information Documents that
+can
+be downloaded from the libraries, and a listing of the ***thirty two*** most
+frequently asked questions and their answers.
+
+NOTE: The term dataset is used to reference TTable, TQuery, or TStoredProc
+      components.
+
+--------------------------------------------------------------------------------
+Q.   "Where can I obtain help on ReportSmith, InterBase and SQL Links/ODBC
+     connectivity?"
+
+A.   Go to Borland's Development Tools forum (BDEVTOOLS).  There are sections
+     for ReportSmith, InterBase, Borland Database Engine, SQL Links/ODBC
+     connectivity, etc.
+
+--------------------------------------------------------------------------------
+Q.   "I have a TQuery and TDataSource.  In the TStrings property of the TQueryI
+     have 'SELECT * FROM dbo.AnyTable' where dbo is the database on my SQL
+     server.  When I set active to TRUE I get the error: 'Token not found.
+     Token :dbo. line number:1'.  What's wrong?"
+
+A.   If the RequestLive property is set to true, then enclose the owner and
+     tables names in quotes:
+
+     Ex:
+     SELECT * FROM "dbo.table"
+
+     If request live is false, don't use quotes.
+
+     Ex:
+     SELECT * FROM dbo.table
+
+--------------------------------------------------------------------------------
+Q.   "When I try to run a database application from Delphi, I get an exception
+     EDatabaseError with message 'An error occurred while attempting to
+     initialize the Borland Database Engine (Error $2C09)'."
+
+A.   Add SHARE.EXE to your AUTOEXEC.BAT file or add DEVICE=VSHARE.386 to the
+     [386Enh] section of your SYSTEM.INI file and reboot.
+
+--------------------------------------------------------------------------------
+Q.   "I have Quattro Pro 6.0 and IDAPI is on the network.  After I've installed
+     Delphi and the new IDAPI over the network IDAPI and run Quattro Pro from
+     another machine, I get an error that it could not load Language Driver."
+
+A.   Add [Borland Language Drivers] section to the WIN.INI file to point to the
+     IDAPI/LANGDRV directory.  For example:
+
+     [Borland Language Drivers]
+     LDPATH=C:\IDAPI\LANGDRV
+
+--------------------------------------------------------------------------------
+Q.   "What does IDAPI error $2C08 mean?"
+
+A.   "Cannot load IDAPI01.DLL". Make sure you have in your WIN.INI file the
+     following section with DLLPATH pointing to the correct location:
+
+     [IDAPI]
+     DLLPATH=C:\IDAPI
+     CONFIGFILE01=C:\IDAPI\IDAPI.CFG
+
+--------------------------------------------------------------------------------
+Q.   "Why do I get 'Index out of range' when use tTable.FindNearest and
+     tTable.FindKey on a dBASE table with an expression index?"
+
+A.   FindKey and FindNearest are not meant to work with dBASE expression indexes.
+     Use the tTable's GoToKey and GotoNearest which will work fine with dBASE
+     expression indexes.
+
+--------------------------------------------------------------------------------
+Q.   "What is the equivalent in Delphi of Paradox's TCursor?"
+
+A.   The TTable component.
+
+--------------------------------------------------------------------------------
+Q.   "How to I create a Paradox table with an Auto Increment type field
+     programatically?  I'm using TTable.CreateTable, but TFieldType doesn't
+     include this type."
+
+A.   Use a TQuery and SQL CREATE TABLE statement.  For example:
+
+     procedure TForm1.Button1Click(Sender: TObject);
+     begin
+       with Query1 do
+         begin
+           DatabaseName := 'DBDemos';
+           with SQL do
+             begin
+             Clear;
+             Add('CREATE TABLE "PDoxTbl.db" (ID AUTOINC,');
+             Add('Name CHAR(255),');
+             Add('PRIMARY KEY(ID))');
+             ExecSQL;
+             Clear;
+             Add('CREATE INDEX ByName ON "PDoxTbl.db" (Name)');
+             ExecSQL;
+           end;
+         end;
+     end;
+
+--------------------------------------------------------------------------------
+Q.   "How do you tell which record and which field of a TDBGrid is current?"
+
+A.   Here is a method to keep track of the current column and row. The following
+     code in the method MyDBGridDrawDataCell updates the variables Col and Row
+     (which must not be local to the method) every time the grid is redrawn.
+     Using this code you can assume that Col and Row point to the current column
+     and row respectively.
+
+       var
+         Col, Row: Integer;
+
+       procedure TForm1.MyDBGridDrawDataCell(Sender: TObject; const Rect: TRect;
+         Field: TField; State: TGridDrawState);
+       var
+         RowHeight: Integer;
+       begin
+         if gdFocused in State then
+         begin
+           RowHeight := Rect.Bottom - Rect.Top;
+           Row := (Rect.Top div RowHeight) - 1;
+           Col := Field.Index;
+         end;
+       end;
+
+--------------------------------------------------------------------------------
+Q.   "How do I highlight the current row in a TDBGrid?"
+
+A.   In the TDBGrid's Options property enable the dgRowSelect item.
+
+--------------------------------------------------------------------------------
+Q.   "How to I create a mask for a TDBEdit control?"
+
+A.   Edit masks are applied to the fields in the table (TField components) and
+     not in the data controls themselves.  Double-click on the TTable icon and
+     add all the fields you want from your table.  When a field is highlighted,
+     its properties show up in the object inspector, including an edit mask.
+     Linking the TDBEdit and any of the other data controls to this dataset will
+     follow the edit mask rules for the fields set this way.
+
+--------------------------------------------------------------------------------
+Q.   "Is there a simple way to catch exceptions in the control's events?"
+
+A.   Create a method of the form to trap for exceptions.  This method will be
+     called on the OnException method of the application.  In your method, check
+     for the exception you're looking for, ie EDatabaseError.  Check the on-line
+     help for the OnException event.  It has info on how to call your own method
+     for the event.  For example:
+
+     Procedure TForm1.MyExcept(Sender:TObject; E:Exception);
+     {Don't forget to do a forward declaration for this in the class definition}
+     begin
+       If E is EDatabaseError then
+         MessageDlg('Trapped exception', mtInformation, [mbOk], 0)
+       else
+         { it's not the error you're looking for, raise it }
+     end;
+
+     procedure TForm1.FormCreate(Sender: TObject);
+     begin
+        Application.OnException := MyExcept;
+        { Here is how you assign the OnException event to your handler }
+     end;
+
+--------------------------------------------------------------------------------
+Q.   "What versions of Informix (Online, I-NET) do the SQL Links support?"
+
+A.   SQL Links will work fine with all versions of the Informix sever, including
+     5.01.  However, we are not compatible with the new version of their client
+     (5.0 Windows based client).  You should use the 4.2 (DOS based) client.
+
+--------------------------------------------------------------------------------
+Q.   "What is the definition of 'IDAPI'? What is 'SQL Links'?"
+
+A.   IDAPI is the Integrated Database Application Program Interface.  BDE is a
+     way to access multiple data sources with a consistent API.  IDAPI is just
+     the API for the BDE. It includes all the functions necessary to access,
+     manipulate, etc. the data.  Delphi, dBASE for Windows, and Paradox for
+     Windows use these functions to access data.  You can use them yourself in
+     your programs.  You get the docs if you purchase the BDE.  It lists all the
+     available functions and what they do.  If you look at the Delphi source you
+     will see these functions used. They are prefaced with "Dbi" (e.g.
+     DbiCreateTable).
+
+     SQL Links is a collection of native drivers that enable you to connect to
+     remote database servers.
+
+--------------------------------------------------------------------------------
+Q.   "Is IDAPI necessary for data access in Delphi?  Can you 'bundle' IDAPI
+     inside of a Delphi EXE so that your distributed application does not need
+     to install IDAPI on your user's computers?"
+
+A.   IDAPI is necessary for data access in Delphi.  Delphi comes with the BDE
+     redistributable diskette that installs IDAPI.
+
+--------------------------------------------------------------------------------
+Q.   "How do I change the color of a grid cell in a TDBGrid?"
+
+A.   Enter the following code in the TDBGrid's OnDrawDataCell event:
+
+     Procedure TForm1.DBGrid1DrawDataCell(Sender: TObject; const Rect: TRect;
+       Field: TField; State: TGridDrawState);
+     begin
+        If gdFocused in State then
+           with (Sender as TDBGrid).Canvas do
+           begin
+              Brush.Color := clRed;
+              FillRect(Rect);
+              TextOut(Rect.Left, Rect.Top, Field.AsString);
+           end;
+     end;
+
+     Set the Default drawing to true.  With this, it only has to draw the
+     highlighted cell.  If you set DefaultDrawing to false, you must draw all
+     the cells yourself with the canvas properties.
+
+--------------------------------------------------------------------------------
+Q.   "How do I get the password diaglog box to suppress when I open a password
+     protected table?"
+
+A.   Simply supply the Session object with the password you want to add before
+     you open the table:
+
+     Session.AddPassword ('PASSWORD');
+
+     Once you close the table, you can remove the password with
+     RemovePassword('PASSWORD'), or you can remove all current passwords with
+     RemoveAllPasswords.  (Note: This is for Paradox tables only)
+
+--------------------------------------------------------------------------------
+Q.   "Where do I find a listing and description of the BDE functions and data
+     types?"
+
+A.   DBIPROCS.INT in your DELPHI\DOC\ directory contains a listing of BDE
+     functions, expected parameters, return values and a brief description of
+     each.  DBITYPES.INT is a listing of types used with BDE functions.  For any
+     BDE function call add the following units to your USES clause:  DBITYPES,
+     DBIPROCS and DBIERRS.  For more detailed information on the use of the
+     IDAPI functions, obtain the Database Engine User's guide from Customer
+     Service.
+
+--------------------------------------------------------------------------------
+Q.   "Is there a BDE API or a DLL available for rebuilding crashed indexes (like
+     the TUTILITY.EXE shipped with Pdoxwin)?"
+
+A.   The BDE includes a function to rebuild indexes, called DbiRegenIndexes().
+
+     Add the following units to your USES clause: DBITYPES, DBIPROCS and
+     DBIERRS.  Then call the BDE function as follows:
+
+     DBIRegenIndexes(Table1.Handle);
+
+     Note: The table must be opened in exclusive mode and the index must already
+     exist.
+
+--------------------------------------------------------------------------------
+Q.   "Is there a BDE API or a DLL available to pack a dBASE table?"
+
+A.   The BDE includes a function to pack dBASE tables, called DbiPackTable().
+
+     Add the following units to your USES clause: DBITYPES, DBIPROCS and
+     DBIERRS.  Then call the BDE function as follows:
+
+     DBIPackTable(Table1.DbHandle, Table1.Handle, 'TABLENAME.DBF', szDBASE,
+       TRUE);
+
+     Note: The table must be opened in exclusive mode.
+
+--------------------------------------------------------------------------------
+Q.   "Is there a programmatic way to add an alias to the IDAPI.CFG file?"
+
+A.   The BDE includes a function called DbiAddAlias().  The Specifications are
+     available in the Section 6 (Database) library, file AddAlias.txt.  Also, a
+     Delphi component called AliasManager is available in the Section 6
+     (Database) library.  This allows you to create, delete and modify aliases.
+
+--------------------------------------------------------------------------------
+Q.   "How can I view dBASE records marked for deletion?"
+
+A.   Call the following function on the AfterOpen event of the table. You Must
+     include DBITYPES, DBIERRS, DBIPROCS in the uses clause.  To call, send as
+     arguments name of TTable and TRUE/FALSE depending to show/not show deleted
+     records. Ex:
+
+     procedure TForm1.Table1AfterOpen(DataSet: TDataset);
+     begin
+       SetDelete(Table1, TRUE);
+     end;
+
+     procedure SetDelete(oTable:TTable; Value: Boolean);
+     var
+       rslt: DBIResult;
+       szErrMsg: DBIMSG;
+     begin
+       try
+         oTable.DisableControls;
+           try
+             rslt := DbiSetProp(hDBIObj(oTable.Handle), curSOFTDELETEON,
+             LongInt(Value));
+             if rslt <> DBIERR_NONE then
+               begin
+                 DbiGetErrorString(rslt, szErrMsg);
+                 raise Exception.Create(StrPas(szErrMsg));
+               end;
+           except
+             on E: EDBEngineError do ShowMessage(E.Message);
+             on E: Exception do ShowMessage(E.Message);
+           end;
+       finally
+         oTable.Refresh;
+         oTable.EnableControls;
+       end;
+     end;
+
+--------------------------------------------------------------------------------
+Q.   "How can I create a column in the grid to which records in a dBASE table
+     are marked for deletion?"
+
+A.   Create a calculated field, then for the OnCalcField event of the table
+     replace the calculated field you've created like so:
+
+     procedure TForm1.Table1CalcFields(DataSet: TDataset);
+     var
+       RCProps : RecProps;
+       Result : DBIResult;
+     begin
+       Result := DbiGetRecord(Table1.Handle, dbiNoLock, Nil, @RCProps);
+       If RCProps.bDeleteFlag then Table1Del.Value := 'X' else
+       Table1Del.Value := '';
+     end;
+
+     Note: You must first call the SetDelete(TTable,TRUE) function from the
+     previous FAQ.
+
+--------------------------------------------------------------------------------
+Q.   "How can I determine the actual size of a blob field as stored in
+     the table?"
+
+A.   Here is a function GetBlobSize that returns the size of a given blob, memo,
+     or graphic field.  An example of calling it follows.
+
+     Function GetBlobSize(Field: TBlobField): Longint;
+     begin
+       with TBlobStream.Create(Field, bmRead) do
+       try
+         Result := Seek(0, 2);
+       finally
+         Free;
+       end;
+     end;
+
+     procedure TForm1.Button1Click(Sender: TObject);
+     begin
+       { This sets the Edit1 edit box to display the size of }
+       { a memo field named Notes.                           }
+       Edit1.Text := IntToStr(GetBlobSize(Notes));
+     end;
+
+--------------------------------------------------------------------------------
+Q.  "How do I show the contents of a memo field in a DBGrid?"
+
+A.  Use the following code for the OnDrawDataCell event of the DBGrid.  Note:
+    before running create a TMemoField object for the memo field by double
+    clicking on the TTable component and adding the memo field.
+
+    procedure TForm1.DBGrid1DrawDataCell(Sender: TObject; const Rect: TRect;
+      Field: TField; State: TGridDrawState);
+    var
+      P  : array [0..50] of char;   {array size is number of characters needed}
+      BS : tBlobStream;             {from the memo field}
+      S  : String;
+    begin
+      If Field is TMemoField then begin
+      with (Sender as TDBGrid).Canvas do
+        begin
+          {Table1Notes is the TMemoField}
+          BS := tBlobStream.Create(Table1Notes, bmRead);
+          FillChar(P,SizeOf(P),#0);               {terminate the null string}
+          BS.Read(P, 50);           {read 50 chars from memo into blobStream}
+          BS.Free;
+          S := StrPas(P);
+          while Pos(#13, S) > 0 do              {remove carriage returns and}
+            S[Pos(#13, S)] := ' ';              {line feeds}
+          While Pos(#10, S) > 0 do
+            S[Pos(#10, S)] := ' ';
+          FillRect(Rect);                          {clear the cell}
+          TextOut(Rect.Left, Rect.Top, S);         {fill cell with memo data}
+        end;
+      end;
+    end;
+
+--------------------------------------------------------------------------------
+Q.  "Is there a way to use the return key for data entry, instead of tab or the
+    mouse?"
+
+A.  Use this code for an Edit's OnKeyPress event.
+
+    procedure TForm1.Edit1KeyPress(Sender: TObject; var Key: Char);
+    begin
+      If Key = #13 Then
+      Begin
+        SelectNext(Sender as tWinControl, True, True );
+        Key := #0;
+      end;
+    end;
+
+    This causes Enter to behave like tab.  Now, select all controls on the form
+    you'd like to exhibit this behavior (not Buttons) and go to the Object
+    Inspector and set their OnKeyPress handler to EditKeyPress.  Now, each
+    control you selected will process Enter as Tab.  If you'd like to handle
+    this at the form (as opposed to control) level, reset all the controls
+    OnKeyPress properties to blank, and set the _form_'s OnKeyPress property to
+    EditKeyPress.  Then, change Sender to ActiveControl and set the form's
+    KeyPreview property to true:
+
+    procedure TForm1.Edit1KeyPress(Sender: TObject; var Key: Char);
+    begin
+      If Key = #13 Then
+      begin
+        SelectNext(ActiveControl as tWinControl, True, True );
+        Key := #0;
+      end;
+    end;
+
+    This will cause each control on the form (that can) to process Enter as Tab.
+
+--------------------------------------------------------------------------------
+Q.  "How do I do a locate on a non-indexed field?"
+
+A.  The following function can be added to your to your unit and called as
+    follows:
+
+      Locate(Table1, Table1LName, 'Beman');
+
+    Table1 is your table component, Table1LName is TField you've add with the
+    fields editor (double click on the table component) and 'Beman' is the name
+    you want to find.
+
+    (* Locate will find SValue in a non-indexed table *)
+    Function Locate( const oTable: TTable; const oField: TField;
+    const sValue: String): Boolean;
+    var
+      bmPos  : TBookMark;
+      bFound : Boolean;
+    begin
+      Locate := False;
+      bFound := False;
+      If not oTable.Active then Exit;
+      If oTable.FieldDefs.IndexOf( oField.FieldName ) < 0 then Exit;
+      bmPos := oTable.GetBookMark;
+      With oTable do
+      begin
+        DisableControls;
+        First;
+        While not EOF do
+          if oField.AsString = sValue then
+          begin
+            Locate := True;
+            bFound := True;
+            Break;
+          end
+          else Next;
+      end ;
+      If (Not bFound) then oTable.GotoBookMark( bmPos);
+      oTable.FreeBookMark( bmPos );
+      oTable.EnableControls;
+    end;
+
+--------------------------------------------------------------------------------
+Q.  "Why can't I use the ixUnique option when creating indexes for Paradox
+    tables with the AddIndex method of the TTable component?"
+
+A.  The index options used in the AddIndex method of the TTable component are
+    table specific.  For example, the ixUnique option works with dBASE tables
+    but not Paradox.  The following table shows how these options apply to dBASE
+    and Paradox tables.
+
+    Index Options         dBASE    Paradox
+    ---------------------------------------
+    ixUnique               *
+    ixDescending           *        *
+    ixNonMaintained        *        *
+    ixPrimary                       *
+    ixCaseInsensitive               *
+
+--------------------------------------------------------------------------------
+Q.  "How can I determine the current record number for a dataset?"
+
+A.  If the dataset is based upon a Paradox or dBASE table then the record number
+    can be determined with a couple of calls to the BDE (as shown below).  The
+    BDE doesn't support record numbering for datasets based upon SQL tables, so
+    if your server supports record numbering you will need to refer to its
+    documentation.
+
+    The following function takes as its parameter any component derived from
+    TDataset (i.e. TTable, TQuery, TStoredProc) and returns the current record
+    number (greater than zero) if it is a Paradox or dBASE table.  Otherwise,
+    the function returns zero.
+
+    NOTE: for dBASE tables the record number returned is always the physical
+    record number.  So, if your dataset is a TQuery or you have a range set
+    on your dataset then the number returned won't necessarily be relative to
+    the dataset being viewed, rather it will be based on the record's physical
+    position in the underlying dBASE table.
+
+
+    uses DbiProcs, DbiTypes, DBConsts;
+
+    function RecordNumber(Dataset: TDataset): Longint;
+    var
+      CursorProps: CurProps;
+      RecordProps: RECProps;
+    begin
+      { Return 0 if dataset is not Paradox or dBASE }
+      Result := 0;
+
+      with Dataset do
+      begin
+        { Is the dataset active? }
+        if State = dsInactive then DBError(SDataSetClosed);
+
+        { We need to make this call to grab the cursor's iSeqNums }
+        Check(DbiGetCursorProps(Handle, CursorProps));
+
+        { Synchronize the BDE cursor with the Dataset's cursor }
+        UpdateCursorPos;
+
+        { Fill RecordProps with the current record's properties }
+        Check(DbiGetRecord(Handle, dbiNOLOCK, nil, @RecordProps));
+
+        { What kind of dataset are we looking at? }
+        case CursorProps.iSeqNums of
+          0: Result := RecordProps.iPhyRecNum;  { dBASE   }
+          1: Result := RecordProps.iSeqNum;     { Paradox }
+        end;
+      end;
+    end;
+
+--------------------------------------------------------------------------------
+Q.  "I am getting a DBEngine message when editing a record that says "Multiple
+    records found but only one expected".  What does this mean?
+
+A.  You may need to create a unique index on the table so that each row can be
+    uniquely identified.  That *may* first require altering the table and adding
+    a column to be populated with unique values.
+
+--------------------------------------------------------------------------------
+Q.  "I have had no success getting at Microsoft Access data using Delphi other
+    than a simple TTable view.  Using TQuery I can get a read-only view to work,
+    but I cannot a read/write view to work.  After the login screen I am
+    presented with an exception message like 'Passthrough SQL connection must
+    be shared'."
+
+A.  Change your alias 'SQLPASSTHRU MODE' item to 'SHARED AUTOCOMMIT'.
+
+--------------------------------------------------------------------------------
+Q.  How can I determine when the record pointer changed.
+
+A.  Use the OnDataChanged event when State = dsBrowse.
+
+
+
+

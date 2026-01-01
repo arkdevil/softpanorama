@@ -1,0 +1,618 @@
+
+
+                                CronJr ver 2.50
+
+
+
+     Requirements
+     ------------
+
+          MS-DOS based machine running MS-DOS 3.30 or higher.   MS-DOS
+     versions below 3.30 may be used, but are not recommended, since
+     they require CronJr to use more memory.
+
+
+     Background
+     ----------
+
+          The reason for designing CronJr was for lack of anything
+     better in the MS-DOS world.  Simple but powerful programs like
+     cron  (part of AT&T's Unix) or Sleeper  (public domain for HP's
+     MPE)  are non existent for PC's.
+
+          With more and more companies moving from mini-computers to
+     PC based LANs, one of the many things that has been lost was the
+     ability to schedule the nightly reporting and maintenance
+     programs needed to keep a business working during the day.
+
+          Sure, it's possible to just write a large batch file that
+     will run all your programs one after another.  That solution is
+     fine if it meets your needs.  But if you need programs to run at
+     specific times, and especially if your business revolves around
+     a LAN, then this product is for you.
+
+
+     The solution
+     ------------
+
+          There are 3 methods of scheduler implementation in a DOS
+     environment.
+
+          Method 1
+
+              Make a background RAM resident program that will pop
+              up when it is time to run a task.
+
+          Method 2
+
+              Make a foreground program that loads the task as a child
+              process.
+
+          Method 3
+
+              Make a transient program that is only in memory when it
+              is needed.  Therefore, all memory is available for the
+              task.
+
+
+                                       Page 1
+     Faults for method 1
+     --------------------
+
+          The last thing the world needs is another RAM resident
+     program to eat up memory, steal clock cycles, and substitute
+     custom interrupt vectors.  Most LAN users already use 20-70k for
+     their network shell, and even more if they are running a NETBIOS
+     emulator.
+
+          The way most resident schedulers work is to stuff the
+     keyboard when it is time to execute a task.  This method can be
+     seen in various automatic tape backup programs.  This method is
+     unreliable since the assumption is made that the DOS prompt is
+     available, the command line is clear, and the path is set.
+
+     Faults for method 2
+     -------------------
+
+          This method requires too much memory.  If you want to run a
+     batch file then you have to load another version of COMMAND.COM
+     on top of the parent scheduler.
+
+     Why method 3 is so swell
+     ------------------------
+
+          1. It is so simple.  It relies heavily on two simple
+             operating system level batch files.
+
+          2. The scheduler is not in RAM while the task is running
+             thus all memory is available to the task(*).
+
+          *  The dreaded asterisk - If you are using a DOS version
+             below 3.3 then around 23k is lost because COMMAND.COM
+             needs to be invoked a second time.  It is strongly
+             recommend that DOS 3.30 or above is used.
+
+
+     How it works
+     ------------
+
+          1.  The schedule file CronJr.SCH is created by you. It
+     contains the timing parameters for the tasks to be executed.
+
+          2. The master batch file, CronJr.BAT, is loaded from the
+     command line.  That is your last intervention.
+
+          3. The work file, CronWk.BAT, is deleted by CronJr.BAT.
+
+          4. The scheduler program, Cron.EXE, is loaded and the
+     schedule file CronJr.SCH is read.
+
+          5. When the time comes to execute a process Cron.EXE dumps
+     its scheduling information to CronJr.JOB, writes the CronWk.BAT
+     file and unloads from memory to return control to CronJr.BAT.
+
+                                       Page 2
+          6. If CronJr.BAT can find CronWk.BAT then the CronWk.BAT
+     work file is called/executed.
+
+          7. Upon completion of CronWk.BAT, control is returned to
+     CronJr.BAT which then executes CronJr.BAT (thus ending the
+     original CronJr.BAT execution) with the parameter RELOAD which
+     is passed to Cron.EXE in step 4, which causes the file
+     CronJr.JOB to be loaded rather than the file CronJr.SCH .
+
+
+          Hard to follow?  Try this one.  It is the remedial version.
+
+     CronJr.BAT -> Cron.EXE -> CronWk.BAT (YOUR TASK) ->CronJr.BAT
+          A.           B.            C.                     A.
+
+
+     Installation
+     ------------
+
+          Create a directory for CronJr, any name will do, and copy
+     the Cron.EXE, EditCron.EXE and TimeNow.EXE programs into the new
+     directory.  If you are going to use CronJr on a LAN with multiple
+     machines running CronJr, then you must make a separate directory
+     for each machine.
+
+          Examples:
+
+              C:\CRON\386
+              F:\BOB
+              F:\ACCTNG\CRON
+
+          Each directory must contain its own CronJr.SCH file and its
+     own unique CronJr.BAT file.  A path may be set to point to the
+     location of Cron.EXE.
+
+          To see a list of startup command line parameters type Cron
+     without any parameters and all possible parameters will be shown.
+
+          For each CronJr directory created, type Cron START at their
+     respective DOS prompt.  Such as:
+
+              C:\CRON\386>cron start
+
+          This will create the CronJr.BAT file which is specific to
+     its home directory.  If you type out the CronJr.BAT file you will
+     see how this file is unique to its home directory.
+
+          Use the EditCron program to create or modify the CronJr.SCH
+     file.  The EditCron utility is fairly straight forward to use.
+     The keystrokes used for operation are listed on a command line
+     on the bottom of the screen.  The keys are <A>-Add , <D>-Delete,
+     <Enter>-Edit, <Esc>-Exit, page up/down and up/down arrow.
+
+
+
+                                       Page 3
+          The EditCron utility will help prevent easily made common
+     mistakes, such as illegal scheduling times, misspelling of
+     abbreviations for the days of the week, and most importantly of
+     all, invalid drives, directories and program names.
+
+          BE VERY CAREFULL when putting in hours.  If you are spanning
+     hours then you need to put different values into the hour fields,
+     otherwise put the same value into both hour fields.  You will
+     notice that the hour fields default to 0 when adding new records.
+     If you want something to run at the 9th hour then put the hours
+     in as 9-9, not the default value of 9-0.  If you put in 9-0 you
+     are spanning the hours 9, 10, 11... 22, 23 and 0.
+
+          After setting up the CronJr.SCH file, type CronJr to start
+     the scheduler.
+
+
+     Installation Options
+     --------------------
+
+          There are additional startup parameters such as DISABLE,
+     NOSAVER, LOG, Txx, and OS2 that can be used along with START.  All
+     installation options can be viewed by running  Cron  without any
+     paramters.
+
+     DISABLE - disables the F1-DOS Shell for additional network security.
+     NOSAVER - turns off the screen saver.
+     LOG     - causes CronJr to make entries into the file called CronJr.LOG
+               each time a job starts and stops.  The TimeNow.EXE program
+               must be accessable for the log to be created.
+     OS2     - creates OS2 CMD files instead of BAT files.
+     Txxx    - T for Text, allows user defined screen saver text.
+
+
+     Spanning Hours
+     --------------
+
+          Spanning hours allows you specify a range of hours in that a
+     task will run.  Lets say you have an incremental task that runs
+     every 15 minutes ( 15i ), but you only want it to run during
+     the business hours 9am through 5pm.  You would specify the hours
+     as 9-16.  Note that 16 is 16:00 which is 4pm.  Spanned hours are
+     inclusive.
+
+          In addition to influencing incremental tasks, spanned hours
+     also influence non-incremental tasks.  The tasks will execute
+     once every hour at the specified minute for the hours specified.
+
+
+
+
+
+
+
+
+                                       Page 4
+     CronJr.SCH File Format
+     ----------------------
+
+          In the event you choose to use your own text editor to
+     modify the CronJr.SCH file, then make sure that it creates a flat
+     ASCII file without tabs.  Enter one task per line using the
+     following format.
+
+     Minute  Hours  Day_Of_Month  Month  Day_Of_Week  Executable_&_Parms
+
+     Example
+     -------
+
+      50    16    *     *      MoTuWeThFr    f:\public\bin\killuser.EXE
+       0    17    *     *      MoTuWeThFr    f:\mtn_tape\databack.bat
+       0     5    *     *      Mo            g:\acctng\weekly.bat
+       0     1    1     *    SuMoTuWeThFrSa  G:\ACCTNG\MONTHEND.EXE
+       0     1    1     1    SuMoTuWeThFrSa  G:\ACCTNG\YEARLY.EXE
+      49    16    *     *      MoTuWeThFr    C:\FUNNY\GOHOME.EXE
+       2i    *    *     *      MoTuWeThFr    F:\stream\kevin.bat
+       0     1i   *     *      MoTuWeThFr    q:\hourly\bak2work.exe
+      15   9-16   *     *      MoTuWeThFr    c:\bin\chk_qtr.com
+      30    12    *     *          We        nopath.com
+       6    30    *     *    Su              u:\pali\t2tape.exe /a /optic
+      ---  ----  ---  -----  --------------  ----------------------------
+      Min  Hour  DOM  Month  Day_Of_Week     Executable_& Parms
+
+
+     Field definitions
+     -----------------
+
+          Minute......: the minute of the hour you want your job
+                        to execute, 0 through 59.
+          Hours.......: the hour of the day in military time, 0
+                        through 23.  If you want to span hours, then
+                        you must separate hours with a dash "-"
+                        without any spaces between the hours and the
+                        dash.
+          Day_Of_Month: the day of the month 1 through 31.
+          Month.......: the month of the year 1 through 12.
+          Day_Of_Week.: the day of the week, SU MO TU WE TH FR SA.
+          Executable..: a DOS executable string, .BAT, .EXE, and
+                        .COM files with a maximum combined path of
+                        64 characters.  EXTENSIONS MUST BE USED!
+          Parameters..: optional parameters to be passed to the
+                        executable.  Maximum of 128 characters.
+
+
+
+
+
+
+
+
+                                       Page 5
+
+     Wild cards and increments
+     -------------------------
+
+          *: Execute on every occurrence.  Not used by Day_Of_Week.
+             Not recommended for use with Minute.
+
+          i: Execute in increments. Only applies to minute and hour.
+             The 7th line in the example shows 2i which means execute
+             in 2 minute increments.  In theory this task could be
+             executed 30 times a hour.  Obviously  *  must be used for
+             every level after the first i .
+
+          Combinations of  i  in the minute and hour are not allowed.
+     Combinations of  i  and spanned hours are not allowed.
+
+          If  i  is used with the hour, then the minute should be  * ,
+     otherwise execution will occur in  X  hours + Y minutes increments.
+
+
+     Launch time
+     -----------
+
+          Task checking and launching occur on the 1st second of the
+     minute or whenever the  "E"  key is pressed.
+
+
+     Screen Saver
+     ------------
+
+          The screen saver becomes active after 10 seconds of keyboard
+     inactivity.  The screen saver will always redraw the CronJr
+     screen once the time of day second hits 50.  The CronJr screen
+     can be displayed by pressing any key, such as the space bar.
+
+          The screen saver can be disabled by using the NOSAVER
+     command when creating the CronJr.BAT file with the START command.
+
+          The screen saver can be easily customized to display your company
+     name rather than "CronJr".  Use the "T" (Text) command when creating
+     the CronJr.BAT file with the START command.  An example would be:
+
+     cron START tAcme
+
+          To specify a name that incorporates spaces put the "T" command
+     in quotes such as:
+
+     cron START "tAcme Explosives"
+
+
+
+
+
+
+                                       Page 6
+     OS2 CMD file support
+     ---------------------
+
+          DOS deals with BAT files and OS2 deals with CMD files.  CronJr
+     can be made to use CMD files instead of .BAT files by using the OS2
+     command when creating the CronJr.CMD file with the START command.
+     This is a VERY MINOR OS2 support feature.  CronJr is a native DOS
+     program and will run in a DOS window under OS2.
+
+
+     Multitasking Operating Systems
+     ------------------------------
+
+          CronJr has been tested and succesfully operates under the
+     DesqView, Windows and OS2 environments.  CronJr should run under
+     other DOS multitaskers with no problem.  Whether or not the programs
+     that CronJr will be running will work is another problem altogether.
+
+
+     Software Updates
+     ----------------
+
+          Whenever you receive a CronJr update, always make a backup
+     of all the files used by your current version of CronJr.  Once
+     you have backed up your files, delete or rename your Cron.EXE
+     and CronJr.BAT files.  Then copy the Cron.EXE program from the
+     distribution disk to its target directory, then run Cron START,
+     and any other parameters you so desire, to create the new
+     CronJr.BAT file .
+
+
+     EXTREMELY IMPORTANT
+     -------------------
+
+          Be very careful when assigning launch times.  A "feature"
+     of CronJr is that it only launches tasks when Cron.EXE is
+     resident.
+
+          For example:  You have 2 tasks set to execute at 19:00,
+     each takes 20 minutes to run, and few tasks scheduled at 19:15.
+     At 19:00 all 19:00 tasks are tagged for launching and the first
+     task will be launched at 19:00.  The 2nd task will be launched
+     when Cron.EXE is reloaded and thus effectively launched at 19:20.
+
+          Well it is now 19:40 and all tasks scheduled from 19:01
+     through 19:40 have missed their launch window.
+
+          To prevent this from happening you should do the following.
+     Schedule enough time between tasks.  The 19:15 tasks in the
+     example should have been set later to 20:00, or earlier to
+     19:00.  Had they been scheduled at 19:00 then they would have
+     run as part of the 19:00 launching.
+
+          NOTE:  Incremental launchings are exempt from this "feature" .
+
+                                       Page 7
+     Proper scheduling
+     -----------------
+
+          The best way to debug a faulty schedule is to run Cron.EXE
+     instead of CronJr.BAT, and use the F1 key to exit to DOS.  At 
+     the DOS prompt, change the time to T-MINUS 10 seconds to launch,
+     such as 16:59:50 and then type EXIT to return to Cron.EXE .
+     Inspect the contents of the CronWk.BAT file that is created, 
+     and then try to run it from the DOS prompt.
+
+          There is no limit to the number of tasks you can put into
+     the CronJr.SCH file.
+
+
+     Common problems
+     ---------------
+          CronJr is running, and exits to DOS and does nothing.
+             Problem: Running Cron instead of CronJr.
+             Problem: Did not run Cron START in the execution directory.
+
+          CronJr does not execute the programs listed in CronJr.SCH
+             Problem: Could not find the programs.  Need to specify the
+                      path in the CronJr.SCH file or set a DOS path.
+             Problem: You did not specify .BAT, .CMD, .EXE, or .COM .
+             Problem: Your scheduling parameters are incorrect. Most
+                      likely day_of_the_week not included.  I.e. You
+                      are testing on Saturday a job you have set up
+                      to run Monday through Friday.
+
+          CronJr plays this obnoxious fight song when it executes.
+             Problem: Running the evaluation version.
+
+
+     Licensing
+     ---------
+
+          Every purchaser of CronJr is granted a site license.  One
+     purchased copy of CronJr may be used by anyone employed by your
+     company in the same building with no additional charges.  Once
+     you expand out of your building, you need to purchase another
+     copy.
+
+
+     Anomalies and Hints
+     -------------------
+
+          There are two anomalies and one other point that you need
+     to remember.
+
+          Anomaly 1.  CronJr only executes tasks on the 1st second
+     of the minute.  Example.  If you had 3 tasks that each take 5
+     seconds to complete, and they are all scheduled to launch at
+     19:00 then they will be effectively launched at 19:00, 19:01
+     and 19:02.  This feature was designed into the product.
+
+                                       Page 8
+          Anomaly 2.  Anomaly 2 arises out of anomaly 1.  Example.
+     If you set up a schedule that has 3 jobs, each set to run in
+     increments of 10 minutes (10i * * * ...), you would assume that
+     they would execute at the 10, 20, 30, 40, 50, 00 minute clock
+     demarcations (assuming that the first launch minute was hh:00)
+     and always launch one after the other. In reality this is not
+     true.
+
+          The first launching schedule would look like this.
+
+             1a. Job #1 launches at the first available minute.
+
+             2a. Job #2 launches at the first available minute
+                 after Job #1 completes.
+
+             3a. Job #3 launches at first available minute after Job
+                 #2 completes.
+
+          The second and subsequent launchings might look like this.
+
+             1b. Job #1 launches 10 minutes after its's first
+                 launching or at the first available minute after
+                 Job #3 finishes or it may launch the first available
+                 minute after Job #1 if Job #1 takes more than 10
+                 minutes.
+
+             2b. and 3b.  Who knows.
+
+          The best way to get around this confusion is to do one of
+     three things.
+
+          1. Carefully plan and test your incremental launchings.
+
+          2. Rather than make your launchings incremental, make them
+             minute specific.  This may involve multiple line entries
+             into the CronJr.SCH file for he same job at different
+             times.
+
+          3. Make Jobs 1, 2 and 3 one job.
+
+          The one thing you must remember.  The CronJr.SCH file is
+     only loaded at the initial load time.  If you are running CronJr
+     on a LAN and CronJr is running on a remote machine and you modify
+     the remote machine's CronJr.SCH file,  the remote CronJr will not
+     reflect any of the changes made in the new CronJr.SCH file until
+     the remote CronJr is aborted and reloaded.
+
+
+     Network Security
+     ----------------
+
+          Although disabling the F1-DOS Shell feature does enhance the
+     security of the product, we do recommend that you take further
+     steps to secure your system if your environment so dictates.
+
+                                       Page 9
+          Many people use CronJr to backup their networks or route
+     their E-mail, or do other tasks that require Supervisor or
+     equivalent system access.  It would be quite simple for someone
+     to access the F1-DOS Shell and do what ever damage they want to
+     do.  It would also be simple for them to escape out of the CronJr
+     program all together and get a DOS prompt.
+
+          Our recommendations for enhanced network security are as
+     follows.
+
+          1. If your system has a keyboard lock, use it and take the
+             keys with you!
+
+          2. Lock the room that contains the CronJr machine.
+
+          3. Don't set up your CronJr machine as a Super User unless
+             it is really needed.
+
+          4. Disable the F1-DOS Shell feature.
+
+          5. Modify the CronJr.BAT program to add a LOGOUT command
+             just prior to the display of the "ECHO End CronJr Cycle" .
+             This will ensure that once the Cron program is exited,
+             the CronJr.BAT file will log itself out of the network
+             prior to returning to a usable DOS prompt.
+
+          6. In addition to modifying the CronJr.BAT file to enable
+             system logout, incorporate one of the Ctrl-C or
+             Ctrl-Break handler programs into your system.  This will
+             prevent possible crooks from getting access to a
+             "Terminate Batch Job" prompt prior to execution of the
+             LOGOUT command.  Do not rely on the SET BREAK OFF/ON
+             command to be of any help.  We have heard of a public
+             domain system driver available on CIS called BREAK.SYS .
+             The BREAK.SYS driver is supposed to prevent Ctrl-C or
+             Ctrl-Break from interrupting a batch file.  We have never
+             tried these drivers, but we have been informed of these
+             drivers by some of our customers.
+
+
+     Getting legal
+     -------------
+
+          Software Shorts hereby disclaims all warranties relating to
+     this software, whether expressed or implied, including without
+     limitation any implied warranties of merchantability or fitness
+     for a particular purpose.
+
+          Software Shorts will not be liable for any special,
+     incidental, consequential, indirect or similar damages due to
+     loss of data or any other reason, even if Software Shorts or an
+     agent of Software Shorts has been advised of the possibility of
+     such damages.
+
+
+                                       Page 10
+          Software Shorts will not be liable for any damages due to
+     malicious third party augmentation of the executable program,
+     such as viruses.
+
+          In no event shall Software Shorts's liability for any
+     damages ever exceed the price paid for the license to use
+     software, regardless of the form of the claim.  The person using
+     the software bears all risk as to the quality and performance of
+     the software.
+
+          The CronJr software is the copyrighted property of Software
+     Shorts.
+
+
+     Acknowledgements
+     ----------------
+
+     Unix, cron and AT&T are registered trademarks of American
+        Telephone and Telegraph Corporation.
+     MPE and HP are copyrights of Hewlett Packard Company.
+     Sleeper is available through INTEREX
+     MS-DOS and Windows are registered trademarks of Microsoft Corporation.
+     NetWare is a registered trademark of Novell Incorporated
+     OS2 is registered trademark of International Business Machines.
+     DesqView is a registered trademark of Quarterdeck Office Systems.
+
+
+          Software Shorts is not affiliated with any of the above
+     mentioned companies.
+
+
+     Technical Support
+     -----------------
+
+          Questions can be sent to CompuServe ID 70731,2507 or faxed
+     to (714) 832-2391.
+
+
+     One last word
+     -------------
+
+          Software Shorts is dedicated to the creation and
+     dissemination of short, single focus, utility programs for
+     programmers.  Hence the name Software Shorts ( no we don't make
+     swimwear! ).  Software Shorts utility programs may not be 
+     distributed by any individual or corporation as part of a 
+     commercial software release, or bundled with a turn key system 
+     unless the utility has been licensed to that individual or 
+     corporation for such distribution.
+
+          The first version of CronJr was released in November of 1988.
+
+
+
+
+                                       Page 11
+
+

@@ -1,0 +1,250 @@
+<HTML>
+<HEAD>
+<TITLE>New Features (ver 2.20)</TITLE>
+</HEAD>
+<BODY>
+<!-- entering slot 8 -->
+<BR>
+<U><I>New Features (ver 2.20)</I></U>
+<BR>
+
+<BR>
+ - Support for file names up to 260 characters.
+<BR>
+
+<BR>
+ - Extended Attributes (EA) are stored differently.  The old way was
+<BR>
+  to create a file named EA.LZH inside of the archive,  which had an
+<BR>
+  entry for each file that had an EA.  This worked fine until you
+<BR>
+  added a new file to an existing archive -- at which point the old
+<BR>
+  EA.LZH would be wiped out with the new one.  This will no longer
+<BR>
+  happen.
+<BR>
+
+<BR>
+  The new method is not compatible with old LH/2.  For this reason,
+<BR>
+  new LH/2 builds a batch file called "Apply-EA.Cmd" in the archive,
+<BR>
+  which the end user could run to use OS/2's "eautil.exe" program to
+<BR>
+  join the EAs to the just-extracted files.
+<BR>
+
+<BR>
+  NOTE:  Apply-EA.Cmd only works for files,  not directories.  If you
+<BR>
+  want to remain compatible with old-lh/2,  do not distribute LZH
+<BR>
+  archives that have dirs in them.
+<BR>
+
+<BR>
+  New LH/2 will recognize the old EA.LZH method,  and apply the EAs
+<BR>
+  accordingly.
+<BR>
+
+<BR>
+  Skip ahead to the next point unless you care about the technical
+<BR>
+  details of how EAs are now stored.
+<BR>
+
+<BR>
+  All EAs are in 16 bit OS/2 format.  Even OS/2 2.0's EAUTIL.EXE
+<BR>
+  stores them in this format (probably for the same compatibility
+<BR>
+  reasons that I did).  There is only a slight difference in the way
+<BR>
+  OS/2's "FEA2LIST" structure differs from OS/2 1.x's "FEALIST".
+<BR>
+
+<BR>
+  Each file EA (directory EAs are stored differently) looks (to
+<BR>
+  LHA/V2.14) as a normal file.  An EA file is always stored in a
+<BR>
+  subdirectory called EAS (this is true even if you did NOT use /s).
+<BR>
+
+<BR>
+  For example:
+<BR>
+
+<BR>
+     EAS\file1 -- this is the ea for file1
+<BR>
+     file1   -- this is file1
+<BR>
+     Src\EAS\file1 -- this is the ea for src\file1
+<BR>
+     src\file1   -- this is src\file1
+<BR>
+
+<BR>
+  I had originally discounted this method;  if you used another archive
+
+<BR>
+  program that changed the order of the files,  everything would be
+<BR>
+  broken.
+<BR>
+
+<BR>
+  However,  now I store (along with the EAS file) the name of the
+<BR>
+  parent file in an extended header;  so the actual name or order of
+<BR>
+  the EAS\* file is irrelevant.  LH/2 first extracts all non-ea files,
+<BR>
+  than goes back to the beginning of the *.lzh file and "extracts"
+<BR>
+  only EA files.  The extended headers LH/2 supports are:
+<BR>
+
+<BR>
+  <U><I>Type   Description</I></U>
+<BR>
+   0    CRC of header + extended header
+<BR>
+      (as apposed to simple checksum in normal *.lzh header).
+<BR>
+   1    Extended file name.
+<BR>
+   2    Extended dir name to which [extended] file name is appended.
+<BR>
+   79   (ascii 'O') --- LH/2 2.20 extension --- Name of Parent file
+<BR>
+      this EA file applies to.
+<BR>
+
+<BR>
+  The other method I was entertaining (storing the EA itself in an
+<BR>
+  extended header) had a drawback that might hurt in the future: The
+<BR>
+  maximum size of an extended header entry is 64K-2 bytes.  EAs are
+<BR>
+  currently limited to 64k,  but that may change.
+<BR>
+
+<BR>
+ - Directories are now stored as separate entities.  This allows
+<BR>
+  support for dirs that are empty,  and dirs that have EAs.  This is
+<BR>
+  particularly<!-- entering slot 9 --> important if you are trying to backup
+your OS/2 2.0
+<BR>
+  Desktop directories.
+<BR>
+
+<BR>
+  This feature is enabled with the new /E option.
+<BR>
+
+<BR>
+  A dir is only stored only when ALL of the following are true:
+<BR>
+
+<BR>
+   1) /s is used.
+<BR>
+   2) /e is used.
+<BR>
+   3) It has an EA or it is empty.
+<BR>
+
+<BR>
+  Dirs that are not empty,  nor have an EA,  are not stored because
+<BR>
+  there is no reason to store them.  Those dirs will be created
+<BR>
+  automatically when a file is extracted there.
+<BR>
+
+<BR>
+  Skip ahead to the next point unless you care about the technical
+<BR>
+  details of how dirs are now stored.
+<BR>
+
+<BR>
+  Dirs without EAs are stored as zero length files.  The LZH field
+<BR>
+  for the file attribute is set to 0x10.
+<BR>
+
+<BR>
+  Dirs with EAs are stored, as above,  with attribute 0x10 set.
+<BR>
+  However,  the regular "file data" is actually the EA.  Example:
+<BR>
+
+<PRE>  Original  Packed    Rat Date     Time     Attr   Type  CRC   Name
+  --------  --------  --- -------  -------- ------ ----- ----  ----------------
+      1352       550  41% 92-12-17  3:54:38 .D.... -lh5- DBAA  os!2 2.0 desktop
+
+</PRE>
+
+<BR>
+  Note that the 'D' bit is set.  The extended attribute is,
+<BR>
+  uncompressed, 1352 bytes.  After decompressing this archive,
+<BR>
+  a "DIR" command would list this:
+<BR>
+
+<BR>
+    12-13-92  3:36a &lt;DIR&gt;    1352  os!2 2.0 desktop
+<BR>
+
+<BR>
+ - All files created by LH/2,  when extracting,  use the pre-allocate
+<BR>
+  feature of the DosOpen() api,  thus reducing fragmentation.  In
+<BR>
+  fact,  you could use LH/2 as a "poor man's de-fraggmenter" if you
+<BR>
+  wanted.  Fragmentation is not very significant with HPFS.
+<BR>
+
+<BR>
+ - When adding files to an existing archive,  LH/2 no longer
+<BR>
+  assumes that the files are sorted.
+<BR>
+
+<BR>
+  LH/2 now sorts files based on "dir + filename",  rather than just
+<BR>
+  "filename" as it did before.
+<BR>
+
+<BR>
+  When new files are added to an existing archive,  they are added at
+<BR>
+  the end (if they are NEW to the archive;  if they replace a file,
+<BR>
+  they will be in the old file's position).
+<BR>
+
+<BR>
+ - When /E is used,  LH/2 will remove an empty dir even if no files
+<BR>
+  from that dir were compressed.  The old way only removed a dir if at
+<BR>
+  least one file was compressed from it.
+<BR>
+
+<BR>
+
+</BODY>
+</HTML>

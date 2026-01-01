@@ -1,0 +1,1849 @@
+
+
+
+
+     User's Manual for the ARJ archiver program,          February 1991
+
+
+
+        ARJ software and manual copyright (c) 1990,91 by Robert K Jung.
+        All rights reserved.
+
+        ARJ version 1.00 release
+
+
+
+
+     ***IMPORTANT NEWS*****************************************************
+
+        Previous users of ARJ should read the WHATSNEW.DOC!!!  It contains
+        important information about changes and issues since test releases
+        0.13a, 0.14, 0.15, 0.15a, and 0.20.
+
+     **********************************************************************
+
+
+     INTRODUCTION:
+
+        ARJ is my first attempt to use my interest in compression
+        technology to produce an archiver for personal use on my PC and on
+        minicomputers.  ARJ is written entirely in ANSI C and only uses
+        ANSI standard libraries.  All machine dependent functions (file
+        date-time modified, file attributes, etc.) are contained in a
+        single environment source file using ifdefs to enable one to
+        maintain a single version of the source code for multiple different
+        machines.  This version has manually optimized CRC and output
+        routines.
+
+        The current functionality of ARJ is patterned after that of LHARC
+        with additional features derived from those of the competition.
+
+        I have created a new archive format for ARJ to support cross
+        platform archives, multiple volume archives, and a new security
+        envelope feature.  Trying to maintain compatibility with existing
+        formats is difficult and possibly expensive (legally speaking).
+
+        In addition, there are definite plans to port full blown versions
+        of ARJ to the AMIGA and ATARI ST platforms.  I expect those
+        versions to be available before mid-1991.  There will be a
+        simplified version of ARJ in source code to be released for the
+        UNIX platform late in 1991.  There are plans for an OS/2 version of
+        ARJ, also.
+
+        This may start another compression war, but competition begets new
+        and better standards.  Just look at the improvements to PKZIP over
+        the past few years.  ARJ is the result of my desire for an archiver
+        that would do what I needed.  It is not an attempt to be everything
+        to everyone.  But if ARJ is what you need, so much the better.  I
+        intend to keep improving ARJ over the long haul even after LHARC
+        2.0 is released, because data compression is my hobby.
+
+        Some users, however, believe that miracles will be the result of
+        such a war.  I have included a brief synopsis of the state of the
+        art of data compression research at the end of this document.  This
+        may be enlightening to archiver users.  Archivers have just caught
+        up with the state of the art.
+
+
+     TERMINOLOGY:
+
+        The following terms are used through this manual.
+
+        ARCHIVE - This is a file containing one or more files in a
+        compressed or non-compressed state and containing file related
+        information such as filename and date-time last modified, etc.
+
+        ARJ FILE - This is an archive created by ARJ.
+
+        COMPRESSION - The process of encoding redundant information into
+        data requiring less storage space.
+
+        COMPRESSION PERCENTAGE/RATIO - The percentage compression reported
+        by ARJ is a variation of one of the TWO standard methods of
+        expressing compression ratio in the technical literature.  ARJ uses
+        the compressed size / original size ratio.  The other method is the
+        inverse ratio.  When ARJ reports 96% as the compression ratio, that
+        means that the compressed file is 96 percent of the original size
+        (very little compression).  Other archivers use their own methods.
+        LHARC uses the same ratio as ARJ.
+
+        EXTRACTION or UNCOMPRESSION - The processing of recreating the
+        exact information that was previously compressed.
+
+        SELF-EXTRACTION MODULE - This is an archive that is an executable
+        file that is capable of extracting self-contained files.
+
+        TEXT MODE - In text mode, ARJ inputs the file using the C library
+        text mode which translates the carriage return, linefeed control
+        characters of MS-DOS to a single linefeed character.  This saves
+        space and provides the option for cross platform file extraction.
+        On another platform, the host C library would change the single
+        linefeed to the host text newline separator sequence. In addition,
+        for platforms such as PRIMOS which set bit 8 in ASCII text
+        characters, ARJ sets/resets bit 8 according to the platform
+        extracted to.
+
+        VOLUMES - These are ARJ archives that are in sequence and have been
+        created by a single ARJ command.  Files in the volumes may span
+        volumes in a split format.  These volumes are usable archives.
+
+
+     MAJOR FEATURES OF ARJ:
+
+        BEST compression in terms of size reduction of the currently
+        available archivers including PKZIP 1.10, PAK 2.51, and LHARC
+        1.13c.  Users have reported that ARJ also compresses slightly
+        better than ARC 7.00 BETA.  ARJ is particularly effective with
+        database file, text files, and very small files.
+
+        Archive and individual file comments with option of inputting
+        comments from a file.
+
+        32 bit CRC file integrity check.
+
+        Test new archive before overwriting the original archive option.
+
+        Multiple volume archives with one ARJ command.  This allows the
+        user to backup a full hard disk drive to multiple floppies.
+        Recovery of individual files is convenient because each volume is
+        an individual archive.  No need to use SLICE with ARJ.
+
+        File re-ordering facility with the option of sorting by file size,
+        file extension, CRC value, date-time modified, filename, pathname,
+        compression ratio, file attribute and more.
+
+        Multiple string searching within archive files.
+
+        Built-in facility to recover files from broken archives.
+
+        Self-extraction feature that is internal to the ARJ runfile.  The
+        SFX module is full-featured with a built-in help screen.
+
+        Internal string data integrity check in ARJ to resist hacking a la
+        LHARC to ICE.
+
+        Archive security envelope feature to resist tampering with secured
+        archives.  This feature disallows ANY changes to a secured archive.
+        Not even comments can be changed.
+
+        Password option to encrypt archived files.
+
+        Text mode data compression option to enable movement of text files
+        from one host machine to another.  Text mode also results in
+        greater file size reduction on MS-DOS machines.
+
+        File extraction to screen in a paged mode to permit browsing
+        through an archive.
+
+        Specification of the files to be added to an archive via one or
+        more list files.  In addition, ARJ can generate a list file.
+
+        Specification of files to be excluded from processing by ARJ.
+
+        Sub-directory recursion during compression and extraction.
+
+        ARJ source code compilable on any machine supporting ANSI C.  This
+        code has compiled and produced working archivers on at least two
+        platforms.  This will allow the porting of ARJ to many other
+        platforms.  Source code is not currently available for public
+        release.  However, I do intend to release source code for a UNIX
+        version of ARJ in 1991.
+
+
+     RELEASE NOTES:
+
+        This version does NOT include any expiration feature.  ARJ 1.00 is
+        fully functional.  No function has been crippled.  I suggest using
+        the "-jt" test archive switch to test all archives that you build.
+
+        This version has been tested under DOS 2.11, 3.3, and 4.0.  It has
+        NOT been tested under DOS 5.0.
+
+        Here is a suggested command that will test ARJ on all of your files:
+
+        arj a A:\vol c:\*.* -r -jt -y "-vasdel A:\vol.*"
+
+
+     FUTURE FEATURES:
+
+        Foreign language support.
+
+        Program version of ARJSORT.
+
+        OS/2, AMIGA, ATARI versions.
+
+        If you have useful ideas for ARJ, please let me know.
+
+
+     GETTING STARTED:
+
+        I assume that you have a copy of the self-extracting ARJ module
+        named ARJ100.EXE.  Typing ARJ100 [RETURN] at the DOS command prompt
+        will initiate the self-extraction feature.  ARJ100 will by default
+        extract its files to the current directory.  When ARJ100 starts,
+        you will see several lines of text describing ARJ and then a line
+        asking if you wish to continue extraction.  Entering "yes" or "y"
+        will continue the extraction.  If there are any duplicate filenames
+        in the current directory, the program will prompt you for
+        overwriting.  You can say "yes", "no", or "quit".  Only the
+        extracted ARJ.EXE file needs to be copied to a directory named in
+        your "PATH" command in your autoexec.bat file.  On many PCs, this
+        directory may be C:\DOS or C:\BIN.  With MS-DOS 3.0 and above,
+        you can use path notation "\BIN\ARJ e archive" to use ARJ.
+
+        You may, of course, prefer to use ARJ 0.15 or 0.20 to extract the
+        contents of ARJ100.EXE file manually.
+
+        Example:  ARJ e arj100.exe \temp\
+
+        The AV.EXE file is only a ARJ file lister provided as a skeleton
+        program for software developers.  It is not needed for ARJ usage.
+
+
+     QUICK START TO USING ARJ:
+
+        To create an ARJ archive containing all of the files in the
+        current directory:
+
+        ARJ a archive
+
+        To create an ARJ archive containing all files with the ".DOC"
+        extension in the current directory:
+
+        ARJ a archive *.DOC
+
+        To create an ARJ archive containing all of the files in the
+        named directory and all files in subdirectories of the named
+        directory:
+
+        ARJ a archive named_directory\*.* -r
+
+        To extract all of the files in an archive to the current
+        directory:
+
+        ARJ e archive
+
+        To extract all of the files in an archive to a named directory:
+
+        ARJ e archive named_directory\
+
+        To extract all files with the ".DOC" extension to the current
+        directory:
+
+        ARJ e archive *.DOC
+
+        To extract all of the files in an archive recreating the
+        original directory structure:
+
+        ARJ x archive original_directory_name\
+
+        To list all of the files in an archive:
+
+        ARJ l archive
+
+
+     CONVERTING OTHER ARCHIVE FILES TO ARJ FORMAT
+
+        For those who wish to convert their current archive files to ARJ
+        archives, I have found that the freeware 2ALL conversion program
+        found in 2ALL_210.ZIP will convert between archives.
+
+        Here is the configuration file 2ALL.CFG that I use for 2ALL.
+
+        ZIP
+         pkzip -ex
+         pkunzip
+        PAK
+         pak a
+         pak e
+        LZH
+         lharc a
+         lharc e
+        ARC
+         pkpak -a
+         pkunpak -e
+        ZOO
+         zoo a
+         zoo e
+        ARJ
+         arj a -e -jt
+         arj e
+
+        ZZAP is another program that works with ARJ and other archivers.
+
+
+     HOW TO USE ARJ:
+
+        Where I do not elaborate in this manual, you can assume that ARJ
+        usage is similar to that of LHARC.
+
+        If you type ARJ [return] you will see a help screen similar to the
+        following:
+
+ARJ 1.00 Copyright (c) 1990,91 Robert K Jung
+
+All rights reserved.  Free for non-commercial personal use.  Feb 07 1991
+List of frequently used commands and switches.  Type ARJ -? for more help.
+
+Usage:     ARJ <command> [-<sw> [-<sw>...]] <archive_name> [<file_names>...]
+Examples:  ARJ a -r -wtemp software , ARJ l software , ARJ e software readme
+
+<Commands>
+  a: Add files to archive               m: Move files to archive
+  d: Delete files from archive          t: Test integrity of archive
+  e: Extract files from archive         u: Update files to archive
+  f: Freshen files in archive           v: Verbosely list contents of archive
+  l: List contents of archive           x: eXtract files with full pathname
+<Switches>
+  c: (All) skip time-stamp Check        n: (All) only New files (not exist)
+  d: (afu) with Delete (move)           r: (All) Recurse subdirectories
+  e: (afu) Exclude paths from names     u: (All) Update files (new and newer)
+  f: (All) Freshen existing files       v: (All) enable multiple Volumes
+  g: (All) Garble with password         w: (Upd) assign Work directory
+  i: (All) with no progress Indicator   x: (All) eXclude selected files
+  m: (afu) with Method 0, 1, 2, 3, 4    y: (All) assume Yes on all queries
+
+
+        If you type ARJ -? [return] you will see a more detailed help
+        screen similar to the following with page pauses.  Type ARJ -? -jp
+        to toggle the pauses off.
+
+ARJ 1.00 Copyright (c) 1990,91 Robert K Jung
+
+Usage:  ARJ <command> [{/|-}<switch>[-|+|<option>]...] <archive_name>[.ARJ]
+            [<base_directory_name>\] [<!list_name>|<path_name>|<wild_name>...]
+
+<Commands>
+  a: Add files to archive               p: Print files to standard output
+  c: Comment archive files              r: Remove paths from filenames
+  d: Delete files from archive          s: Sample files to screen with pause
+  e: Extract files from archive         t: Test integrity of archive
+  f: Freshen files in archive           u: Update files to archive
+  l: List contents of archive           v: Verbosely list contents of archive
+  m: Move files to archive              w: Where are text strings in archive
+  n: reName files in archive            x: eXtract files with full pathname
+  o: Order files in archive
+
+<Switches>
+  a: (afu) allow any file Attribute     v: (All) enable multiple Volumes
+  b: (afu) Backup changed files            vv: beep between volumes
+ b1: (afu) Backup + reset archive bits     va: auto-detect space available
+ b2: (afu) Only reset archive bits         vas: auto-detect and OS command
+  c: (All) skip time-stamp Check           vvas: beep, auto-detect, OS command
+  d: (afu) Delete added files              vascommand: -va + specified command
+     asks permission before deleting       v50000: make 50000 byte archives
+  e: (afu) Exclude paths from names        v360s: 362000 bytes and command
+ e1: (afu) Exclude base dir from names     v360,v720,v1200,v1440: abbrevs
+  f: (All) Freshen existing files       w: (Upd) assign Work directory
+  g: (All) Garble with password            wtmp: use tmp as work directory
+     gstew: garble with password stew   x: (afu) eXclude selected files
+  i: (All) show no progress Indicator      x*.exe: exclude *.exe files
+  k: (Upd) Keep archive file backup        x!nam.lst: exclude files in nam.lst
+  l: (All) create List_name file           multiple exclusions are allowed
+     lnames.lst: create names.lst       y: (All) assume Yes on all queries
+  m: (afu) with Method 0, 1, 2, 3, 4       use this switch for batch mode
+     m0: store (no compression)        ja: (All) show ANSI comments
+     m1: maximum compression (default) jc1: (All) disable CON RAW mode check
+     m2: less memory and compression   jd: (exlv) ensure free Disk space
+     m3: FAST! less compression            e -jd50K: skip file if < 50000 free
+     m4: FASTEST! least compression        l -jd1000: set error if < 1000 free
+  n: (All) only New files (not exist)  je: (Upd) create self-Extracting archive
+  o: (All) On or after YYMMDDHHMMSS        je1: create SFXJR archive
+     o901225: on/after 12/25/90        jf: (afu) store Full specified path
+ ob: (All) Before YYMMDDHHMMSS         jh: (afu) set Huffman buffer size
+     ob901225: before 12/25/90             jh65535: set to 65535 bytes (max)
+  p: (All) match using full Pathnames      jh2048: set to 2048 bytes (min)
+     p1: match Pathname with subdirs   jk: (Upd) Keep temp archive on error
+  q: (All) Query on each file          jp: (lv)  Pause after each screenful
+  r: (All) Recurse subdirectories      jr: (All) Recover broken archive files
+  s: (Upd) set archive time-Stamp      js: (afu) Store archives by suffix
+  t: (afu) set file Type (default 0)       default is arj, arc, lzh, pak, zip
+     t0: force binary file type            js.zoo.lzh: store .zoo, .lzh files
+     t1: force C text file type        jt: (Upd) Test temporary archive
+  u: (All) Update files (new + newer)  ju: (All) translate UNIX style paths
+                                       jv: (All) set Verbose display
+                                           jv1: set special verbose list mode
+                                       jx: (afu) start at eXtended position
+                                           jx10000: start at position 10000
+
+Simple examples:
+  Archive all files in current directory:      arj a archive
+  Extract archive to current directory:        arj e archive
+  Extract new and newer files without query:   arj e archive -u -y
+  Extract subdirectory from archive            arj e archive subdir -p1
+  List contents of archive:                    arj l archive
+  Comment archive header only                  arj c archive ...
+
+Other examples:
+  arj a -wd:\ /t1 /m2 /s archive.arj c:\source\ *.c *.h
+  arj a floppy software\*.* product\*.* /lnames.lst /r /v360000
+  arj e archive \temp\ *.c *.h read.me -u -y
+  arj o archive file1 file2 !list
+
+ARJ 1.00 - Archiver - Copyright (c) 1990,91 Robert K Jung. All rights reserved.
+
+ARJ is free to use, copy, and distribute for non-commercial personal use if
+ARJ is not modified and no fee is charged for using, copying, or distributing
+ARJ except as noted in the license document.  If you find ARJ of value, a gift
+of 10 dollars or any amount would be greatly appreciated.  For more
+information concerning ARJ, see the accompanying documentation or contact:
+
+  Robert K Jung                   Internet address:  robjung@world.std.com
+  2606 Village Road West          CompuServe userid: 72077,445
+  Norwood, Massachusetts 02062
+  USA
+
+
+     ARJ LIMITATIONS:
+
+        ARJ will accept up to:    64 filenames/wildnames on command line
+                               16000 filenames resulting from wildnames
+                                8000 filenames/wildnames to exclude
+                                8000 ARJ filenames resulting from wildnames
+                                2048 character comments
+                                     (up to 25 lines or 1 file)
+
+        ARJ requires approximately 300,000 bytes plus the memory necessary
+        to store all of the pathnames to be archived.
+
+        As far as I know there is no limitation on the number of files that
+        can be stored in one archive.  However, each add command can only
+        add a maximum of 16000 files at a time depending upon memory
+        availability.  I expect that a normal maximum of 5000 to 8000
+        filenames can be handled without running out of memory during the
+        compress phase.
+
+        If you do not have enough memory, you should use the "-l" switch to
+        dump the filenames to a list file.  You can then break the list
+        file into smaller files and use multiple ARJ commands to archive
+        all of the files.
+
+        Example:
+
+           ARJ a archive \*.* -r -lname.lst
+
+           If the above command fails due to lack of memory, split the
+           name.lst file into smaller pieces named name1.lst, name2.lst,
+           etc.  Then execute:
+
+           ARJ a archive !name1.lst
+           ARJ a archive !name2.lst
+           .
+           .
+
+        ARJ currently does NOT differentiate between wildnames like "C:*.*"
+        and "C:\*.*".  ARJ would expand each of those two wildnames into a
+        list that could be up to twice as long as necessary.
+
+        When updating an archive, ARJ creates a temporary file named
+        ARJ.$$$ in the current directory or work directory.
+
+        While ARJ is scanning a wildcard filespec, ARJ will change the name
+        of the target archive to ARJ.$$$ while the scan is proceeding to
+        avoid including the archive itself in an add or move command.
+        Also, as a result, you cannot add a file named ARJ.$$$ to an ARJ
+        archive.
+
+
+     DIFFERENCES BETWEEN ARJ AND LHARC:
+
+        The archive formats are NOT compatible.
+
+        The compression and decompression algorithms are NOT compatible.
+
+        ARJ only supports its own archive format.
+
+        ARJ by default stores the full specified pathname of files
+        archived minus any drive letter and root symbol.
+
+        The "e" and "x" commands will by default extract all of the files
+        in the archive without using date time stamps to select files.  You
+        should specify "-u -y" to duplicate LHARC functionality.
+
+        The "f" command in ARJ requires the -r and -p switch to be identical
+        to the LHARC f command.
+
+        The ARJ archive suffix is ".ARJ".
+
+        ARJ does NOT sort filenames when archiving.
+
+
+     IMPORTANT NOTES:
+
+        When using the "-w" working directory switch, ARJ does not check on
+        space availability before overwriting the original archive if it
+        exists.  Be sure that you have enough disk space for the new
+        archive before using the "-w" switch.  If ARJ aborts in this
+        situation because of disk space, ARJ will keep the temporary
+        archive.
+
+        By default, ARJ does not see hidden or system files when using
+        wildnames.  ARJ will process system and hidden when you either
+        specify the exact filename or specify the "-a" switch.
+
+        For MS-DOS environments that switch on RAW console mode via
+        programs like RAW.COM, ARJ has a new feature which sets ARJ
+        to check for RAW mode and switch its STDIN from fgets() to cgets().
+
+        Like LHARC and PKZIP, ARJ requires extra disk space to UPDATE an
+        archive file.  ARJ will backup the original archive while it
+        creates the new archive, so enough room must be available for both
+        archives at the same time.
+
+        Currently, ARJ will not extract to a readonly file.
+
+
+     ARJ ERROR SITUATIONS:
+
+
+        ADD:
+
+        If a user specified file is not found during an add, ARJ will
+        continue processing, but will keep the archive and terminate with
+        an error condition.
+
+        In a disk full condition or any other file i/o error, ARJ will
+        promptly terminate with an error condition and delete the temporary
+        archive file unless the user has specified the "-jk" switch.
+
+
+        MOVE:
+
+        ARJ will only delete files that have been successfully added to the
+        archive.  If you have specified the "-jt" (test) switch, ARJ will
+        abort on any error.  If you specify the "-jk" switch, ARJ will not
+        delete the temporary archive upon an abort.
+
+
+        EXTRACT:
+
+        In a disk full condition or any other file i/o error, ARJ will
+        promptly terminate with an error condition and delete the current
+        output file.
+
+
+     ARJ USER ACTION PROMPTS:
+
+        ARJ prompts the user for action at certain times.  There are
+        several types of prompts.  One is for yes/no permission, another is
+        for a new filename, another is for archive comments, and one other
+        is for search strings.  The yes/no prompts will also accept "quit"
+        for program termination and "always" to bypass further user
+        prompts.
+
+        Since ARJ uses STDIN for user input, be careful about typing ahead
+        anticipating prompts.  ARJ may prompt you for an unexpected action
+        and use your earlier input.
+
+
+     ARJ ENVIRONMENT VARIABLE:
+
+        ARJ will first look for an environment variable named ARJ_SW and
+        use its value as switch options for ARJ.  If ARJ finds such an
+        environment variable, it will display a message to that effect.
+
+        Type SET ARJ_SW = <switches>
+
+        Example:  SET ARJ_SW = -w\temp -k -e
+
+        As in LHARC, command line switches can be selected to override
+        ARJ_SW settings.
+
+
+     ARJ COMMAND LINE SYNTAX:
+
+        ARJ <command> [-<switch>[-|+|<option>]...] <archive_name>[.ARJ]
+        [<base_directory_name>\] [<!list_name>|<path_name>|<wild_name>...]
+
+        Currently commands and switches can be entered in upper or lower
+        case.  That is subject to change.  For compatibility with future
+        versions, you should use lower case commands and switches.
+
+        ARJ now supports the use of either "-" or "/" as the switch option
+        character.  The first occurrence of either "-" or "/" that ARJ
+        encounters will determine the switch symbol.  You may NOT mix and
+        match switch symbols.  This also includes the ARJ_SW environment
+        variable.  ARJ_SW is checked first for switches.  Throughout this
+        document, the symbol "/" may be substituted for "-" in switch
+        usage.
+
+        Examples:  ARJ a A:archive *.* /va /r    is correct
+                   ARJ a A:archive *.* /va -r    IS INCORRECT USAGE!
+
+        Switch options SHOULD NOT be combined.  At this time combinations
+        such as "-ki" representing "-k" and "-i" will work, but may not in
+        the future.
+
+        The switch option "--" tells ARJ that there are no more switch
+        options to process in the current command line.  This is useful
+        when you need to enter filenames beginning with "-".
+        Example:  ARJ a archive -- -testfile
+
+        The standard ARJ file suffix is ".ARJ".  Subsequent multiple volume
+        archives end in ".A01", ".A02", etc.
+
+        The ARJ command must be the first non-switch argument after "ARJ".
+        The ARJ archive name must be the first filename on the command
+        line.  The base directory, if any, must be the second filename
+        argument.  The switches and other filenames can be in any order.
+        The base directory name must end with "\" (backslash) or ":"
+        (colon).
+
+        For commands other than adding files to an archive (a, f, m, u),
+        you can specify a wildcard for the archive name such as "*.ARJ".
+        Also, if you also specify the "-r" switch,  ARJ will search
+        sub-directories for ARJ archives (*.ARJ) also.  Be careful using
+        wildcards this way.  The command ARJ d *.ARJ *.* -r will delete
+        every file in every archive in and under the current directory.
+
+        Example:  ARJ l * -r  will list all of your *.ARJ files.
+
+        Switches specified on the command line will either toggle or
+        override switches specified with the ARJ_SW environment variable.
+        Switch usage is identical to that of LHARC.
+
+        "-s+"        turns on switch "s".
+        "-s-"        turns off switch "s".
+        "-s"         toggles the state of switch "s".
+        "-sname"     provides the name argument for switch "-s".
+        "--"         skip processing of any more switch options.
+
+        Wild_names follow MS-DOS convention.  "*.*" means all files.
+        "*.DOC" means all files with an extension of ".DOC".  "?B*.*"
+        means all files with a second character of "B".
+
+        The default for <wild_name> for all commands except for "d" is
+        "*.*".
+
+        Filename matching in the archive does not use full pathnames unless
+        the "-p" switch is specified.
+
+        You can supply one or more filenames for files containing lists of
+        files to be added to an archive.  The filenames must be listed one
+        per line with no leading or trailing blanks.  The list filename(s)
+        must be prefixed with "!".  Because of the list filename syntax,
+        you cannot specify a filename or wildname beginning with "!".
+
+        You can exclude filenames/wildnames from the list of filenames to
+        be processed by ARJ.
+
+        Example:  ARJ a software *.* -x*.exe -x*.obj   adds all files
+        in the current directory except .EXE and .OBJ files.
+
+
+     ARJ COMMANDS:
+
+        a: Add files to archive
+
+           This is the basic command to add disk files to an ARJ archive.
+           You can specify 0 to 64 filename arguments (one can be a
+           destination directory).  The arguments can be wildnames.  If
+           you specify the "-r" switch (recurse subdirectories), ARJ
+           will add all of the files in all of the subdirectories that
+           match the specified wildname.
+
+           Example:  ARJ a -t1 archive subdir\*.*
+                     Archive all files in directory "subdir" in text mode.
+
+        c: Comment archive files
+
+           This command allows you to comment the header and individual
+           files.  ARJ will prompt you for each comment.  The user will be
+           prompted for up to 25 lines for each comment.  A line containing
+           only a [return] will terminate the comment.
+
+           The user can elect to input comment data from a file by entering
+           the comment filename preceded by an "!" as in "!archive.txt"
+           starting in column 1 of the first comment line.  This file is
+           read as a text file.  The lines in the text can be up to 2048
+           bytes long.  Only the first 2048 bytes of the file will be
+           accepted by ARJ.
+
+           To erase a comment from an archive, type [space] [return] on the
+           first comment line and [return] on the second comment line.
+
+           To add only the archive comment and not file comments, use the
+           following command:
+
+           ARJ c archive ...
+
+           The "..." will not match any filenames.
+
+        d: Delete files from archive
+
+           This commands allows you to delete files from the archive.  When
+           wildcard selection is not suitable, you can use the "-q" switch
+           which causes ARJ to prompt you for deletion for each file
+           selected.
+
+           Example:  ARJ d archive *.c
+                     Delete all files in archive ending in ".c".
+
+                     ARJ d archive *.c -q
+                     Prompt before deleting files ending in ".c".
+
+        e: Extract files from archive
+
+           This command will extract one or more files from the archive to
+           the current directory or base directory if specified.  ARJ will
+           prompt the user before overwriting existing files unless the
+           user specifies the "-y" switch.  If the user gives a "no"
+           answer, ARJ will prompt for a new filename.  If the user enters
+           a single [return] instead of a filename, ARJ will skip the
+           current file extraction.
+
+           When extracting a file located on multiple volumes, ARJ may
+           prompt the user with an "Append? " like prompt.  This will
+           usually occur with files split across volumes.
+
+           Example:  ARJ e archive soft\ *.c
+                     Extract all files ending in ".c" to subdirectory
+                     "soft".
+
+           If you wish to extract only a portion of an archive and that
+           portion is a directory containing directories, you should use
+           the "-p1" switch.  See the "-p" switch for more information.
+
+        f: Freshen files in archive
+
+           Update matching files in the archive that are OLDER than the
+           selected disk files.
+
+           Example:  arj f archive *.c *.h
+
+           NOTE when freshening archives containing files with pathnames,
+           you should use the -r and -p switch options for exact directory
+           updates; otherwise, ARJ will only look at the files in the
+           current directory.
+
+           Example:  arj f -r -p archive
+
+           In the above example, ARJ will freshen the archives according
+           to the directory structure from which they were originally
+           archived.
+
+        l: List contents of archive
+
+           List contents of archive to standard output.  The display can be
+           paused after each screenful with the "-jp" switch.  The files
+           are listed in stored order.  There are no sort options
+           currently.
+
+           The last field on the display TPMGVX stands for:
+               T -> text/binary mode
+               P -> path information available in "V" listing
+               M -> compression method used
+               G -> file has been garbled (encrypted)
+               V -> archive has been continued to another volume
+               X -> this file is an extended portion of a larger file
+
+           Example:  arj l archive *.c *.h
+
+        m: Move files to archive
+
+           This command is similar to specifying the "a" command with the
+           "-d" switch.  The "m" commands adds the selected files to the
+           archive.  If the adds are successful, then the added files are
+           deleted.  The move command does not ask permission before
+           deleting the files.  Use the "-d" switch for that feature.
+
+           Example:  ARJ m archive soft\*.*
+
+        n: reName files in archive
+
+           This command allows you to change the names of the files stored
+           in an ARJ archive.  ARJ will prompt for the new name of each
+           selected file.  You can skip changing the name of a particular
+           file by entering a blank line.
+
+           Example:  ARJ n archive *.c
+
+           In the above example, ARJ prompts for new names for all *.c
+           files.
+
+        o: Order files in archive
+
+           This command allows you to re-order the files within the
+           archive.  You may specify the order of files on the command line
+           or you can use one or more list files.  Any files in the archive
+           that are not specified on the command line or in a list file
+           will be placed at the end of the archive in the same relative
+           order that they were originally.  No wildcard names can be used
+           as order specifications.  The filenames in the list file must be
+           entered one per line.
+
+           Example:  ARJ o archive file1 file2 file3
+
+           In the above example, the files "file1", "file2", and "file3"
+           will be ordered first in the archive.  Any remaining files will
+           follow those.
+
+           Example:  ARJ o archive !list
+
+           In the above example, the archive will be ordered according to
+           the order of the names in the file "list".
+
+           IMPORTANT:  For the "o"rder command, the list file option has
+           one special feature.  If the list file is named ARJSORT.$$$, ARJ
+           will expect the file to have been built with the ARJ v -jv1
+           command. See the ARJSORT.BAT batch file for an example of this
+           special feature.
+
+           To facilitate building list files, the "v" command in ARJ will
+           produce special outputs with the "-jv" switch and the "-jv1"
+           switch.
+
+           The "-jv" switch will display only the pathnames stored within
+           the archive.  No other listing data is displayed.  This output
+           can be re-directed to a file for manual sorting into a list
+           file.
+
+           The "-jv1" switch will display the standard verbose display with
+           a few modifications.  No comment field will be displayed.  The
+           pathname is appended to the archive file description data
+           instead of being on a separate line.  Displayed just before the
+           pathname field are the file extension and filename.  These
+           fields are available so that the user can sort the text lines by
+           date-time, file extension, CRC value, etc.  Text editors like
+           Qedit and SLED allow the user to sort text lines via an embedded
+           text field.
+
+        p: Print files to standard output
+
+           Output files to standard output.  This function works such that
+           the output file will contain only the file data extracted.  This
+           is important for UNIX-like usage.
+
+           Example:  ARJ p archive manual.doc > output.fil
+
+           In the above example, output.fil will be an exact copy of
+           manual.doc.  There will be no extraneous header information in
+           output.fil.  All extraction phase information is written to the
+           STDERR device, which is normally the display screen.
+
+           NOTE:  Because of a problem using fwrite() and STDOUT, errors
+           occurring during redirection to serial and printer ports may not
+           be detected.  Errors during redirection to disk files will be
+           detected.
+
+        r: Remove paths from filenames
+
+           This command causes ARJ to remove the path component from the
+           specified filenames stored in the archive.  The default is all
+           filenames stored in the archive.  This command is useful if you
+           forgot to specify "-e" to exclude paths.
+
+        s: Sample files to screen with pause
+
+           This command is similar to the "p" command except that one
+           screenful of data is displayed to the user and a user action is
+           then requested.  The action prompt can be suppressed with the
+           "-y" switch.
+
+           The "s" command filters the text to output by truncating at 79
+           characters per line and displaying '?' for control characters.
+
+        t: Test integrity of archive
+
+           Test the contents of the selected files for the correct CRC
+           value.  ARJ uses a 32 bit CRC to validate the contents of the
+           files.  The use of 32 bit CRCs is many times better than the
+           use of 16 bit CRCs for the detection of errors.
+
+           Use this command to fully test the security envelope on an
+           ARJ-SECURED archive.
+
+        u: Update files to archive
+
+           Update older files in the archive and add files that are new to
+           the archive.
+
+           Example:  arj u software
+
+        w: Where are text strings in archive
+
+           This command will prompt the user for up to 20 text strings to
+           search for within the archive.  The search is done with case
+           being significant.  A count of all matches will displayed after
+           each individual file is scanned.
+
+           Search strings are limited to 79 characters.
+
+           Matches that span archive volumes will not be detected by
+           this string search.
+
+        v: Verbosely list contents of archive
+
+           This command lists the full pathname and comments of the archive
+           files as well as the same information as the "l" command.
+
+           Use the "-jp" switch to pause the output after each screen.
+
+           The "-jv" switch will display only the pathnames to the screen.
+
+           The "-jv1" switch will display the archive data in a manner
+           suitable for sorting on various fields for use with the "o"
+           command.
+
+        x: eXtract files with full pathname
+
+           This command extracts one or more files from the archive to
+           their full paths in the current directory or to the base
+           directory if specified.  ARJ stores pathnames as if they were
+           children of the target directory.  Any drive or root directory
+           specifications are stripped before storing unless the "-jf"
+           switch was specified.
+
+           Example:  arj x archive *.c
+
+           If you wish to extract only a portion of an archive and that
+           portion is a directory containing directories, you should use
+           the "-p1" switch.  See the "-p" switch for more information.
+
+
+     ARJ SWITCH OPTIONS:
+
+        -: (All) skip any more switch options
+
+           The switch option "--" will cause ARJ to stop looking for any
+           more switch options on the command line.  This is useful for
+           entering filenames beginning with "-".
+
+           Example:  ARJ a archive -- -file
+
+        a: (afu) allow any file Attribute
+
+           By default ARJ will not select system or hidden files via
+           wildcarding unless the "-a" option is specified.
+
+        b: (afu) Backup changed files
+
+           The "-b" switch will select only files that have the archive bit
+           set.
+
+           If you specify the "-b1" option, files with the archive bit set
+           will be selected and the archive bits of all archived files will
+           be reset after a successful archive has been built.
+
+           Example:  arj a a:backup1 c:\*.* -b1 -r -va   simulates BACKUP
+           command.
+
+           The "-b2" switch does NOT select files.  It causes ARJ to reset
+           the archive bits of added files.
+
+           Example:  arj a e:archive c:\*.* -b2 -r    archives all files on
+           the C drive and resets all archive bits.
+
+        c: (All) skip time-stamp Check
+
+           Normally with the "u" and "f" commands, ARJ will only update
+           files to an archive which are newer.  The "-c" switch will cause
+           ARJ to update the archive regardless of the date-time modified
+           time stamps.
+
+           When extracting files from an archive with the "-y" and "-f"
+           switches set, ARJ would normally skip extracting older files.
+           The "-c" switch will force ARJ to extract these older files.
+
+        d: (afu) with Delete (move)
+
+           This switch provides the standard MOVE command.  Successfully
+           added files will be deleted.  ARJ will prompt the user before
+           deleting the files unless the "-y" switch is specified.  Also,
+           you can use the "m" command which does not prompt before
+           deleting the files.
+
+           ARJ a archive filename -d -y       is equivalent to
+
+           ARJ m archive filename             and
+
+           ARJ a archive filename
+           delete filename
+
+        e: (afu) Exclude paths from filenames
+
+           By default ARJ always stores the pathname of the archived file.
+           This switch will cause ARJ to store only the filename component.
+
+           The "-e1" switch option causes ARJ to NOT store the base
+           directory name with the filenames in the archive.
+
+           Example:  ARJ a archive C:\SOFTWARE\ARJ\ *.* -r -e1
+
+           In the above example, ARJ will NOT store the C:\SOFTWARE\ARJ\ as
+           part of the filenames.
+
+        f: (All) Freshen existing files
+
+           This switch causes ARJ to only extract newer files from the
+           archive.
+
+        g: (All) Garble with password
+
+           This switch followed by a password "-gpassword" will encrypt or
+           decrypt an archived file.  During a "l" or "v" command, a
+           garbled file will display an "G" after the method number.
+
+           Example:  ARJ e archive -gpassword
+
+           IMPORTANT INFORMATION:  Due to a bug in test versions of
+           ARJ, certain files that are stored with method 0 with a password
+           will not be extractable.  You will see CRC errors reported.
+           This version of ARJ has a temporary option "-jg" that will
+           extract those garbled files.
+
+           Example:  ARJ e archive -gpassword -jg
+
+        i: (All) with no progress Indicator
+
+           Do not display the percentage progress indicator.  The progress
+           indicator appears during the add, extract, search, and test
+           operations.
+
+        j: (All) selects alternate set of switch characters.
+
+           This switch toggles the set of switch characters.  For example,
+           "-ja" is not the same function as "-a".
+
+        k: (Upd) Keep archive file backup
+
+           Backup the original archive file during an update.  The old
+           archive will be suffixed with ".BAK".  Any existing ".BAK" file
+           will be overwritten.
+
+        l: (All) create List_name file
+
+           This switch will cause ARJ to dump to the filename after the
+           "-l" switch all of the filenames to be processed by this ARJ
+           command.  This list contains all files that matched the file
+           wildnames given on the command line.
+
+           This list file can be used as a listfile on the command line.
+
+           Example:  ARJ a -lname.lst archive *.exe
+
+           This example will create a file named "name.lst" with all *.exe
+           files.
+
+        m: (afu) with Method 0, 1, 2, 3, 4
+
+           Method 0 = storing   (no compression)
+           Method 1 = maximum compression
+                                (requires 334,000 plus bytes memory)
+           Method 2 = slightly less compression
+                                (requires 256,000 plus bytes memory)
+           Method 3 = less compression
+                                (requires 272,000 plus bytes memory)
+           Method 4 = fastest compression
+                                (requires 256,000 plus bytes memory)
+
+           Example:  ARJ a archive *.exe -m2
+
+           Method 1 and 2 are similar.  Method 2 uses less memory and
+           produces slightly less compression.
+
+           Method 3 is very fast and gives compression slightly less than
+           PKZIP, PAK, and LHARC.
+
+           Method 4 uses a different decoder than 1 to 3.  Method 4 is
+           provided as a fast compression format.  It is comparable in
+           speed to PKZIP but provides slightly less compression.
+
+           IMPORTANT INFORMATION:  ARJ 1.00 method 4 has been improved in
+           size compression but is NOT compatible with versions earlier
+           than 0.15.  However, ARJ 1.00 will still extract and test
+           method 4 files correctly, but future versions of ARJ may not
+           have that capability.  The new method 4 is more effective with
+           files over 8000 bytes in size.  NOTE that the use of method 4 is
+           purely user specified.  ARJ will never by default use method 4.
+           Methods 1, 2, and 3 are slightly different from earlier
+           versions, but are STILL compatible with earlier versions.  The
+           method 1 in ARJ 0.15 no longer exists because of the time
+           penalty.  Archives created by 0.15 are still compatible with
+           all versions of ARJ (0.13 to 1.00).
+
+        n: (All) only New files (not exist)
+
+           Only archive or extract files that do not exist in the target
+           archive or directory.
+
+        o: (All) On or after date YYMMDDHHMMSS
+
+           The switch "-o" by itself means select files modified today.  If
+           "-o" is followed by a date and optionally a time, ARJ will only
+           select files modified on or after that date-time.
+
+           Example:  ARJ a test -o9001021700    means select files modified
+           on or after Jan 2, 1990, 5:00 PM.
+
+           Years less than "80" will be considered as 21st century years.
+
+           There is no option for using other date-time formats.
+
+           The switch "-ob" selects files modified before today.  If "-ob"
+           is followed by a date and optionally a time, ARJ will only
+           select files modified before that date-time.
+
+        p: (All) match using full Pathnames
+
+           By default ARJ normally uses just the filename component to
+           match files within the archive.  When "-p" is specified, ARJ
+           looks for an exact path match, and then, looks for a filename
+           component match.
+
+           You should use the "-p" switch when updating an archive built
+           with the "-r" switch.
+
+           To match directory paths that contain subdirectories, you should
+           use the "-p1" switch.  This switch sets ARJ to match only the
+           initial portion of the pathnames against the wildnames
+           specified.  For example, if your archive contains the TURBOC++
+           directory named TC and you wish to extract the INCLUDE
+           subdirectory along with the subdirectory INCLUDE\SYS, you can
+           use the following command:
+
+           ARJ e archive TC\INCLUDE -p1
+
+           If you wanted to extract all of the INCLUDE\S*.* files including
+           the contents of the SYS subdirectory, you can use the following
+           command:
+
+           ARJ e archive TC\INCLUDE\S*.* -p1
+
+        q: (All) Query on each file
+
+           This switch causes ARJ to prompt the user prior to acting upon
+           each archived file for all but the "l", "t", "v", and "w"
+           commands.  This allows you to selectively delete, add, etc.
+
+        r: (All) Recurse subdirectories
+
+           This switch will cause ARJ to recurse any wildcards specified on
+           the command line including ARJ archive filenames by traversing
+           all subdirectories scanning for matches.
+
+           ARJ will also recurse non-wildcard filenames as in:
+           ARJ a archive FILE.BBS -r
+
+           You should use the "-p" switch when updating an archive built
+           with the "-r" switch.
+
+        s: (Upd) set archive time-Stamp
+
+           This switch causes ARJ to set the date-time stamp of the archive
+           to that of the newest file in the archive.
+
+           This option will also work with non-update commands as in:
+           ARJ l archive -s ...
+
+        t: (afu) set file Type
+
+           This switch causes ARJ to open and read the file to be archived
+           in binary or text mode.  The default is binary mode (-t0).  To
+           archive in text mode, use the -t1 switch.  The "-t" switch is
+           equivalent to "-t0".
+
+           If you specify the switch "-t0", ARJ will always use the binary
+           mode even for freshening text mode files already in the archive.
+
+           The file type "text" is only needed for future cross platform
+           transfers of ARJ archives.  It enables ARJ to extract text files
+           to the host file system with the text newline sequence that is
+           correct for that operating system.
+
+           However, this mode may produce slightly better size reduction.
+           The "-t1" option combined with "-jh65000" can produce some of
+           the best size reduction numbers.
+
+           DO NOT use the text mode on non-text files!!!  On non-text files
+           ARJ will prematurely stop input if it finds an embedded EOF
+           character (CTL Z). This will produce a LOSS of data on binary
+           files.
+
+        u: (All) Update files (new and newer)
+
+           This switch causes ARJ to archive or extract newer and
+           non-existing files.
+
+        v: (All) enable multiple Volumes
+
+           This switch allows the creation of multiple volumes in the ADD
+           mode.  The command "arj a a:arjvol \*.* -b -r -v360000" allows a
+           user to backup up all files changed since the last backup to
+           multiple floppy disks.  ARJ will pause between volumes to allow
+           changing disks.  Subsequent volumes will be suffixed .A01, .A02,
+           .A03, ... , .A99, .A00, .A01, etc.
+
+           Archived files can be split across volumes.  ARJ will try to
+           fill each volume to within 200 to 3000 bytes of specified
+           maximum size.
+
+           The command "arj x a:arjvol -v" would restore files starting
+           from arjvol.arj.  You must specify the entire ARJ volume name
+           including the .Ann suffix when starting from the middle of a
+           series of volumes.
+
+           The pauses between volumes can be suppressed with the "-y"
+           switch.  You should not suppress the pauses when archiving to
+           diskettes.
+
+           Because of the splitting process, archived split files with a
+           size of zero bytes are possible.  This is not an error.
+
+           If you comment your archives with long comments, you should take
+           that into account when specifying volume size.  You should
+           specify a smaller volume size during the "a" command before
+           adding the comments.
+
+           The "-v" switch will accept the abbreviations 360, 720, 1200,
+           and 1440.  These will be translated to 362,000, 730,000,
+           1,213,000, and 1,457,000 bytes, respectively.
+
+           You can use the "K" modifier as a shortcut for "000".  For
+           example, 100K means 100000.
+
+           The "-vv" switch turns on the next volume beep option.  When you
+           select this option, ARJ will sound a beep prior to the next
+           volume.  The "v" modifier must come before any other modifier.
+
+           The "-va" switch sets the disk space auto-detect option.  ARJ
+           will check for the disk space available on the target directory
+           and try to use all or most of it.  This option is aimed at
+           diskette usage.  Please note that this switch option detects
+           free disk space.  It does not detect formatted disk space.
+
+           Examples:  ARJ a A:backup -b -va
+                      ARJ a backup -v360
+
+           The switch modifier "s" can be used to make ARJ execute one
+           specified system command prior to each volume or make ARJ pause
+           for manual execution of system commands.  This is useful for
+           purging target diskettes before ARJ writes to them.  The "s"
+           modifier must follow the "a" modifier or the volume size.
+           Optionally, after the "s" modifier, you can specify a system
+           command or batch file name.  ARJ will automatically execute the
+           command or batch file before each volume.  If the command has
+           embedded blanks, then the entire switch option must be
+           surrounded by double quotes.  The system command is executed
+           before ARJ executes the auto-detect space option.
+
+           Examples:  ARJ a A:backup -vas
+                      ARJ a A:backup -vvas
+                      ARJ a A:backup -v360s
+                      ARJ a A:backup -vv360s
+                      ARJ a A:backup -vaspurge.bat
+                      ARJ a A:backup -v360sdelete.bat
+                      ARJ a A:backup "-vasFORMAT A:"
+                      ARJ a A:backup "-vasDIR C:\ "
+
+           Note that the last example has a space before the last double
+           quote mark.  If the last space is missing, the internal command
+           line parser will make the double quote mark part of the DIR
+           command.
+
+           Volume archives can be used as stand-alone archives save for the
+           files that are split across volumes.
+
+           It is recommended that the "-jt" (test archive) option be used
+           with the "-v" switch to ensure perfectly built volumes as it is
+           tedious to retest volumes after they are built.
+
+           WARNING:  Updating multiple volume archives with the "-v" switch
+           set is NOT recommended, especially if the new file sizes are not
+           identical.
+
+        w: (Upd) assign Work directory
+
+           By default, ARJ builds a new ARJ archive file in the same
+           directory as the old archive file.  By specifying the "-w"
+           switch, you can specify the working directory where the
+           temporary archive file will be built.  After the temporary
+           archive file is built, it is copied over the original one and
+           deleted.
+
+           Normally ARJ requires enough disk space for the original archive
+           and the new temporary archive.  Specifying the "-w" switch
+           allows you to move some of that disk space requirement to
+           another directory.
+
+           If the copy of the temporary archive on top of the original
+           archive fails, you will have to manually do the copy.  ARJ will
+           not delete the temporary archive in this error situation.
+
+           Example:  ARJ a -we:\temp\ archive *.c
+
+        x: (afu) Exclude filenames
+
+           This switch is used to exclude filenames or wildnames from the
+           list of filenames to be processed.  Currently, this only works
+           with the "a", "f", "m", and "u" commands.
+
+           Example:  ARJ a archive soft\*.* -r -x*.exe -x*.obj -xtest
+
+           This example will archive all files in the soft directory and
+           sub-directories with the exception of any files named "test"
+           or ending in ".exe" and ".obj".
+
+           You can also specify an exclude file list by preceding the
+           filename with the "!" character.  The exclude file list must
+           contain a list of filenames/wildnames one per line with no
+           leading or trailing blanks.
+
+           Example:  ARJ a archive soft\*.* -r -x!exclude.lst
+
+           A maximum of 8000 filenames or wildnames can be excluded.
+
+        y: (All) assume Yes on all queries
+
+           Use this switch for batch type uses of ARJ.  This switch
+           disables most of the normal user queries during ARJ execution.
+           Use this switch to suppress overwrite queries in the "e" and "x"
+           commands, to suppress the make new directory query in the "e"
+           and "x" commands, to suppress the pause during the "s" command
+           and to suppress the next volume pause using the "-v" option.
+           Use this option with due caution, especially during extraction
+           as this sets ARJ to overwrite files.
+
+       ja: (All) show ANSI comments
+
+           Display any ANSI escape sequences unaltered.  By default, escape
+           characters in comments are not displayed.  In ARJ 1.00, IBM
+           graphics characters will always be displayed.
+
+       jc: (All) test for Console RAW mode    [OBSOLETE switch]
+
+           This is the default mode for ARJ in 1.00.  ARJ tests the console
+           device for RAW mode.  If the console is in RAW mode, ARJ will
+           use cgets() instead of fgets() for input.  This prevents ARJ
+           from hanging the system.
+
+           If this feature causes a problem with your system, you can
+           disable this test feature with the "-jc1" switch.
+
+       jd: (exlv) ensure free Disk space
+
+           In extraction mode, this option causes ARJ to always ensure that
+           it will leave the user specified amount of disk space available.
+           ARJ will skip files that would exceed the disk space available
+           limit. Files that are skipped will each count as an error.  The
+           default free space is zero bytes.
+
+           Example:  ARJ e archive basedir\ *.doc -jd100K
+
+           In the above example, ARJ will not extract any files that will
+           cause the disk free space to be less than 100,000 bytes.  The
+           "K" is a synonym for "000".  For example, 100K means 100000.
+
+           In "l"ist or "v"erbose list mode, this option sets an error
+           check at the end of the listing screen based upon the total of
+           the original sizes of the files selected.  If the total size
+           would exceed the user specified free space limit, ARJ will
+           report an error at the end of the listing screen.
+
+           Example:  ARJ l archive *.doc -jd10000
+
+           In this example, ARJ will report an error if the current
+           available disk space minus the total of the *.doc files is less
+           than the specified minimum of 10,000 bytes.
+
+       je: (Upd) create self-Extracting archive
+
+           This option causes ARJ to create a self-extracting .EXE file
+           instead of an .ARJ file.  This self-extractor is about 14000
+           bytes in size and supports full pathname extraction.  The "-je1"
+           switch creates a smaller self-extracting .EXE file.  The
+           ARJSFXJR module is less than 6000 bytes in size.
+
+           The current commands ARJSFX supports are:
+
+           Usage: ARJSFX [-command] [-switch(s)] [directory\] [file(s)]
+
+           Commands:
+           e: Extract files (default)
+           l: List contents            v: Verbosely list contents
+           t: Test contents            x: eXtract files with pathname
+
+           Switches:
+           a: show ANSI comments       n: only New files (not exist)
+           c: skip time stamp Check    p: match with Pathname
+           f: Freshen existing files   u: Update files (new + newer)
+           g: unGarble with password   y: assume Yes on queries
+
+           NOTE!!!  ARJSFX uses the "-" character before all commands and
+           switches.  This is to allow extraction of files named e, l, etc.
+
+           ARJSFX does not support compression method 4.
+
+           The ARJSFX module supports the ARJ-SECURITY envelope feature by
+           itself.  The ARJ-SECURITY feature is only available as a
+           licensed option.  It is intended as a feature for software
+           developers.
+
+           ARJ will create a self-extracting module without an intermediate
+           archive file.
+
+           Example:  ARJ a software *.* -je
+
+           If you want to make a self-extracting module from an ARJ
+           archive, use the freshen command with a non-existent filename
+           argument such as "...".  In this case, ARJ will report the
+           self-extractor created with 0 file(s).  The 0 file(s) indicate
+           that no files were modified during the self-extractor creation.
+
+           Example:  ARJ f software ... -je
+
+           IMPORTANT:  When executing an ARJSFX module on a system with the
+           CONSOLE device set to RAW mode, the ARJSFX module will abort on
+           user input to avoid hanging the system.  Using the "-y" switch
+           on the command line will avoid the problem.
+
+           Example:  ARJ100 -y
+
+           The ARJSFXJR module created with the "-je1" switch is a stripped
+           down version of ARJSFX.  ARJSFXJR does not accept any command
+           line options.  It does not support method 4 or text mode "-t1"
+           or garbled "-g" archives.  An ARJSFXJR module containing files
+           with pathnames will extract to the paths only if the directories
+           involved already exist.
+
+           Example:  ARJ f software ... -je1
+
+       jf: (afu) store Full specified path
+
+           Normally, ARJ will strip all pathnames of drive letter and root
+           symbol.  This switch disables this action.  When extracting with
+           the "x" command from an archive that was built with this switch,
+           you should NOT use the base directory option on the command
+           line.
+
+       jh: (afu) set Huffman buffer size
+
+           ARJ has a default static Huffman buffer size of 16384 bytes.
+           This buffer size is better for compressing executable files.
+           The buffer size in ARJ 0.15 and earlier was set to 65500 bytes.
+           That size is better for large text files.  You may specify a
+           buffer size from 2048 to 65535 bytes.
+
+           Example:  ARJ a archive *.txt -jh65500
+
+       jk: (Upd) Keep temp archive on error
+
+           When the "-jk" switch has been specified, ARJ will keep the
+           temporary archive during an aborted archive build/update. During
+           a failed build, ARJ will modify the temporary archive to make it
+           useable by removing the broken portion.
+
+       jp: (lv)  Pause after each screenful
+
+           This switch will cause ARJ to pause after listing each screenful
+           of data for the "l" and "v" commands.  Press the ENTER key to
+           continue the listing.  You can also enter "quit" to exit ARJ.
+
+           In one special case, "ARJ -? -jp", the use of the -jp switch
+           toggles page pauses off, because by default in help mode,
+           pausing is on.
+
+       jr: (All) Recover broken archive files
+
+           This switch is used to access headers and files in an archive
+           that has been corrupted either with bad data or missing data.
+           This switch lets ARJ find the next valid header for listing,
+           extraction or testing.  ARJ will continue to look for headers
+           until it finds the end of file.  At that point ARJ will print an
+           error message stating that it encountered the end of file
+           unexpectedly.  This is to be expected.
+
+           If file header data has been corrupted, ARJ will be unable to
+           recover any file data associated with that header.  If file data
+           has been corrupted, ARJ will abort but not delete any extracted
+           file data.  To continue recovering from such a corrupted
+           archive, simple specify one filename to extract at a time or use
+           the "-q" query switch to prompt for individual files.
+
+           Example:  ARJ e archive -jr -q
+
+       js: (afu) Store archives by suffix
+
+           This switch is used to force ARJ to store and not compress files
+           with the following extensions: .ARJ, .ZIP, .LZH, .PAK, .ARC.
+
+           The file extensions can be specified as follows:
+
+           ARJ a archive -js.zoo.ice.gif
+
+           The above command will store files with extensions ending in
+           .ZOO, .ICE, and .GIF.  This overrides the defaults.
+
+           You can use the environment variable ARJ_SW to set up your own
+           defaults as follows:
+
+           set arj_sw = -js.arj.zip.lzh -js-
+
+           The "-js-" turns off the option by default so that when you
+           specify the "-js" switch on the command line, ARJ will already
+           know what extensions that you want to store.
+
+       jt: (Upd) Test temporary archive
+
+           This switch causes ARJ to execute an archive integrity check on
+           the intermediate temporary archive before overwriting any
+           pre-existing original archive.  If any error occurs, ARJ will
+           not overwrite the original archive.  When using the "-w" switch,
+           ARJ will test the final archive file before deleting any files.
+
+           Example:  ARJ m archive *.c -jt
+
+       ju: (All) translate UNIX style paths
+
+           This switch causes ARJ to translate any subsequently encountered
+           pathnames to MS-DOS style from UNIX style.  This switch also
+           causes translation of filenames entered as a result of ARJ
+           prompts such as in comment filenames.
+
+           Example:  ARJ a archive -ju /soft/*.c
+
+       jv: (All) set Verbose display
+
+           This switch sets ARJ to display more information during the
+           "t"est, "l"ist, "v"erbose list, and "ex"tract commands.
+
+           Example:  ARJ t archive -jv
+
+           The "-jv" switch causes the "v" command to display only the
+           pathnames to the screen.
+
+           The "-jv1" switch causes the "v" command to display the archive
+           data in manner suitable for sorting on various fields.
+
+       jx: (afu) start at eXtended position
+
+           This switch is used to continue a file on another archive
+           manually.  This switch is normally for use when a multiple
+           volume "a" command has aborted.
+
+           Example:  ARJ a arjvol.a01 manual.doc -jx100000
+
+           This example archives manual.doc starting from file byte
+           position 100000 and on.
+
+
+     ARJ_SECURITY ENVELOPE:
+
+        The ARJ-SECURITY ENVELOPE feature provides a facility similar to
+        other archivers.  This feature disallows any type of modification,
+        even commenting, to an ARJ-SECURED archive by ARJ.  Moreover, there
+        are additional internal checks to determine if the ARJ-SECURED
+        archive has been modified in any way.  This feature is intended for
+        use by software developers who distribute their software in
+        archived format.  However, there can be no guarantee that computer
+        pirates will not defeat this mechanism.
+
+        In normal use, ARJ will display one of two messages when processing
+        an archive with a valid ARJ-SECURITY envelope.  ARJ will either
+        state that the archive MAY have a valid ARJ-SECURITY envelope or
+        that the archive HAS a valid ARJ-SECURITY envelope.  ARJ can only
+        be sure that the envelope is valid when the "t", "e", or "x"
+        command is executed on ALL of the archived files.  In order to
+        fully test the security envelope of an archive, use the "t" command
+        as in "ARJ t archive".
+
+        If the security envelope has been tampered with or the archive has
+        suffered data corruption, ARJ will display a message stating that
+        the security envelope has been violated.
+
+
+     KNOWN ARJ ISSUES/PROBLEMS:
+
+        When using a working directory, ARJ does not check for disk space
+        before overwriting the original archive.  Be sure you have enough
+        space before updating an archive using the "-w" switch.
+
+        DO NOT continue to use older versions of ARJ earlier than 0.15a.
+        ARJ archives that have been created with 2048 byte sized comments
+        will produce unpredictable results when processed by older versions
+        of ARJ.
+
+        I am currently trying to determine how the "-p" switch and pathname
+        matching should really work.  It seems to me that on a non-updating
+        command, that a pathname specification should be matched on its
+        entirety even without a "-p" being specified.  However, the current
+        ARJ usage requires "-p" to be specified for full pathname matching.
+
+        There is also an issue with the "f" command and archives containing
+        files with pathnames.  The LHARC f archive is done with ARJ via
+        ARJ f -r -p archive.
+
+        I would appreciate any comments.
+
+
+     ARJ TECHNICAL SUPPORT:
+
+        I have received many useful suggestions from users all over the
+        world.  Many of those suggestions are in this version or will be
+        incorporated in later versions of ARJ.
+
+        I will try to resolve software problems with ARJ as they are made
+        known to me.  Please notify me of any ARJ problems by mail, email
+        or via the ARJ support BBSes mentioned below.  Despite the fact
+        that ARJ is free for many users, I will strive to make ARJ a
+        robust, stable and useful product for all users.  To facilitate a
+        prompt reply when using the postal system, please enclose a stamped
+        self-addressed envelope with your correspondence.  Keeping up with
+        the ARJ mail has become somewhat expensive.  Some extra postage
+        stamps tossed into the envelope would be greatly appreciated.
+
+
+     ARJ AVAILABILITY:
+
+        The latest version of ARJ can be obtained from the following
+        sources:
+
+
+        ARJ SUPPORT BBSes:
+
+        Wonderland BBS, Billerica, MA, BBS (508) 663-6220
+        This BBS receives ARJ directly from the author.
+
+        Dimensional Crossroads BBS, Brockton, MA, BBS (508) 427-5379
+        This BBS receives ARJ directly from the author.
+
+        The Cutting Edge BBS, CT, BBS (203) 233-8993
+        This BBS receives ARJ directly from the author.
+
+        C.A.T. Kommunikations-System.  (Germany)
+        Four ports are on 49-6192-42054 (1200-2400)
+        49-6192-42057 (19200 PEP)
+        Packet switching networks: 45619270055
+        This BBS receives ARJ directly from the author.
+
+        If you run a BBS and would like to support ARJ and get updates as
+        soon as they are released, please contact me.  I am looking for a
+        few more support sites.
+
+
+        OTHER BBS ARJ SOURCES:
+
+        Bay State BBS, Beverly, MA, BBS (617) 598-6646
+
+        Channel 1 BBS, Cambridge, MA, BBS (617) 354-8873
+
+
+        ARJ is available from a number of other BBS's, but I can only vouch
+        for the integrity of the archive if the ARJ100.EXE verifies its
+        ARJ-SECURITY envelope as valid.  If no security envelope exists,
+        then the data has been re-archived and there is no assurance of
+        data integrity.
+
+
+        If none of the above sources are suitable, you may order a copy of
+        the latest version of ARJ directly from the author.
+
+        Send a check or money order for five dollars (US) to cover the
+        costs of shipping and handling for U.S.  delivery.  For foreign
+        delivery, send seven dollars (US) to cover shipping and handling.
+        Please specify diskette size (3.5 or 5.25 inch);  otherwise, a 5.25
+        inch diskette will be shipped.  Please allow a few weeks for
+        delivery, longer for foreign deliveries.
+
+        Robert Jung, 2606 Village Road West, Norwood, Massachusetts 02062
+
+
+     ACKNOWLEDGEMENTS:
+
+        LHARC is the name of an archiver by Haruyazu Yoshizaki.
+        PKZIP and ZIP are trademarks of PKWare, Inc.
+        PAK is trademark of NoGate Consulting.
+
+        I wish to express my gratitude to Haruyasu Yoshizaki (Yoshi) for
+        developing LHARC and distributing its source code.  LHARC gave me
+        the impetus to start studying data compression.  I also wish to
+        thank Haruhiko Okumura for providing additional ideas.
+
+        I wish to thank those who have helped in the development of ARJ.
+        Those include Ron Freimuth, Michael Lawler, Arkady Kleyner, Joseph
+        Teller, Brian Godette, Robb Hufalt, Axel Dunkel and Jonathan
+        Forbes.  And to the many others who have helped or provided
+        messages of support, THANKS!
+
+        I wish to thank my wife, Susan, and my son, Timothy, for putting up
+        with this ARJ obsession for the last few months.  Without their
+        encouragement and support, ARJ would never have come to be.
+
+        But my greatest thanks goes to Almighty God for His inspiration and
+        great salvation.
+
+
+     USAGE AND DISTRIBUTION POLICY:
+
+        See LICENSE.DOC file for license policy.
+
+        ARJ, ARJSFX, and ARJSFXJR contain no DES technology or any other
+        protected technology.  As far as I can determine, ARJ, ARJSFX, and
+        ARJSFXJR may be exported and used outside the U.S. and Canada.
+
+
+     FINAL COMMENTS:
+
+        I do hope that you find this program as useful as I have.  I would
+        appreciate any suggestions to improve this archiver.  I do have
+        another archiver called ARJX which is completely compatible with
+        ARJ and provides tighter compression at two to three times the
+        speed using a proprietary compression algorithm.  For many files,
+        ARJX has demonstrated higher compression speed than PKZIP 1.10.
+        ARJX will not be released until early 1991 at the earliest for
+        legal reasons.  ARJX is NOT VAPORWARE.  It is as finished a product
+        as ARJ.  I use ARJX daily.  The file RESULTS.DOC shows the ARJX
+        performance.  A license policy for ARJX has not been determined at
+        this time.
+
+
+        I can be reached at:
+
+        Robert Jung at the Wonderland BBS (508) 663-6220
+
+        Robert Jung at the Dimensional Crossroads BBS (508) 427-5379
+
+        Robert Jung at the CHANNEL 1 BBS (617) 354-8873
+
+        Robert Jung in the COMPRESS (ILINK), or LHARC / COMPRESSIONS
+        (SMARTNET) echo conferences.
+
+        2606 Village Road West
+        Norwood, Massachusetts 02062
+
+        Internet address:  robjung@world.std.com
+
+        Compuserver users can enter   >INTERNET: robjung@world.std.com
+        at the "Send to" prompt.  I prefer CompuServe users to send mail
+        to this address as opposed to my CompuServe userid below.
+
+        CompuServe userid: 72077,445  (Checked once or twice a week)
+
+
+     RECENT DATA COMPRESSION RESEARCH:
+
+        The following information is explained in more detail in the book,
+        TEXT COMPRESSION by Timothy Bell, John Cleary and Ian Witten
+        published by Prentice Hall, 1990.  ISBN 0-13-911991-4.
+
+        Three of the most useful types of data compression involve context
+        modeling, Lempel-Ziv 1977, and Lempel-Ziv 1978.
+
+        Context models use the preceding few characters to PREDICT
+        (estimate the probability of) the next character.  For example,
+        what is the next character after "tabl"?  There is a high
+        probability that the character is "e".  Much of today's research is
+        focused on these types of data compressors because they provide the
+        best "TEXT" compression results.  The disadvantage of this family
+        of compressors is the amount of memory required.  Three practical
+        models require from 500,000 to 5,000,000 bytes of memory.
+
+        More familiar is the Lempel-Ziv 1978 (LZ78) family of data
+        compressors.  This family as well as Lempel-Ziv 1977 are classified
+        as adaptive dictionary encoders.  In these methods, text strings
+        are replaced by pointers to previous occurrences of duplicate
+        strings.  For example, the words in this document could be
+        represented by dictionary page and line numbers.  The significant
+        characteristic of LZ78 algorithms is the parsing of previous text
+        data into PHRASES that are stored in a dictionary.  Pointers are
+        allowed to reference such phrases; however, pointers are not
+        allowed to reference substrings of such phrases.
+
+        Lempel-Ziv-Welch, 1984, (ARC shrinking, crushing, UNIX COMPRESS) is
+        the most familiar of this family.  Numerous articles have been
+        published concerning this method.  Unknown to many is the fact that
+        this algorithm has a US patent number owned by UNISYS.  These
+        algorithms are FAST.  Their disadvantages include the problem of
+        handling a FULL dictionary when the input text data no longer
+        matches the contents of the dictionary and the poor compression of
+        non-text data.
+
+        Lempel-Ziv 1977 (LZ77) algorithms have recently come into popular
+        practical use (LHARC, PKZIP 1.10, ARJ, PAK).  In the original LZ77
+        scheme, pointers are allowed to reference any phrase in a
+        fixed-size window that precedes the current phrase.  A matched
+        current phrase is replaced by the pointer to the previously
+        occurring duplicate phrase.  This pointer in LZ77 consists of an
+        offset into the window and the length of the phrase.  The original
+        implementation was considered impractical as it used a brute force
+        string searching method to find duplicates.  It was quite slow
+        requiring up to N character comparisons in an N sized window for
+        each phrase looked for.
+
+        However, in 1987, Timothy Bell proposed using a binary tree to
+        index into the window to speed the lookup of phrases.  This
+        provided an order of magnitude speed increase.  In the same year,
+        Brent published an algorithm that used a secondary compression
+        method (Huffman encoding, 1952) to further encode the output of a
+        LZ77 encoder.  Huffman encoding is the subsitution of variable
+        bit-length codes for standard codes (8-bit ASCII) based upon
+        frequency of occurrence.  The most frequent codes have the shortest
+        bit-lengths.
+
+        LHARC is a combination of these two ideas.  It uses a binary tree
+        LZ77 encoder with dynamic Huffman encoding (1978) of the output.
+        The advantage of using dynamic Huffman encoding is adaptivity to
+        rapidly changing data.  The disadvantage is slow decoding.
+
+        PKZIP 1.0, I believe, uses a combination of binary tree encoding
+        with SHANNON-FANO (1949) static encoding.  Static SHANNON-FANO
+        encoding has the advantage of fast decoding and the disadvantage of
+        less optimal compression especially on rapidly changing data.
+
+        PKZIP will perform better in compression than LHARC on many large
+        files because PKZIP uses a larger window (8K) than LHARC (4K).
+        LHARC will perform best on binary data with rapidly changing
+        characteristics like executables that include a lot of text data.
+
+        LH (LHarc 2.0), I believe, uses a digital TRIE LZ77 encoder with a
+        static Huffman encoder.  It uses an 8K window.  LH uses a
+        particularly efficient Huffman encoder which works on small data
+        sets.  Many static encoders suffer from the cost of including the
+        table of codes with the encoded data.  The digital TRIE has the
+        advantage of always producing the most recent match unlike binary
+        trees.  This recency of match is significant when secondary
+        compression is used. Much of this work has been derived and
+        improved upon from literature published in the last two years.
+
+        ARJX improves upon LH by using a proprietary LZ77 encoder (1990)
+        that is one of the fastest available for limited memory use.  This
+        encoder is not derived from any published literature.
+
+        It will be interesting to see if developers can significantly
+        improve upon LH since it is based upon the most recent published
+        research in data compression.
+
+        One of the most significant new encoders published is that of Fiala
+        and Greene, 1989.  This method uses pointers that point to nodes in
+        the TRIE data structure as opposed to the phrases in the window.
+        This bypasses the problem of redundancy of phrases in any given
+        window.  Since each node is unique, fewer pointers are needed and
+        thus are more easily compressed by a secondary compressor.  This
+        technique is currently patent pending.
+
+        I hope that this synopsis of compression research has been
+        enlightening.
+
+
+     End of document
+

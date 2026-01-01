@@ -1,0 +1,208 @@
+From: lcthomas@delphi.com (Lon C. Thomas, Jr)
+Newsgroups: comp.lang.rexx
+Subject: Re: Translate to LOWER CASE in REXX?
+Date: 20 Dec 1994 10:28:06 GMT
+Organization: Delphi Internet Services Corporation
+Message-ID: <9412200528591.DLITE.lcthomas@delphi.com>
+
+>>If DATATYPE(String,"M") = 0 then
+>> String = TRANSLATE(String,XRANGE("a","z"),XRANGE("A","Z"))
+> 
+>>Let me know if it works.
+> 
+>It won't work on an EBCDIC machine like an IBM mainframe, because
+>there are characters between "A" and "Z" (e.g. right brace, backslash)
+>which will get translated against your wishes.
+> 
+> - seb
+> 
+The point about EBCDIC is quite true ... there are gaps that would
+result in unwanted character translation.  However, the test for
+mixed case string would not let these strings (with right brace and
+such) pass, and so the translate would not occur.
+ 
+Here is our solution, in the form of a function, wrapped around
+a test case.
+
+/*
+  Various lower case stuff
+*/
+s.1 = 'ALKJSDFLKSAJDLFK'
+s.2 = 'ISDJFS}LEIJF'
+s.0= 2
+do s = 1 to s.0
+  If datatype(s.s,"M") then do
+    Say 'Lower' s.s 'is' lower(s.s)
+    End
+  Else do
+    Say s.s 'is not a mixed case string'
+    End
+  End
+Exit
+LOWER: Procedure
+  Parse arg string
+  lower = 'abcdefghijklmnopqrstuvxyz'
+  upper = translate(lower)
+  Return translate(string, lower, upper)
+
+
+Lon Thomas
+Arcane Software Consulting, Inc.
+
+
+From ankh.iia.org!uunet!news.mathworks.com!zombie.ncsc.mil!paladin.american.edu!auvm!SUPPORT4.DRAPER.COM!seb1525 Fri Dec 23 19:54:01 1994
+Path: ankh.iia.org!uunet!news.mathworks.com!zombie.ncsc.mil!paladin.american.edu!auvm!SUPPORT4.DRAPER.COM!seb1525
+Comments: Gated by NETNEWS@AUVM.AMERICAN.EDU
+Newsgroups: comp.lang.rexx
+Message-ID: <199412201421.JAA27222@support4.draper.com>
+Date: Tue, 20 Dec 1994 09:21:47 -0500
+Sender: REXX Programming discussion list <REXXLIST@UGA.BITNET>
+From: "Stephen E. Bacher" <seb1525@SUPPORT4.DRAPER.COM>
+Subject: Re: Translate to LOWER CASE in REXX?
+Comments: To: REXXLIST@uga.cc.uga.edu
+Lines: 38
+
+>/*
+>  Various lower case stuff
+>*/
+>s.1 = 'ALKJSDFLKSAJDLFK'
+>s.2 = 'ISDJFS}LEIJF'
+>s.0= 2
+>do s = 1 to s.0
+>  If datatype(s.s,"M") then do
+>    Say 'Lower' s.s 'is' lower(s.s)
+>    End
+>  Else do
+>    Say s.s 'is not a mixed case string'
+>    End
+>  End
+>Exit
+>LOWER: Procedure
+>  Parse arg string
+>  lower = 'abcdefghijklmnopqrstuvxyz'
+>  upper = translate(lower)
+>  Return translate(string, lower, upper)
+
+One recommendation:  Move the initial assignments to
+"lower" and "upper" out of the LOWER procedure and add
+"expose lower upper" to the "procedure" statement.  That
+way you avoid the overhead of setting variables and calling
+TRANSLATE twice each time you invoke LOWER from the loop.
+
+If you want to make LOWER an external (library) function
+instead, or even if you don't, it's worth the effort to
+hardcode the strings:
+
+        Return translate(string, ,
+                'abcdefghijklmnopqrstuvwxyz', ,
+                'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+
+(You could write a REXX [X]EDIT macro to generate the
+constant strings while editing this exec.  :-)
+
+ - seb
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!bloom-beacon.mit.edu!uhog.mit.edu!europa.eng.gtefsd.com!newsxfer.itd.umich.edu!nntp.cs.ubc.ca!bcsystems!bcsc02.gov.bc.ca!HRGRANEW Fri Dec 23 19:55:09 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!bloom-beacon.mit.edu!uhog.mit.edu!europa.eng.gtefsd.com!newsxfer.itd.umich.edu!nntp.cs.ubc.ca!bcsystems!bcsc02.gov.bc.ca!HRGRANEW
+Newsgroups: comp.lang.rexx
+Subject: Re: Translate to LOWER CASE in REXX?
+Message-ID: <170946A60S86.HRGRANEW@bcsc02.gov.bc.ca>
+From: HRGRANEW@bcsc02.gov.bc.ca
+Date: Thu, 22 Dec 94 07:33:42 PST
+References: <199412201421.JAA27222@support4.draper.com>
+Organization: BC Systems Corporation
+Nntp-Posting-Host: bcsc02.gov.bc.ca
+Lines: 21
+
+In article <199412201421.JAA27222@support4.draper.com>
+"Stephen E. Bacher" <seb1525@SUPPORT4.DRAPER.COM> writes:
+ 
+>
+>        Return translate(string, ,
+>                'abcdefghijklmnopqrstuvwxyz', ,
+>                'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+>
+> - seb
+I am wondering if there is any performance advantage to ordering the
+characters in order of usage rather than alphabetically?
+Would 'etsr..................qx' or some such be more efficient?
+ 
+Bob
+ 
+Not a 'spokesperson' or 'spokeperdaughter' of BCSC.
+ 
+Regards,
+Bob Granewall
+BC Systems Corporation
+(604) 252-3203
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!news2.near.net!news.delphi.com!usenet Fri Dec 23 19:55:34 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!news2.near.net!news.delphi.com!usenet
+From: peltlayman@delphi.com
+Newsgroups: comp.lang.rexx
+Subject: Re: Translate to LOWER CASE in REXX?
+Date: Thu, 22 DEC 94 19:11:09 -0500
+Organization: Delphi (info@delphi.com email, 800-695-4005 voice)
+Lines: 32
+Distribution: inet
+Message-ID: <5Q3VflN.peltlayman@delphi.com>
+References: <199412201421.JAA27222@support4.draper.com> <170946A60S86.HRGRANEW@bcsc02.gov.bc.ca>
+NNTP-Posting-Host: bos1a.delphi.com
+X-To: <HRGRANEW@bcsc02.gov.bc.ca>
+
+<HRGRANEW@bcsc02.gov.bc.ca> writes:
+ 
+>>
+>>        Return translate(string, ,
+>>                'abcdefghijklmnopqrstuvwxyz', ,
+>>                'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+>>
+>> - seb
+>I am wondering if there is any performance advantage to ordering the
+>characters in order of usage rather than alphabetically?
+>Would 'etsr..................qx' or some such be more efficient?
+ 
+Answer: This one is definitely implementation-dependent on the IBM 370
+mainframe there is a single machine instruction that will do such a
+translation on upto 256 characters at the time (the TR instruction takes
+two operands: a variable length string to be translated upto 256 chars long
+and a 256-byte translate table. Each slot in the translate table contains
+the target byte for translation).
+Don't know if IBM uses the TR instruction on TSO/E, CMS or 370 REXX compiler.
+There are other ways of doing this which also would not be frequency
+dependent.
+ 
+My two cents worth
+ 
+--
+-----------------------------------------------------------------------
+!  Nanoo, nanoo          !                 PELT INDUSTRIES
+!  Mark from Ark         !                 Software Experts
+!                        !          1(800) 741-4322 or 1(303) 442-7700
+!  Markus Pelt-Layman    !              FAX: 1(303) 442-3198
+!                        !   8027 N. 41st Street, Longmont, CO 80503
+-----------------------------------------------------------------------
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!europa.eng.gtefsd.com!paladin.american.edu!auvm!UCSFVM.UCSF.EDU!RPB Fri Dec 23 19:55:55 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!europa.eng.gtefsd.com!paladin.american.edu!auvm!UCSFVM.UCSF.EDU!RPB
+Comments: Gated by NETNEWS@AUVM.AMERICAN.EDU
+Newsgroups: comp.lang.rexx
+Message-ID: <REXXLIST%94122220335481@UGA.CC.UGA.EDU>
+Date: Thu, 22 Dec 1994 17:36:39 PST
+Sender: REXX Programming discussion list <REXXLIST@UGA.BITNET>
+From: Rodger Bagnall <RPB@UCSFVM.UCSF.EDU>
+Subject: Re: Translate to LOWER CASE in REXX?
+In-Reply-To: Message of Thu,
+              22 Dec 1994 07:33:42 PST from <HRGRANEW@BCSC02.GOV.BC.CA>
+Lines: 8
+
+On Thu, 22 Dec 1994 07:33:42 PST <HRGRANEW@BCSC02.GOV.BC.CA> said:
+>I am wondering if there is any performance advantage to ordering the
+>characters in order of usage rather than alphabetically?
+>Would 'etsr..................qx' or some such be more efficient?
+
+Apart from implementation details it would depend on the distribution
+of characters in the input. 'etsr..' would be OK for English language
+input but might not be best for OS/2 file names especially since they
+often skip vowels.
+

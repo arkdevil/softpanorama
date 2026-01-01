@@ -1,0 +1,160 @@
+#######################################################################
+#                                                                     #
+#   This script is a small host (like the one in ProComm(TM))         #
+#                                                                     #
+#   It's not fairly well tested but maybe someone is in the mood      #
+#   to play around with it a bit more and make the result available   #
+#   on the internet or packaged with ZOC                              #
+#                                                                     #
+#   It takes incoming calls and lets the user change directory,       #
+#   show directories and send/receive files.                          #
+#                                                                     #
+#   Possible extensions:                                              #
+#    * TYPE command to show ASCII files                               #
+#    * options for DIR (like /o or /a)                                #
+#    * other non-interactive shell commands (like DEL)                #
+#    * page system owner for a chat                                   #
+#    * more sophisticated timeout control for dropped connections     #
+#                                                                     #
+#######################################################################
+
+// This SCRIPT requires the following options to be set
+// * Host Echo On (Options, Terminal)
+// * Ascii Delay 0 (Options, Transfer)
+
+
+// Set script to exact mode and modem to 
+// auto answer
+exact 1
+send "ATS0=1"
+
+// ENTRY 
+// * wait for connect and set serial speed
+// * ask for password
+// * hangup if pw wrong
+:allover
+	wait CONNECT		;// wait for connect
+
+	wait "^M"  			;// the stuff after connect is the speed
+	baud "%lastline%"
+
+	// show welcome screen
+	send "^[[2J"
+	send "Welcome!^M^J^M^J"
+	send "Enter Password :"
+	timeout 60
+	waitline 
+	seta pass "%lastline%"
+	lower pass
+	rtrim pass
+	compa "%pass%" with "secret"
+	ifnequ	goto endit		;// sorry hacker
+
+	seta curdir "C:\."
+
+// MENU
+// * show menu
+// * call subroutine accordingly
+:menu
+	timeout 300
+	seta choice " "
+	send "^M^J^M^J"
+	send "[%curdir%] Your Choice (cd/dir/zu/zd/exit) ? "
+	waitline
+
+	// forget it if WAITLINE timed out or if NO CARRIER occured
+	ifbrk goto endit	
+	compa "%lastline%" with "NO CARRIER"
+	ifin goto endit
+
+	// text cosmetics for user input
+	seta choice "%lastline%"
+	lower choice
+	ltrim choice
+	rtrim choice
+
+	// change directory
+	compa "%choice%" with "cd"
+	ifequ call chdir
+
+	// show directory
+	compa "%choice%" with "dir"
+	ifequ call showdir
+
+	// receive file from remote station
+	// (upload from remote point of view)
+	compa "%choice%" with "zu"
+	ifequ call upload
+
+	// send file to remote station
+	// (download from remote point of view)
+	compa "%choice%" with "zd"
+	ifequ call download
+
+	// exit/hangup
+	compa "%choice%" with "exit"
+	ifequ goto endit
+
+	goto menu
+
+// ENDIT 
+// * hang up line
+// * do it all over
+:endit
+	hangup
+	goto allover
+
+
+
+
+#####################################################################
+#   SUBROUTINES                                                     #  
+#####################################################################
+
+// CHANGE DIRECTORY
+// * get input from user and store directory
+// * append '.' to root directories (for sake of upload)
+:chdir
+	send "^M^JEnter directory: "
+	waitline
+	seta curdir "%lastline%"
+	seta lastchar "%curdir%" -1 
+	compa "%lastchar%" with "\"
+	ifequ seta curdir "%curdir%."
+	return
+
+
+// SHOW DIRECTORY
+// * run directory command with output redirection
+// * show redirected output via ASCII upload
+// * delete redirection file
+:showdir
+	shell "dir %curdir% >shellout.tmp"
+	upload a "shellout.tmp" 
+	shell "del shellout.tmp"
+	return
+
+
+// RECEIVE FILE FROM REMOTE STATION
+// * no USER input required (it's an upload from their point of view)
+:upload
+	send "^M^JPlease start your Zmodem upload or press ^^X "
+	send "several times to abort. "
+	download z "%curdir%"
+	return
+
+
+// SEND FILE TO REMOTE STATION
+// * get a file name
+// * (it's a download from their point of view)
+:download
+	send "^M^JPlease enter the name of the file  "
+	send "you want to receive from the ^M^J"
+	send "%curdir% directory: "
+	wait "^M"
+	seta file "%lastline%"
+	ltrim file
+	rtrim file
+	compa "%file%" with ""
+	ifnequ upload z "%curdir%\\%file%"
+	return

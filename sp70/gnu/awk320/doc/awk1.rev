@@ -1,0 +1,279 @@
+
+
+
+          AWK under MS-DOS:  Programming Power for the Masses
+             Copyright (c) 1989, 1990, by George A. Theall
+
+
+
+
+
+
+   When was the last time you were really excited by a computer language?
+"Can't remember", you say? Then check out AWK. Whether you use it for data
+manipulation or validation, program prototyping, or just general hacking,
+this versatile little language will improve your productivity immensely. 
+
+
+   Although first developed in 1977, AWK has only recently made its way
+into the MS-DOS world. Two companies, Mortice Kern Systems (MKS) and
+Polytron/SAGE Software, currently market and support implementations of
+AWK for around $100. Additionally, two non-commercial variants - one from
+Rob Duff and the other from the GNU Project - are available on some
+PC-oriented bbs's. Both offer all the capabilities of their commercial
+cousins for just the cost of a phone call. AWK is not a language with
+slick keyboard- or screen-handling operations so all three implementations
+should work on any machine running MS-DOS. In fact, I have used both MKS
+and Duff's AWK with no problems on a DEC Rainbow, a machine not exactly
+famous for its PC compatibility! :-)
+
+
+   Since the fall of 1988 I've worked with MKS AWK heavily, and I love it!
+It's become such an integral part of my toolkit that I don't feel I have
+done any work unless I've used AWK at least once each day. As for the
+other implementations, my experience is limited. I have, however, made
+some comparisons which should be of interest to those trying to choose
+among the four. [A summary of my comparisons can be found in the
+accompanying file AWK2.REV.] The rest of this discussion focuses not on
+any particular implementation but rather on the AWK language itself. 
+
+
+   The definitive source of information about AWK is _The AWK Programming
+Language_ by Aho, Kernighan, and Weinberger, the language's developers. 
+According to this book, AWK is "a pattern-matching language for writing
+short programs to perform common data-manipulation tasks". By design AWK
+trades off execution speed for a vast reduction in program development
+time making it perfect for one-shot tasks. Many common programming chores
+- opening files, reading lines, declaring variables, splitting lines into
+fields, etc... - are done automatically, so you spend more time on the
+basic design of the program. 
+
+
+   Like the SORT and MORE utilities supplied with MS-DOS AWK programs are
+text filters. That is, they read lines from one or more data files (or
+standard input if none are specified), process them in some fashion, and
+write them to standard output (normally the screen). With the characters
+'<' and '>' on a DOS commandline, it is possible to reassign standard
+input and output respectively to devices like the printer or disk files. 
+You invoke AWK either by including the program statements, enclosed in
+quotes, on the command line:
+
+          AWK "program statements" datafiles
+
+or, for longer programs, by specifying the name of a file containing those
+statements:
+
+          AWK -f pgmfile datafiles
+
+In both cases, "datafiles" refers to one or more data files to be
+processed. Each time AWK is invoked it interprets anew the program
+statements. 
+
+
+   Again, quoting from the book, "an AWK program is a sequence of patterns
+and actions that tell what to look for in the input data and what to do
+when it's found". Patterns can be either simple comparisons (like 'Errors
+> 9' or 'Name == "John"') or regular expression matches, a powerful way to
+work with character strings. [The '*' and '?' characters provide a limited
+type of regular expression matching for DOS file names.] Thus, the general
+form of an AWK program is:
+
+          pattern1 { action1 }
+          pattern2 { action2 }
+          pattern3 { action3 }
+          ...
+
+If a pattern is omitted, the action is applied to all records; if no
+action is supplied, records satisfying the pattern are simply written to
+standard output. Records can satisfy zero, one, or multiple patterns.  Two
+patterns with special meaning are BEGIN and END; they are used to specify
+actions performed before any records are read and after they've all been
+processed, respectively. Actions consist of one or more C-like programming
+statements. As AWK reads a data file it tests whether the current record
+satisfies any of the patterns; if so, the corresponding actions are taken
+sequentially. Comments start with a '#' and run to the end of the line. 
+
+
+   AWK reads records from the data files one at a time and splits them
+automatically into fields. By default records are separated by linefeeds;
+and fields, by blanks and/or tabs. If the situation demands it alternate
+record and field separators can be defined easily. The built-in variable
+NF represents the number of fields in the current record. The fields
+themselves are referenced using the '$' operator. Thus, $2 refers to the
+second field, $i to the ith field (for any integer i), and $NF to the last
+field in the current record. $0 denotes the entire record. Another
+built-in variable is NR; it equals the number of records read so far. So,
+for example, if you had a file in which there are supposed to be only four
+fields per line you could locate invalid lines with the following AWK
+code:
+
+          # Print out lines with anything other than 4 fields. 
+          NF != 4 {
+               print NR, $0
+          }
+
+Only invalid lines are printed here, preceded by a line number for
+identification purposes. By removing the pattern - and hence processing
+all lines - you could transform this into a line-numbering program. See
+how easy AWK can be?
+
+
+   Now imagine you want to redefine your PATH so frequently-used programs
+are accessed rapidly. To do this you'll need to locate all the programs on
+your disk and decide what's the best ordering of directories in the PATH.
+The second part's up to you, but what about the first part? How can you
+figure out where all your programs are? You could use DOS's CHKDSK command
+to list all the files on the disk, but you'd still be stuck with scanning
+through that list for lines ending in ".COM", ".EXE", or ".BAT".  A better
+solution would use CHKDSK to generate the list and then AWK to scan it for
+you. To do this, create the file ALLPROGS.AWK consisting of the single
+pattern:
+
+          # Select records for executables only.
+          $0 ~ /\.(COM|EXE|BAT)$/
+
+and then run it with the following DOS commandline:
+
+          CHKDSK /v | awk -f ALLPROGS.AWK
+
+What you'll see will be the full file names for just the executables -
+exactly what you want. [N.B. Since MS-DOS regards the characters '|', '<',
+and '>', as having special meanings it is not possible to include program
+statements with these characters on the DOS commandline. For this reason,
+we resort to ALLPROGS.AWK.]
+
+
+   How does this command work? The first part merely lists all files on
+the current drive, regardless of which directory they're in. The character
+'|' in the commandline instructs MS-DOS to "pipe" output from CHKDSK to
+AWK. The AWK program itself contains a single pattern but no action. This
+pattern selects lines for which the current record ends with one of three
+extensions: ".COM", ".EXE", or ".BAT". The operator '~' matches regular
+expressions, which are delineated by slashes. The trailing dollar sign in
+the regular expression anchors text at the end of a line. Given the format
+of CHKDSK's output, this pattern matchs only names of executable files.
+Since there's no specified action, AWK merely displays the matching lines
+on the screen. 
+
+
+   Or consider the following batch program, GREP.BAT. It searches through
+a file for lines containing a particular string:
+
+          echo off
+          rem GREP.BAT - a string-search utility
+          rem     1st arg = string to search for
+          rem     2nd arg = file name to search
+          rem
+          AWK "$0 ~ /%1/ {print NR, $0}" %2
+
+To find which lines in PDPROGS.DOC contain the string "Rainbow" you'd type
+"GREP Rainbow PDPROGS.DOC". If any matches are found AWK prints the lines
+preceded by their line numbers. By extending this technique a bit you
+could develop a free-form database with records spanning an arbitrary
+number of lines and use AWK to search for particular entries. [Hint:
+separate records with a blank line and redefine AWK's record separator.]
+
+
+   In AWK variables can be treated as either strings or numbers; AWK
+infers a variable's type from its context. In converting from strings to
+numbers AWK returns the leading portion of a string that "looks" like a
+number, or else zero. For instance, the string "12.5" becomes the number
+12.5; "896K" becomes 896; and "NotANumber" becomes 0. To give you an idea
+how useful this feature is consider this example: Using a file of country
+names ($1), populations ($2), and gross national products ($3), you'd like
+to compare how well-off the "average" citizen is in various countries
+based on per-capita gross national product figures. But before you say
+"Piece o' cake, it's just $3/$2", let's add a twist: Suppose figures for
+GNP and total population are not always available. With AWK, this extra
+complication only requires a simple test:
+
+          # Calculates per-capita GNP for various countries
+          #    Missing values were coded as "n/a".
+          if ( ($2 == "n/a") || ($3 == "n/a") )
+               print "Data not available for", $1
+          else
+               print "Per-capita GNP for", $1, "equals", $3/$2
+
+Were it not for the test, missing data would lead to either divide-by-zero
+errors (no figures for population) or reports of 0 per-capita GNP (no data
+on GNP).
+
+
+   One feature of AWK not found in most programming languages is that of
+associative arrays - arrays indexed by strings! For instance, you could
+have an array named SALARY[] and refer to an element as SALARY["John"]. 
+AWK also has a rich set of mathematical and character functions: system(),
+getline(), index(), printf(), split(), substr(), length(), sqrt(), sin(),
+log(), rand(), etc... And if you're not satisfied with what AWK provides,
+you can even define your own functions. 
+
+
+   As a final illustration of AWK's capabilities I'll present without
+explanation a quick & dirty spelling-checker:
+
+          # SPELL.AWK - List words occurring only once in a document.
+          #    A "word" is defined as a sequence of alphanumerics
+          #    or underscores.
+
+          # Scan thru each line and compute word frequencies.
+          # The associative array Words[] holds these frequencies.
+          {
+               # replace non-alphanumerics with blanks throughout line 
+               gsub(/[^A-Za-z0-9_]/, " ")
+
+               # count how many times each word used
+               for (i = 1; i <= NF; i++)     # scan all fields ... 
+                    Words[$i]++              #    increment word count 
+          }
+
+          # Print out infrequently-used words.
+          END {
+               for (w in Words)              # scan over all words ... 
+                    if (Words[w] == 1)       #    if word used once ... 
+                         print w             #         print it
+          }
+
+This is a spelling-checker only in a very loose sense. The basic premise
+behind it is that any word appearing just once in a large document is
+likely to be misspelled. The idea is simple and doesn't require a
+dictionary. Further, it may be useful to programmers who need to spot
+variables or functions that are declared but never used in a program. Try
+doing that with a regular spelling-checker!!!
+
+
+   In this discussion my goal has been to show how versatile, powerful,
+and useful AWK can be. Time limitations have kept me from covering more of
+its capabilities. True, AWK is not perfect for every task, but if you're
+serious about using your computer, you should make it part of your
+toolkit.
+
+
+   The AWK implementations sold by MKS and Polytron both list for $99 and
+include the book by Aho, Kernighan, and Weinberger. MKS' approach seems to
+be the following: Follow the book to the letter and give the user a
+choice. Besides several useful utilities, the MKS package consists of four
+AWK executables: large- and small-memory models with and without 80x87
+support. All four conform closely to the language specifications - no
+omissions and virtually no extensions. There's also a brief reference
+guide, but its presentation is probably too condensed for beginners. 
+Polytron takes a different tack: Extend the language a bit and put it all
+into a single executable. If you only use AWK under MS-DOS you'll be
+pleased with the extra features: get/set environment variables, convert to
+upper-/lowercase, and manipulate variables in a bitwise fashion, to name
+just a few; else, you're likely to be bothered by portability problems. 
+MKS can be reached at 1-800-265-2797; Polytron, at 503-645-1150; and Rob
+Duff at 1:153/713 (FidoNet) or 1-604-251-1816 (BBS). For information about
+GNU AWK, contact Kent Williams (williams@umaxc.weeg.uiowa.edu) or Jay
+Fenlason at 617-253-8975.
+
+
+   Disclaimer: Apart from being a satisfied owner of Mortice Kern System's
+AWK and Polytron's PolyShell, I have no direct connection with the
+companies mentioned above. 
+
+
+   If you have any comments about this article, or the AWK language in
+general, please get in touch. For those with email access, I can be
+reached as GTHEALL@PENNDRLS (BITNET) or GTHEALL@PENNDRLS.UPENN.EDU
+(Internet). Otherwise, give me a call at +1 215 898 3419.
+

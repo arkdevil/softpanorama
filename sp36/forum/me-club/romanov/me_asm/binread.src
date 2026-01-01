@@ -1,0 +1,139 @@
+$MACRO Binread DUMP;	{ Written by Alex Romanov, 1991 }
+
+{ This Multi-Edit 5.00 macro reads up to 2048 characters from a disk file
+  into a Multi-Edit string. Use it to store binary code & data into string
+  variables.															}
+
+	Def_Str (buffer[2048], filename);
+	Def_Int (suggested_action, retry, error_count, i, j, old_refresh);
+
+	old_refresh := Refresh;
+	Var_Parse_Str ('/F=', Mparm_Str, filename);
+	If Svl (filename) Then
+		filename := filename + '|0';
+		GoTo open_file;
+	End;
+	Set_Global_Str ('Bin_Istr_1','*.bin');
+	Set_Global_Str ('Bin_Iparm_1','/T=Enter filename: /TP=0/C=10/L=1/W=20');
+	Set_Global_Str ('Bin_Iparm_2','/TP=20/C=10/L=2/W=20');
+	RM ('Userin^Data_In /#=2/PRE=Bin_/S=1/A=1/T=READ DISK FILE/P=Enter filename: /H=PROMPTS');
+	If Not (Return_Int) Then
+		GoTo exit;
+	End;
+	filename := Global_Str ('Bin_Istr_1') + '|0';
+
+ open_file:
+	error_count := 0;
+ try_again_1:
+	R_DS := Seg (filename);
+	R_DX := Ofs (filename) + 4;
+	R_AX := $3D00;
+	Intr ($21);		{ Open file with handle }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_1;
+		End;
+	End;
+	j := R_AX;	{ store filehandle }
+
+	error_count := 0;
+ try_again_2:
+	R_AX := $3F00;
+	R_BX := j;
+	R_DS := Seg (buffer);
+	R_DX := Ofs (buffer) + 4;
+	R_CX := 2048;
+	Intr ($21);		{ Read CX bytes from file or device BX }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_2;
+		End;
+	End;
+
+	Memw (Seg (buffer) shl 16 + Ofs (buffer), R_AX);
+
+	error_count := 0;
+ try_again_3:
+	R_AX := $3E00;
+	R_BX := j;
+	Intr ($21);		{ Close file handle BX }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_3;
+		End;
+	End;
+
+	Refresh := FALSE;
+	Working;
+	Undo_Stat := FALSE;
+	Tab_Expand := TRUE;
+	Text ('''');
+	i := 1;
+	retry := FALSE;
+	While i <= Svl (buffer) Do
+		j := Ascii (Str_Char (buffer, i));
+		If retry and (j >= 48) and (j <= 57) Then
+			Text ('||' + Str (j));
+		Else
+			If (j = 0) or (j = 13) or (j = 255) Then
+				Text ('||' + Str (j));
+				retry := TRUE;
+			Else
+				Text (Char (j));
+				If (j = 39) or (j = 124) Then
+					Text (Char (j));
+				End;
+				retry := FALSE;
+			End;
+		End;
+		If C_Col > 245 Then
+			Text ('''');
+			Cr;
+			Text ('+ ''');
+		End;
+		++ i;
+	End;
+	Text (''';');
+
+	GoTo exit;
+
+ error_handling:
+
+	R_AX := $5900;
+	R_BX := 0;
+	Intr ($21);   { Get extended error info }
+	suggested_action := R_BX and $00FF;
+	If (suggested_action = 4) or (suggested_action = 5) Then	{ Abort }
+		Run_Macro ('Doserror /AX=' + Hex_Str (R_AX) + '/BH=' + Hex_Str (R_BX shr 8) + '/CH=' + Hex_Str (R_CX shr 8));
+		GoTo exit;
+	End;
+	If (suggested_action <= 3) and (error_count < 5) Then		{ Retry }
+		++ error_count;
+		retry := suggested_action;
+		If suggested_action = 2 Then
+			Delay (600);
+		End;
+		Ret;
+	End;
+	If suggested_action = 6 Then	{ Ignore }
+		retry := FALSE;
+		Ret;
+	End;
+	Run_Macro ('Doserror /Menu=1/AX=' + Hex_Str (R_AX) + '/BH=' + Hex_Str (R_BX shr 8) + '/CH=' + Hex_Str (R_CX shr 8));
+	If Return_Int = 1 Then
+		retry := suggested_action;
+		error_count := 0;
+		Ret;
+	Else
+		GoTo exit;
+	End;
+
+ exit:
+	Undo_Stat := TRUE;
+	Refresh := old_refresh;
+	Redraw;
+
+END_MACRO;

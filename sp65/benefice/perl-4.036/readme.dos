@@ -1,0 +1,732 @@
+			       "BIGPERL"
+			 Perl 4.0 patchlevel 36
+			Mon Mar 15 00:36:19 1993
+	      By Darryl Okahata (Internet: darrylo@sr.hp.com)
+			(Compuserve: 75206,3074)
+
+
+     This version of Perl 4.0 has been compiled using the WATCOM C/386
+compiler, which generates flat, 32-bit code that runs under MSDOS and
+Windows (with some limitations -- see below).
+
+*************
+* IMPORTANT *
+*************
+     The basic Perl sources belong to:
+     		Copyright (c) 1989,1990,1991, Larry Wall
+			  All rights reserved.
+
+     Most of the MSDOS portions belong to:
+		Copyright (c) 1987, 1988, 1990 Diomidis Spinellis.
+			  All rights reserved.
+
+     The changes specific to MSDOS and WATCOM C/386 belong to:
+		Copyright (c) 1993, Darryl Okahata
+			  All rights reserved.
+
+     The GNU dbm libraries belong to the FSF and fall under the GNU
+	Public License.  See the file called "COPYING" in the directory
+	containing the GNU dbm sources for copyright and copying
+	information.
+
+     The 32-bit DOS extender, "DOS/4GW", belongs to Rational Systems, Inc:
+		Copyright (c) Rational Systems, Inc. 1990-1992
+	This DOS extender may be redistributed as part of a program
+	compiled with WATCOM C/386.  It may not be redistributed as a
+	separate, standalone entity.
+
+-------------------------------------------------------------------------------
+The basic Perl sources can be redistributed under the following conditions:
+
+[ The following was taken from the "README" file.  Here, "I" refers to "Larry
+  Wall".  ]
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of either:
+    
+	a) the GNU General Public License as published by the Free
+	Software Foundation; either version 1, or (at your option) any
+	later version, or
+
+	b) the "Artistic License" which comes with this Kit.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See either
+    the GNU General Public License or the Artistic License for more details.
+
+    You should have received a copy of the Artistic License with this
+    Kit, in the file named "Artistic".  If not, I'll be glad to provide one.
+
+    You should also have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+    For those of you that choose to use the GNU General Public License,
+    my interpretation of the GNU General Public License is that no Perl
+    script falls under the terms of the GPL unless you explicitly put
+    said script under the terms of the GPL yourself.  Furthermore, any
+    object code linked with uperl.o does not automatically fall under the
+    terms of the GPL, provided such object code only adds definitions
+    of subroutines and variables, and does not otherwise impair the
+    resulting interpreter from executing any standard Perl script.  I
+    consider linking in C subroutines in this manner to be the moral
+    equivalent of defining subroutines in the Perl language itself.  You
+    may sell such an object file as proprietary provided that you provide
+    or offer to provide the Perl source, as specified by the GNU General
+    Public License.  (This is merely an alternate way of specifying input
+    to the program.)  You may also sell a binary produced by the dumping of
+    a running Perl script that belongs to you, provided that you provide or
+    offer to provide the Perl source as specified by the GPL.  (The
+    fact that a Perl interpreter and your code are in the same binary file
+    is, in this case, a form of mere aggregation.)  This is my interpretation
+    of the GPL.  If you still have concerns or difficulties understanding
+    my intent, feel free to contact me.  Of course, the Artistic License
+    spells all this out for your protection, so you may prefer to use that.
+
+-------------------------------------------------------------------------------
+
+[ Enough legal crud.  Time for the "meat". ]
+
+The requirements, features, and problems of this version are:
+
+* A 386 or 486 is required.  This version will NOT work with anything else.
+
+* 4MB or more of RAM is required.
+
+* It is strongly recommended that a memory management program like
+  HIMEM/EMM386 or QEMM be used.  NOTE: machines with 64MB or more RAM
+  should use use either QEMM or no memory manager; supposedly, on these
+  machines, HIMEM/EMM386 and the dos extender (used for this version of
+  perl) do not work well together.
+
+* Large amounts of memory is supported.  This version of perl will use
+  up to 32MB of memory.
+
+* Virtual memory is supported.  By using a swapfile on your hard disk,
+  this version can still access up to 32MB of memory, even though you
+  may not have this much physical RAM.  However, you must explicitly
+  enable virtual memory by setting an enviroment variable (see the
+  section called, "The DOS/4GW DOS extender", for more details).
+
+* This version will work under Windows 3.1.  However, inside Windows,
+  perl cannot spawn another copy of perl; this can be done outside of
+  Windows.
+
+* The size of the stack is fixed at 128K.  To change this requires
+  relinking perl.
+
+* This version does not support entering scripts on the command line via
+  the -e option.  While nothing has been done to prevent it, the MSDOS
+  128-byte command-line-length limitation and the fact that MSDOS shells
+  do not suport quoted arguments will probably frustrate any attempts at
+  using -e.
+
+* The distributed perlglob.exe will perform filename globbing on
+  directories.  For example:
+
+	@files = <*.*>;
+
+  will return a SORTED list of all normal+directory files.  Hidden &
+  system files will not be returned.
+
+* The perl debugger works.
+
+* The exec() and ioctl() functions are not supported.  The exec()
+  function is not supported because the DOS extender doesn't support it,
+  and ioctl() is not supported because of problems translating data
+  structures between real and protected modes.
+
+* To avoid a bug in perl or the DOS extender, this version of perl turns
+  control-break checking off (it does the equivalent of typing "break
+  off" at the DOS prompt).  This was done because pressing Ctrl-C or
+  Ctrl-Break very rapidly while perl is running would crash the system
+  (pressing it only once would work, but pressing it rapidly would cause
+  a crash).  The problem with this is that this version of perl can now
+  only be interrupted while it is doing console I/O.  I don't know if
+  this will ever be fixed.
+
+  Note that the original state of the control-break checking flag is
+  saved at startup, and will be restored if perl terminates normally
+  (pressing control-break will NOT cause the original state to be
+  restored, however).
+
+* The perl library files (in perl-4.036/lib/*.*) have not been tested.
+  They may or may not work with MSDOS.
+
+* Because many MSDOS shells treat "/" as the beginning of an option,
+  MSDOS perl scripts will have to use the "\" character in paths to
+  commands.  For example, the following will not work:
+
+	system("./perl");
+
+  This fails because MSDOS tries to execute the command "." with the
+  option "/perl".  Instead, you must specify:
+
+	system(".\\perl");
+
+  Disgusting, but true.
+
+* The default location for the perl library support files is
+  "c:\perl\lib".  This can be changed through the use of the PERLLIB
+  environment variable, or by recompiling perl.
+
+* A formatted version of the perl manual is stored in the file
+  "perlman.txt".
+
+* This version of perl says that it is version "4.0M1".  This was done
+  to provide a means of identifying which MSDOS version of perl this is.
+  [ Ideally, I would have liked to have said that this is "patchlevel
+  36a", but the code doesn't readily support this. ]
+
+* The a2p and s2p programs have NOT been ported.
+
+*******************************************************************************
+***** Installing the executables:
+
+     *************
+     * IMPORTANT *
+     *************
+     +---------------------------------------------------------------------
+     | If you have any of the following machines, you MUST set the
+     | DOS16M environment variable before you can use this version of
+     | perl:
+     |
+     |		NEC 98-series
+     |		Fujitsu FMR-60,-70
+     |		Hitachi B32
+     |		OKI if800
+     |
+     | See the section on "The DOS/4GW DOS extender" for details.
+     +---------------------------------------------------------------------
+
+     In order to use this version of perl, the following must be done:
+
+1. Environment variables have to be set in AUTOEXEC.BAT.
+
+   For most people, the only environment variable that has to be set is:
+
+	set DOS4G=quiet
+
+   This will suppress the DOS/4GW startup message when you run perl.
+   See the section on "The DOS/4GW DOS extender" for information on
+   other environment variables that can be set.
+
+2. The executable programs (perl.exe, perlglob.exe, and dos4g.exe) must
+   be placed somewhere in %PATH.  The easiest way to simply copy all
+   of the .exe files to some convenient directory in your %PATH.
+
+3. The perl library files (the ones in the "lib" subdirectory) need to
+   be installed somewhere.  By default, this version of perl will look
+   for these library files in "c:\perl\lib"; you can change this by
+   using the PERLLIB environment variable or by recompiling perl.  If
+   you want to use c:\perl\lib for the library directory, you can use
+   the following commands to install the library files (this assumes
+   that the current directory is the same directory in which this
+   README.DOS file lies):
+
+	mkdir c:\perl
+	mkdir c:\perl\lib
+	copy lib\*.* c:\perl\lib
+
+
+*******************************************************************************
+***** The DOS/4GW DOS extender:
+
+     *************
+     * IMPORTANT *
+     *************
+     +---------------------------------------------------------------------
+     | If you have any of the following machines, you MUST set the
+     | DOS16M environment variable before you can use this version of
+     | perl:
+     |
+     |		NEC 98-series
+     |		Fujitsu FMR-60,-70
+     |		Hitachi B32
+     |		OKI if800
+     |
+     | See below for more information.
+     +---------------------------------------------------------------------
+
+     The DOS/4GW DOS extender, used by this version of perl, is a
+royalty-free DOS extender from Rational Systems.  It must be placed in a
+directory in %PATH, and it can be controlled through through the use of
+the following environment variables:
+
+	DOS4G	-- Suppresses printout of DOS/4GW startup message.
+	DOS16M	-- Controls how 32-bit memory is used and accessed.
+	DOS4GVM -- Enables and controls virtual memory.
+
+* DOS4G:
+
+     The DOS4G variable can only be set to "quiet", which suppresses the
+display of the DOS/4GW startup message, e.g.,
+
+	set DOS4G=QUIET
+
+
+* DOS16M:
+
+[ Note: not all options for the DOS16M variable are documented in the
+  following. ]
+
+     The DOS16M variable takes values of the form:
+
+     [<switch_mode>][@<start_address>[-<end_address>]][:<size>]
+
+The "<switch_mode>" value, which MUST be specified if you have an NEC
+98-series, Fujitsu FMR-60,-70, Hitachi B32, or OKI if800 machine, can
+take one of the following values:
+
+	Value		Meaning
+       --------------------------------------------------------------------
+	0		Use DPMI to access 32-bit memory (automatically
+			set if present).
+	1		Use a method specific to the NEC 98-series
+			machine.  You MUST specify a start/stop range of
+			memory to use.
+	2		Use a method specific to the PS/2 (automatically
+			set if necessary).
+	3		Use a method specific to a generic 386/486
+			machine (automatically set if necessary).
+	INBOARD		Use a method specific for a 386 with an Intel
+			Inboard (automatically set if necessary).
+	5		Use a method specific to the Fujitsu FMR-70
+			machine.  You MUST specify a start/stop range of
+			memory to use.
+	11		Use VCPI to access 32-bit memory (automatically
+			set if present).
+	14		Use a method specific to the Hitachi B32
+			machine.  You MUST specify a start/stop range of
+			memory to use.
+	15		Use a method specific to the OKI if800 machine.
+			You MUST specify a start/stop range of memory to
+			use.
+	16		Use a method specific to PS/55s.  This setting
+			may be needed for some PS/55s, and note that
+			this is NOT automatically detected and used.
+
+Note that, for most machines, the correct value for "<switch_mode>" is
+automatically detected and used.
+
+     The "<start_address>" and "<end_address>" values specify a range of
+extended memory to use.  This is only necessary if neither DPMI nor VCPI
+is available (these values are ignored if DMPI or VCPI is available).
+Values can be specified as decimal or hexadecimal (prefixed with "0x"),
+and are assumed to be values in kilobytes, unless an "M" (for
+"megabytes") is appended to the end of the number.
+
+     The "<size>" value specifies the maximum amount of memory that can
+be allocated.  Values can be specified as decimal or hexadecimal
+(prefixed with "0x"), and are assumed to be values in kilobytes, unless
+an "M" (for "megabytes") is appended to the end of the number.
+
+     If both a memory range ("<start_address"/"<end_address>") and a
+"<size>" are given, the more restrictive of the two are used.
+
+     Examples:
+
+	set DOS16M=:2M
+
+Use up to 2MB of extended memory.  The method used to access 32-bit
+memory will be automatically determined (for those machines where it can
+be done).
+
+	set DOS16M=14@4M-8M
+
+This tells DOS/4GW that an Hitachi B32 machine is being used, and that
+memory from address 0x00400000 (4 megabytes) to address 0x00800000 (8
+megabytes) should be used.
+
+
+* DOS4GVM:
+
+[ Note: not all options for the DOS4GVM variable are documented in the
+  following. ]
+
+     The DOS4GVM variable is used to enable and control virtual memory.
+To enable virtual memory support, you can set DOS4GVM to one of the
+following values:
+
+	set DOS4GVM=1
+	set DOS4GVM=@<control_filename>
+
+The first form, "set DOS4GVM=1", enables virtual memory with default
+values for all parameters.  The second form enables virtual memory, and
+allows you to specify a file that contains values for some or all
+parameters (the filename must have the extension ".VMC").
+
+     The settable parameters are (all numeric values must be specified
+in kilobytes):
+
+	VIRTUALSIZE
+		This is the size of the virtual memory space.  The
+		default is 16384KB (16MB).
+	MINMEM
+		This is the minimum amount of RAM to manage.  The
+		default is 512KB.
+	MAXMEM
+		This is the maximum amount of RAM to manage.  The
+		default is 4096KB (4MB).
+	SWAPMIN
+		This is the minimum or initial size of the swap file.
+		If this is not specified, the initial size will be based
+		upon the "VIRTUALSIZE" parameter.
+	SWAPINC
+		This is the size by which the swap size grows, if the
+		swap has to grow.
+	SWAPNAME
+		This is the name of the swapfile.  The default name is
+		"DOS4GVM.SWP", and is placed in the root directory of
+		the CURRENT drive (not the boot drive).  It's best if
+		you specify a complete pathname (w/drive letter) here.
+	DELETESWAP
+		If given, the swapfile is deleted when the program
+		exits.  Normally, the swapfile is NOT deleted when the
+		program exits, which means that the program will startup
+		faster the next time (it doesn't have to recreate the
+		swapfile).  Unlike the other options, this parameter
+		does not take any values.
+
+IMPORTANT: The file containing the parameters must NOT have any blank
+lines, as parameter processing STOPS at the first blank line.
+
+     An example of a .VMC file is:
+
+! Example .VMC file.
+! Comments start with "!".
+! Set the virtual memory size:
+virtualsize = 32768
+! The minimum amount of ram used is:
+minmem = 4096
+! The maximum amount of ram used is:
+maxmem = 8192
+! Delete the swapfile when the program terminates:
+deleteswap
+! The name of the swapfile is:
+swapname = c:\myswap.swp
+
+*******************************************************************************
+***** Compiling perl under WATCOM C/396 9.0:
+
+1. Go to \watcom\src\startup and compile the wildargv.c program (this
+   file came with your copy of WATCOM C):
+
+      wcc386 /j wildargv.c
+
+2. Compile gdbm, e.g.:
+
+      cd gdbm-1.5		# or whereever it is, whatever the latest
+	      			#    version is called.
+      wmake /u			# Compile the library.
+
+   Note that "wmake" MUST be used.  Using other make programs may not
+   work.  This takes about 1.5 minutes on my 33MHz 486DX.
+
+3. Currently, a limitation of the DOS/4GW dos extender supplied by
+   WATCOM is that, under Windows 3.1, a DOS/4GW program (e.g., perl)
+   cannot spawn another DOS/4GW program.  This doesn't seem like much of
+   a limitation until you realize that perl spawns perlglob.exe to do
+   filename globbing (e.g., "foreach (<*.c>) { ... }").  If perlglob.exe
+   is compiled using WATCOM C, you will be unable to do filename
+   globbing in Windows.  However, if perlglob.exe is compiled using a
+   plain 16-bit C compiler, filename globbing in Windows will work.
+
+   The Makefile supports creating perlglob.exe using either the WATCOM C
+   or the Borland C++ 3.1 compiler (which is all that I have).  Note
+   that the default is to build perlglob.exe using WATCOM C.
+
+   While the Borland-compiled version works, there is a bug in Borland's
+   wildcard expansion routines: filenames that use "/" as a directory
+   separator do not always get properly expanded.  Another problem is
+   that directories are not expanded, as they are under Unix.
+   Fortunately, if you have the Borland library sources, fixing these
+   problems is simple:
+
+   a) Edit the file "\borlandc\crtl\clib\setargv.asm".
+
+   b) At line 183, change the value of "wild_attr" from "0" to "10H".
+      This will enable expansion of directories.
+
+   c) At line 418, change the line:
+
+                cmp     al, '\'
+
+      to:
+
+                cmp     al, '/'
+
+      This will fix the bug that prevents paths with only "/"s from
+      being properly expanded.
+
+   d) Save the file to disk, cd to \borlandc\crtl, and execute the
+      following lines:
+
+	set model=s
+	build clib
+
+      This will rebuild the small memory model (only) of the C library.
+      The modified library will be placed in \borlandc\crtl\lib\cs.lib
+      (note that the original Borland library is still in
+      \borlandc\lib\cs.lib).  Don't copy the modified library over the
+      original one; sometimes, Borland supplies library patches, which
+      you want to apply only to the original.
+
+4. If, for some reason, you edit perly.y, you'll have to do one of the
+   following:
+
+   a) Get an MSDOS version of byacc or bison that can convert perly.y.
+      If you find such a version, install it somewhere in %PATH, and set
+      the "YACC" variable in the Makefile; the Makefile will, hopefully,
+      then take care of the rest.
+
+   b) On some Unix, run yacc on perly.y to create perly.c and perly.h.
+
+   If you don't touch perly.y, you won't have to do a thing.  However,
+   if perly.y is touched, you'll have to somehow rebuild perly.c and
+   perly.h from perly.y.
+
+   The perly.c and perly.h in this distribution were created by byacc.
+
+5. Edit the Makefile, and change the following Makefile variables:
+
+      WATCOM_WILD	-- Contains the full pathname to the WATCOM
+			   wildargv.obj compiled in step #1.
+      LIBS_PATH		-- Points to the directory containing gdbm.lib.
+      DESTDIR		-- Your desired destination directory for
+			   executables. Note that the perl library
+			   support files are NOT installed; this needs
+			   to be fixed.
+      PERL_STACKSIZE	-- The size of the call stack.  The default is
+			   128K.
+      DEBUG		-- Contains either debugging or optimization
+			   compiler flags.
+
+   For full functionality under Windows 3.1, you need to compile
+   perlglob.exe with a compiler other than Watcom C/386.  I used Borland
+   C++ 3.1.  If you want to use Borland C++, you MUST follow the
+   instructions in step #2, and then set the following Makefile
+   variables:
+
+      BORLAND_WILDARGS		-- Full pathname to the Borland
+				   wildargs.obj file (typically,
+				   \borlandc\lib\wildargs.obj, but don't
+				   forget the drive letter).
+      BORLAND_CLIB_SMALL	-- Full pathname to the modified Borland
+	      			   small-memory model C library (this
+				   will be something like
+				   \borlandc\crtl\lib\cs.lib, but don't
+				   forget the drive letter).
+
+6. Edit config.h.  The only entries that you should have to change are
+   (see the comments in config.h for details):
+
+      BIN		-- default is c:/perl/bin
+      SCRIPTDIR		-- default is c:/perl/bin
+      PRIVLIB		-- default is c:/perl/lib
+
+7. Execute:
+
+	wmake /u
+
+   Note that "wmake" MUST be used.  Using other make programs may not
+   work.  The "/u" is also very important; if you don't specify it, you
+   won't like the results.  On my PC, this step takes about 6-7 minutes.
+
+8. If you want to compile perlglob.exe using the Borland C++ compiler,
+   execute the following:
+
+	wmake /u bperlglob.exe
+
+9. At this point, you should have a working perl.exe and perlglob.exe.
+   Note that perlglob.exe must be installed somewhere in %PATH, as
+   perl.exe uses this program to do filename globbing (e.g, "foreach
+   (<*.obj>) ...").  See the above section on installation for more
+   instructions.
+
+	**************
+	* IMPORTANT! *
+	**************
+	DO NOT PACK THE .EXE FILE USING ANY FORM OF .EXE COMPRESSION
+	(e.g., exepack).  Doing so will make the perl binary totally
+	unusable, as the WATCOM stub loader (a 16-bit program) does an
+	exec() of the 32-bit DOS/4GW extender, and this extender has to
+	be able to read and parse the .EXE file (which it cannot, if the
+	.EXE file has been packed).
+
+10. That's all, folks!
+
+
+*******************************************************************************
+***** Notes:
+
+* While compiling regcomp.c, the WATCOM C compiler will output the
+  following message:
+
+      regcomp.c(229): Warning! W105: Assignment found in boolean expression
+
+  Believe it or not, the code is correct.  If you look at the code,
+  you'll swear that it's wrong, but it's right.
+
+
+*******************************************************************************
+***** Here is a list of perl regression tests in Perl 4.0 pl36, and
+      whether or not they pass.
+
+     Note: there is a perl script, called "t/test.dos", that runs all
+tests that are known to pass 100% (which is 60-70% of the tests).
+
+===============================================================================
+base/cond.t	-- Passes
+base/if.t	-- Passes
+base/lex.t	-- Mostly passes.  There is a single failure (test #12), due
+		   to differences between Unix and MSDOS.  (Under Unix, 'sh
+		   -c "echo ok 12\n"' produces only one line of output.  Two
+		   lines are output with MSDOS.)
+base/pat.t	-- Passes
+base/term.t	-- Passes, if references to "/dev/null" are changed to "nul".
+cmd/elsif.t	-- Passes
+cmd/for.t	-- Passes
+cmd/mod.t	-- Passes
+cmd/subval.t	-- Passes
+cmd/switch.t	-- Passes
+cmd/while.t	-- Passes, if references to the file "Cmd.while.tmp" are
+		   changed to reference "Cmd_while.tmp".
+comp/cmdopt.t	-- Passes
+comp/cpp.t	-- Fails (cpp is not implemented)
+comp/decl.t	-- Passes
+comp/multilin.t	-- Passes, if references to "rm" and "cat" are changed to
+		   "del" and "type".
+comp/package.t	-- Passes
+comp/script.t	-- Fails, due to differences between Unix and MSDOS.
+		   (Testing under MSDOS would require adding code to properly
+		   parse quoted command-line arguments.)
+comp/term.t	-- Passes
+io/argv.t	-- Fails, due to differences between Unix and MSDOS.
+		   (Testing under MSDOS would require adding code to properly
+		   parse quoted command-line arguments.)
+io/dup.t	-- Mostly passes.  Test #5 fails because MSDOS can't handle
+		   redirection of stderr.
+io/fs.t		-- Fails, due to differences between Unix and MSDOS.
+		   (Unix has the concept of a multiple file access
+		   permissions: user, group, other.  MSDOS has no such
+		   concepts.)
+io/inplace.t	-- Not tested.
+io/pipe.t	-- Fails.  Needs a working exec(), which is not supported
+		   with this version of MSDOS perl.
+io/print.t	-- Passes
+io/tell.t	-- Passes
+lib/big.t	-- Passes
+op/append.t	-- Passes
+op/array.t	-- Passes
+op/auto.t	-- Passes
+op/chop.t	-- Passes
+op/cond.t	-- Passes
+op/dbm.t	-- Mostly passes with GNU dbm, if the following is done:
+			1. At the beginning of the test, the lines that test
+			   to see if /usr/include/dbm.h or /usr/include/ndbm.h
+			   exist are deleted.
+			2. References to the file "Op.dbmx" are changed to
+			   "Op_dbmx".
+			3. References to the file "Op.dbmx.pag" are changed to
+			   "Op_dbmx".
+		   Test #2 fails due to file permission differences between
+		   Unix and MSDOS.
+op/delete.t	-- Passes
+op/do.t		-- Passes
+op/each.t	-- Passes
+op/eval.t	-- Passes
+op/exec.t	-- Fails (exec() not implemented)
+op/exp.t	-- Passes
+op/flip.t	-- Passes
+op/fork.t	-- Fails (fork() not implemented)
+op/glob.t	-- Passes, if a patch is applied to glob.t (this patch is
+		   listed at the end of this list).  This patch may be
+		   questionable.
+op/goto.t	-- Mostly passes.  Test #3 fails due to differences between
+		   Unix and MSDOS.  (Testing under MSDOS would require
+		   adding code to properly parse quoted command-line
+		   arguments.)
+op/groups.t	-- Fails.  MSDOS has no concept of "groups".
+op/index.t	-- Passes
+op/int.t	-- Passes
+op/join.t	-- Passes
+op/list.t	-- Passes
+op/local.t	-- Passes
+op/magic.t	-- Fails, due to differences between Unix and MSDOS.
+		   (Testing under MSDOS would require adding code to
+		   properly parse quoted command-line arguments.)
+op/mkdir.t	-- Mostly passes.  Parts fail due to different error
+		   messages output by Unix and MSDOS.
+op/oct.t	-- Passes
+op/ord.t	-- Passes
+op/pack.t	-- Passes
+op/pat.t	-- Passes
+op/push.t	-- Passes
+op/range.t	-- Passes
+op/read.t	-- Passes
+op/readdir.t	-- Passes
+op/regexp.t	-- Passes
+op/repeat.t	-- Passes
+op/s.t		-- Passes
+op/sleep.t	-- Passes
+op/sort.t	-- Passes
+op/split.t	-- Mostly passes.  Test #11 fails due to differences between
+		   Unix and MSDOS.  (Testing under MSDOS would require
+		   adding code to properly parse quoted command-line
+		   arguments.)
+op/sprintf.t	-- Passes
+op/stat.t	-- Fails (contains numerous Unix-isms, like "ls -l /dev",
+		   "/usr/bin", "/dev/null", "/dev/tty", etc.)
+op/study.t	-- Passes
+op/substr.t	-- Passes
+op/time.t	-- Fails ("times" not implemented)
+op/undef.t	-- Passes
+op/unshift.t	-- Passes
+op/vec.t	-- Passes
+op/write.t	-- Passes
+
+===============================================================================
+Patch for op/glob.t (already applied to op/glob.t -- it is reproduced here so
+that you can see what was changed):
+-------------------------------------------------------------------------------
+*** glob.old	Thu Jun 11 22:43:38 1992
+--- glob.t	Sun Mar 07 23:30:56 1993
+***************
+*** 4,19 ****
+  
+  print "1..4\n";
+  
+! @ops = <op/*>;
+  $list = join(' ',@ops);
+  
+! chop($otherway = `echo op/*`);
+  
+! print $list eq $otherway ? "ok 1\n" : "not ok 1\n$list\n$otherway\n";
+  
+  print $/ eq "\n" ? "ok 2\n" : "not ok 2\n";
+  
+! while (<jskdfjskdfj* op/* jskdjfjkosvk*>) {
+      $not = "not " unless $_ eq shift @ops;
+      $not = "not at all " if $/ eq "\0";
+  }
+--- 4,19 ----
+  
+  print "1..4\n";
+  
+! @ops = <op/*.*>;
+  $list = join(' ',@ops);
+  
+! chop($otherway = `perlglob -s op/*.*`);
+  
+! print $list eq $otherway ? "ok 1\n" : "not ok 1\n'$list'\n'$otherway'\n";
+  
+  print $/ eq "\n" ? "ok 2\n" : "not ok 2\n";
+  
+! while (<jskdfjskdfj*.* op/*.* jskdjfjkosvk*.*>) {
+      $not = "not " unless $_ eq shift @ops;
+      $not = "not at all " if $/ eq "\0";
+  }
+
+-------------------------------------------------------------------------------

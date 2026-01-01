@@ -1,0 +1,67 @@
+From: Kent.Wick@mhmr.state.tx.us
+Newsgroups: comp.lang.rexx
+Subject: Re: Finding Logical Terminal id in TSO
+Date: 8 May 1995 22:24:59 GMT
+
+In <REXXLIST%95050119021716@UGA.CC.UGA.EDU>, Rodger Bagnall <RPB@UCSFVM.UCSF.EDU> writes:
+>In TSO, is there any way to find your logical terminal id using rexx?
+
+  /* REXX    List TSO DSNames associated with DDname under TSO */
+  address TSO
+  @ascb   = storage(224,4)       /* get ASCB address from PSAAOLD */
+    /* PSAAOLD is used because it is the ASCB currently dispatched (you) */
+  @cscb   = storage(d2x(c2d(@ascb)+56),4) /* load CSCB addr from ASCBCSCB */
+  stepnm  = storage(d2x(c2d(@cscb)+8),8)  /* get step name from CHKEY */
+  procnm  = storage(d2x(c2d(@cscb)+16),8) /* get proc name from CHCLS */
+  @tsb    = storage(d2x(c2d(@ascb)+60),4) /* load TSB addr from ASCBTSB */
+  /*  TSB is key 6 protected - will need something besides rexx to get it.
+      You will need to have an assembler pgm to switch to key 6, grab the
+      data and return it.  A user Rexx function should be able to do this.
+      (No, I don't have it already written) :)  */
+  termnm  = storage(d2x(c2d(@tsb)+104),8) /* get term name from TSBTRMID */
+   say stepnm  /* userid */
+   say procnm  /* logon proc name */
+   say termnm  /* logical terminal */
+  exit
+
+==============================================================================
+   0   Kent Wick              |Email: Kent.Wick@mhmr.state.tx.us
+ /(!)\ TxMHMR                 |Phone: (512) 206-5931
+ |\>>| Network Systems Prog   |Fax  : (512) 206-4838
+ ^ \\^ "Why're y'all running  |Snail: PO Box 12668
+++++++  away?"  G. Khan       |       Austin, Tx 78711-2668
+==============================================================================
+"Opinions? Whose opinions? Mine? Maybe. My employers? Hardly."
+
+
+From ankh.iia.org!uunet!newsgate.watson.ibm.com!watnews.watson.ibm.com!olivaw!yktvmv Wed May 10 23:40:46 1995
+Path: ankh.iia.org!uunet!newsgate.watson.ibm.com!watnews.watson.ibm.com!olivaw!yktvmv
+From: teamibm@olivaw.watson (The TEAMIBM Network)
+Newsgroups: comp.lang.rexx
+Subject: Re: Finding Logical Terminal id in TSO
+Date: 09 May 1995 17:07:18 GMT
+Organization: The TEAM IBM Network
+Lines: 18
+Distribution: inet
+Message-ID: <19950509170718.REXX____.NETNEWS_.globenet@ibm.com>
+NNTP-Posting-Host: olivaw.watson.ibm.com
+
+Ref:     Append at 20:59:22 on 95/05/01 GMT (by 8738 at NETNEWS)
+
+
+>
+>In TSO, is there any way to find your logical terminal id using rexx?
+>
+
+This works for me, offsets might be different on other systems:
+
+CVTADR   = C2X(STORAGE(10,4))                    /* CVT               */
+CVTTCBP  = C2X(STORAGE(D2X(X2D(CVTADR)+1),3))    /* CURRENT ASCB      */
+ASCB     = C2X(STORAGE(D2X(X2D(CVTTCBP)+8),4))   /* ASCB              */
+ASXB     = C2X(STORAGE(D2X(X2D(ASCB)+108),4))    /* ASXB              */
+ASXBSENV = C2X(STORAGE(D2X(X2D(ASXB)+200),4))    /* ASXBSENV          */
+TERMID   = STORAGE(D2X(X2D(ASXBSENV)+64),8)      /* TERMID FROM ACEE  */
+
+Klaus Johannes Rusch
+TeamOS/2
+

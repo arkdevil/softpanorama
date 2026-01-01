@@ -1,0 +1,58 @@
+Newsgroups: comp.lang.rexx
+From: jgillett@cix.compulink.co.uk ("John Gillett")
+Subject: Re: THE REXX, THE DB2/2 and THE BEGINNER
+Date: Mon, 15 Jan 1996 19:46:27 GMT
+
+Attached is a solution I have used to schedule a task once each day at a
+particular time.  The 'trick' (if you can call that) is to compute how
+many seconds the program should wait (SysSleep).
+
+A nice feature of this solution is you can boot (start the task)any time
+and it will always wait the right number of seconds.
+
+====================================================
+/* daily.cmd : program to invoke some action same time each day */
+
+call RxFuncadd 'SysLoadFuncs', 'RexxUtil', 'SysLoadFuncs'
+call SysLoadFuncs
+
+action_time = '08:00:00'  /* or whenever... */
+
+do forever
+
+        sleep_time =  calc_sleep(action_time)
+
+        call SysSleep(sleep_time)
+        /*
+        ** do daily work here, e.g. start cleanup
+        */
+
+end /* do forever */
+
+
+
+/**********************************************************************/
+/*  Calc_sleep: how long should we sleep in seconds.                  */
+/**********************************************************************/
+
+calc_sleep: procedure
+parse arg act_time .        /* time when act(ion) should take place */
+parse value act_time with act_hour ':' act_minutes ':' act_seconds
+act_secs = act_hour*3600 + act_minutes*60 + act_seconds
+
+cur_secs = date('S') /* time since midnight in seconds */
+if cur_secs >= act_secs then sleep_time = 24*3600 + act_secs - cur_secs
+else sleep_time = act_secs - cur_secs
+
+return(sleep_time)
+
+=====================================================
+
+John
+**************************************************************
+* Gillett, Sheen & assocs Ltd. (Computer-enhanced Telephony) *
+* tel.+44 (0)1962 877227,             fax:+44 (0)1962 866945 *
+* internet: jgillett@cix.compulink.co.uk    CIS: 100015,2610 *
+**************************************************************
+
+

@@ -1,0 +1,795 @@
+<HTML><HEAD><TITLE>REXX/SQL</TITLE></HEAD>
+<BODY>
+<P>
+<H1><P Align="Center">REXX/SQL</P></H1>
+<P>
+<P>
+<P Align="Center"><H1>A REXX interface to SQL databases</H1></P>
+<P Align="Center">Version 1.2</P>
+<P Align="Center"><HR></P>
+<H3><B>1. Introduction</B></H3>
+<P>
+<P>
+This document defines  an interface to provide access  to SQL databases for REXX
+programs.   REXX/SQL  consists of  a  number of  external REXX  functions  which
+provide  the necessary capabilities to connect  to, query and manipulate data in
+any SQL database.  This  document is designed to assist in the implementation of
+this interface  for any SQL-based database  system that provides  an appropriate
+3GL API.<P>
+<P>
+An  appendix  to  this document  is  included  for each  implementation  of this
+interface providing implementation-specific features.  Where implementations may
+differ, this is highlighted in the function definitions to assist the user where
+source code compatibility between different database vendors is required.<P>
+<P>
+<P Align="Center"><HR></P>
+<H3><B>2. Overview</B></H3>
+<P>
+<P>
+REXX/SQL consists  of  REXX external  functions that  allows a  REXX program  to
+communicate with a SQL database.<P>
+<P>
+Actions requested of the database are  made by calling these external functions.
+Information returned to the  REXX program as a  result of these actions is  done
+principally through the REXX variable pool.<P>
+<P>
+The REXX external functions are:<P>
+<UL>
+<LI><B>SQLCONNECT</B> - connect to the SQL database
+<LI><B>SQLDISCONNECT</B> - break the connection to the SQL database made by SQLCONNECT
+<LI><B>SQLDEFAULT</B><em sup>(1)</em> - switch  the default  connection to  another open connection
+<LI><B>SQLCOMMAND</B> - issue a SQL statement to the connected database
+<LI><B>SQLPREPARE</B> - allocate a work  area for a SQL  statement and prepare it for processing
+<LI><B>SQLDISPOSE</B> - deallocate a work area for a statement
+<LI><B>SQLOPEN</B> - open a cursor for a prepared SELECT statement
+<LI><B>SQLCLOSE</B> - close an opened cursor
+<LI><B>SQLFETCH</B> - fetch the next row from the open cursor
+<LI><B>SQLEXECUTE</B> - execute a prepared statement
+<LI><B>SQLCOMMIT</B> - commit the current transaction
+<LI><B>SQLROLLBACK</B> - rollback the current transaction
+<LI><B>SQLDESCRIBE</B><em sup>(1)</em> - describe expressions from a SELECT statement
+<LI><B>SQLVARIABLE</B><em sup>(2)</em> - set or retrieve default run-time values
+</UL>
+<P>
+<em sup>(1)</em>Functions may not be supported in all implementations.<BR>
+<em sup>(2)</em>Values that can be set can vary between implementations.
+<P>
+Status values set by the REXX external functions are:<P>
+<P>
+<UL>
+<LI><B>SQLCA.SQLCODE</B> - result code of last SQL operation
+<LI><B>SQLCA.SQLERRM</B> - text of any error message associated with the above result code
+<LI><B>SQLCA.SQLTEXT</B> - text of the last SQL statement
+<LI><B>SQLCA.ROWCOUNT</B> - number of rows affected by the last SQL operation
+<LI><B>SQLCA.FUNCTION</B> - name of the REXX external function last called
+<LI><B>SQLCA.INTCODE</B> - REXX/SQL interface error number
+<LI><B>SQLCA.INTERRM</B> - text of last REXX/SQL interface error
+</UL>
+<P Align="Center"><HR></P>
+<H3><B>3. Functions</B></H3>
+<P>
+
+<H4>SQLCONNECT([<I>connection name</I>,] [<I>connection string</I>])</H4><P>
+<P>
+Establishes a connection to the database server. The newly established
+connection is made the default database connection.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>connection name</I></B>
+This is an  optional name for the connection to  be opened.   If you need to
+have multiple  connections  opened  at once,  you  will  need to  specify  a
+connection name. For those implementations that do not support multiple connections,
+this argument is not supported.
+<P>
+<B>  <I>connection string</I></B>
+This is the connection  string for the  database.  This may be multiple arguments
+depending on the implementation.
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLDISCONNECT([<I>connection name</I>])</H4><P>
+<P>
+Closes a connection with the database server.  All open cursors for the database
+connection are closed.  All allocated work areas for the database connection are
+deallocated.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>connection name</I></B>
+An  optional  connection   name,  as  specified  in  the   <B>SQLCONNECT</B>
+function.   If  no connection  name  is specified,  the default  (and  only)
+connection is disconnected.
+<P>
+<B>Returns:</B><P>
+success: zero<BR>
+failure: a negative number
+<P>
+
+<H4>SQLDEFAULT([<I>connection name</I>])</H4><P>
+<P>
+Sets the  default database connections  to be that  which is specified  or if no
+connection name is specified, the current connection name is returned.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>connection name</I></B>
+An optional connection name specifying the database connection to be made
+the default connection.
+<P>
+<B>Returns:</B><P>
+with no argument:<BR> the name of  the current database connection  or an empty string  if no
+                   database connection is current.<BR>
+with an argument:<BR>
+success: zero<BR>
+failure: a negative number
+<P>
+
+<H4>SQLCOMMAND(<I>statement name</I>,<I>sql statement</I>[,<I>bind1</I>[,<I>bind2</I>[,...[,<I>bindN</I>]]]])</H4><P>
+<P>
+Executes  an SQL statement as a single  step.  The statement  is executed in the
+default work  area for the default  database connection.  No bind  values may be
+passed  for <B>DDL</B> statements.   Bind  values may  optionally be  passed for
+<B>DML</B> statements.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to  identify the <I>sql statement</I> and  used to name  the compound
+variable  created when  <I>sql  statement</I>  is a  SELECT statement.   The
+results of  the SELECT  statement are  returned in  compound variables  with
+this name as the stem.
+<P>
+<B>  <I>sql statement</I></B>
+Any valid  <B>DDL</B> or <B>DML</B>  statement.   For <B>DML</B> statements,
+the statement may contain placemarkers to which values may be bound.  
+<B>The format of these placemarkers is implementation dependant.</B>
+<P>
+<B>  <I>bind1...bindN</I></B>
+Values supplied to bind to the placemarkers.<BR>
+<B>The format of bind values is implementation dependant.</B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+When the <I>sql  statement</I> is a SELECT,  all column values are  returned
+as  REXX  <I>arrays</I>.   The compound  variable  name is  composed of  the
+statement name followed  by a period, followed  by the column name specified
+in  the SELECT  statement, followed  by  a number  corresponding to  the row
+number.   As with all REXX  arrays, the  number of elements in  the array is
+stored in the  zeroth element.   If no <I>statement  name</I> is  specified,
+a default string is used; usually <B>SQL</B>.  See Section 5. Implementation Notes for
+information when this is not the case.
+<P>
+If the column selected consists of a constant, or includes a function,  a
+valid REXX variable may not be able to be generated.  See the implementation
+specific sections for details on how each implementation handles this.
+<P>
+After a successful <B>DML</B> statement, the variable <B>SQLCA.ROWCOUNT</B>
+is set to the number of rows affected by the statement.
+<P>
+Because the contents of all columns for  all rows are returned from a SELECT
+statement, the statement  may return many rows and exhaust available memory.
+Therefore, the  use of the <B>SQLCOMMAND</B>  function should be  restricted
+to queries that  return a small number of  rows.  For  larger queries, use a
+combination of SQLPREPARE, SQLOPEN, SQLFETCH and SQLCLOSE.
+<P>
+<B>Example:</B><P>
+<PRE>
+    rc = sqlcommand(s1,"select ename, empno from emp")
+</PRE>
+<P>
+If the SELECT statement returns 3 rows then:
+<P>
+<UL>
+<LI>S1.ENAME.0 = 3
+<LI>S1.ENAME.1 = "SCOTT"
+<LI>S1.ENAME.2 = "SMITH"
+<LI>S1.ENAME.3 = "BROWN"
+<LI>S1.EMPNO.0 = 3
+<LI>S1.EMPNO.1 = "1234"
+<LI>S1.EMPNO.2 = "1437"
+<LI>S1.EMPNO.3 = "1555"
+</UL>
+<P>
+
+<H4>SQLPREPARE(<I>statement name</I>,<I>sql statement</I>)</H4><P>
+<P>
+Allocates  a  work area  to  a  SQL statement  and  prepares  the  statement for
+processing.   
+<P>
+If the statement  is <B>DDL</B>  then the  statement is  executed in  this, the
+preparation step.<P>
+<P>
+If  the statement  is  a <B>DML</B>  statement then  it  must be  executed by  a
+subsequent call.  For INSERT,  UPDATE and DELETE commands, the statement must be
+executed by calling <B>SQLEXECUTE</B>.  For a SELECT command, the statement must
+be executed  as a cursor.   This requires calling  SQLOPEN followed  by multiple
+calls to SQLFETCH and optionally calling SQLCLOSE.
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I>.<I></I>
+<P>
+<B>  <I>sql statement</I></B>
+Any valid  <B>DDL</B> or <B>DML</B> statement.   For <B>DML</B>  statements,
+the statement may contain placemarkers to which values may be bound.  
+<B>The format of these placemarkers is implementation dependant.</B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLDISPOSE(<I>statement name</I>)</H4><P>
+<P>
+Deallocates a  work  area from  a statement  and  frees all  internal  resources
+associated with the statement.  If a cursor is open for the  nominated statement
+an implicit close is issued.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I> to be disposed.
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLOPEN(<I>statement name</I>[,<I>bind1</I>[,<I>bind2</I>[,...[,<I>bindN</I>]]]])</H4><P>
+<P>
+Opens  a cursor for the nominated statement.   The statement must  be a query (a
+SELECT   statement)  and  must  have  been  prepared   prior  to  opening  (with
+<B>SQLPREPARE</B>).    Opening  the cursor,  binds any  supplied  values  to the
+corresponding placemarkers  and then executes the  SELECT statement.   The first
+row is  made ready to be  fetched.  If a  cursor was already  open for the named
+statement then it will be automatically closed prior to reopening the cursor.
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I>.
+<P>
+<B>  <I>bind1...bindN</I></B>
+Values supplied to bind to the placemarkers.
+<B>The format of bind values is implementation dependant.</B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLCLOSE(<I>statement name</I>)</H4><P>
+<P>
+Ends execution of a  cursor.  This frees much  of the database server  resources
+associated  with a cursor.   The statement does  not have to  be reparsed if the
+cursor is later reopened unless the statement  has been disposed (ie by  calling
+<B>SQLDISPOSE</B> for the <I>statement name</I>).<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I>.
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLFETCH(<I>statement name</I>,[<I>number rows</I>])</H4><P>
+<P>
+Fetches the next  row (or rows) for  the nominated statement.   There must be an
+open cursor for the named statement.  If the  optional <I>number rows</I> is not
+specified, a <I>single row</I> fetch is carried out, otherwise a multi row fetch
+is carried out.
+<P>
+For <I>single row</I> fetches,  a compound variable is  created for each  column
+name  identified in  the  <I>sql statement</I>  parsed in  the <B>SQLPREPARE</B>
+call, with  the stem being  <I>statement name</I> and the  tail corresponding to
+the column name.
+<P>
+For  <I>multi row</I>  fetches, a REXX <I>array</I>  is created  for each column
+name  in the <I>sql statement</I> parsed in the SQLPREPARE call.  See SQLCOMMAND
+for a full description  of the format of the  variables.  Variable tails  always
+start with 1.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I>.
+<P>
+<B>  <I>number rows</I></B>
+An optional number specifying how many rows are to be fetched.
+<P>
+<B>Returns:</B><P>
+success:  a number &gt;= zero.
+a  value of  zero  indicates  no more  rows  are  available to  be
+fetched.
+for  <I>single row</I> fetches,  a value &gt;  zero represents the
+row number of the row just fetched.
+for <I>multi  row</I> fetches,  a  value &gt;  zero indicates  the
+number of  rows fetched. Normally  this value equals  number rows.
+If this value is less than number rows, no more rows are available
+to be fetched.  This value can never be greater than number rows.
+The variable <B>SQLCA.ROWCOUNT</B> is set to the value returned.
+<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLEXECUTE(<I>statement name</I>[,<I>bind1</I>[,<I>bind2</I>[,...[,<I>bindN</I>]]]])</H4><P>
+<P>
+Executes a prepared statement for non-SELECT <B>DML</B> statements (i.e. INSERT,
+UPDATE and DELETE).<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I>.
+<P>
+<B>  <I>bind1...bindN</I></B>
+Values supplied to bind to the placemarkers.
+<B>The format of bind values is implementation dependant.</B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+The variable <B>SQLCA.ROWCOUNT</B> is set to the number of rows
+affected by the <B>DML</B> statement executed.<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLCOMMIT()</H4><P>
+<P>
+Commit the current transaction.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>none</I></B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLROLLBACK()</H4><P>
+<P>
+Rollback the current transaction.<P>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>none</I></B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLDESCRIBE(<I>statement name</I> [,<I>stem name</I>])</H4><P>
+<P>
+Describes the expressions  returned by a SELECT statement.  The statement should
+first be prepared (with <B>SQLPREPARE</B>) and then described.  
+Creates  a compound  variable for  each column  in the  select list  of the  sql
+statement</I>, with  a  stem equal  to the  <I>statement  name</I>, followed  by
+'COLUMN' and  with  at least the  following  components:  NAME, TYPE,  SIZE, PRECISION,  SCALE,
+NULLABLE.<BR>
+<B>See the platform-specific appendix for other variables returned.</B>
+<P>
+<B>Arguments:</B><P>
+<B>  <I>statement name</I></B>
+A name to identify the <I>sql statement</I>.
+<P>
+<B>  <I>stem name</I></B>
+An optional name specifying the stem name of the REXX variables created.
+<P>
+<B>Returns:</B><P>
+success:  a positive  number, or zero, indicating the  number of expressions
+in the select list of the SELECT statement<BR>
+failure:  a negative number
+<P>
+<B>Example:</B><P>
+Assuming the current connection is to an Oracle database:
+<PRE>
+    rc = sqlprepare(s2,"select ename, empno from emp")
+    rc = sqldescribe(s2,"AA")
+<P>
+</PRE>
+results in the following REXX variables being set:
+<P>
+<UL>
+<LI>AA.COLUMN.NAME.1 == "ENAME"
+<LI>AA.COLUMN.NAME.2 == "EMPNO"
+<LI>AA.COLUMN.TYPE.1 == "VARCHAR2"
+<LI>AA.COLUMN.TYPE.2 == "NUMBER"
+<LI>AA.COLUMN.SIZE.1 == "20"
+<LI>AA.COLUMN.SIZE.2 == "6"
+<LI>AA.COLUMN.PRECISION.1 == "20"
+<LI>AA.COLUMN.PRECISION.2 == "40"
+<LI>AA.COLUMN.SCALE.1 == "0"
+<LI>AA.COLUMN.SCALE.2 == "0"
+<LI>AA.COLUMN.NULLABLE.1 == "1"
+<LI>AA.COLUMN.NULLABLE.2 == "0"
+</UL>
+<P>
+<B>The values returned are implementation dependant.</B>
+<P>
+
+<H4>SQLVARIABLE(<I>variable name</I>[,<I>variable value</I>])</H4><P>
+<P>
+Set or get the value for the specified variable.<P>
+The following variables are available in all implementations:<P>
+<UL>
+<LI><B>VERSION</B> <I>(readonly)</I> the version of REXXSQL, consisting of:<P>
+<UL>
+<LI><I>package name</I> - usually <B>REXXSQL</B><BR>
+<LI><I>REXXSQL version</I> - numerical version; eg. 1.0<BR>
+<LI><I>REXXSQL date</I> - REXX standard date format; eg. 10 Jun 1995<BR>
+<LI><I>OS platform</I> - current operating system<BR>
+<LI><I>database platform</I> - type of the current database<BR>
+</UL>
+<P>
+eg. REXXSQL 1.0 10 Jun 1995 OS/2 ORACLE
+<P>
+<LI><B>DEBUG</B> <I>(setable)</I> level of debugging requested.<P>
+<UL>
+<LI><I>0</I> - no debugging information displayed (defualt)<BR>
+<LI><I>1</I> - REXX variables displayed as set <BR>
+<LI><I>2</I> - function entry/exit information displayed <BR>
+<LI><I>3</I> - both level 1 and 2 debugging information displayed <BR>
+</UL>
+<P>
+<LI><B>ROWLIMIT</B> <I>(setable)</I><BR>
+this is  used to  limit the number  of rows fetched  by a
+                        SELECT statement passed to <B>SQLCOMMAND</B>. A  value of
+                        zero indicates no limit. The default value is zero.
+<P>
+<LI><B>SAVESQL</B> <I>(setable)</I><BR>
+this  is used  to indicate if  the text  of the  last SQL
+                        statement is to be  saved. If this variable is set  to 1,
+                        then  <B>SQLCA.SQLTEXT</B> will have the  value of  the last SQL
+                        statement; if set to 0 <B>SQLCA.SQLTEXT</B> will  equal "".   The
+                        default for this variable is 1.
+</UL>
+</UL>
+
+<P>
+<B>Arguments:</B><P>
+<B>  <I>variable name</I></B>
+The name of the variable to be set or retrieved.
+<B>The names of variables may be implementation dependant.</B>
+<P>
+<B>  <I>variable value</I></B>
+If no <I>variable value</I> is specified, the current value of  the variable
+is returned.  If a <I>variable value</I> is specified, the variable  assumes
+the value specified.
+<P>
+<B>Returns:</B><P>
+with <I>variable value</I> specified:
+zero if a  valid <I>variable name</I>  specified and it  is able to  be
+set;
+a negative number if  the <I>variable name</I> is invalid  or the <I>variable name</I>
+is not able to be set.<BR>
+with <I>variable value</I> NOT specified:
+the current value  of the variable or a negative number if the <I>variable name</I> is
+invalid.
+<P>
+
+<H4>SQLLOADFUNCS()</H4><P>
+<P>
+Load all REXX external functions making them available for use.<P>
+<B>This function only available in dynamic library implementations.</B><P>
+<P>
+<B>Arguments:</B><P>
+<B><I>none</I></B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<H4>SQLDROPFUNCS()</H4><P>
+<P>
+Terminate REXX/SQL and free up all resources used.<P>
+<B>This function only available in dynamic library implementations.</B><P>
+<P>
+<B>Arguments:</B><P>
+<B><I>none</I></B>
+<P>
+<B>Returns:</B><P>
+success:  zero<BR>
+failure:  a negative number
+<P>
+
+<P Align="Center"><HR></P>
+<H3><B>4. Errors</B></H3>
+<P>
+<P>
+All functions  return a negative number  if an error occurred.  Zero or positive
+return values indicate success.<P>
+<P>
+When an error occurs in the REXX/SQL interface, the function returns
+a negative number corresponding to
+one of the numbers below and the variable <B>SQLCA.INTCODE</B> is set to that
+number. The variable
+<B>SQLCA.INTERRM</B> is also set to the corresponding message.  If a database error
+occurs, <B>SQLCA.SQLCODE</B> and <B> SQLCA.SQLERRMR</B> are set to the appropriate values.
+<P>
+<B>Internal Errors:</B><P>
+<P>
+<PRE>
+    -1  - Database Error
+    -7  - value is not a valid integer.
+    -8  - internal error
+    -9  - no message available for SQLCODE <I>n</I>
+    -10 - out of memory
+    -11 - unknown variable <I>variable</I>.
+    -12 - variable <I>variable</I> is not settable.
+    -13 - statement <I>statement</I> is not a query.
+    -14 - <num-rows> is not a valid integer.
+    -15 - Conversion/truncation occurred.
+    -15 - unable to set REXX variable
+    -18 - statement name omitted or null
+    -19 - null ("") variable name.
+    -20 - connection already open with name <I>connection</I>.
+    -21 - connection <I>connection</I> is not open.
+    -22 - no connections open.
+    -23 - statement name omitted or null
+    -24 - statement <I>statement</I> does not exist
+    -25 - no connection is current
+    -26 - statement has not been opened or executed
+    -51 - zero length identifier
+    -52 - garbage in identifier name
+    -61 - <I>n</I> bind variables passed. <I>m</I> expected
+    -62 - bind values must be paired for bind by name
+    -63 - invalid substitution variable name at bind pair <I>n</I>.
+    -71 - Too many columns specified in SELECT
+</PRE>
+<P>
+<P>
+<P>
+
+
+<P Align="Center"><HR></P>
+<H3><B>5. Implementation Notes</B></H3>
+<P>
+<P>
+To enable multiple database access  on those platforms that support  the dynamic
+loading of  REXX external functions, implementation-specific  function names and
+status values should be provided as a compile-time option.  It is  expected that
+a  separately  built  library be  provided with  the  <I>standard</I>  function names
+together with the a library containing the  database platform-specific functions
+and status values.  <P>
+<P>
+For  example, the OS/2 Oracle implementation  provides a dynamic library  called
+<B>REXXSQL</B> which contains the <I>standard</I> function  names like <B>SQLCONNECT</B> and
+<I>standard</I>  status   values   like  <B>SQLCA.SQLCODE</B>.     It   also   provides   an
+implementation-specific  dynamic  library  called  <B>REXXORA</B>  with  an  equivalent
+<B>ORACONNECT</B> and <B>ORACA.SQLCODE</B>. This use of standard and implementation specific names also applies to default
+statement names and stem variable names.  Basically, wherever the string SQL appears in function names
+or REXX variables names, an implementation specific abbreviation will be used.
+<P>
+This provision of database platform specific external functions will enable access to different vendor databases
+in the one REXX program.
+<P>
+The following database-specific abbreviations are recommended:
+<P>
+<UL>
+<LI><B>ORA</B> Oracle               
+<LI><B>ING</B> Ingres
+<LI><B>DB2</B> IBM DB2
+<LI><B>WAT</B> Watcom
+<LI><B>SYB</B> Sybase
+<LI><B>MIN</B> Mini SQL (mSQL)
+</UL>
+<P>
+<P Align="Center"><HR></P>
+<H3><B>6. Using REXX/SQL</B></H3>
+<P>
+<P>
+SQL  statements  fall  into  two  broad  categories <B>DDL</B>  and  <B>DML</B>.
+<B>DDL</B> is Data Definition Language.  These are statements like CREATE TABLE,
+DROP INDEX.  DML statements are Data  Manipulation Language statements  of which
+there  are  two  forms;  queries  (SELECT  statements)  and  data   modification
+statements (INSERT, UPDATE and DELETE statements). <P>
+<P>
+To  execute  any SQL  statement the  program  must first  connect to  a database
+server.<P>
+<P>
+Each statement must be executed in a work area or context area.<P>
+<P>
+For <B>DDL</B> statements, the underlying steps are:<P>
+<P>
+<UL>
+<LI>allocate a work area
+<LI>parse (prepare) the statement (this also executes it if it is <B>DDL</B>)
+<LI>release any resources
+</UL>
+<P>
+For <B>DML</B> data modification statements, the underlying steps are:<P>
+<P>
+<UL>
+<LI>allocate a work area
+<LI>parse (prepare) the statement
+<LI>bind any required values to the placemarkers (if any)
+<LI>execute the statement
+<LI>release any resources
+</UL>
+<P>
+For <B>DML</B> query statements, the underlying steps are:<P>
+<P>
+<UL>
+<LI>allocate a work area
+<LI>parse (prepare) the statement
+<LI>bind any required values to the placemarkers (if any)
+<LI>execute the statement
+<LI>fetch each row until end of selection (or done)
+<LI>release any resources
+</UL>
+<P>
+Since there  is a reasonable  overhead in  allocating work areas  and in parsing
+statements these should be minimised.  The REXX/SQL interface provides the means
+of doing  this.   The  <B>SQLPREPARE</B> function  allocates a  work  area to  a
+statement and parses the statement.  Work areas are deallocated from a statement
+when  the <B>SQLDISPOSE</B> call is issued.  While a statement is allocated to a
+work area it remains prepared (that is parsed and optimised).  Because statement
+names  are global,  preparing a  different statement  with the  same name  as an
+existing statement  disposes  the existing  one.   After  a statement  has  been
+prepared with <B>SQLPREPARE</B>, it is bound to a work area and remains bound until the
+statement is disposed of with  <B>SQLDISPOSE</B>.  The statement can be executed
+many times by the following means:<P>
+<P>
+<UL>
+<LI>Queries - repeatedly opening and closing the cursor using the functions; <B>SQLOPEN</B>, <B>SQLFETCH</B> and <B>SQLCLOSE</B>.
+          Typically, multiple calls are made to <B>SQLFETCH</B> to retrieve all
+          rows selected in the cursor. <B>SQLCLOSE</B> is optional.
+<P>
+<LI>Data modification  statements -  repeatedly calling  <B>SQLEXECUTE</B>.
+          Each call may  supply new bind values.   The statement is  not reparsed
+          each time.
+</UL>
+<P>
+<P>
+<B>DDL</B> statements are a special type of statement in  that they are executed
+when  they  are  parsed.   Thus, <B>SQLPREPARE</B>  both  parses  the <B>DDL</B>
+statement and executes it  in one go.  For <B>DDL</B> statements,  the statement
+must be  reparsed each time it requires execution.   The work area can be reused
+by using the same statement name each time, eg.<P>
+<P>
+<PRE>
+    rc = sqlprepare("MY_GRANT","grant select on emp to scott")
+    rc = sqlprepare("MY_GRANT","grant select, insert, update on dept to scott")
+</PRE>
+<P>
+In the above  example, the first statement  is parsed and  executed in the  work
+area allocated  to the statement <B>'MY_GRANT'</B>.  The  statement is reused to
+execute  the second  statement.  There  is no need to  dispose statements before
+reuse of the same name.<P>
+<B></B><P>
+The  following table shows the order  in which the database  functions are to be
+called for the different types of SQL statements.<P>
+<P>
+<P>
+<P>
+<PRE>
+ |====================|=======================|====================|====================|
+ |                   DML                      |          DDL       |                    |
+ |--------------------|-----------------------|--------------------|--------------------|
+ |       SELECT       |   INSERT,DELETE etc.  |   CREATE,DROP etc. |       DESCRIBE     |
+ |====================|=======================|====================|====================|
+ |     SQLPREPARE     |       SQLPREPARE      |      SQLPREPARE    |      SQLPREPARE    |
+ |--------------------|-----------------------|--------------------|--------------------|
+ |       SQLOPEN      |       SQLEXECUTE      |      SQLDISPOSE    |      SQLDESCRIBE   |
+ |--------------------|-----------------------|--------------------|--------------------|
+ | SQLFETCH (in loop) |       SQLDISPOSE      |                    |      SQLDISPOSE    |
+ |--------------------|-----------------------|--------------------|--------------------|
+ |      SQLCLOSE      |                       |                    |                    |
+ |====================|=======================|====================|====================|
+</PRE><P>
+<P>
+<P>
+<B>Dynamic Library Implementations</B><P>
+<P>
+The REXX external functions in the  dynamic library need to be loaded  by a call
+to RxFuncAdd() followed by a call to SqlLoadFuncs().
+eg.<P>
+<PRE>
+    Call RXFuncAdd 'SqlLoadFuncs','REXXSQL','SqlLoadFuncs'
+    Call SqlLoadFuncs
+</PRE>
+<P>
+Before exiting  from a REXX/SQL program, call the SqlDropFuncs() function.  This
+call  does  not  deregister the  external  functions,  rather  it  frees up  all
+resources used by the current program.<P>
+<P>
+<P Align="Center"><HR></P>
+<H3><B>Appendix A - REXX/SQL for Oracle</B></H3>
+<P>
+<P>
+<B></B>This  section  describes  features  of  REXX/SQL specific  to  the Oracle
+implementation.<P>
+<P>
+<P>
+<B>General:</B><P>
+<UL>
+<LI>The format of the <I>connection string</I> is
+          [<I>username</I>]/[<I>password</I>][<I>remote database connect
+          string</I>]<BR>
+     eg. scott/tiger@T:machine:SID<BR>
+     If no  argument is  given to  <B>SQLCONNECT</B> or  the empty  string ""  is
+     given, the user is connected with "/".
+<P>
+<LI>If, when the first  call to <B>SQLCOMMAND</B> or  <B>SQLPREPARE</B> is made,
+     the user  is not  connected to  a database,  an implicit SQLCONNECT("/")  is
+     made.
+</UL>
+<P>
+<P>
+<B>Bind Variables:</B><P>
+REXX/SQL for  Oracle can  use  two forms  of  placemarkers for  bind  variables;
+numbers and names.<P>
+<P>
+<I>Bind by number:</I><P>
+<P>
+The  placemarkers in  the  <I>sql statement</I>  are  numeric; :1,  :2  etc. The
+arguments passed to the  <B>SQLCOMMAND</B> and <B>SQLOPEN</B> functions for bind
+values consist of a '#' followed by the bind values. eg.
+<P>
+<PRE>
+    query1 = "select name from emp where id = :1 and deptno = :2"
+    rc = sqlcommand(q1,query1,"#",345,10)
+</PRE>
+<P>
+<I>Bind by name:</I><P>
+<P>
+The placemarkers  in the  <I>sql statement</I>  are named;  :ID,  :DEP.   The
+arguments passed to the <B>SQLCOMMAND</B> and <B>SQLOPEN</B> functions are pairs
+of placemarker name and bind variable value.eg.
+<P>
+<PRE>
+    query1 = "select name from emp where id = :ID and deptno = :DEP"
+    rc = sqlcommand(q1,query1,":ID",345,":DEP",10)
+</PRE>
+<P>
+<P>
+<B>Column names:</B><P>
+If a column specification in a SQL statement passed to <B>SQLCOMMAND</B> or
+<B>SQLPREPARE</B> contains a function or is a constant, the column specifier
+<I>must</I> be aliased so that a valid REXX variable can be generated for that column.
+<P>
+<P>
+<B>SQLDescribe variables:</B><P>
+The Oracle implementation does not include any extra variable components.
+<P>
+<P Align="Center"><HR></P>
+<H3><B>Appendix B - REXX/SQL for mSQL</B></H3>
+<P>
+<P>
+<B></B>This section describes features of REXX/SQL specific to the mSQL implementation.<P>
+<P>
+<P>
+<B>General:</B><P>
+<UL>
+<LI>The format of the <I>connection string</I> is <I>database name</I>[,<I>host</I>]<BR>
+     eg.   'test','msql@bond.edu.au' - connect to the test database on the host msql@bond.edu.au<BR>
+           'test1' - connect to the test1 database on the local machine<BR>
+<B>The database name argument is mandatory.</B>
+<P>
+<LI>As mSQL has no concept of a transaction, the functions, <B>SQLCOMMIT</B> and <B>SQLROLLBACK</B> don't do
+anything.  They are included for consistency.<P>
+    
+<LI>All statements are actually executed by <B>SQLPREPARE</B>.  This obviates the <B>SQLEXECUTE</B> function, but
+it still should be used for portability.<P>
+
+<LI>The variable <B>SQLCA.ROWCOUNT</B> always returns 0 for non <B>SELECT DML</B> statements.  Thus, there is
+no way of determining how many rows were deleted, updated, or inserted.<P>
+</UL>
+<P>
+<P>
+<B>Bind Variables:</B><P>
+mSQL has no provision for bind variables in SQL statements.  Hence, any references to bind variables in this
+document should be ignored.
+<P>
+<P>
+<B>Column names:</B><P>
+If a column specification in a SQL statement passed to <B>SQLCOMMAND</B> or <B>SQLPREPARE</B> contains a table
+alias, eg. a.emp_id, the REXX variables created corresponding to this column DO NOT contain the "a." prefix.
+<P>
+<P>
+<B>SQLDescribe variables:</B><P>
+The mSQL implementation includes the extra variable component; <B>PRIMARYKEY</B>.
+<P>
+<P Align="Center"><HR></P>
+<H6><A HREF = "mailto:M.Hessling@qut.edu.au">Mark Hessling</A> 5 August 1995</H6>
+<HR>

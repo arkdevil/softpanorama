@@ -1,0 +1,93 @@
+#==========================================================
+# Makefile for Win EXEs under Borland C 3.0
+# Copyright (c) 1993 Douglas Boling
+#==========================================================
+#----------------------------------------------------------
+# Target filename
+#----------------------------------------------------------
+NAME = fddlls
+NAME1 = statbar
+
+#----------------------------------------------------------
+# Define DEBUG = 1 to add debug info to EXE
+#----------------------------------------------------------
+DEBUG = 0
+
+#----------------------------------------------------------
+# Define MYWIN31 = 1 for Windows 3.1 apps
+#----------------------------------------------------------
+MYWIN31 = 1
+
+#----------------------------------------------------------
+# C compiler switches
+#
+# -c     Compile, no link
+# -ms  	 Small model
+# -WE    Make Windows program, Exports explicitly defined
+# -v     Include Debugging info
+# -w-par Stop var not used warning
+# -2     Gen 286 instructions
+#----------------------------------------------------------
+!if $(DEBUG)
+CSWITCH = -c -ms -WE -v -w-par
+!else
+CSWITCH = -c -ms -WE -w-par
+!endif
+
+!if $(MYWIN31)
+CSWITCH = $(CSWITCH) -2 
+!else
+CSWITCH = $(CSWITCH) -D WINVER=0x0300
+!endif
+
+#----------------------------------------------------------
+# Link switches
+#
+# /Tw   Create Windows Prog
+# /v    Add debug info
+#----------------------------------------------------------
+!if $(DEBUG)
+LSWITCH = /Tw /v 
+!else
+LSWITCH = /Tw
+!endif
+
+#----------------------------------------------------------
+# Lib files
+#
+# cws      Std Windows startup code lib
+# cs       Std runtime lib for small model
+# import   DLL link lib
+# commdlg  Windows Common Dialog Box lib
+#----------------------------------------------------------
+# LIBS = cws cs import commdlg
+LIBS = cws cs import
+
+#----------------------------------------------------------
+# Resource Compiler switches
+# 30   Require at least Win 3.0
+# 31   Require at least Win 3.1
+#----------------------------------------------------------
+!if $(MYWIN31)
+RCSWITCH = -31
+!else
+RCSWITCH = -30
+!endif
+
+#----------------------------------------------------------
+# Make EXE
+#----------------------------------------------------------
+$(NAME).exe: $(NAME).obj $(NAME1).obj $(NAME).def $(NAME).res
+    tlink $(LSWITCH) c0ws $(NAME) $(NAME1), $(NAME).exe,, $(LIBS), $(NAME).def
+    rc $(NAME).res 
+
+$(NAME).obj : $(NAME).c $(NAME).h
+    BCC $(CSWITCH) $(NAME).c
+
+$(NAME1).obj : $(NAME1).c $(NAME1).h
+    BCC $(CSWITCH) $(NAME1).c
+
+$(NAME).res : $(NAME).rc $(NAME).h $(NAME).ico
+    rc -r $(NAME).rc
+
+

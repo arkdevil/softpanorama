@@ -1,0 +1,1240 @@
+$MACRO_FILE LANGUAGE;                  { 28.03.90 14:25 DEL MEERR.TMP  KEG    }
+                                       { 20.03.90 15:09 FOXCODE  KEG.         }
+ {****************************************************************************
+                                        MULTI-EDIT MACRO FILE LANGUAGE
+COMPILE   - Compile a program
+BIGCOMP   - Compiling with large compile option
+CMPERROR  - Finds compiler errors then moves cursor to line in the source
+TEMPLATE  - Calls the appropriate template macro for the language type
+MATCH     - Calls the appropriate matching macro for the language type
+
+                      (C) Copyright 1988 by American Cybernetics, Inc.
+ *****************************************************************************}
+ 
+$MACRO COMPILE;
+   {**************************************************************************
+                                                             MULTI_EDIT MACRO
+
+   Name: COMPILE
+
+   Description:  Compiles a program based on the setup for the filename
+                  extension of the current file.
+
+                        (C) Copyright 1988 by American Cybernetics, Inc.
+
+   We would like to acknowledge the contributions of our user base
+   which are too numerous to mention here.
+   *** KEG. Удаление всех окон MEERR.TMP ,кроме первого. 28.03.90 12:14
+   ***************************************************************************}
+
+   Def_Str(TStr,Tstr2,Red_Str,Comp_Str);
+                                       { note comp_str above added for ALSYS  }
+   Def_Int( Kx, jx, temp_window, Temp_LC, Clear_Screen_Stat, Compiler_Prompt,
+            Save_All, Reload_File, Dont_Process);
+
+   { Since PLM does not put the file name on the primary file we need to save
+      away the name of the primary file in case we find an error in an include file
+      we will know when we press the next error key what file to go back to if
+      the error is back in the primary file }
+
+                        { This was only used with the old style of BIG COMPILE }
+                        { This is now reloaded in BIGCOMP.  See BIGCOMP below }
+   TStr := '{ 28.03.90 14:25 DEL MEERR.TMP  KEG    } ';
+   IF (Get_Extension(Global_Str('Last_Compiled_Window')) <>
+      Caps(Get_Extension(file_name))) THEN
+      Set_Global_Int('Last_Compiler_Choice',1);
+   END;
+   Set_Global_Str('Last_Compiled_Window',Caps(file_name));
+
+   Refresh := false;
+   temp_window := window_id;
+   Temp_LC := FALSE;
+   Clear_Screen_Stat := False;
+   Compiler_Prompt := False;
+   Save_All := False;
+   Red_Str := ' > ' + user_id + 'MEERR.TMP';
+
+                  {Get the compiler/program interface data for this extension}
+    TStr := '.' + Get_Extension(File_Name);
+    Jx := Parse_Int('/#=',Global_Str(Tstr));
+
+
+   IF (Jx = 0) THEN
+      Compiler_Prompt := True;
+      Tstr := '';
+      Goto COMP_PROMPT;
+   END;
+   IF (Jx = 1) THEN
+                                 {see if only one program interface is defined}
+      Set_Global_Int('DVINT',1);
+      Goto ONLY_ONE;
+   END;
+
+   Set_Global_Int('Temp_PGM',Jx);
+   Set_Global_Str('T_EXT',Tstr);
+   Run_Macro('SETUP^SETPGM /X=-6/Y=15/S=1/SN=' +
+      Str(Global_Int('Last_Compiler_Choice')));
+
+   IF (Return_Int = 0) THEN
+      Make_Message('Compiler/program aborted.');
+      Goto EXIT;
+   END;
+   Set_Global_Int('Last_Compiler_Choice',Global_Int('DVINT'));
+
+ ONLY_ONE:
+   TStr2 := Global_Str(Tstr + '_PGM' + Str(Global_Int('DVINT')));
+      {We must parse out the compiler command line before we capitalize TSTR2
+      because some compliers command line options are case sensitive.}
+   Return_Int := XPos('/CL=',Tstr2,1);
+   IF (Return_Int) THEN
+      TStr := Copy(TStr2,Return_Int + 4,255);
+   ELSE
+      TStr := '';
+   END;
+   TStr2 := Caps(Tstr2);
+   Temp_LC := Parse_Int('/LC=',TStr2);
+   Clear_Screen_Stat := Parse_INT('/CS=',TSTR2);
+                           {This will set COMPILER_PROMPT true if the parameter
+                            extists or if the command line is null}
+   Compiler_Prompt := (Parse_Int('/CP=',TSTR2)) or (Tstr = '');
+   Save_All := Parse_int('/SA=',TSTR2);
+   Reload_File := Parse_int('/RF=',TSTR2);
+   Dont_Process := Parse_int('/DP=',TSTR2);
+   TStr2 := Parse_Str('/PT=',TStr2);
+   Set_Global_Str('LAST_COMP',TStr2);
+
+
+                                       { now see if he has a command line     }
+  IF (Tstr = '') THEN
+            { no command line but we still have set the compiler setup flags }
+            { that the user put into file extension compiler/program fields  }
+      Goto COMP_PROMPT;
+   END;
+
+                                       { If it exists then setup              }
+   If TStr <> '' THEN
+
+ CHECK_RED:
+      JX := XPOS('<NR>',Caps(TStr),1);
+      IF jx <> 0 THEN
+         Red_Str := '';
+         TStr := Str_Del(Tstr,jx,4);
+         Goto CHECK_RED;
+      END;
+
+      If ((Tstr2 = 'STONYBROOK MODULA-2') OR     { KEG - 02.04.90 14:28       }
+          (Tstr2 = 'FOXCODE') ) then
+         Red_Str := '';
+      END;
+         {parse the compiler command to insert filename, path and extensions}
+ INSERT_FILE:
+      JX := XPOS('<FILE>',Caps(TStr),1);
+      IF jx <> 0 THEN
+         TStr := Str_Del(Tstr,jx,6);
+         TStr := Str_Ins(Truncate_Extension(file_name),TStr,jx);
+         Goto INSERT_FILE;
+      END;
+
+ INSERT_EXT:
+      JX := XPOS('<EXT>',Caps(TStr),1);
+      IF jx <> 0 THEN
+         TStr := Str_Del(Tstr,jx,5);
+         TStr := Str_Ins(Get_Extension(file_name),TStr,jx);
+         Goto INSERT_EXT;
+      END;
+
+ INSERT_NAME:
+      JX := XPOS('<NAME>',Caps(TStr),1);
+      IF jx <> 0 THEN
+         TStr := Str_Del(Tstr,jx,6);
+         TStr := Str_Ins(Truncate_Path(Truncate_Extension(file_name)),TStr,jx);
+         Goto INSERT_NAME;
+      END;
+
+ INSERT_PATH:
+      JX := XPOS('<PATH>',Caps(TStr),1);
+      IF jx <> 0 THEN
+         TStr := Str_Del(Tstr,jx,6);
+         TStr := Str_Ins(Get_Path(file_name),TStr,jx);
+         Goto INSERT_PATH;
+      END;
+
+
+ INSERT_ME_PATH:
+      JX := XPOS('<ME_PATH>',Caps(TStr),1);
+      IF jx <> 0 THEN
+         TStr := Str_Del(Tstr,jx,9);
+         TStr := Str_Ins(me_path,TStr,jx);
+         Goto INSERT_ME_PATH;
+      END;
+
+
+                                       { Special processing for PLM-86        }
+            { Since we use a lot of compiler defaults I tack
+            them on at the end of the command line }
+            { Someday I am going to make a menu to choose the options
+            from which will build the command line for the user }
+                        { setting the command line prompt to yes will allow
+                        the user to enter his own command line for now }
+
+ COMP_PROMPT:
+  IF ((TStr2 = 'INTEL PLM-86') or (TStr2 = 'INTEL IC-86')) and (TStr = '') then
+    IF (TStr2 = 'INTEL PLM-86') then
+      TStr := 'PLM86 ' + file_name + ' ';
+    ELSE
+      TStr := 'IC86 ' + file_name + ' ';
+    END;
+      put_box(2,2,79,6,1,15,
+                  'ENTER COMPILER COMMAND LINE',
+                  true);
+      write('LA OT(3) NOLI DB PR(CON:) added to invocation line for you.',4,3,1,11);
+      jx := string_in(TStr,'',73,3,4,'');
+      if jx = 0 then
+         TStr := '';
+      END;
+      kill_box;
+      if tstr <> '' then
+         tstr := tstr + ' LA OT(3) NOLI DB PR(CON:)';
+         Compiler_Prompt := False;
+      END
+      ELSE
+         Make_Message('Compile line null.  Compile aborted.');
+         Goto EXIT;
+      END;
+   END;
+                                       { Now I see if command line exists     }
+                                       { If it exists then setup              }
+      IF (Compiler_Prompt) THEN
+         Return_Str := Tstr;
+         Run_Macro('userin^QUERYBOX /H=CP/C=1/L=2/W=74/T=ENTER COMPILER/PROGRAM COMMAND');
+         IF (Return_Int = False) THEN
+            Make_Message('Compiler/program aborted.');
+            Goto EXIT;
+         END;
+         Tstr := Return_Str;
+      END;
+
+                              {Save all must occur if we have a large compile.
+                              Otherwise, changed files would get lost}
+      IF (Save_All = False) THEN
+         Save_All := (Temp_LC) or (Global_Int('BIG_COMPILE'));
+      END;
+
+               {Save off source file only or all files if Save_All flag is set}
+      IF (Save_All) or (Global_Int('BIG_COMPILE')) THEN
+         Make_Message('Saving files...');
+         jx := 0;
+      END ELSE
+         Make_Message('Saving source file...');
+         jx := CUR_Window - 1;
+      END;
+      While (jx < Window_Count) DO
+         jx := jx + 1;
+         Switch_Window(jx);
+         IF (File_Changed <> 0) and (CAPS(FILE_NAME) <> '?NO-FILE?') THEN
+            SAVE_FILE;
+            IF Error_Level <> 0 THEN
+               Refresh := True;
+               Redraw;
+               Make_Message('Incorrect file name or error saving file.');
+               Beep;
+               Goto exit;
+            END;
+         END;
+         IF (Save_All = False) THEN
+            Jx := Window_Count;
+         End;
+      END;
+
+      jx := Switch_Win_id(temp_window);{ Switch to the original window        }
+      Refresh := True;                 { to get rid of the *                  }
+      Redraw;
+      working;                         { Turn on the working sign             }
+      Refresh := False;                { Turn screen off                      }
+
+                     {If BIG_COMPILE is true then dump everything from memory}
+      IF (Global_Int('BIG_COMPILE')) OR
+          (Temp_LC) THEN
+         IF Global_Int('BIGCOMP_OK') = 0 THEN
+            Make_message('Multi-Edit not started with MEC batch file.  Big compile aborted.');
+            Goto Exit;
+         END;
+         Run_Macro('AUTOSAVE');
+         Set_Global_Str('LAST_COMP',TStr2);
+         Set_Global_Int('DONT_PROCESS',Dont_Process);
+         Make_Message('Saving status...');
+         Run_Macro( 'exit^STATUS' );
+         Refresh := False;
+                                       { Create the command file              }
+         Switch_Window(Window_Count);
+         Create_Window;
+
+         If global_int('BIGCOMP_LF') then
+            TEXT(TStr + Red_Str + '|13|10EXIT|13|10');
+         ELSE
+            {Note that we insert a CR without a linefeed here.  This is to
+             maintain compatibility with some command line editors}
+            TEXT(TStr + Red_Str + '|13EXIT|13');
+         END;
+
+         FILE_NAME := 'MECOMP.TMP';
+         SAVE_FILE;
+         Rest_Dos_Screen;
+                                       { Exit the editor                      }
+         QUIT( 2 );
+
+      END;
+
+      Refresh := False;                { Turn screen offf                     }
+
+      MAKE_MESSAGE( COPY(TSTR,1,78) );
+      WORKING;
+      Refresh := False;
+                                       { Compile the program                  }
+      If (Clear_Screen_Stat) THEN
+         Rest_Dos_Screen;
+         Shell_To_Dos(TStr + Red_Str,true);
+         Save_Dos_Screen;
+         Refresh := True;
+         New_Screen;
+      ELSE
+         Shell_To_Dos(TStr + Red_Str,true);
+      END;
+
+
+      Refresh := False;                { Turn screen offf                     }
+      jx := error_level;               { Get the returned error               }
+      Set_Global_Str('LAST_COMP',TStr2);
+
+      IF jx <> 0 THEN
+         Make_message('Unable to run compiler.');
+         goto exit;
+      END;
+
+                                       { reload file if that flag is set      }
+      IF (Reload_File) THEN
+         LOAD_FILE(File_Name);
+      END;
+      IF (Dont_Process) THEN
+         Goto EXIT;
+      END;
+
+                                       { Now find the error window            }
+      jx := 0;
+      kx := Window_count;
+      While (jx < window_count) do
+         ++ jx ;
+         Switch_Window(jx);
+         If (Caps(Truncate_Path(File_Name)) = (user_id + 'MEERR.TMP')) Then
+                                       { Найдено окно MERR.TMP - удалим       }
+            Delete_Window;
+            -- jx ;
+         End;
+      END;
+
+                             {IF the error window doesn't exist then create it}
+      If Caps(Truncate_Path(File_Name)) <> (user_id + 'MEERR.TMP') then
+         Switch_Window(Window_Count);
+         Create_Window;
+      end;
+
+      {Load in the error file}
+      If (TSTR2 = 'STONYBROOK MODULA-2') then
+            {For stonybrook, use the error file which is automatically created.}
+         Shell_to_Dos('COPY ERRORS.ERR ' + user_id + 'MEERR.TMP',True);
+      END;
+
+      Load_File(user_id + 'MEERR.TMP');
+                                       { SPECIAL PROCESSING FOR ALSYS         }
+      {Note that entire scheme for doing this compile relies on the
+      fact that DOS will not copy a zero length file.  Thus the bat file
+      adacomp.bat :
+   ERASE MEERR.TMP
+   ada comp %1.ADA
+   COPY %1.LST MEERR.TMP
+   EXIT
+      will produce a zero lenth .lst file and MEERR.TMP will not
+       exist if there are no errors }
+    Comp_Str := Caps(Global_Str('LAST_COMP'));
+      IF ( ((COMP_STR = 'ALSYS') OR (COMP_STR = 'FOXCODE') ) AND  { KEG       }
+           (ERROR_LEVEL <> 0)) THEN
+         delete_window;
+         jx := Switch_Win_id(temp_window);
+         MAKE_MESSAGE('NO ERRORS');
+         GOTO EXIT;
+      END;
+                                       { end of alsys OR Foxcode    * KEG     }
+      {Special processing for the MULTI_EDIT macro language compiler}
+      IF Tstr2 = 'MULTI_EDIT' THEN
+         {If no errors then load the macro file}
+
+         Ignore_Case := true;
+         IF Search_Fwd('OUTPUT-FILE',0) THEN
+            goto_col(c_col + 12);
+            while cur_char = ' ' do
+               right;
+            end;
+            If cur_char = '=' then
+               right;
+            end;
+            TStr2 := Remove_Space(Get_Word(''));
+
+            Load_Macro_File(TStr2);
+            jx := Switch_Win_id(temp_window);
+            Refresh := true;
+            Redraw;
+            Make_Message('No errors.  Macro file = ' + tstr2 + ' .LOADED ');
+            Goto EXIT;
+         END;
+      END;
+      TOF;
+      jx := Switch_Win_id(temp_window);
+                                       { Run the find error macro             }
+      Run_Macro( 'CMPERROR' );
+   End
+   ELSE
+      GOTO COMP_PROMPT;
+   END;
+ exit:
+   refresh := true;
+   Redraw;
+ end_macro;                            { of COMPILE                           }
+ 
+$MACRO BIGCOMP TRANS;
+   {***************************************************************************
+                                                   MULTI_EDIT MACRO
+
+   Name: BIGCOMP          03/24/88 11:58am
+
+   Description:  Processes after a BIG COMPILE is run.
+
+                        (C) Copyright 1988 by American Cybernetics, Inc.
+   ***************************************************************************}
+   Def_Int( jx, Temp_Win );
+   Def_Str( TStr2,comp_str);  {note: comp_str added for ALSYS}
+
+   Del_File('MECOMP.TMP');
+   Run_Macro( 'exit^RESTORE' );
+   IF (Global_Int('DONT_PROCESS')) THEN
+      Goto EXIT;
+   END;
+
+   Refresh := false;
+
+   Temp_Win := Window_Id;
+
+                                       { Now find the error window            }
+   jx := 0;
+   While (jx < window_count) do
+      ++jx ;
+      Switch_Window(jx);
+      If (Caps(Truncate_Path(File_Name)) = (user_id + 'MEERR.TMP')) Then
+                                       { Найдено окно MERR.TMP - удалим       }
+         Delete_Window;
+         -- jx ;
+      End;
+   End;
+
+                              {IF the error window doesn't exist then create it}
+   If Caps(Truncate_Path(File_Name)) <> (USER_ID + 'MEERR.TMP') then
+      Switch_Window(Window_Count); Create_Window;
+   end;
+
+                                       { Load in the error file               }
+      If (TSTR2 = 'STONYBROOK MODULA-2') then
+            {For stonybrook, use the error file which is automatically created.}
+         Shell_to_Dos('COPY ERRORS.ERR ' + user_id + 'MEERR.TMP',True);
+      END;
+   Load_File(user_id + 'MEERR.TMP');
+
+                                       { SPECIAL PROCESSING FOR ALSYS         }
+    Comp_Str := Caps(Global_Str('LAST_COMP'));
+      IF ( ((COMP_STR = 'ALSYS') OR (COMP_STR = 'FOXCODE') ) AND  { KEG       }
+           (ERROR_LEVEL <> 0)) THEN
+         delete_window;
+         jx := Switch_Win_id(temp_win);
+         MAKE_MESSAGE('NO ERRORS');
+         GOTO EXIT;
+      END;
+                                       { end of alsys OR Foxcode    * KEG     }
+
+                {Special processing for the MULTI_EDIT macro language compiler}
+   IF ( GLOBAL_STR('LAST_COMP') = 'MULTI_EDIT' ) THEN
+                                       { If no errors then load the macro file}
+      Ignore_Case := true;
+      IF Search_Fwd('OUTPUT-FILE',0) THEN
+         goto_col(c_col + 12);
+         while cur_char = ' ' do
+            right;
+         end;
+         If cur_char = '=' then
+         end;
+         TStr2 := Remove_Space(Get_Word(''));
+         Load_Macro_File(TStr2);
+         Refresh := true;
+         Redraw;
+         Make_Message('No errors.  Macro file = ' + tstr2 + ' .LOADED ');
+         jx := Switch_Win_id(Temp_Win);
+         Goto EXIT;
+      END;
+   END;
+
+   jx := Switch_Win_id(Temp_Win);
+   Run_Macro( 'CMPERROR');
+
+ EXIT:
+
+ END_MACRO;                            { of BIGCOMP                           }
+ 
+$MACRO CMPERROR TRANS;
+   {***************************************************************************
+                                                   MULTI_EDIT MACRO
+
+   Name: CMPERROR
+
+   Description:  Finds the next error in the MEERR.TMP window generated by the
+      last compile.
+
+                        (C) Copyright 1988 by American Cybernetics, Inc.
+   ***************************************************************************}
+
+   Def_Str(m_str,file_str,comp_str,l_str,svword);  {note: last 2 for alsys }
+   Def_Int(Temp_window,jx,ec,el,tc,tl,ofs_stat,vret,scol,DCNT );
+                                       { note: last 3 for alsys               }
+
+   Refresh := False;
+   Temp_Window := Cur_Window;
+   Error_Level := 0;
+   Ofs_Stat := 0;
+                     {This variable decides whether or not ec is an absolute
+                      colum position, or an offset from the first word}
+
+   { I have changed this macro quite a bit to handle intel languages }
+   { instead of one section which the error is found in the are a couple
+      based on compiler type }
+
+                                       { Find the error window                }
+   jx := 0;
+   While (jx < window_count) and
+      (Caps(Truncate_Path(File_Name)) <> (user_id + 'MEERR.TMP')) do
+      jx := jx + 1;
+      Switch_Window(cur_window + 1);
+   END;
+                                       { If not found then exit               }
+   If Caps(Truncate_Path(File_Name) ) <> (user_id + 'MEERR.TMP') then
+      Make_Message('No error file loaded.');
+      goto exit;
+   END;
+
+   Ignore_Case := True;
+   Reg_Exp_Stat := True;
+   m_str := '';
+   ec := 1; el := 1;
+
+                                 {Get the compiler type for the last compile}
+   Comp_Str := Caps(Global_Str('LAST_COMP'));
+
+                                       { SPECIAL PROCESSING FOR ALSYS ADA     }
+   IF (COMP_STR = 'ALSYS ADA') THEN
+      File_Str := Global_Str('last_compiled_window');      { in main file     }
+      IF SEARCH_FWD('[0-9] : *@*',0) THEN
+      DCNT := 0;
+         UP;
+         UP;
+         UP;
+ RETRY:
+         L_STR := GET_LINE;
+         L_STR := COPY(L_STR,1,7);
+         M_STR :=  REMOVE_SPACE(L_STR);
+         VRET := VAL(EL,M_STR);
+         IF VRET <> 0 THEN
+             UP;
+             DCNT := DCNT + 1;
+             GOTO RETRY;
+         END;
+         DOWN;
+         scol := 0;
+         If search_fwd('^',1) then
+            up;
+            svword := get_word(' :=()-+;');
+            down;
+         scol := 1;
+         end;
+         DOWN;
+         DOWN;
+         WHILE DCNT > 0 DO
+            DOWN;
+            DCNT := DCNT - 1;
+         END;
+         M_STR := GET_LINE;
+         GOTO_COL(80);
+         GOTO DISPLAY_ERROR_ADA;
+         END;
+         GOTO NO_MORE_ERRORS;
+      END;
+                                       { end alsys                            }
+
+   If (Comp_Str = 'TURBO ASSEMBLER') then
+      If (Search_Fwd('@*{@*Error@*}||{Warning}@*', 0)) THEN
+         m_str := Get_Word(' ');
+         right;
+         file_str := Get_Word('(');
+         right;
+         m_str := get_word(')');
+         jx := val( el, m_str );
+         right;
+         right;
+         m_str := get_word('');
+         goto display_error;
+      end;
+
+      Goto No_More_Errors;
+   end;
+
+   If (Comp_Str = 'CLIPPER') or (Comp_Str = 'FOXBASE') then
+      If (Search_Fwd('%{error in }*line [0-9]+:',0)) THEN
+         M_Str := Get_Word( '0123456789' );
+         M_Str := Remove_Space( Get_Word(':') );
+         If (Val(El,M_Str) > 0) then
+            Goto Error_Exit;
+         END;
+         jx := c_line;
+         ec := 1;
+         down;
+         goto_col(1);
+         if Caps(get_word(' ')) <> 'LINE' then
+            down;
+            IF (Search_Fwd('^',1)) THEN
+               ec := C_Col;
+            END;
+         END;
+         goto_line(jx);
+         file_str := '';
+         IF (Search_Bwd('%COMPILING ',0)) THEN
+            Word_Right;
+            File_Str := Remove_Space(Get_Word(''));
+         END;
+         goto_line(jx);
+         eol;
+         Goto Display_Error;
+      END;
+      GOTO NO_MORE_ERRORS;
+   END;
+                                       { 20.03.90 15:24 FOXCODE Errors        }
+   If (Comp_Str = 'FOXCODE') then
+      If (Search_Fwd('@[[0-9]+,[0-9]+@]:',0)) THEN         { В строке ошибка  }
+         M_Str := Get_Word( '0123456789' );
+         M_Str := Remove_Space( Get_Word(',') );
+         If (Val(El,M_Str) > 0) then   { Выяснили номер строки                }
+            Goto Error_Exit;
+         END;
+         M_Str := Get_Word( '0123456789' );
+         M_Str := Remove_Space( Get_Word(']') );
+         If (Val(Ec,M_Str) > 0) then   { Выяснили-номер столбца ошибочного    }
+            ec := 1;
+         END;
+         M_Str := Get_Line;            { Cообщение об ошибке                  }
+         goto_col(1);                  { Выделяем имя файла с ошибкой         }
+         File_Str := Remove_Space(Get_Word(' ['));
+         jx := c_line;
+         eol;
+         Goto Display_Error;
+      END;
+      GOTO NO_MORE_ERRORS;
+   END;                                { End of FOXCODE - Errors              }
+
+   If (Comp_Str = 'STONYBROOK MODULA-2') then
+      File_Str := Global_Str('last_compiled_window'); { in main file }
+      Ec := C_Col;
+      El := C_Line;
+      Eof;
+      If C_Line = 3 then
+         Goto No_Errors;
+      ELSE
+         If C_Line = 4 then
+            M_Str := Get_Line;
+            Goto Display_Er3;
+         END;
+      END;
+      Goto_Line(El);
+      Goto_Col(Ec);
+ M2_STNY_AGAIN:
+      If Search_Fwd('^',0) then
+         Ec := C_Col - 8;
+         Left;
+         Jx := 1;
+         While (Jx = 1) and (C_Col <> 1) do
+            Jx := (Cur_Char = ' ');
+            Left;
+         END;
+         If (C_Col = 1) and (Cur_Char = ' ') then
+            Up;
+            Word_Right;
+            M_Str := Get_Word(' ');
+            If (Val(El,M_Str) > 0) then
+               Goto Error_Exit;
+            END;
+            Down;
+            Down;
+            Goto DISPLAY_ERROR;
+         ELSE
+            Down;
+            Goto_Col(1);
+            Goto M2_STNY_AGAIN;
+         END;
+      ELSE
+         Goto NO_MORE_ERRORS;
+      END;
+   END;
+
+   If (Comp_Str = 'LOGITECH MODULA-2 3.0') then
+      File_Str := Global_Str('last_compiled_window'); { in main file }
+      Tc := C_Col;
+      Tl := C_Line;
+      Tof;
+      If Search_Fwd('---- error',0) then
+         Goto_Col(Tc);
+         Goto_Line(Tl);
+ M2_LOGI_AGAIN:
+         If Search_Fwd('^',0) then
+            Tc := C_Col;
+            Tl := C_Line;
+            Ec := Tc - 6;
+            Goto_Col(2);
+            M_Str := Get_Word(' ');
+            If Xpos('*****',M_Str,1) <> 0 then
+               Goto_Col(2);
+               While (Cur_Char = '*') do;
+                  Up;
+               END;
+               Left;
+               While (Cur_Char = ' ') do
+                  Right;
+               END;
+               M_Str := Get_Word(' ');
+               Jx := Val(El,M_Str);
+               If Jx <> 0 then
+                  Goto ERROR_EXIT;
+               END;
+               Goto_Line(Tl);
+               Goto_Col(Tc);
+               Right;
+               Right;
+               M_Str := Get_Word(' ');
+               If Search_Fwd(M_Str,0) then
+                  M_Str := Get_Line;
+               ELSE
+                  Goto ERROR_EXIT;
+               END;
+               Goto_Line(Tl);
+               Eol;
+               Goto DISPLAY_ERROR;
+            ELSE
+               Down;
+               Goto_Col(1);
+               Goto M2_LOGI_AGAIN;
+            END;
+         ELSE
+            GOTO NO_MORE_ERRORS;
+         END;
+      ELSE
+         Ignore_Case := False;
+         If Search_Fwd('{----}||{===>}',0) then
+            Ignore_Case := True;
+            M_Str := '';
+            Tof;
+            Goto DISPLAY_ER3;
+         ELSE
+            Ignore_Case := True;
+            Goto NO_ERRORS;
+         END;
+      END;
+   END;
+
+   If (Comp_Str = 'JPI MODULA-2') then
+      Tc := C_Col;
+      Tl := C_Line;
+      Goto_Col(1);
+      If Search_Fwd('No Errors',0) then
+         Goto_Line(Tl);
+         Goto_Col(Tc);
+         Goto NO_ERRORS;
+      ELSE
+         Goto_Line(Tl);
+         Goto_Col(Tc);
+ M2_JPI_AGAIN:
+         If Search_Fwd('(',0) then
+            If C_Col <> 1 then
+               Right;
+               Goto M2_JPI_AGAIN;
+            END;
+            Right;
+            File_Str := Get_Word(' ');
+            While Cur_Char = ' ' do
+               Right;
+            END;
+            M_Str := Get_Word(',');
+            If Val(El,M_Str) <> 0 then
+               Goto ERROR_EXIT;
+            END;
+            Right;
+            M_Str := Get_Word(')');
+            If Val(Ec,M_Str) <> 0 then
+               Goto ERROR_EXIT;
+            END;
+            Goto DISPLAY_ERROR;
+         ELSE
+            Goto NO_MORE_ERRORS;
+         END;
+      END;
+   END;
+
+      {Special processing for MICROSOFT PASCAL 3.3}
+   IF (COMP_STR = 'MS PASCAL 3.3') THEN
+      IF Search_Fwd('@^',0) THEN
+         ec := c_col - 16;
+         IF ec < 1 then
+            ec := 1;
+         end;
+         goto_col(7);
+         word_right;
+         m_str := remove_space( get_word(' '));
+         IF Val(EL,M_Str) <> 0 THEN
+            Goto Error_Exit;
+         END;
+         m_str := get_word('');
+         Goto Display_Er2;
+      END;
+      GOTO NO_ERRORS;
+   END;
+
+   IF (COMP_STR = 'POWER C') THEN
+      If Search_FWD( 'ERROR IN FILE:',0) THEN
+         M_Str := Get_Word(':');
+         right;
+         File_Str := Get_Word('');
+         up;
+         up;
+         goto_col(1);
+         M_Str := Get_Word('||');
+         M_Str := REMOVE_SPACE( M_Str );
+         IF Val(EL,M_Str) <> 0 THEN
+            GOTO error_exit;
+         END;
+         down;
+         goto_col(1);
+         IF Search_Fwd('^', 1) THEN
+            ec := C_Col - 6;
+         end;
+         down;
+         down;
+         goto display_error;
+      END;
+   END;
+
+   If (Comp_Str = 'ZORTECH C++') then
+      if search_fwd('", line [0-9]', 0 ) then
+         goto_col(1);
+         right;
+         file_str := get_word('"');
+         m_str := get_word('0123456789');
+         m_str := remove_space( get_word(' ') );
+         IF Val(EL,M_Str) <> 0 THEN
+            GOTO error_exit;
+         END;
+         up;
+         goto_col(1);
+         if search_fwd('^',1) then
+            ec := c_col;
+         end;
+         down;
+         eol;
+         goto display_error;
+      end;
+   end;
+
+   If (COMP_STR = 'INTEL PLM-86') or
+     (COMP_STR = 'INTEL ASM-86') or
+     (COMP_STR = 'INTEL IC-86') THEN
+
+      If Search_FWD('FATAL ',0) then
+         Beep;
+         Make_Message('FATAL COMPILER ERROR');
+         goto Exit2;
+      END;
+
+      If Search_FWD('I/O ERROR',0) then
+         Beep;
+         Make_Message('COMPILER I/O ERROR');
+         goto Exit2;
+      END;
+
+      IF SEARCH_FWD('{@*@*@* ERROR}||{@*@*@* WARNING}',0) THEN
+         goto_col(1);
+         IF (Comp_Str = 'INTEL PLM-86') then
+            IF Search_Fwd('{(}',1) then
+               Right;
+               M_Str := Get_Word(',');
+               if POS(')',M_Str) = 0 then
+                  File_str := M_Str;   { error is in an include file }
+                  if Search_Fwd('{LINE }',1) = 0 then
+                     goto error_no_line;
+                  end;
+               end
+               else
+                  if Search_Bwd('{LINE }',1) = 0 then
+                     goto error_no_line;
+                  end;
+                  File_Str := Global_Str('last_compiled_window'); { in main file }
+               end;
+               Word_Right;
+               M_Str := Get_Word(')');
+               IF Val(EL,M_Str) <> 0 THEN
+                  goto error_exit;
+               END;
+            END
+            ELSE
+               goto error_no_line;
+            END;
+         END;
+
+         IF (Comp_Str = 'INTEL ASM-86') then
+            File_Str := Global_Str('Last_Compiled_Window');
+            IF Search_Fwd('{IN }',1) then
+               Word_Right;
+               M_Str := Get_Word(',');
+               IF Val(EL,M_Str) <> 0 THEN
+                  GOTO error_exit;
+               END;
+            END
+            ELSE
+               GOTO error_no_line;
+            END;
+         END;
+
+      IF (Comp_Str = 'INTEL IC-86') then
+        IF Search_Fwd('{LINE }',1) then
+          Word_Right;
+          M_Str := Get_Word(' ');
+               IF Val(EL,M_Str) <> 0 THEN
+                  goto error_exit;
+               END;
+          Word_Right;
+          Word_Right;
+          File_Str := Get_Word(' ');
+          File_Str := Str_Del(File_Str, Length(File_Str), 1);
+            END
+            ELSE
+               goto error_no_line;
+            END;
+         END;
+
+                                   { it drops down to here when a true error }
+         GOTO DISPLAY_ERROR;
+
+      END;
+
+      Goto DISPLAY_LINE;
+
+   END;
+
+                                       { all other compilers                  }
+                                       { Search for error or warning messages }
+ DO_AGAIN:
+   If Search_FWD('{ERROR[~S]}||{WARNING[~S]}||{NOT ENOUGH MEMORY}||{ABORTED}||{TO BIG}',0) THEN
+      tc := c_col;
+      Goto_Col(1);
+
+      IF Search_FWD('[0-9] Warning Errors',1) THEN
+         EOL;
+         GOTO Do_AGAIN;
+      END;
+
+      Goto_Col(1);
+      IF Caps(GET_WORD(' :(')) = 'LINK' THEN
+         Goto_Col(1);
+         M_Str := Get_Word('');
+         Goto DISPLAY_ER3;
+      END;
+      Goto_Col(1);
+
+
+      IF (COMP_STR = 'LATTICE C 3.0') THEN
+         File_Str := Caps(Remove_Space(Get_Word(' ')));
+         Right;
+         M_Str := Remove_Space(Get_Word(' '));
+         IF Val(EL,M_Str) <> 0 THEN
+            Goto Error_Exit;
+         END;
+      END;
+
+      IF (COMP_STR = 'AZTEC C') THEN
+         goto_col(tC);
+         If Search_BWD(':',1) THEN
+            left;
+            If Search_BWD(':',1) THEN
+               EC := C_Col;
+               If Search_BWD('/',1) THEN
+                  File_Str := Copy(Get_Line,1,C_Col - 1) + '\' +
+                        Copy(Get_Line, C_Col + 1, ec - c_col - 1);
+               ELSE
+                  File_Str := Copy(Get_Line,1,EC - 1);
+               END;
+               goto_col(EC);
+               right;
+               m_str := get_word(':');
+               IF Val(EL,M_Str) <> 0 THEN
+                  Goto Error_Exit;
+               END;
+               Up;
+               goto_col(1);
+               if search_fwd('^',1) then
+                  ec := c_col;
+               end;
+               down;
+               goto display_error;
+            END;
+         END;
+      END;
+
+      IF (COMP_STR = 'TURBO C') THEN
+         File_Str := Get_Word(' ');
+         Right;
+         File_Str := Caps(Remove_Space(Get_Word(' ')));
+         Right;
+         M_Str := Remove_Space(Get_Word(':'));
+         IF Val(EL,M_Str) <> 0 THEN
+            Goto Error_Exit;
+         END;
+      END;
+
+      IF (COMP_STR = 'RBASE_5') THEN
+         Goto_Col(1);
+         File_Str := Caps(Remove_Space(Get_Word(' ')));
+         Right; Right;
+         M_Str := Remove_Space(Get_Word(')'));
+         Down;
+         IF Val(EL,M_Str) <> 0 THEN
+            Goto Error_Exit;
+         END;
+      END;
+
+      IF (COMP_STR = 'MICROSOFT') or
+          (COMP_STR = 'MULTI_EDIT') or
+          (COMP_STR = 'TURBO PASCAL 5.0') or
+          (Comp_Str = 'TURBO PASCAL 4.0') THEN
+         File_Str := Caps(Remove_Space(Get_Word(' (,')));
+
+         Right;
+         M_Str := Remove_Space(Get_Word(',)'));
+         IF Val(EL,M_Str) <> 0 THEN
+            Goto Error_Exit;
+         END;
+         if cur_char = ',' THEN
+            right;
+            M_Str := Remove_Space(Get_Word(')'));
+            IF Val(EC,M_Str) <> 0 THEN
+               Goto Error_Exit;
+            END;
+         END;
+         if (COMP_STR = 'TURBO PASCAL 5.0') or
+             (COMP_STR = 'TURBO PASCAL 4.0') then
+            down;
+            first_word;
+            ec := c_col;
+            ofs_stat := 1;
+            down;
+            while (Cur_Char <> '^') and NOT(At_EOL) do
+               right;
+            end;
+            if (Cur_Char = '^') then
+               EC := C_Col - ec;
+            END;
+            UP;
+            UP;
+         END;
+      END;
+
+
+   { if a compiler drops through to here no errors so display top line }
+   { this works for PLM-86, ASM-86, TURBO PASCAL 4.0, TURBO C and maybe others }
+ {
+   Goto DISPLAY_LINE;
+ }
+
+ DISPLAY_ERROR:
+
+      If Comp_Str <> 'LOGITECH MODULA-2 3.0' then
+         Goto_Col(1);
+         M_Str := Get_Word('');
+      END;
+
+      jx := 0;
+      While (jx <= window_count) 
+         and (Caps(Truncate_Path(File_Name)) <> Truncate_Path(File_Str)) do
+         jx := jx + 1;
+         Switch_Window(jx);
+      END;
+      If (jx >= Window_Count) and 
+         (Caps(Truncate_Path(File_Name)) <> Truncate_Path(File_Str)) then
+         Switch_Window(Window_Count);
+         Create_Window;
+         Make_Message('Попытка загрузки ' + File_Str); 
+         Load_File(file_str);
+         Run_Macro('EXTSETUP');
+      END;
+
+ DISPLAY_ER2:
+      While C_Row < ((Win_Y2 - Win_Y1) / 2) do
+         down;
+      end;
+
+      goto_line(el - (format_stat <> 0));
+
+      If ofs_stat then
+         first_word;
+         ec := c_col + ec;
+      else
+         COMP_STR := GET_LINE;
+         JX := 1;
+            {we need to figure out the actual column number with tab expansion
+            included}
+         CRUNCH_TABS( COMP_STR, JX );
+
+         EXPAND_TABS( COMP_STR, EC );
+      end;
+      goto_col(ec);
+
+ DISPLAY_ER3:
+      Make_Message(M_Str);
+      Beep;
+      GOTO Exit2;
+   END;
+
+
+ DISPLAY_LINE:
+    EOF;
+    Left;
+    M_Str := Get_Line;
+    Make_Message(M_Str);
+    goto exit;
+
+
+                                       { for alsys                            }
+ DISPLAY_ERROR_ADA:
+      jx := 0;
+      While (jx <= window_count) and (Caps(Truncate_Path(File_Name)) <> Truncate_Path(File_Str)) do
+         jx := jx + 1;
+         Switch_Window(jx);
+      END;
+      If (jx >= Window_Count) and (Caps(Truncate_Path(File_Name)) <> Truncate_Path(File_Str)) then
+         Switch_Window(Window_Count);
+         Create_Window;
+         Load_File(file_str);
+         Run_Macro('EXTSETUP');
+         END;
+         IF VRET = 0 THEN
+           GOTO_LINE(EL);
+            IF SCOL = 1 THEN
+               FIRST_WORD;
+            reg_exp_stat := false;
+            SCOL := SEARCH_FWD(SVWORD,1);
+            reg_exp_stat := true;
+            END;
+         END;
+         MAKE_MESSAGE(M_STR);
+         GOTO EXIT2;
+                                       { end alsys                            }
+
+
+ NO_MORE_ERRORS:
+   MAKE_MESSAGE('No more errors.');
+   GOTO EXIT;
+
+ NO_ERRORS:
+   Make_Message('No Errors.');
+   goto exit;
+
+ ERROR_EXIT:
+   Make_message('Problem parsing error file.');
+   GOTO Exit2;
+
+ ERROR_NO_LINE:
+   Make_message('Error.');
+   Beep;
+   GOTO Exit2;
+
+ EXIT:
+   Switch_Window(Temp_Window);
+
+ EXIT2:
+   Refresh := true;
+   redraw;
+ end_macro;                            { of CMPERR                            }
+
+ 
+$MACRO TEMPLATE;
+   {***************************************************************************
+                                                   MULTI_EDIT MACRO
+
+   Name:  TEMPLATE
+
+   Description:  Calls the appropriate template macro for the filename extension
+      of the current file.  The macro name is determined by the first three
+      characters of the language type followed by '_IND'.  For example, the
+      pascal macro would be 'PAS_IND', the C macro would be 'C_IND'
+
+                        (C) Copyright 1988 by American Cybernetics, Inc.
+   ***************************************************************************}
+
+   Def_Str(TStr);
+   Def_Int(jx);
+
+   Push_Undo;
+   TStr := Global_Str('.' + Get_Extension(File_Name));
+   IF TStr <> '' THEN
+      TStr := Parse_Str('/LS=',TStr);
+      IF Tstr <> '' THEN
+         Run_Macro( Tstr + '^' + Copy(TStr,1,3)+'TEMP' );
+         IF Error_Level <> 0 THEN
+            GOTO No_Support;
+         END;
+         GOTO Exit;
+      END;
+   END;
+ NO_Support:
+   Make_Message('NOT Supported for this file extension.');
+ EXIT:
+   Pop_Undo;
+ END_MACRO;                            { of TEMPLATE                          }
+ 
+$MACRO MATCH;
+   {**************************************************************************
+                                                   MULTI_EDIT MACRO
+
+   Name:  MATCH
+
+  Description: Calls the appropriate matching macro for the filename extension
+    of the current file. The macro name is determined by the first three
+    characters of the language type followed by 'MTCH'. For example, the
+    pascal matching macro would be named 'PASMTCH',the C macro would be 'CMTCH'
+
+                        (C) Copyright 1988 by American Cybernetics, Inc.
+   **************************************************************************}
+   Def_Str(TStr);
+   Def_Int(jx);
+   TStr := Global_Str('.' + Get_Extension(File_Name));
+   IF TStr <> '' THEN
+      TStr := Parse_Str('/LS=',TStr);
+      IF Tstr <> '' THEN
+         Run_Macro( TStr + '^' + Copy(TStr,1,3)+'MTCH' );
+         IF Error_Level <> 0 THEN
+            GOTO No_Support;
+         END;
+         GOTO Exit;
+      END;
+   END;
+ NO_Support:
+   Make_Message('NOT Supported for this file extension.');
+ EXIT:
+ end_macro;                            { of MATCH                             }

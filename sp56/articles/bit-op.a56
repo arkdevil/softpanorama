@@ -1,0 +1,160 @@
+Newsgroups: softpan.talks
+Path: relay1!river!csoft!news-server
+From:  Dmitry S. Kohmanyuk <dk@farm.cs.kiev.ua>
+Subject: для настоящих программистов
+Reply-To: dk@farm.cs.kiev.ua
+Organization: Animals' Paradise Farm
+Distribution: su
+Date: Fri, 28 May 1993 14:54:49 +0300
+Message-ID: <Pn9sV1iqYQ@farm.cs.kiev.ua>
+Lines: 148
+Sender: news-server@river.cs.kiev.ua
+
+
+весьма полезная вещь, imho.
+        (и одна из причин того, что в современных си-компиляторах
+	strlen() и пр. делают *встроенными операторами*, а не
+	библиотечными функциями...)
+
+>From scott@newton.apple.com Sun Feb 28 11:15:32 1993
+Newsgroups: comp.lang.c
+From: scott douglass <scott@newton.apple.com>
+Subject: Bit tricks:  Fast implementation of strlen (Summary)
+Message-ID: <1993Feb27.071656.5492@pcnntp.apple.com>
+Date: Sat, 27 Feb 1993 07:16:56 GMT
+Organization: Newton Group, Apple Compputer, Inc.
+
+Here's the summary of the responses I got to my query asking for the
+trick of finding a nul in a long word and other bit tricks.
+
+First thanks to everyone that responded:
+
+        desj@ccr-p.ida.org (David desJardins)
+        jhall@wpi.WPI.EDU (John Clinton Hall)
+        mouse@mcrcim.mcgill.edu (der Mouse)
+        Julian Templeman <julian@bjalon.demon.co.uk>
+        wally@Auspex.COM (Wally Bass)
+        Benjamin Ketcham <bketcham@u.washington.edu>
+        emil@shell.portal.com (emil rojas)
+        koert@dutentb.et.tudelft.nl (Koert van der Lingen)
+        Martin Gaeckler <gak@ifgmbh.uucp>
+        alan@bernie.sal.wisc.edu (Alan Watson)
+
+I only claim that these are interesting and potentially useful,  I don't
+claim that they are the best way to implement something or even
+correct.  (I do _think_ they are correct.)
+
+1 -- The answer to the find the nul question was sent to me by David
+desJardins:
+
+        (n - 0x01010101) & (~n)  & 0x80808080
+
+If the result is zero then there are no nul bytes in "n".  If "n" contains
+a nul byte then the result will have the high bit of the corresponding
+byte set.  The reason this works is that the only byte for which (b - 1)
+and ~b both have the high bit set is nul.  If "n" contains a nul byte
+other,
+more significant bytes of the reslut may have their high bits set because
+of borrowing, consider 0x78010012 whose result is 0x00808000.
+
+Another possibility is:
+
+        n |= n << 1;
+        n |= n << 2;
+        n |= n << 4;
+        if ((n & 0x80808080) != 0x80808080)
+                /* then one of the four bytes started out zero */
+
+To avoid needing to know the size of "n" 0x01010101 can be replaced with
+(~0U)/255 and 0x80808080 with ((~0UL)/255)<<7.
+
+If you use this trick to implement string functions such as strlen you
+must be sure that you only fetch the long words at the correct,
+implementation defined, alignment and that accessing 1, 2 or 3 bytes
+beyond the end of a string will not cause harm.
+
+For strings likely to consist of ASCII characters the following is
+cheaper first test:
+
+        (n + 0x7f7f7f7f7f) & 0x80808080
+
+If the result is 0x80808080 if the characters are all in the range 0x01
+to 0x80.
+
+This last is from: 'Faster String Functions' by Henry
+Spencer (henry@zoo.toronto.edu) which was presented at the Winter '92
+Usenix in San Francisco.  I haven't found this to read yet.
+
+2 -- Find the least significant set bit in "n" or 0 if 0:
+
+        (n & -n)
+
+3 -- Clear the least significant set bit in "n", if any:
+
+        (n & (n - 1))
+
+4 -- Find out if n is a power of 2 or 0 (e.g. 0, 2, 4, 8, 16, 32, ...):
+
+        (n & -n) == n           /* uses # 2 */
+or
+        (n & (n - 1)) == 0      /* uses # 3 */
+
+One respondent said the second is mentioned in K&R.  I couldn't find it in
+a brief search.  If you happen to know whereit's mentioned I'd like to
+know
+(so I could see if there are any other bit tricks next to it).
+
+5 -- Counting the one bits in "n":
+
+        int count_bits(int n)
+        {
+          int count = 0;        /* Number of bits set in i */
+
+          while (n) {
+            count++;
+            n = n & (n - 1);    /* uses # 3 */
+          }
+
+          return count;
+        }
+
+
+Other ways that depend on knowing the size of "n":
+
+        int count_bits(int n)
+        {
+          n = ((n & 0xaaaaaaaa) >> 1) + (n & 0x55555555);
+          n = ((n & 0xcccccccc) >> 2) + (n & 0x33333333);
+          n = ((n & 0xf0f0f0f0) >> 4) + (n & 0x0f0f0f0f);
+          n = ((n & 0xff00ff00) >> 8) + (n & 0x00ff00ff);
+          n = ((n & 0xffff0000) >> 16) + (n & 0x0000ffff);
+          return n;
+        }
+
+If "%" is cheap enough you can stop before the end:
+
+        int count_bits(int n)
+        {
+          n = ((n & 0xaaaaaaaa) >> 1) + (n & 0x55555555);
+          n = ((n & 0xcccccccc) >> 2) + (n & 0x33333333);
+          n = ((n & 0xf0f0f0f0) >> 4) + (n & 0x0f0f0f0f);
+          return n % 255;
+        }
+
+
+I got one reference that reportedly contains the find a nul trick:
+
+"Obfuscated C and Other Mysteries" by Don Libes (Wiley, 1993, ISBN
+0-471-57805-3).  I haven't found this to read yet.
+
+If you know of any more books, articles or papers on bit tricks like these
+I'd be glad to have pointers.
+
+Thanks again,
+        --scott
+
+
+--
+((setter reply-address) *my-mail* "dk%farm.cs.kiev.ua@ussr.eu.net") #| cs:dk |#
+
+

@@ -1,0 +1,54 @@
+$MACRO stat TRANS;
+  {Вывод различных сведений о текущем тексте -- Multi-Edit 5.00}
+  {Л.Г.Бунич 19.03.90}
+  DEF_INT(k,fl,ll,len,n,lc,ntab,ktab,np,nch);
+  DEF_CHAR(cc);
+
+  PUSH_UNDO;
+  REFRESH := FALSE;
+  MARK_POS; TOF;
+  len := 0; n := 1; lc := 0; ntab := 0; ktab := 0;
+  np := 0; fl := 0; nch := 0;
+  WORKING;
+  WHILE AT_EOF = 0 do
+    ll := LENGTH(GET_LINE); fl := fl + ll + 2;
+    if len < ll then len := ll; n := C_LINE; end;
+    if LINE_CHANGED then ++nch; end;
+    if XPOS('|09',GET_LINE,1) > 0 then
+      k := 0; WHILE k < ll DO
+        ++k;
+        if COPY(GET_LINE,k,1) = '|09' then ++ktab; end;
+      end;
+      if ntab = 0 then ntab := C_LINE; end;
+    end;
+    if XPOS('|12',GET_LINE,1) > 0 then
+      k := 0; WHILE k < ll DO
+        ++k;
+        if COPY(GET_LINE,k,1) = '|12' then ++np; end;
+      end;
+    end;
+    DOWN; ++lc;
+  end;
+  GOTO_MARK;
+  REFRESH := TRUE; REDRAW;
+  PUT_BOX(4,4,70,20,LIGHTGRAY,RED,FILE_NAME,1);
+  WRITE('Общее число строк в тексте....... ' + str(lc),7,6,LIGHTGRAY,BLACK);
+  WRITE(', измененных: ' + STR(nch),
+                           41+LENGTH(STR(lc)),6,LIGHTGRAY,BLACK);
+  WRITE('Самая длинная строка............. '+str(n)+
+        '-я, ее длина: '+str(len),7,7,LIGHTGRAY,BLACK);
+  WRITE('Число переводов листа (FormFeed). ' + STR(np),
+        7,8,LIGHTGRAY,BLACK);
+  if TAB_EXPAND then
+    WRITE('Число строк, содержаших Tab...... ' + STR(ktab),7,9,LIGHTGRAY,BLACK);
+    if ktab > 0 then WRITE(', первая из них: ' + STR(ntab),
+                           41+LENGTH(STR(ktab)),9,LIGHTGRAY,BLACK); end;
+  end;
+  WRITE('Файл занимает на диске........... ' + str(CUR_FILE_SIZE) + ' байт(ов)',
+        7,10,LIGHTGRAY,BLACK);
+  WRITE('Текущая длина (в памяти)......... ' + str(fl) + ' байт(ов)',
+        7,11,LIGHTGRAY,BLACK);
+  WRITE('Нажмите любую клавишу...',10,18,LIGHTGRAY,RED);
+  READ_KEY; KILL_BOX;
+  POP_UNDO; UNDO;
+END_MACRO;

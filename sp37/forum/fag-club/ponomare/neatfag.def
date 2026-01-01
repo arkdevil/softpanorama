@@ -1,0 +1,199 @@
+typedef unsigned char byte;
+typedef unsigned int  word;
+typedef unsigned long dword;
+typedef struct f_dta
+	{
+	byte	rserv[21];
+	byte	attr;
+	word	time;
+	word	date;
+	long	size;
+	char	name[13];
+	};
+
+const int r_sucs   =  0;
+const int r_end    = -1;
+const int r_error  =  1;
+
+struct ftime time;  /* Дата и время модификации файла */
+
+int  c1;
+
+typedef struct exe_header
+	{
+	char	L1,L2;
+	word	PatrPag;
+	word	PageCnt;
+	word	ReloCnt;
+	word	HdrSize;
+	word	MinMem;
+	word	MaxMem;
+	word	ReloSS;
+	word	ExeSP;
+	word	ChkSumm;
+	word	ExeIP;
+	word	ReloCS;
+	word	TablOff;
+	word	Overlay;
+	};
+/***********************************/
+/**   Обнуление Атрибутов файла   **/
+/***********************************/
+void del_atr(struct f_dta s1)
+    {
+    _chmod(s1.name,1,0);
+    }
+/***********************************/
+/*  Восстановление Атрибутов файла */
+/***********************************/
+
+void ret_atr(struct f_dta s1)
+    {
+    c1=_chmod(s1.name,1,s1.attr);
+    }
+/*********************************************/
+/* Сохранение Даты/Времени исправления файла */
+/*********************************************/
+
+void get_f_time(int file1)
+    {
+    c1=getftime(file1,&time);
+    }
+/*************************************************/
+/* Восстановление Даты/Времени исправления файла */
+/*************************************************/
+
+void set_f_time(int file1)
+    {
+    c1=setftime(file1,&time);
+    }
+
+/************************************/
+/*******  Обработчик ошибок  ********/
+/************************************/
+const char* er_rd  ="\n Error read file %s ";
+const char* er_wr  ="\n Error write file %s ";
+const char* er_cd  ="\n Error change directory %s ";
+const char* any_err="\n Program terminated ";
+
+const int er_read  =  1;
+const int er_write =  2;
+const int er_chdir =  3;
+
+err_msg(int er_code, char* msg)
+	{
+	switch (er_code)
+	  {
+	  case 1:  printf(er_rd,msg); break;
+	  case 2:  printf(er_wr,msg); break;
+	  case 3:  printf(er_cd,msg); break;
+	  }
+	printf(any_err);
+	}
+/****************************/
+/* Поиск файлов в каталогах */
+/****************************/
+int get_file(struct f_dta* s_dta)
+	{
+	static	struct f_dta g_dta[16];
+	static	byte	level;
+	static	byte	sost;	/* 0-first 1-next */
+	char	*name;
+	byte	attr;
+
+l1:	switch(sost)
+		{
+	/* Поиск первой файловой записи в директории */
+		case 0:
+		if(findfirst("*.*",s_dta,0xFF)==-1) return(-1);
+		g_dta[level]=*s_dta;
+		attr=g_dta[level].attr;
+		name=&g_dta[level].name;
+		sost=1;
+		break;
+	/* Поиск следующей файловой записи в директории */
+		case 1:
+		if(findnext(s_dta,0xFF)==-1)
+			{
+			if(level==0) return(-1);
+			*s_dta=g_dta[--level];
+			if(chdir("..")==-1){err_msg(er_chdir,"..");return(r_error);}
+			goto l1;
+			}
+			else
+			{
+			g_dta[level]=*s_dta;
+			attr=g_dta[level].attr;
+			name=&g_dta[level].name;
+			}
+		break;
+		}
+
+
+	/* Анализ файловой записи */
+	if ((attr & FA_LABEL)!=0) goto l1;/* Это метка диска ? */
+	if ((attr & FA_DIREC)!=0)         /* Это подкаталог  ? */
+		{
+		if (name[0]=='.') goto l1;   /* Это служебная информация? */
+		if (chdir(name)==-1) { err_msg(er_chdir,name); return(r_error);}
+		level++;
+		sost=0;
+		goto l1;
+		}
+	return(0);
+	}
+
+/******************************************/
+/* Подготовка к обработке каталогов диска */
+/******************************************/
+int init_dir(int work_disk, int *cur_disk, char* cur_dir)
+	{
+	int k;
+	k=getdisk();
+	*cur_disk=k;
+	getcurdir(0,cur_dir);
+	setdisk(work_disk);
+	if (chdir("\\")==-1) { err_msg(er_chdir,"\\"); return(-1); }
+	return(0);
+	}
+/*****************************************************/
+/* Восстановление старого номера диска и подкаталога */
+/*****************************************************/
+int old_dir(int cur_disk, char* cur_dir)
+	{
+	setdisk(cur_disk);
+	if (chdir("\\")==-1) { err_msg(er_chdir,"\\"); return(-1); }
+	if (chdir(cur_dir)==-1) { err_msg(er_chdir,cur_dir); return(-1); }
+	}
+/************************************/
+/*****  Анализ расширения файла *****/
+/************************************/
+int detect_ext(struct f_dta s1)
+    {
+    int i;
+    char ch;
+    i=-1;
+    for (ch=' ',i=0;((ch!=0) & (ch!='.')); i++)
+       {
+       ch=s1.name[i];
+       }
+    if (ch=='.')
+      {
+      if((s1.name[i]=='E')&&(s1.name[i+1]=='X')&&(s1.name[i+2]=='E')) return(1);
+      if((s1.name[i]=='C')&&(s1.name[i+1]=='O')&&(s1.name[i+2]=='M')) return(1);
+      }
+    return(0);
+    }
+/****************************************************/
+/* Печать диска, пути и имени обрабатываемого файла */
+/****************************************************/
+int out_f_name(int work_disk,struct f_dta b_dta)
+	{
+	char work_dir[128];
+	gotoxy(1,wherey());
+	clreol();
+	gotoxy(1,wherey());
+	getcurdir(0,&work_dir);
+	printf("%c:\\%s\\%s",'A'+work_disk,work_dir,b_dta.name);
+	}
+

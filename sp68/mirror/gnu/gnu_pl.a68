@@ -1,0 +1,265 @@
+Date: Wed, 19 Oct 94 00:20:18 -0400
+From: Tom Lord <lord@gnu.ai.mit.edu>
+Message-ID: <9410190420.AA02904@mole.gnu.ai.mit.edu>
+Newsgroups: gnu.announce,gnu.utils.bug,comp.os.linux.misc,comp.lang.tcl,comp.lang.scheme,comp.lang.misc
+Subject: GNU Extension Language Plans
+
+		     GNU Extension Language Plans
+			Richard Stallman, GNU Project
+
+		     [Please redistribute widely]
+
+Many software packages need an extension language to make it easier
+for users to add to and modify the package.
+
+In a previous message I explained why Tcl is inadequate as an
+extension language, and stated some design goals for the extension
+language for the GNU system, but I did not choose a specific
+alternative.
+
+At the time, I had not come to a conclusion about what to do.  I knew
+what sort of place I wanted to go, but not precisely where or how to
+get there.
+
+Since then, I've learned a lot more about the topic.  I've read about
+scsh, Rush and Python, and talked with people working on using Scheme
+as an extension and scripting language.  Now I have formulated a
+specific plan for providing extensibility in the GNU system.
+
+
+		      Who chooses which language?
+
+Ousterhour, the author of Tcl, responded to my previous message by
+citing a "Law" that users choose the language they prefer, and
+suggested that we each implement our favorite languages, then sit back
+and watch as the users make them succeed or fail.
+
+Unfortunately, extension languages are the one case where users
+*cannot* choose the language they use.  They have to use the language
+supported by the application or tool they want to extend.  For
+example, if you wanted to extend PDP-10 Emacs, you had to use TECO.
+If you want to extend GNU Emacs, you have to use Lisp.
+
+When users simply want "to write a program to do X or Y," they can use
+any language the system supports.  There's no reason for system
+designers to try to decide which language is best.  We can instead
+provide as many languages as possible, to give each user the widest
+possible choice.  In the GNU system, I would like to support every
+language people want to use--provided someone will implement them.
+
+With the methods generally used today, we cannot easily provide many
+languages for extending any particular utility or application package.
+Supporting an extension language means a lot of work for the developer
+of the package.  Supporting two languages is twice as much work,
+supposing the two fit together at all.  In practice, the developer has
+to choose a language--and then all users of the package are stuck with
+that one.  For example, when I wrote GNU Emacs, I had to decide which
+language to support.  I had no way to let the users decide.
+
+When a developer chooses Tcl, that has two consequences for the
+users of the package:
+
+* They can use Tcl if they wish.  That's fine with me.
+
+* They can't use any other language.  That I consider a problem.
+
+Sometimes developers choose a language because they like it.  But not
+always.  Sun recently announced a campaign to "make Tcl the universal
+scripting language."  This is a campaign to convince all the
+developers who *don't* prefer Tcl that they really have no choice.
+The idea is that each one of us will believe that Sun will inevitably
+convince everyone else to use Tcl, and each of us will feel compelled
+to follow where we believe the rest are going.
+
+That campaign is what led me to decide that I needed to speak to the
+community about the issue.  By announcing on the net that GNU software
+packages won't use Tcl, I hope to show programmers that not everyone
+is going to jump on the Tcl bandwagon--so they don't have to feel
+compelled to do so.  If developers choose to support Tcl, it should be
+because they want to, not because Sun convinces them they have no
+choice.
+
+
+			Design goals for GNU
+
+When you write a program, or when you modify a GNU program, I think
+you should be the one who decides what to implement.  I can't tell you
+what language to support, and I wouldn't want to try.
+
+But I am the leader of one particular project, the GNU project.  So I
+make the decision about which packages to include in the GNU operating
+system, and which design goals to aim for in developing the GNU
+system.
+
+These are the design goals I've decided on concerning extension
+languages in the GNU system:
+
+* As far as possible, all GNU packages should support the same
+extension languages, so that a user can learn one language (any one of
+those we support) and use it in any package--including Emacs.
+
+* The languages we support should not be limited to special, weak
+"scripting languages".  They should be designed to be good for writing
+large programs as well as small ones.
+
+My judgement is that Tcl can't satisfy this goal.  (Ousterhout seems
+to agree that Tcl doesn't serve this goal.  He thinks that doesn't
+constitute a problem--I think it does.)  That's why I've decided not
+to use Tcl as the main system-wide extension language of the GNU
+system.
+
+* It is important to support a Lisp-like language, because they
+provide certain special kinds of power, such as representing programs
+as data in a structured way that can be decoded without parsing.
+
+** It is desirable to support Scheme, because it is simple and clean.
+
+** It is desirable to support Emacs Lisp, for compatibility with Emacs
+and the code already written for Emacs.
+
+* It is important to support a more usual programming language syntax
+for users who find Lisp syntax too strange.
+
+* It would be good to support Tcl as well, if that is easy to do.
+
+
+		      The GNU extension language plan
+
+Here is the plan for achieving the design goals stated above.
+
+* Step 1. The base language should be modified Scheme, with these features:
+
+** Case-sensitive symbol names.
+** No distinction between #f and (), for the sake of supporting Lisp
+   as well as Scheme.
+
+** Convenient fast exception handling, and catch and throw.
+** Extra slots in a symbol, to better support
+   translating other Lisp dialects into Scheme.
+** Multiple obarrays.
+** Flexible string manipulation functions.
+** Access to all or most of the Unix system calls.
+** Convenient facilities for forking pipelines,
+   making redirections, and so on.
+** Two interfaces for call-outs to C code.
+   One allows the C code to work on arbitrary Scheme data.
+   The other passes strings only, and is compatible with Tcl
+   C callouts provided the C function does not try to call
+   the Tcl interpreter.
+** Cheap built-in dynamic variables (as well as Scheme's lexical variables).
+** Support for forwarding a dynamic variable's value
+   into a C variable.
+** A way for applications to define additional Scheme data types
+   for application-specific purposes.
+** A place in a function to record an interactive argument reading spec.
+** An optional reader feature to convert nil to #f and t to #t,
+   for the sake of supporting Lisp as well as Scheme.
+** An interface to the library version of expect.
+** Backtrace and debugging facilities.
+
+All of these things are either straightforward or have already been
+done in Scheme systems; the task is to put them together.  We are
+going to start with SCM, add some of these features to it, and write
+the rest in Scheme, using existing implementations where possible.
+
+* Step 2. Other languages should be implemented on top of Scheme.
+
+** Rush is a cleaned-up version of the Tcl language, which runs far
+faster than Tcl itself, by means of translation into Scheme.  Some
+kludgy but necessary Tcl constructs don't work in Rush, and Tcl
+aficionadoes may be unhappy about this; but Rush provides cleaner ways
+to get the same results, so users who write extensions should like it
+better.  Developers looking for an extension language are likely to
+prefer Rush to Tcl if they are not already attached to Tcl.
+Here are a couple of examples supplied by Adam Sah:
+
+*** To pass an array argument without copying it, in Tcl you must use
+upvar or make the array a global variable.  In Rush, you can simply
+declare the argument "pass by reference".
+
+*** To extract values from a list and pass them as separate arguments
+to a function, in Tcl you must construct a function call expression
+using that list, and then evaluate it.  This can cause trouble if the
+other arguments contain text that includes any special Tcl syntax.  In
+Rush, the apply function handles this simply and reliably.
+
+*** Rush eliminates the need for the "expr" command by allowing infix
+mathematical expressions and statements.  For example, the Tcl
+computation `"set a [expr $b*$c]' can be written as `a = b*c' in
+Rush.  (The Tcl syntax works also.)
+
+Some references:
+
+[SBD94] Adam Sah, Jon Blow and Brian Dennis.  "An Introduction to the Rush
+        Language."  Proc. Tcl'94 Workshop.  June, 1994.
+        ftp://ginsberg.cs.berkeley.edu:pub/papers/asah/rush-tcl94.*
+
+[SB94]  Adam Sah and Jon Blow.  "A New Architecture for the Implementation of
+        Scripting Languages."  Proc. USENIX Symp. on Very High Level Languages.
+        October, 1994.  to appear.
+        ftp://ginsberg.cs.berkeley.edu:pub/papers/asah/rush-vhll94.*
+
+** It appears that Emacs Lisp can be implemented efficiently by
+translation into modified Scheme (the modifications are important).
+
+** Python appears suitable for such an implementation, as far as I can
+tell from a quick look.  By "suitable" I mean that mostly the same
+language could be implemented--minor changes in semantics would be ok.
+(It would be useful for someone to check this carefully.)
+
+** A C-like language syntax can certainly be implemented this way.
+
+* Distribution conditions.
+
+We will permit use of the modified Scheme interpreter in proprietary
+programs, so as to compete effectively with alternative extensibility
+packages.
+
+Translators from other languages to modified Scheme will not be part
+of any application; each individual user will decide when to use one
+of these.  Therefore, there is no special reason not to use the GPL as
+the distribution terms for translators.  So we will encourage
+developers of translators to use the GPL as distribution terms.
+
+
+			   Conclusion
+
+Until today, users have not been able to choose which extension
+language to use.  They have always been compelled to use whichever
+language is supposed by the tool they wish to extend.  And that has
+meant many different languages for different tools.
+
+Adopting Tcl as the universal scripting language offers the
+possibility of eliminating the incompatibility--users would be able to
+extend everything with just one language.  But they wouldn't be able
+to choose which language.  They would be compelled to use Tcl and
+nothing else.
+
+By making modified Scheme the universal extension language, we can
+give users a choice of which language to write extensions in.  We can
+implement other languages, including modified Tcl (Rush), a Python
+variant, and a C-like language, through translation into Scheme, so
+that each user can choose the language to use.  Even users who choose
+modified Tcl will benefit from this decision--they will be happy with
+the speedup they get from an implementation that translates into
+Scheme.
+
+Only Scheme, or something close to Scheme, can serve this purpose.
+Tcl won't do the job.  You can't implement Scheme or Python or Emacs
+Lisp with reasonable performance on top of Tcl.  But modified Scheme
+can support them all, and many others.
+
+The universal extension language should be modified Scheme.
+
+
+		      Request for Volunteers
+
+If you understand Scheme implementation well, and you want to
+contribute a substantial amount of time to this project, please send
+mail to Tom Lord, lord@gnu.ai.mit.edu.
+
+If you expect to have time later but don't have time now, please send
+mail when you do have time to work.  Participation in a small way is
+probably not useful until after the package is released.
+
+

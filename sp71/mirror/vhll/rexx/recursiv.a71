@@ -1,0 +1,265 @@
+From: peltlayman@delphi.com
+Newsgroups: comp.lang.rexx
+Subject: Re: Are REXX procs recursive?
+Date: Tue, 27 DEC 94 20:12:44 -0500
+Organization: Delphi (info@delphi.com email, 800-695-4005 voice)
+Message-ID: <BeybAeE.peltlayman@delphi.com>
+
+Hilton Goldstein <goldstei@shrike.und.ac.za> writes:
+ 
+>Are REXX procedures recursive (I seem to be having problems)?  ALong the
+>same lines, how are local vars declared?  Is there a REXX FAQ?
+ 
+For fear of seeming pedantic, I guess the question is really "can one call
+REXX procedures recursively ?" Procedures can be reentrant, reusable,
+nonreentrant, nonreusable. Algorithms can be recursive. You could call
+a REXX procedure that calls itself recursively, a recursive procedure, but
+the question "Are REXX procedures recursive?" would then be rethorical:
+those that call themselves are recursive, those that don't aren't.
+"Can one call REXX procedures recursively ?" Yes, if you use the PROCEDURE
+instruction properly. Without it you most likely would get problems with
+the values of local variables, although:
+ 
+    FACTORIAL:
+       IF ARG(1)=1 THEN RETURN 1
+       ELSE RETURN ARG(1)*( ARG(1) - 1 )
+ 
+is a good example of where PROCEDURE is unnecessary (yes, feeding the
+above a non-positive number or a non-integer is not checked properly).
+ 
+"how are local vars declared ?" They ain't. Use the PROCEDURE statement
+to start a new (uninitialized) copy of all your program's variables. See
+TRL for details.
+ 
+Yes, there is a FAQ written by Eric Giguere. Check FTP site rexx.uwaterloo.ca
+ 
+--
+-----------------------------------------------------------------------
+!  Nanoo, nanoo          !                 PELT INDUSTRIES
+!  Mark from Ark         !                 Software Experts
+!                        !          1(800) 741-4322 or 1(303) 442-7700
+!  Markus Pelt-Layman    !              FAX: 1(303) 442-3198
+!                        !   8027 N. 41st Street, Longmont, CO 80503
+-----------------------------------------------------------------------
+
+From ankh.iia.org!uunet!news.inhouse.compuserve.com!news.production.compuserve.com!news Wed Dec 28 21:41:14 1994
+Path: ankh.iia.org!uunet!news.inhouse.compuserve.com!news.production.compuserve.com!news
+From: Larry Phillips <76703.4322@CompuServe.COM>
+Newsgroups: comp.lang.rexx
+Subject: Re: Are REXX procs recursive?
+Date: 28 Dec 1994 08:55:35 GMT
+Organization: Signs, eh?
+Lines: 35
+Distribution: inet
+Message-ID: <3dr967$11h$1@mhadf.production.compuserve.com>
+
+goldstei@shrike.und.ac.za (Hilton Goldstein) writes:
+> 
+> Are REXX procedures recursive (I seem to be having problems)?  ALong the
+> same lines, how are local vars declared?  Is there a REXX FAQ?
+
+Procedures can be recursive. Any variables declared inside a procedure
+are local unless EXPOSEd explicitly. Try the following to see the effects:
+
+     parse arg x
+     say '****' x
+     call countup(x)
+     say '****' x
+     call countup2(x)
+     say '****' x
+     exit
+ 
+     countup: procedure
+       parse arg num
+       x='This is local'
+       if num > 1 then call countup(num-1)
+       say num
+     return
+ 
+     countup2: procedure expose x
+       parse arg num
+       x='This is exposed'
+       if num > 1 then call countup(num-1)
+       say num
+     return
+ 
+
+-- 
+"Mind you, not as bad as the night Archie Pettigrew ate some       
+sheep's testicles for a bet...God, that bloody sheep kicked him..."
+            -= Ripping Yarns =-
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!news2.near.net!howland.reston.ans.net!EU.net!Austria.EU.net!newsfeed.ACO.net!paladin.american.edu!auvm!NYX.UNI-KONSTANZ.DE!RZOTTO Wed Dec 28 21:41:48 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!news2.near.net!howland.reston.ans.net!EU.net!Austria.EU.net!newsfeed.ACO.net!paladin.american.edu!auvm!NYX.UNI-KONSTANZ.DE!RZOTTO
+Comments: Gated by NETNEWS@AUVM.AMERICAN.EDU
+Newsgroups: comp.lang.rexx
+X-Acknowledge-To: <RZOTTO@nyx.uni-konstanz.de>
+Message-ID: <REXXLIST%94122814144441@VM.GMD.DE>
+Date: Wed, 28 Dec 1994 11:13:55 MEZ
+Sender: REXX Programming discussion list <REXXLIST@UGA.BITNET>
+From: Otto Stolz <RZOTTO@NYX.UNI-KONSTANZ.DE>
+Subject: Re: Are REXX procs recursive?
+Comments: To: Hilton Goldstein <goldstei%SHRIKE.UND.AC.ZA@uni-konstanz.de>
+Lines: 159
+
+On Wed, 28 Dec 1994 00:00:57 GMT Hilton Goldstein said:
+> Are REXX procedures recursive (I seem to be having problems)?
+
+REXX procedures may not be declared recursively, i.e.
+     foo: procedure
+        ...
+        bar: procedure
+          ...
+        return /* bar */
+        ...
+     return /* foo */
+will not work as (probably) intended.
+
+Otoh, REXX procedures may be invoked recursively, in any conceivable way,
+e.g., all of
+     /* main program */
+     signal on novalue
+     address none
+     trace r
+     say foo(foo(2))
+     say foo(1)+foo(2)  /* which is collateral, not truly recursive */
+     exit
+     foo: procedure
+        select
+        when arg(1)=1 then return foo(0)
+        when arg(1)=2 then return bar(1)
+        when arg(1)=3 then return bar(foo(1))
+        otherwise          return 1
+        end
+     bar: procedure
+        return foo(arg(1)-1)  /* mutually recursive */
+will work as intended.
+
+
+> ALong the same lines, how are local vars declared?
+
+In REXX, variables are never declared; they are simply referred to.
+
+The key to recursive procedures is indeed the visibility of variables;
+in block-structured languages, this issue comes under the headings of
+"local" vs. "global" variables. However, REXX is not a block-structured
+language (this is the main reason you cannot declare a procedure within
+a procedure decalaration, cf. above). REXX has an entirely different
+model of variables, and their visibility:
+- a variable comes into existence by assigning any value to it;
+- a variable can be made to disappear by the Drop statement;
+- the existence of a variable can be tested by the Symbol builtin
+  function;
+- a reference to an existing variable yields the latest value assigned
+  to it (same as in block-oriented languages);
+- a reference to a non-existing variable either yields a string formed
+  from the name of the variable, or signals an error, depending on the
+  current setting of the Novalue trap;
+- a variable reference can be computed dynamically, by various means
+  (e.g. compound symbols, the Interpret statement, or the Value builtin
+  function).
+- Normally, all variables created in course of the execution of one REXX
+  source file are visible from any instruction within that very source
+  file (including all local routines) -- such variables are usually
+  termed "local" (w.r.t. the source file, that is);
+- from a REXX statement contained in one REXX source, any variable
+  created in course of the execution of another REXX source (such as an
+  external routine) is *not* visible -- such variables may be termed
+  "external";
+- the REXX Procedure statement will create a new name space (i.e. it will
+  render invisible any previously existing variables), the corresponding
+  Return statement will drop the current name space (including any
+  variables contained therein) and restore the visibilty of the previous
+  name space (in a stack discipline);
+- the Expose option of the Procedure statement will place the symbols
+  specified into the previous name space -- thus rendering visible
+  existing variables, or enabling the creation of new variables that will
+  not disappear at the Return statement, respectively.
+
+Hence, the following rule-of-thumb would correctly translates recursive
+procedures from block-oriented languages to REXX:
+- place the recursive procedure(s) in one REXX source, making sure that
+  their definitions do not overlap and resolving any name-conflicts by
+  consistently renaming the procedures and their references;
+- start every local procedure with a Procedure statement;
+- include all variables that are used in more than one local procedure
+  in the Expose options of all procedures that import, export, or pass
+  it (even tacitly) on to other procedures.
+
+Of course, it is always better to mentally adopt the data modell of the
+language one is going to program in, than to design a program with an
+utterly different model in mind and to try subsequently to express this
+design in a language unsuitable for it.
+
+For an example of a recursive procedure, cf. my MATCH function, in the
+REXXLIST archives.
+
+Note: external variables may well be visible to statements in other
+languages via a "REXX Variable Pool Interface" which is part of many
+REXX implementations. E.g., in CMS, a REXX program can inspect, and even
+change, its callers REXX variables, as in:
+  File FOO EXEC:
+     /* main program */
+     signal on novalue
+     address none
+     a = ""; b = "*"
+     call "REXXDUMP"
+     call bar
+     call "REXXDUMP"
+     exit
+  File BAR EXEC:
+     /* external subroutine */
+     signal on novalue
+     address none
+     address command "PIPE hole      | var b 1" /* drops caller's B */
+     address command "PIPE literal **| var c 1" /* sets  caller's C */
+     exit
+which would display (when a suitable REXXDUMP EXEC is available):
+  Source:      "CMS COMMAND FOO EXEC A1 FOO CMS"
+  A          = ""
+  B          = "*"
+  End of FOO EXEC A1
+  Source:      "CMS COMMAND FOO EXEC A1 FOO CMS"
+  A          = ""
+  C          = "**"
+  End of FOO EXEC A1
+
+To protect the local variables, the scrupulous REXX programmer can
+confine to a new name space the possibly disastrous impact of the
+Variable Pool Interface, as in:
+  File FOO EXEC:
+     /* main program */
+     signal on novalue
+     address none
+     a = ""; b = "*"
+     call "REXXDUMP"
+     call call_bar
+     call "REXXDUMP"
+     exit
+     call_bar: procedure
+        call bar
+     return /* call_bar */
+
+Here, any changes BAR EXEC may effect in its callers variables, are
+confined to the time-span between the Call Bar, and Return, statements,
+which is small enough to be easily checked :-)      Hence this output:
+   Source:      "CMS COMMAND FOO EXEC A1 foo CMS"
+   A          = ""
+   B          = "*"
+   End of FOO EXEC A1
+   Source:      "CMS COMMAND FOO EXEC A1 foo CMS"
+   A          = ""
+   B          = "*"
+   SIGL       = "6"
+   End of FOO EXEC A1
+In contrast to the previous example, B and C are not affected by call_bar
+(as they are not in call_bar's own name space); SIGL is automatically set
+by every Call statement.
+
+Best wishes,
+                    Otto Stolz <Otto.Stolz@uni-konstanz.de>
+
+*** Please use only my new address at uni-konstanz.de, as all Bitnet
+*** addresses at DKNKURZ1 will expire by end of 1994, and all Internet
+*** adresses at Nyx.Uni-Konstanz.de will do so some time in 1995.
+

@@ -1,0 +1,209 @@
+Newsgroups: bit.listserv.xedit-l
+Message-ID: <XEDIT-L%94092013061435@VM.MARIST.EDU>
+Date: Tue, 20 Sep 1994 12:02:34 CDT
+From: Ron Ritchey <OSG0312@UNLVM.BITNET>
+Subject: Bad read command
+
+We have a news exec that isn't working on a graphics terminal. I spooled
+the console and it appears to be dying on the READ command. I pasted
+part of the console, and code into this note. Please let me know if
+you have any ideas.
+
+------------------------Start of console-------------------------------
+    89 *-* do i = 4 to (botline3 - 1)
+    90 *-*  if count <= totin
+       *-*   then
+       *-*   do
+    91 *-*    if ftype.1 = 'NEWSLIST'
+    93 *-*    else
+    94 *-*     dum = '!'||ch.count
+    95 *-*    'COMMAND SET RESERVED 'i' TURQUOISE NOHIGH **!%'right(count,3),
+   dum'* 'date.count'  'desc.count
+       >>>      "COMMAND SET RESERVED 23 TURQUOISE NOHIGH **!% 20 !@* 94/09/15
+NebraskaWatch-New Standards for Diesels            53"
+    97 *-*    count = count + 1
+    98 *-*   end
+   102 *-* end
+    89 *-* do i = 4 to (botline3 - 1)
+    90 *-*  if count <= totin
+       *-*   then
+       *-*   do
+    91 *-*    if ftype.1 = 'NEWSLIST'
+    93 *-*    else
+    94 *-*     dum = '!'||ch.count
+    95 *-*    'COMMAND SET RESERVED 'i' TURQUOISE NOHIGH **!%'right(count,3),
+   dum'* 'date.count'  'desc.count
+       >>>      "COMMAND SET RESERVED 24 TURQUOISE NOHIGH **!% 21 !@* 94/09/15
+4-H Alerts                                        248"
+    97 *-*    count = count + 1
+    98 *-*   end
+   102 *-* end
+    89 *-* do i = 4 to (botline3 - 1)
+    90 *-*  if count <= totin
+       *-*   then
+       *-*   do
+    91 *-*    if ftype.1 = 'NEWSLIST'
+    93 *-*    else
+    94 *-*     dum = '!'||ch.count
+    95 *-*    'COMMAND SET RESERVED 'i' TURQUOISE NOHIGH **!%'right(count,3),
+   dum'* 'date.count'  'desc.count
+       >>>      "COMMAND SET RESERVED 25 TURQUOISE NOHIGH **!% 22 !@* 94/09/15
+CROP WATCH, 94-19, Sept. 2, 1994                  499"
+    97 *-*    count = count + 1
+    98 *-*   end
+   102 *-* end
+    89 *-* do i = 4 to (botline3 - 1)
+    90 *-*  if count <= totin
+       *-*   then
+       *-*   do
+    91 *-*    if ftype.1 = 'NEWSLIST'
+    93 *-*    else
+    94 *-*     dum = '!'||ch.count
+    95 *-*    'COMMAND SET RESERVED 'i' TURQUOISE NOHIGH **!%'right(count,3),
+   dum'* 'date.count'  'desc.count
+       >>>      "COMMAND SET RESERVED 26 TURQUOISE NOHIGH **!% 23 !@* 94/09/15
+AG News a.m. for Thu, Sep 15, 1994                123"
+    97 *-*    count = count + 1
+    98 *-*   end
+   102 *-* end
+    89 *-* do i = 4 to (botline3 - 1)
+   103 *-* 'READ CMDLINE TAG'
+       >>>   "READ CMDLINE TAG"
+DISCONNECT AT 10:42:08 CDT TUESDAY 09/20/94 BY SYSTEM
+There is no logmsg data
+FILES:   NO RDR, 0001 PRT,   NO PUN
+RECONNECTED AT 10:42:18 CDT TUESDAY 09/20/94
+SPOOL CONS TO STOP CLOSE
+HCPCSP053E STOP not in CP directory
+SPOOL CONS STOP CLOSE
+------------------------End of console---------------------------------
+
+------------------------Start of code----------------------------------
+START:
+count = (currscrn - 1)*displays + 1
+do i = 4 to (botline3 - 1)
+   if count <= totin then do
+      if ftype.1 = 'NEWSLIST' then
+        dum = left(fn.count,8)||'!'||ch.count
+      else
+        dum = '!'||ch.count
+      'COMMAND SET RESERVED 'i' TURQUOISE NOHIGH **!%'right(count,3),
+      dum'* 'date.count'  'desc.count
+      count = count + 1
+   end
+   else do
+      'COMMAND SET RESERVED 'i' NOHIGH 'copies(' ',70)
+   end
+end
+
+'READ CMDLINE TAG' /* this is where it is failing */
+
+pull key cmd
+'EXTRACT/CMDLINE/LINE/CURSOR/'
+curline = cursor.1
+select
+   when key = 'ETK' then do
+      if queued() > 0 then do
+         parse upper pull check cmd
+         if check = 'CMD' then do
+            if check = 'EXIT' then exit
+            if check = 'FILE' then exit
+            if check = 'QUIT' then exit
+            if check = 'SAVE' then do
+              parse var cmd savefn saveft savefm .
+              if savefn = '' then savefn = fname.1
+              if saveft = '' then saveft = 'MEMO'
+              if savefm = '' then savefm = 'A'
+              address command 'COPY 'fname.1 ftype.1 fmode.1,
+                savefn saveft savefm' (APPEND'
+              if rc = 0 then EMSG fname.1' News successfully added ',
+                ' to 'savefn' MEMO'
+              else emsg 'An error occured adding to 'fname.1' MEMO ',
+                ' with RC='rc
+            end
+            address xedit cmd
+         end
+         else
+           emsg 'Not sure what to do: ' check cmd
+      end
+      else do
+         curline = (( (currscrn-1)*displays + curline) -3 )
+         if cursor.1>3 & cursor.1<botline3 & curline<=totin then do
+            call READNEWS
+            if return ^= 0 then signal START
+            ch.curline = "¢"
+         end
+         else do
+            emsg 'Cursor not on a valid line'
+         end
+      end
+   end
+   when key = 'CMD' then do
+      if cmd = 'EXIT' | cmd = 'FILE' | cmd = 'QUIT' then do
+         push 'COMMAND QUIT'
+         exit
+      end
+      if datatype(cmd,w) then do
+         if cmd > 0 & cmd <= totin then do
+            curline = cmd
+            call READNEWS
+         end
+         else
+           emsg 'Number entered is out of range'
+      end
+      else
+        cmd
+      'DESBUF'
+   end
+   when key = 'PFK' then do
+      parse var cmd num pfcmd
+      select
+         when num = 3 | num = 15 | num = 12 | num = 24 then do
+            parms = strip(fname.1)
+            parms = fname.1 date(o) time() 'NEWS LAST EXAMINED'
+            if find(areas,strip(fname.1)) > 0 then
+              address command 'GLOBALV SELECT UNCSNEWS SETLP 'parms
+            'COMMAND QUIT 0'
+            exit
+         end
+         when num = 8 | num = 10 | num = 22 | num = 20 then do
+            if currscrn = totscrn then
+              emsg 'At the last screen'
+            else
+              currscrn = currscrn + 1
+         end
+         when num = 6 | num = 18 then do
+              'COMMAND QUIT 99'
+              Exit
+         end
+         when num = 7 | num = 11 | num = 23 | num = 19 then do
+            if currscrn = 1 then
+              emsg 'At the first screen'
+            else
+              currscrn = currscrn - 1
+         end
+         otherwise do
+            pfcmd
+            if rc = 1 then exit
+            if rc = 6 then exit
+            'DESBUF'
+         end
+      end                                          /* end of select */
+   end
+   otherwise
+   'DESBUF'
+end                                                /* end of select */
+signal START
+exit
+
+-------------------End of code----------------------------------------
+
+Thanks for your response in advance...
+
++----------------------------------------------------------------------+
+| Ronald W. Ritchey                    Systems Programmer/Analyst      |
+| University of Nebraska               Internet: OSG0312@unlvm.unl.edu |
+| 235 Nebraska Hall                    BITNET:   OSG0312@unlvm         |
+| Lincoln NE, 68588-0521               Phone:    (402)472-7605         |
++----------------------------------------------------------------------+
+

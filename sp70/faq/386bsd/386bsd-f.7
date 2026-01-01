@@ -1,0 +1,626 @@
+From: burgess@cynjut.infonet.net (Dave Burgess)
+Newsgroups: comp.os.386bsd.announce,comp.answers,news.answers
+Subject: [comp.os.386bsd] BNR/2 derived BSD for PCs FAQ (Part 8 of 10)
+Date: 27 Dec 1994 01:00:33 -0600
+Organization: Dave's House in Omaha
+Message-ID: <386bsd-faq-8-788511609@cynjut.infonet.net>
+
+Posted-By: auto-faq 3.1.1.2
+Archive-name: 386bsd-faq/part8
+
+Section 7.	(System Communication and Network Information)
+
+7.0	Communications
+
+	386bsd and its kith support a wide range of communications methods.
+	
+7.1	SLIP/CSLIP
+
+	Serial Line I/P is supported in all versions of PC BSDs.
+
+	Brian <brian@awfulhak.demon.co.uk> provides us with a rather
+	good explanation of some of the hurdles that must be overcome
+	for a working slip interface.
+
+	The idea is (overview) that you make a serial line connection to 
+	the host, set the line discipline, and tell your router to use 
+	this interface as your gateway.  You also should set the gateway 
+	up as a nameserver.
+
+	You will need the information in 7.4.1 below to make sense to
+	you before you proceed much further.  I suggest you read that
+	now.
+
+	Sounds easy ? - well it is if you've done it before.
+
+	The _usual_ way of doing this is as follows:
+
+	Both server and client must know eachothers inet addresses.  Set 
+	these up in /etc/hosts with lines saying
+	    11.22.33.44 host.my.domain.name host
+	    11.22.33.55 client.my.domain.name client
+
+	where 11.22.33.?? is your inet number, and the following name is 
+	the full machine name (and is followed by any number of aliases).
+
+	SERVER:
+ 	  Create a login - usually Sclientname - and run `sliplogin` as 
+ 	  its shell.  I've looked at the docs for sliplogin, and it seems
+ 	  fairly straightforward.  [Ed.Note - I have; it is.]
+ 	  A fairly common problem on the server is an error that is 
+ 	  caused by the lack of a 'sliplogin' entry in the /etc/shells
+ 	  file.  Be sure to add sliplogin to your shells file.
+
+	CLIENT:
+	  Set up /etc/resolv.conf to say the following (for the nameserver)
+		domain client.my.domain.name
+		nameserver 11.22.33.55
+
+	  ** traditional method **
+	  - Log on to the server.  This is usually done via kermit or
+	    some such program.
+	  - Exit the program (or background it if your line wants to
+	    drop once the device is closed).
+	  - Run `slattach /dev/comport` for whatever "comport" is.  On most
+	    BSD derived systems, this may be either com0, or cua01, or
+	    whatever the correct name is for your site.
+
+	  If you run into an error that says 'not configured' in it, your 
+	  kernel either does not recognize your port (dmesg will verify that)
+	  or your kernel does not have the slip interface built in.  See 
+	  below for the latter.  The former could be caused by any one of 
+	  a dozen problems, including conflicting or incorrectly identified 
+	  IRQs or port addresses.
+
+	  - Run `ifconfig sl0 net clientname servername netmask 0xffffff00`
+	  - Run `route add default servername`.
+	  
+	    "servername" is your server and "clientname" is your client.
+	    
+	  It should now be possible to `ping host`
+
+	** my method **
+	  Configure /etc/remote
+	  Configure /etc/host.dial
+	  Run `slip host`.
+
+	/etc/remote contains an extended `tip` entry.  /etc/host.dial 
+	contains a login script (and is named in /etc/remote).
+
+	Oh yes, don't forget to have a line in your kernel config saying
+
+	pseudo-device sl 2
+
+	Without this line, you may get a 'device not configured' or 
+	'TIO...' error because the slip driver is not built into the 
+	kernel.
+
+	Someone else mailed me their instructions for using a SLIP
+	service.  Here they are, in all their glory.
+
+	Hi, I thought I'd drop you this email outlining how I have 
+	SLIP set up to dial and communicate, as I remember this being 
+	an area in the FAQ which needed some expansion/clarification. 
+	What I outline works for me dialing up under NetBSD 0.9. 
+	Though I don't know the specific nuances of FreeBSD (eg. the 
+	boot-up configuration of the interfaces - /etc/hostname.sl<n> 
+	for NetBSD) this'll be easy for someone to add to, hopefully 
+	before you release it (I know there's nothing I hate more
+	than having to convert one setup's info into another nearly,
+	but not quite, the same setup :-)
+
+	In the last quoted script file (slip-off) the unlock line should 
+	read:
+
+	/usr/local/etc/unlock LCK..$DEVICE
+
+	1) Configuring the SLIP interface.
+
+	Ensure that the sl device is present in your kernel (default with 
+	the generic kernels). In NetBSD 0.9 they get assigned in turn 
+	with each 'slattach'.
+
+	Put your own hostname and ip number, and that of your dial up 
+	gateway, into your /etc/hosts. This is mine:-
+
+	   127.0.0.1     localhost
+
+	   158.152.1.65    gate gate.demon.co.uk
+	   158.152.26.67   blodwen blodwen.demon.co.uk
+
+	Ensure that your /etc/resolv.conf is set up appropriately, to 
+	point to the nameserver of your dial-up provider/link.  This is 
+	what I use:-
+
+	   domain demon.co.uk
+	   nameserver 158.152.1.65
+	   nameserver 158.152.1.193
+
+	(you can have up to three nameservers, they -must- be listed by
+	number.  If you wish to look in several domains, you can use 
+	'search demon.co.uk,foo.other.domain' etc. up to the limit (a 
+	finite length specified in resolver(5).)
+
+	Your sl interface needs to be configured using ifconfig(1) as a 
+	link from your own hostname to that of your dial-up host.  Manually 
+	this can be done by:-
+
+	   /sbin/ifconfig sl0 <your-machine> <dial-up-machine>
+
+	on NetBSD this can be done at boot-time, by having the following 
+	in /etc/hostname.sl0:-
+
+	   inet blodwen.demon.co.uk 255.255.255.0
+	   dest gate.demon.co.uk
+
+	(You can substitute sl0 for sl<n> if this will after another 
+	slattach e.g. for a local machine on a fixed cable)
+
+	The netmask value (255.255.255.0 in this case) is pretty 
+	irrelevent to SLIP because you cannot have a subnet broadcast 
+	(so I am informed).
+
+	I use the chat(1) program (currently available in the 
+	FreeBSD-current/ports/ directory) to dial up and enter 
+	passwords, etc. My modem is setup for hardware handshaking 
+	(a necessity really, for performance), and I use the following 
+	sh scripts to do the work.  Calling 'demon' dials up and connects. 
+	Calling 'demon-down' when on-line shuts it all off. Those who 
+	use PPP should be able to work out the changes from the original 
+	ppp-on and off scripts.
+
+	[I call it 'demon' for simplicity]
+
+	   #!/bin/sh
+   	   #
+	   # attach slip and route (calls slip-on script)
+	   if /usr/local/etc/slip-on
+	           then
+	           # this adds the default route to 'gate' which is 
+		   # my dial-up host
+	           route add default gate
+
+	           # put anything here to be run when you are connected
+	           # slurp news
+	           /usr/local/etc/slurp news.demon.co.uk &
+	           # send outgoing news
+	           /usr/local/news/bin/nntpsend
+	
+	           # kick outgoing email
+	           sendmail -q0m
+	
+	   else
+	           # slip-on failed
+	
+	   fi
+	
+	[ here's my /usr/local/etc/slip-on ]
+	
+	Note that you may need to adjust the chat command to deal with the
+	prompts you have to answer or that your modem produces, and the final
+	message (my provider sends HELLO to signify that they are ready. The
+	 -v to chat makes it send syslog .info messages, which I then send to
+	my /dev/console. You can remove this if you wish.
+	
+	The following is a modified version of the ppp-on script that comes
+	with chat, altered to set the serial line correctly for the modem. I
+	dial-up at 38400bps on a modem on tty03, you might want to change that
+	too (and make sure that the stty line is all kept on one line).
+	
+	   #
+	   #       slip-on
+	   #
+	   #       Set up a SLIP link
+	   #
+	
+	   LOCKDIR=/var/spool/lock
+	   DEVICE=tty03
+	
+	   PHONE=<phone number here>
+	   USER=<your login>
+	   PASSWORD=<your password>
+	
+	   if [ -f $LOCKDIR/LCK..$DEVICE ]
+	   then
+	       echo "SLIP device is locked"
+	       exit 1
+	   fi
+	
+	   /usr/local/etc/fix-cua $DEVICE
+	   sleep 16000 < /dev/$DEVICE &
+	   /bin/stty -f /dev/$DEVICE
+	gfmt1:cflag=4b00:iflag=c00:lflag=3:oflag=6:discard=f:dsusp=19:eof=4:eol=ff:e  
+	ol2
+	2=ff:erase=0:intr=3:kill=0:lnext=16:quit=1c:reprint=12:start=11:status=ff:st  
+	op=
+	=13:susp=1a:werase=17:ispeed=38400:ospeed=38400
+	
+	   (
+	       if chat -v -l LCK..$DEVICE ABORT "NO DIALTONE" ABORT "NO CARRIER" \
+	         ABORT BUSY "" ATZ OK ATDT$PHONE "CONNECT 38400" "" "ogin:" "$USER" 
+	\
+	         "word:" "\\q$PASSWORD" "HELLO"
+	           then
+	           /sbin/slattach -h -c -s 38400 $DEVICE
+	           exit 0
+	       else
+	           echo "SLIP call failed" 1>&2
+	           # remove the sleep holding serial line open
+	           /bin/kill -KILL `/bin/ps -ax | /usr/bin/egrep " sleep 16000" \
+	             | /usr/bin/egrep -v "egrep" | /usr/bin/sed 's/^\([ 0-9]*\)
+	.*/\1'/`
+	           exit 1
+	       fi
+	   ) < /dev/$DEVICE > /dev/$DEVICE
+	
+	
+	When it comes to switching off the line, I use the following. Don't
+	forget to adjust the sl0 as appropriate
+	
+	[ I call it demon-down for simplicity]
+	
+	   #!/bin/sh
+	   #  stop script
+	   #
+	   /usr/local/etc/slip-off
+	   /sbin/ifconfig sl0 down
+	
+	[ and /usr/local/etc/slip-off ]
+	
+	and adjust the DEVICE line as well.
+	
+	   #!/bin/sh
+	
+	   DEVICE=tty03
+	
+	   kill -KILL `ps -ax | egrep "slattach.*${DEVICE}" | egrep -v "egrep" \
+	     | sed 's/^\([ 0- 9]*\) .*/\1'/`
+	   kill -KILL `ps -ax | egrep " sleep 16000" | egrep -v "egrep" \
+	     | sed 's/^\([ 0-9]* \) .*/\1'/`
+	   # switch line back to normal (closes line)
+	   /bin/stty -f /dev/$DEVICE -clocal
+	   # unlock the device
+	   /usr/local/etc/unlock LCK..$DEVICE
+	
+	   exit 0
+	
+	
+	And that should do it. Happy SLIPping!
+
+
+7.2	PPP
+
+	Implementations of Point to Point Protocol are also available.  PPP
+	should be available in the next major release (0.9+) of NetBSD and 
+	in the current release of FreeBSD and NetBSD both.
+
+	It should also be noted that there is a newsgroup that covers the 
+	PPP protocol exclusively.  It is comp.protocols.ppp.
+
+
+7.3	TCP/IP
+
+	TCP/IP is an integral part of BSD 4.4 Lite.  There are at least 
+	five different network card drivers.  TCP/IP is fully supported 
+	and is available to all users of all derived BSD systems.  In 
+	fact, many people believe that this area is one of the primary 
+	advantages that BSD has over Linux.
+
+
+7.4	UUCP
+
+	There is an excellent document included in the UUCP directory
+	that describes in detail, what needs to be done to get a
+	working UUCP for derived BSD systems.  Look in the 
+	/usr/src/gnu/libexec/uucp directory for more information.  You 
+	can also look in the /usr/share/doc/smm/09.uucpimpl and 
+	/usr/share/doc/smm/21.uucpnet if yours are populated.
+
+	
+7.4.1	TIP/CU
+
+	First thing you need to do is...
+
+		vi /etc/remote
+
+	Then remove the two lines at the bottom of the file that mention 
+	com1, and com2.  Now add the following lines:
+
+		tty00:dv=/dev/tty00:br#9600:
+		tty01:dv=/dev/tty01:br#9600:
+
+	That tells tip/cu where to find your com ports.  Next you need 
+	to be logged in as root and do a:
+
+		chown uucp.dialer /dev/tty00
+		chown uucp.dialer /dev/tty01
+		touch /var/log/aculog
+		chown uucp.dialer /var/log/aculog
+
+	Make sure that, if you are running newsyslog, you change the 
+	owner.group entry in the newsyslog.conf file so that the file
+	ownership is maintained correctly.
+
+	Then you should be all set, remember "DOS Com1" = tty00, and 
+	"DOS Com2" = tty01.  So, if your modem is at 0x2F8/IRQ=3 and 
+	you access it as the COM2: port from DOS, you would do..
+
+		tip tty01
+
+	To exit, type <RETURN>~.<RETURN>
+
+	Many people have other problems with cu.  The lock open: 
+	procedure is one of them.   If you receive the error:
+
+	lock open: no such file or directory
+	all ports busy
+
+	You need to create a directory: /var/spool/lock, owned by uucp.  If
+	this file already exists and is owned correctly, make sure that the
+	lock file in the directory is deleted.
+
+	If you receive the error "cu: write: Input/output error"
+
+	You may be able to fix this by creating an /etc/uucp/ports file 
+	(see Taylor UUCP docs).
+
+	In addition, those of you using cu version 1.04 may need to add the
+	following to their susyem:
+
+	create an /etc/uucp/ports file that looked like this:
+
+	port mymodem
+		type modem
+		device /dev/tty01
+		speed 19200
+
+	Now cu knows that the line is connected to a modem it does the 
+	right thing regarding setting CLOCAL on the line.  You don't 
+	even have to have either of local or softcar set in /etc/ttys.
+
+	Since cu's behaviour seems to be correct, I'm happy now.  All I 
+	need to really make my day though is to have John or Martin to 
+	tell me that cu 1.04 still works for them even though they don't 
+	have an /etc/uucp/ports (or equivelent HDB or V2 uucp config) 
+	file ... :-)
+
+
+7.4.2	What is the magic incantation that allows the modem to dial?
+
+	Try 'stty -f /dev/tty0? clocal'.  Change the '?' for whatever 
+	character is appropriate for your tty port.  Remember, DOS COM1 = 
+	/dev/tty00 and DOS COM2 = /dev/tty01...
+
+	Some other things that might cause some problems are the entries
+	in the /etc/remotes file.  Try 'com?:dv=/dev/tty0?:br#19200:pa=none'
+	and see if that helps.  Remember to replace the '?' with '[01234]'
+	as appropriate.
+
+	NetBSD-current has implemented the 'ttyflags' program.  This
+	will set your com ports according to the options specified in
+	the /dev/ttys files.  This is an even better solution than the
+	'stty ... clocal' fix from above!
+
+7.4.3	My modem on DOS COM3 or DOS COM4 works with DOS, but not with
+	*BSD.  It is set up using IRQ 4 (or 3) respectively.
+
+	One of the MAJOR differences between DOS and *BSD is that *BSD
+	actually USES the IRQ lines (*gasp*)...  That means that every 
+	device on the ISA bus has to have it's own IRQ.  Since COM1 and
+	COM2 (/dev/tty00 and /dev/tty01) are already defined using IRQs
+	4 and 3 respectively, that means that COM3 and COM4 (/dev/tty02 
+	and /dev/tty03) need to be put onto different IRQs.  The default
+	GENERICAHA kernel defines the third com port (COM3 or /dev/tty02)
+	to be on IRQ5.  You need to reconfigure your com port (for 
+	external modems) or modem (for internal modems) to use IRQ5.  
+	The GENERICBBT kernel defines the COM4 port to be on IRQ9 (or 2).
+	If you have to put your devices on other ports, you will need to
+	recompile the kernel.
+
+7.5	Terminals
+
+	Since the target machine for most BSD machines is a 386 with 
+	no more than a couple of serial ports, most people do not bother 
+	with serial terminals.  For most problems, a quick perusal of the 
+	man pages for the ttys file and getty are enough to get them 
+	started.  Other than that, most terminal problems are limited to
+	peculiarities of particular terminals.
+
+	One common problem that appears to crop up from time to time is
+	which wires need to be connected at each end of the cable.  Most
+	cables do not, in fact, pass through all lines.  If your terminal 
+	uses XON/XOFF (DC1/DC3) protocol, a cable of the appropriate 
+	twist, either straight through or null modem, can have as few as
+	three lines connecting the two devices.  Assuming DB-25 connections
+	at each end, the lines need to go from 2 to 3, 3 to 2, and 7 to 7.
+	These lines are Rx, Tx, and gnd.  Other lines that may or may not
+	be required include 4 and 5; and 6, 8, and 20.  Normally, these 
+	lines would be connected within the 'hood' of the cable (4 to 5 
+	and 6 and 8 to 20) to simulate the functionality of the full 
+	blown cable.  While full support for CTS/RTS is not available 
+	(yet), other support for the remainder of these lines is available 
+	or is being worked on in all BSD derived systems.  Without this
+	handshaking (particularly pins 6, 8, and 20) your ports may appear
+	to be dead.  This is because most of the tty driver for *BSD 
+	systems require a Data Carrier Detect to be active before the
+	port will work.
+
+	For those folks that have hardware flow control working, you need
+	to look in the man page for 'stty' and look around for the 
+	-clocal and -ctrcrts options.
+
+	Once the cable is set up, you will need to make sure that your
+	system is ready.  The first thing you will need to do is make all
+	of the devices in the /dev/ directory.  A program, called MAKEDEV,
+	is available in the /dev directory.  Running this program with 
+	the argument 'tty' will make all of the physical tty devices.
+
+	With that done, arranging for a 'getty' on the port is the next 
+	order of business.  You will need to edit the '/etc/ttys' file
+	and make one of the tty devices available.  If you have 
+	connected your terminal to DOS COM1, you will be enabling 
+	/dev/tty00.  Similarly, if you are connected to COM2:, you will
+	be enabling /dev/tty01 (see the pattern?).  There are other
+	names for those ports as well, but when you are talking about 
+	terminals, be sure to use the '/dev/tty*' names.  If not, you 
+	will be completely ignored and treated as an outcast because 
+	you obviously have not done any of your homework.
+
+	One of the other common problems with the SIO driver is that 
+	people will often disable all handshaking, and then complain
+	that they cannot get a reliable connection above 9600 baud.  
+	Handshaking is the solution to most of these problems.
+
+
+
+7.6	My network manager (or UUCP feed site admin) just informed me 
+	that the way I have installed sendmail through my UUCP connection 
+	and has caused a sendmail loop.  Can you help me get sendmail 
+	installed correctly?
+
+	(1) Go into sendmail's source directory tree
+
+	    cd /usr/src/usr.sbin/sendmail/cf/cf
+
+	(2) Make the missing obj directory first, you need it later...
+
+	    mkdir obj
+
+	(3) Create a sendmail master configuration file (.mc file). Name 
+	it yourname.mc
+
+	    vi yourname.mc
+
+	(4) Contents of the yourname.mc file:
+
+	#---------------------------------------------------------------
+	divert(-1)
+	#
+	#  This is the prototype for a site with only a uucp connection
+	#  to the world, where smarthost and uucp relay are the same ...
+	#  Replace "yourname" with your machines nodename without domain
+	#  Replace "smarthost" with your uucp neighbours nodename without 
+	#  domain i.e. here is myname "knobel" and my smarthost is "gomel", 
+	#  to which I'm connected with uucp via dialup modem.
+
+	divert(-1)
+	VERSIONID(`yourname.mc 1.0')
+
+	include(`../m4/cf.m4')
+
+	OSTYPE(bsd4.4)
+
+	FEATURE(nodns)dnl
+
+	MAILER(local)dnl
+	MAILER(smtp)dnl
+	MAILER(uucp)dnl
+	
+	define(`UUCP_MAX_SIZE', 2000000)dnl
+	define(`SMART_HOST', `uucp-dom:smarthost')dnl
+	define(`UUCP_RELAY', `uucp-dom:smarthost')dnl
+	#--------------------------------------------------------------
+	
+	In the siteconfig directory (.../sendmail/cf/siteconfig)
+	create a file uucp.yourname
+
+	Put a list of machines into this file to which you have active
+	uucp/mail connection. Generally only the name of your smarthost 
+	....  Unknown addresses are routed to your smarthost ....
+
+	siteconfig/uucp.yourname:
+	#----------------------------------------------------------------------
+	SITE(nodename_of_your_smarthost)
+	#----------------------------------------------------------------------
+
+	(5) create the new sendmail configuration file, which will be 
+	stored under obj/yourname.cf, by typing
+	
+	    make yourname.cf
+	
+	(6) After that copy obj/yourname.cf to /etc/sendmail.cf
+	
+	(7) It's up to you to browse through the systems global aliases
+ 	file ((etc/aliases), where important mail aliases are stored.
+	After editing this file you should invoke the command newaliases 
+	to update the corresponding database file
+
+	newaliases
+
+	(8) Then create/edit the file "/etc/sendmail.cw".   This file 
+	contains alias names of your system (a list of additional names 
+	under that your system might receive e-mail):
+
+	yourname
+	yourname.uucp
+	yourname.domain
+
+	(9) Then create a file /etc/mailertable:
+	Here you have to say what else (uucp adresses, too)
+	has to be sent to your smarthost ...
+
+	.uucp		uucp-uudom:name_of_your_uucp_smarthost
+	
+	(10) Create the hash table the following way:
+
+	makemap hash /etc/mailertable.db < /etc/mailertable
+
+ 	Remember, if you make any changes you have to rebuild the
+ 	alaises database by typing:
+	
+	    newaliases
+
+	(11) BTW: You do not need to create a frozen config file,
+	since sendmail on FreeBSD 1.X and NetBSD aren't compiled with 
+	that option turned on.
+
+	(12) ``Hot files'' with more information (see sendmail src tree):
+    	FAQ KNOWNBUGS RELEASE_NOTES cf/README
+
+
+
+7.7	Can network attached assets be used by/from NetBSD?
+
+	Yes, they can, assuming the machine at the other end of the 
+	connections is reasonably cooperative.  The specifics are up to
+	the remote machine, but a couple of things that you can start 
+	looking for that will help are provided below:
+
+		-  Ask the system administrator of the machine in
+		   question if it is OK for you to use whatever it is 
+		   you need.  This is more a matter of manners than a 
+		   technical issue. 
+
+		-  For NFS mounted disk drives, make sure that you are 
+		   not prevented from using the assets by the 
+		   /etc/exports (or equivalent) file.  This goes for 
+		   CD-ROMs as well as regular mounted disks.
+
+		-  There are a completely different set of concerns for
+		   tapes and printers.  Each system implements these in
+		   slightly different ways.  Check with your system 
+		   manager or documentation for more information.
+
+	Note that not all network clients are created equal.  There may
+	be semantic differences between what you EXPECT to happen and
+	what actually happens.  Your best bet at that point is to get
+	with the local system manager and talk to him or her about what
+	you should be expecting on the system and what is actually
+	happening.  An excellent example is the semantics of file group
+	accounts when a new file is created on an NFS machine.  The
+	semantics of the create will be based on the OS on the SERVER,
+	so it will be whatever SysV or Sun thinks is correct, not what
+	we expect from the BSD side.
+
+	There is a package available which can also be used by *BSD
+	which will allow your machine to be visible to LanManager or
+	Windows NT clients.  The package is called 'SAMBA' and includes
+	information about how to configure the package to work with
+	NetBSD and FreeBSD.  Works good for me.
+
+-- 
+TSgt Dave Burgess           | Dave Burgess
+NCOIC, USSTRATCOM/J6844     | *BSD FAQ Maintainer
+Offutt AFB, NE              | Burgess@cynjut.infonet.net or ...@s069.infonet...
+                               
+

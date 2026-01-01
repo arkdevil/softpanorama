@@ -1,0 +1,2597 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                              REXXPC88 Programmer's Guide
+                                                             version 0.55
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                            Sam Detweiler
+
+
+                                                                      IBM
+                                                  North Central Marketing
+                                                        Detroit, MI 48343
+                                                   (SDETWEIL at DETVMIC4)
+
+                                                UPDATED - June 23rd, 1987
+                                                PRINTED - July 10th, 1987
+ACKNOWLEDGEMENTS
+
+
+
+I want to acknowledge some of the people who have contributed to each
+version of REXXPC88.
+
+The original code and documentation for REXXPC88 was created by Derek
+Lieber.
+
+Additional code and documentation was supplied by Marvin Boswell.
+
+Code from Larry Margolis to implement the EXTLOAD function(s), and the
+AX=7 support code.
+
+Each and every user who has commented on both positive and negative items
+throughout the life of REXX88 and REXXPC88.  Without your contributions
+we could not have brought you this tool.
+
+
+
+SUPPORT
+
+
+Support for REXXPC88 is provided by the current owner (Sam Detweiler).
+The package containing REXXPC88 is REXX88 PACKAGE and is available from
+PCTOOLS.  There is a forum on IBMPC dedicated to REXXPC88 named REXX88
+FORUM.  Any praise, criticism or bug reports should be directed to REXX88
+FORUM and not to any of the people named in this document.  Problems with
+REXXPC88 will be acknowledged and handled in as timely a manner as pos-
+sible.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Acknowledgements                                                       ii
+PREFACE
+
+
+
+* PREFACE TO RELEASE 0.55
+*
+*
+* Changes for release 0.55 dated 6/23/87
+*
+* 1.   Correct stack error when external program uses STORE variable
+*         interface and trace is on
+* 2.   Corrected and improved performance of variable dictionary
+*         management.
+*      a.  Fixed bug with variables with null strings as part of
+*                compound variables
+*
+*            Example:
+*                  did yield 0 instead of 1
+*
+*                  n='';a.n='hello';say a.n == 'hello'
+*
+*      b.  Fixed bug with Mixed Case compound variables
+*
+*            Example:
+*                  a.='none'
+*                  lower='a'
+*                  upper='A'
+*                  a.lower='lower case subscript'
+*                  a.upper='UPPER case subscript'
+*                  say 'a. = 'a.
+*                  say 'a.lower = 'a.lower
+*                  say 'a.upper = 'a.upper
+*
+* 3.   Made resident version uninstallable
+*
+*      NEW parameter ((/u to uninstall
+*
+*      2 new error messages
+*      ∙   DET998 Can't uninstall resident version
+*
+*          some non-conforming program is resident above REXXIBMr
+*      ∙   DET999 Resident version does not support uninstall
+*
+*          The currently installed REXXIBMr is downlevel and does not sup-
+*          port the uninstall operation
+*
+*          Note: requires new device driver level
+* 4.   As resident version is now uninstallable, allowed resident extension
+*      to  be  installed PRIOR  to  the actual REXX processor instead of as
+*      currently required after.
+*
+*      This assumes that the Resident extension code does INT 7Ch not CALL
+*      [previous] for other functions (i.e. load/store/queue calls)
+*
+*      Note: required new device driver level
+* 5.   Added function to append x'1A' EOF to text file before token image
+*      if one was not found.
+* 6.   Fixed bug with recursion error
+* 7.   Fixed bug if program name passed by environment not found
+* 8.   Updated doc referencing VM REXX FIND function
+* 9.   Added note about quoted literal string processing difference
+*
+*
+*
+* PREFACE TO RELEASE 0.54
+*
+*
+* Changes for release 0.54 dated 6/5/87
+*
+* 1.   Add code for bi-lingual bat file support
+* 2.   Add builtin function to identify resident or standalone version
+*          REXXRES() = 1 if resident else = 0 if standalone
+* 3.   Fix bug in stem variable direct retrieval
+
+
+
+Preface                                                               iii
+PREFACE TO RELEASE 0.53
+
+
+Changes for release 0.53 dated 6/1/87
+
+1.   Fix pgm search algorithm when extension specified
+2.   Fix SIGNAL ON NOVALUE errors
+3.   Fix for FORMAT error
+4.   Fix for quoted function calls 'ARG' and external function extensions
+5.   Additional code for environment interface (tracing and errors)
+
+
+
+PREFACE TO RELEASE 0.52
+
+
+Changes for release 0.52 dated 4/4/87
+
+1.   Added Support for PC/DOS 3.3 '@' batch file command prefix
+2.   Added PC/DOS 3.3 'CHCP' internal command to table
+3.   Fix for external queue interface
+4.   Updated doc in limitations section for nested PC/DOS batch files
+
+
+
+PREFACE TO RELEASE 0.51
+
+
+Changes for release 0.51 dated 3/25/87
+
+1.    Fix for OTHERWISE  on SELECT/WHEN/OTHERWISE
+
+
+
+PREFACE TO RELEASE 0.50
+
+
+Changes for release 0.50 dated 3/24/87
+
+1.   Fix for problems introduced with 0.47 item 3.
+2.   Fix for TRUNC not formatting date correctly and hanging system
+3.   Added some of the environment interface code
+        trace data support is not included at this point.
+4.   Added REXXIBMr installed process call
+        int 7c, ax=9 if installed returns ax=AAAA else ax=FFFF
+5.   Fix for v 0.46 interupt fix.
+6.   Fix for SELECT/WHEN/OTHERWISE
+7.   Fix for Parse Pull and PULL truncating long queued strings
+8.   Added support for AX=7 extension loaded call
+9.   Added new function EXTLOAD supporting AX=7 call above.
+10.  Fix for DO WHILE
+11.  Fix for storage fragmentation with new read buffer size
+12.  Fix for storage loss within Do I= loops
+13.  Fix for STEM variables not clearing array
+14.  Fix for REXXSYS.SYS and EXT interaction
+15.  Fix for CONTROL-BREAK not being reset when SIGNAL ON HALT used and
+     control-break or control-c pressed
+16.  Fix for extension returned strings not being freed
+
+
+
+PREFACE TO RELEASE 0.49
+
+
+Changes for release 0.49 dated 2/21/87
+
+1.   fix for problems introduced with 0.47 item 3.
+
+
+
+
+
+
+
+
+
+Preface                                                                iv
+PREFACE TO RELEASE 0.48
+
+
+Changes for release 0.48 dated 2/20/87
+
+1.  Fix for problems introduced with 0.47 for ANSI.SYS fix (item 2).
+2.  Fix for problems with error messages with out of storage on
+       long return strings
+
+
+
+PREFACE TO RELEASE 0.47
+
+
+Changes for release 0.47 dated 2/19/87
+
+1.  Fix for problems with HOSTSYS device driver(s)
+2.  Fix for problems with EGAXI and other ANSI replacements
+3.  Fix for appended space on DOS commands - standalone version
+4.  Add support for variable name on END statements in controlled do loops
+5.  Fix for command parsing with redirection or pipe chanracters
+6.  Added code to support reads of longer than 132 bytes
+       default = 256
+       new parm allows any size (( nnnnR
+7.  Fix for external queue interface with messages queued to
+       PUSH/PULL queue running out of storage
+8.  Remove string length restriction for STORE function
+       Variable name length remains at 127 max
+9.  Removed string length restriction for strings returned from enten-
+    sions
+10. Added new parms to new ENVIRONMENT control block to facilitate
+        true subcommand environment
+11. REXXSYS.SYS fix for some environments
+        (partial batch file line re-execution)
+
+
+
+PREFACE TO RELEASE 0.46
+
+
+Changes for release 0.46 dated 2/2/87
+
+1.  Fix for subcommand environment not restoring registers
+2.  Fix for incorrect message on numeric overflow
+3.  Fix for large programs crashing system with resident version
+4.  Fix for CONTROL-BREAK/C not being reset with standalone version
+5.  Fix for Secondary call via interpret looping
+
+REXXSYS.SYS change
+
+1.  Correction for some environments
+
+
+
+PREFACE TO RELEASE 0.45
+
+
+Changes for release 0.45 dated 1/13/87
+
+1.  Fix for command search when drive or path specified
+2.  Compile no longer changes files date or time
+3.  Trace output fixes
+       DO loop repetition now displayed
+
+
+
+PREFACE TO RELEASE 0.44
+
+
+Changes for release 0.44 dated 1/12/87
+
+1.  Fix for read file problems
+2.  Addition of Critical Error handling on file I/O functions
+3.  Addition of auto compile function
+
+
+Preface                                                                v
+PREFACE TO RELEASE 0.43
+
+
+Changes for release 0.43 dated 1/11/87
+
+1.  Fix for storage problem in DO I= loops
+2.  Fix for INTERPRET instruction error
+
+
+
+PREFACE TO RELEASE 0.42
+
+
+Changes for release 0.42 dated 1/7/87
+
+1.  Fix for equal compare operator (=)
+2.  Fix for EXIT or RETURN within INTERPRET instruction stream
+
+
+
+PREFACE TO RELEASE 0.41
+
+
+Changes to release 0.41 dated 1/6/87
+
+1.  Fix for ARG OPTIONS or other keyword
+2.  Fix for SIGNAL xxx, dropped to base level of program rather than
+    current routine as VM REXX
+3.  Fix for external interface to stop function for resident version
+4.  Fix for CONTROL-BREAK and CONTROL-C crashing system
+5.  Fix for write to new file
+6.  Additional of additional word on initialize call
+    dw  1      REXX processor will search path for rexx program of appro-
+               priate name before returning command to caller
+
+               This is really any non-zero value (not just 1)
+    dw  0      all commands will be passed to caller for processing imme-
+               diately
+
+
+
+PREFACE TO RELEASE 0.40
+
+
+This is a major function upgrade to the REXXPC88 package.  The major
+changes are:
+
+∙   Floating Point Support, including true Divide and Power operators
+∙   More Built-in Functions for Floating Point
+∙   Fixes for CONTROL-BREAK and CONTROL-C handling
+∙   Fixes for Command line parsing
+∙   Addition of Elapsed Time functions TIME('E') and TIME('R')
+∙   Addition of RANDOM() function
+∙   Addition of SIGNAL ON/OFF [HALT|SYNTAX|NOVALUE]
+
+The storage size used for the resident version is approx 77k in default
+work pool size (14k) vs REXX88r + REXXFUNS at 71k with a default work pool
+size of 24k.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Preface                                                               vi
+TABLE OF CONTENTS
+
+
+
+Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . .   1
+
+Execution a REXXPC88 program . . . . . . . . . . . . . . . . . . . .   2
+
+Syntactic elements . . . . . . . . . . . . . . . . . . . . . . . . .   4
+Comments . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   4
+Symbols. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   4
+Strings. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   5
+Words. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   5
+
+Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . .   7
+Notes. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  25
+
+Expressions. . . . . . . . . . . . . . . . . . . . . . . . . . . . .  27
+Terms. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  27
+Operators. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  27
+  Arithmetic operators . . . . . . . . . . . . . . . . . . . . . . .  27
+  Comparison operators . . . . . . . . . . . . . . . . . . . . . . .  27
+  Logical operators. . . . . . . . . . . . . . . . . . . . . . . . .  28
+  String operators . . . . . . . . . . . . . . . . . . . . . . . . .  28
+Operator precedence. . . . . . . . . . . . . . . . . . . . . . . . .  29
+Notes. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  29
+
+Compound variables . . . . . . . . . . . . . . . . . . . . . . . . .  31
+
+Procedures and Functions . . . . . . . . . . . . . . . . . . . . . .  32
+Argument passing and name hiding . . . . . . . . . . . . . . . . . .  32
+Return values. . . . . . . . . . . . . . . . . . . . . . . . . . . .  32
+Built-in routines. . . . . . . . . . . . . . . . . . . . . . . . . .  33
+  General purpose routines . . . . . . . . . . . . . . . . . . . . .  33
+  File management routines . . . . . . . . . . . . . . . . . . . . .  48
+
+The Parse Instruction. . . . . . . . . . . . . . . . . . . . . . . .  51
+Simple template. . . . . . . . . . . . . . . . . . . . . . . . . . .  51
+Template with patterns . . . . . . . . . . . . . . . . . . . . . . .  52
+Template with absolute column positions. . . . . . . . . . . . . . .  52
+Template with relative column positions. . . . . . . . . . . . . . .  52
+Template with variables as specifications. . . . . . . . . . . . . .  52
+Further examples . . . . . . . . . . . . . . . . . . . . . . . . . .  53
+
+Appendix A. Debugging. . . . . . . . . . . . . . . . . . . . . . . .  54
+
+Appendix B. Special files. . . . . . . . . . . . . . . . . . . . . .  56
+
+Appendix C. Special variables. . . . . . . . . . . . . . . . . . . .  57
+The special variable "result". . . . . . . . . . . . . . . . . . . .  57
+The special variable "rc". . . . . . . . . . . . . . . . . . . . . .  57
+
+Appendix D. Installation and Use . . . . . . . . . . . . . . . . . .  58
+The Choices. . . . . . . . . . . . . . . . . . . . . . . . . . . . .  58
+Which version is for you?. . . . . . . . . . . . . . . . . . . . . .  58
+  Characteristics of Resident Version. . . . . . . . . . . . . . . .  58
+  Characteristics of Standalone Version. . . . . . . . . . . . . . .  58
+* Bi-Lingual Batch File Support. . . . . . . . . . . . . . . . . . . .  58
+The Distribution Diskette. . . . . . . . . . . . . . . . . . . . . .  59
+Installing the resident version. . . . . . . . . . . . . . . . . . .  59
+Problems . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  60
+
+Appendix E. External Program Interfaces. . . . . . . . . . . . . . .  61
+User program invocation of the interpreter . . . . . . . . . . . . .  61
+  Initialization call. . . . . . . . . . . . . . . . . . . . . . . .  61
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  61
+  Environment Service routine parameters and return codes. . . . . .  62
+  Example Environment control block in MASM. . . . . . . . . . . . .  65
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  66
+    Register use:. . . . . . . . . . . . . . . . . . . . . . . . . .  66
+  Interpretation call. . . . . . . . . . . . . . . . . . . . . . . .  67
+    Values taken . . . . . . . . . . . . . . . . . . . . . . . . . .  67
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  67
+    Register use:. . . . . . . . . . . . . . . . . . . . . . . . . .  67
+
+
+Table of Contents                                                     vii
+  Termination call . . . . . . . . . . . . . . . . . . . . . . . . .  67
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  67
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  67
+  Load call. . . . . . . . . . . . . . . . . . . . . . . . . . . . .  67
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  67
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  68
+    Register use:. . . . . . . . . . . . . . . . . . . . . . . . . .  68
+  Store call . . . . . . . . . . . . . . . . . . . . . . . . . . . .  68
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  68
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  68
+    Register use:. . . . . . . . . . . . . . . . . . . . . . . . . .  68
+REXXPC88 invocation of user written Extensions . . . . . . . . . . .  68
+    Values passed in . . . . . . . . . . . . . . . . . . . . . . . .  69
+    Values passed out. . . . . . . . . . . . . . . . . . . . . . . .  69
+    Register use . . . . . . . . . . . . . . . . . . . . . . . . . .  69
+    Stack use. . . . . . . . . . . . . . . . . . . . . . . . . . .    69
+  Queue call . . . . . . . . . . . . . . . . . . . . . . . . . . . .  69
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  69
+    Values Returned: . . . . . . . . . . . . . . . . . . . . . . . .  70
+    Register use:. . . . . . . . . . . . . . . . . . . . . . . . . .  70
+  Loaded call. . . . . . . . . . . . . . . . . . . . . . . . . . . .  70
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  70
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  70
+    Register use:. . . . . . . . . . . . . . . . . . . . . . . . . .  70
+  Reserved call. . . . . . . . . . . . . . . . . . . . . . . . . . .  71
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  71
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  71
+  Installed call . . . . . . . . . . . . . . . . . . . . . . . . . .  71
+    Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  71
+    Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  71
+*   Uninstall resident version . . . . . . . . . . . . . . . . . . . .  71
+*     Values taken:. . . . . . . . . . . . . . . . . . . . . . . . . .  71
+*     Values returned: . . . . . . . . . . . . . . . . . . . . . . . .  71
+
+Appendix F. REXXPC88 vs. REXX370 . . . . . . . . . . . . . . . . . .  72
+  Missing Features . . . . . . . . . . . . . . . . . . . . . . . . .  72
+  Added Features . . . . . . . . . . . . . . . . . . . . . . . . . .  72
+
+Appendix G. Bugs and Limitations . . . . . . . . . . . . . . . . . .  73
+
+Appendix H. Sample Program . . . . . . . . . . . . . . . . . . . . .  74
+
+Appendix I. Syntax Diagrams. . . . . . . . . . . . . . . . . . . . .  76
+
+Appendix J. Keywords . . . . . . . . . . . . . . . . . . . . . . . .  78
+
+Appendix K. Error messages . . . . . . . . . . . . . . . . . . . . .  79
+
+Index. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  80
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Table of Contents                                                    viii
+INTRODUCTION
+
+
+
+REXXPC88 is a command interpreter for the IBM Personal Computer.  It runs
+as an extension to the standard DOS command interpreter, COMMAND.COM, and
+accepts a program control language identical to (a subset of) the REXX
+language available on IBM  mainframe computers (herein after referred to
+as REXX370).
+
+REXXPC88 programs have a filetype of ".BAT", the same as the standard
+batch file programs currently recognized by DOS, but are distinguished
+from standard batch file programs by the first character of the file,
+* which must be the slash of a "/* REXXPC88 comment */" or the header of a
+* bi-lingual program ":/".  REXXPC88 programs may execute other REXXPC88
+programs recursively (i.e. the programs may be nested) however standard
+DOS ".BAT" programs may not be nested since DOS doesn't allow it.
+
+REXXPC88 feature summary:
+
+
+1.  structured programming constructs, somewhat in the style of PL/I
+    a.  conditionals (if..else)
+    b.  blocks (do..end)
+    c.  loops (do..repetitor..end)
+    d.  functions and procedures, with arguments and local variables
+2.  typeless data (everything, including numbers, is a string)
+3.  string oriented expression evaluation (automatic concatenation of
+    adjacent terms in expressions, undefined variables treated as li-
+     terals rather than as errors)
+4.  A special instruction for parsing strings into component words or
+    fields
+5.  a hierarchy for resolving function and procedure names
+    a.  user-defined functions and procedures (program labels)
+    b.  built-in functions and procedures
+    c.  external routines
+        1)  other REXXPC88 programs
+        2)  operating system commands
+        3)  compiled programs
+6.  operation is transparent to DOS batch file executor
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introduction                                                           1
+EXECUTING A REXXPC88 PROGRAM
+
+
+
+Command line syntax:
+
+[REXXIBM[r]] execname execargs [ rexxdelim [NNk] [NNf} [NNr] [c] [/u] ]
+
+where:
+
+REXXIBMr  installs the resident version
+REXXIBM   invokes the standalone version
+rexxdelim is "((" for DOS
+NNk       means "use workspace of NN kbytes"
+NNf       means "allow up to NN files open at once"
+NNr       means "allow reads UP to NN bytes", the default is 256
+    * /u        means uninstall previously installed copy of resident version.
+c         means "compile"
+
+Notes:
+
+1.  On all but the first invocation of the resident version, the NNk op-
+    tion is ignored.
+2.  On the first invocation of the resident version, the execname and
+    execargs are ignored.
+3.  If NNf is not specified, at most 5 files can be open at once.
+4.  If NNk is not specified, a workspace size of 14k is allocated.
+5.  The maximum possible workspace is 64k.
+6.  There is a subtle difference between the resident and standalone
+    versions concerning the NNr parameter.  The resident version remembers
+    the last use of NNr and the standalone version does not.
+    * 7.  ((/u is ONLY suported by REXXIBMR
+
+Note: These option characteristics are now treated correctly in upper as
+well as lower case.
+
+A REXXPC88 exec is executed by typing its name on the system command line
+followed by arguments to be passed to the exec followed by arguments to be
+passed to the REXXPC88 interpreter itself.  The latter must be preceded
+by double left parentheses.  If the standalone version of REXXPC88 is
+being used, the command line must be preceded by "REXXIBM".
+
+Arguments preceding the double left parentheses are passed to the REXXPC88
+exec exactly as they appear on the command line.  The other arguments are
+used to control the interpreter.  If the argument following the (( is NOT
+a REXXPC88 parameter the entire command line will be passed on to the
+REXXPC88 program.  Examples:
+
+  REXXIBM foo arg1 arg2 arg3 ((40k 10f
+  REXXIBM foo ((c
+  REXXIBMr ((40k
+  foo ((c
+  REXXIBM foo ((format)
+    *   REXXIBMr ((/u
+
+∙   The first example uses the standalone version of REXXIBM to execute
+    the exec names f00 with an argument of 'arg1 arg2 arg3', using 40k
+    for the interpreter's workspace and allowing up to 10 files open at
+    once.
+
+∙   The second example uses the standalone version of REXXIBM to compile
+    the exec named foo.  A 'compiled' exec will load much more quickly
+    than an 'uncompiled' exec, especially if it is too large.
+
+∙   The third example installs the REXXIBM interpreter as a resident DOS
+    extension, allocating a 40k workspace and allowing up to 5 files open
+    at once (the default).
+
+∙   The fourth example uses the resident interpreter to compile the exec
+    named foo.
+
+∙   the fifth example uses the standalone interpreter to execute the exec
+    named foo, passing '((format)' as the parameters.
+
+
+
+Executing a REXXPC88 Program                                           2
+∙   The  sixth  example attempts  to  uninstall  the  resident  processor.
+
+REXXPC88 does not actually compile in the conventional sense of producing
+executable machine code; rather, it converts the program into a list of
+tokens that can be quickly loaded and interpreted the next time the pro-
+gram is invoked.  The "tokenized" version of the program is simply ap-
+pended to the source text after the end of file mark, where it is
+invisible to system programs such as text editors and the 'type' command,
+but where it can be found by REXXPC88 the next time the program needs to
+* be executed.  If an end of file mark, x'1A' is not found one is appended
+* before the tokenized image is appended.  The program may be "de-tokenized"
+by simply editing it (since well behaved DOS editors don't read past the
+end of file mark).
+
+You can expect large REXXPC88 programs to load about 10 times faster if
+they have been "compiled" using the ((c option.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Executing a REXXPC88 Program                                           3
+SYNTACTIC ELEMENTS
+
+
+
+A REXXPC88 program is composed of comments, symbols, strings, and words.
+These are called tokens and are the basic syntactic elements of the lan-
+guage.
+
+
+
+COMMENTS
+
+
+A comment is anything enclosed within the character pairs "/*" and "*/".
+Comments may be nested and may span any number of lines.  Comments may
+appear between any two tokens of a REXXPC88 program.  A comment is syn-
+tactically equivalent to a single blank.  Examples:
+
+  /* this is a single comment */
+  /* this
+   * is
+   * a /* nested */ comment
+   */
+
+
+
+SYMBOLS
+
+
+A symbol is a single character which is neither a letter nor a digit.
+The following symbols are part of the REXXPC88 language:
+
+;     semicolon
+
+:     colon
+
+(     open paren
+
+)     close paren
+
++     plus
+
+-     minus
+
+*     asterisk
+
+/     slash
+
+%     percent
+
+=     equal
+
+<     less than
+
+>     greater than
+
+|     vertical bar (pc broken vertical bar)
+
+&     ampersand
+
+.     dot
+
+      blank
+
+\     unary not (pc backslash)
+
+
+
+
+
+
+
+
+
+
+
+Syntactic elements                                                     4
+STRINGS
+
+
+A string is
+
+1.  a sequence of characters enclosed in quotes (a character string)
+2.  a sequence of decimal digits (a decimal string)
+3.  a sequence of hexidecimal digits enclosed in quotes and followed by
+    "x"  (a hex string)
+
+Examples:
+
+  'This is quoted text'
+  'This line contains ''embedded'' quoted text'
+  '1234'
+  1234
+  '31323334'x
+  ''
+
+A character string is a list formed by concatenating the characters as
+given, but without the surrounding quotes.  A quote which appears twice
+in a row (as in the second example) is taken literally as part of the
+string.
+
+A decimal string is a list formed by concatenating the characters exactly
+as given.
+
+A hex string is a list formed by concatenating the characters whose values
+are equal to the hexidecimal codes specified within the quotes.  The
+quotes themselves (as well as the trailing "x") are discarded.  Each
+character is represented by two hexidecimal digits (0-9, a-f, A-F).  Each
+hexidecimal string  br represented by its two hexidecimal digits and no
+non-hexidecimal digits are allowed in the string except spaces (e.g.
+spaces are allowed between each pair of hex values).
+
+Notes on the preceding examples:
+
+1.  The strings in the third, fourth and fifth examples are all exactly
+ equivalent (on a non-ASCII machine, this would not be true for the
+fifth string).
+2.  A string may be empty, as in the last example.
+3.  Either double or single quotes may be used to delimit strings.
+4.  The values of the strings in the preceding examples, as they would
+    be printed by the say instruction are:
+
+      This is quoted text
+      This line contains 'embedded' quoted text
+      1234
+      1234
+      1234
+
+
+Observe that saying the empty string prints 0 characters.
+
+
+
+WORDS
+
+
+A word is any sequence of letters  or  digits.  The first character must
+be a letter.  Examples:
+
+  x
+  xyz
+  REXXIBM
+  aMixedCaseWord
+
+Words may be used as names of variables, as names of functions or proce-
+dures, as REXXPC88 language keywords, or as implicit literals (con-
+stants).  The latter is the default if none of the others apply (more on
+this later).
+
+
+
+
+
+Syntactic elements                                                     5
+A compound word is a sequence of words separated by dots.  The first word
+in such a sequence is called the stem.  The remaining words are called
+subscripts.  Examples:
+
+  foo.          /* a stem */
+  foo.1.2       /* a compound word */
+  foo.this.that /* another compound word */
+  foo..bar      /* still another */
+
+Compound words may be used as names of variables and to perform indexing
+and associative lookup operations (See "Compound variables" on page 31).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Syntactic elements                                                     6
+INSTRUCTIONS
+
+
+
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                           expression [ ; ]                            │
+└───────────────────────────────────────────────────────────────────────┘
+
+The expression is evaluated and passed to the operating system (as a
+string) for execution as a command or program.
+
+The special variable "rc" is assigned the exit code returned by the com-
+mand that was executed.  This variable may be examined to test for the
+successful completion of the command.  See "Appendix C. Special variables"
+on page 57.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                       name = expression [ ; ]                          │
+└────────────────────────────────────────────────────────────────────────┘
+
+The expression on the right is evaluated and assigned to the variable
+named on the left.  If the variable does not exist, it is created.  If
+the variable already exists, its old value is discarded and replaced by
+the new value.  The variable name appearing on the left may be spelled
+in either upper, lower, or mixed case, all of which refer to the same
+variable.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                                 name :                                │
+└───────────────────────────────────────────────────────────────────────┘
+
+This instruction marks the start of a user-defined procedure or function,
+but is otherwise a no-op.  Name is a label that may serve as the target
+of a procedure call or function reference from elsewhere in the program.
+Note that a semicolon need not follow a label.  The colon alone suffices.
+The label may be spelled in either upper, lower, or mixed case, all of
+which are equivalent.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│      ADDRESS [environment [expression] │ [VALUE] expression ] ;       │
+└───────────────────────────────────────────────────────────────────────┘
+
+The ADDRESS instruction is used to affect a temporary or permanent change
+to the destination of commands. Commands are strings sent to an external
+environment, and may be sent by clauses of just an expression, as well
+as by the ADDRESS instruction.
+
+To send a single command to a specified environment, an environment name
+followed by an expression is given.  The expression is evaluated, and the
+resulting command string is submitted to the given environment.  After
+execution of the command the previously selected environment will be un-
+changed.
+
+  Example:
+
+  address DOS 'DIR MOV1.ALL'
+
+would send the command 'DIR MOV1.ALL" to the environment called DOS.  The
+special variable RC is set, just as it would be for other commands. Errors
+and failures in commands executed this way are trapped or traced as usual.
+
+If only an environment name is specified, a new environment for commands
+is selected.  All following commands will be routed to the new command
+environment, until the next ADDRESS instruction is executed.  The previ-
+ously selected environment is saved.
+
+  Example:
+
+  address CMS   /* Send following command to CMS */
+  'STATE PROFILE EXEC'
+  if rc=0 then 'COPY PROFILE EXEC a TEMP = ='
+  address 'XEDIT' /* and now all commands to XEDIT */
+
+
+
+Instructions                                                           7
+Similarly, the VALUE form may be used to select a new environment - here
+the expression (which of course may be simply a reference to a variable)
+is evaluated, and the result forms the name of the new environment.  The
+sub-keyword VALUE may be omitted if the expression does not begin with a
+symbol or literal string (i.e., if it starts with a special character,
+such as an operator or parenthesis).
+
+If ADDRESS is specified without either an environment name or an ex-
+pression, then commands will be routed back to the environment that was
+selected before the previous lasting change on environment was made (and
+the current environment name is saved). Repeated execution of just "AD-
+DRESS" will therefore switch the command destination between two alter-
+native environments.
+
+The two environment names maintained by REXXPC88 are automatically saved
+across subroutine and internal function calls.  See the CALL instruction
+for more details.
+
+The current ADDRESS setting may be retrieved using the ADDRESS built-in
+function.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                        ARG [ template ] [ ; ]                         │
+└───────────────────────────────────────────────────────────────────────┘
+
+ARG is used to retrieve the argument string or strings provided to a
+program or internal routine and put them into variables.  It is just a
+shorter form of the instruction PARSE UPPER ARG [template];
+
+Unless a subroutine or internal function is being executed, the strings
+passed as parameters to the program will be translated to upper case and
+then parsed into variables according to the rules described in the section
+on parsing.  Use the PARSE ARG instruction if upper case translation is
+not desired.
+
+If a subroutine or internal function is being executed, then the data used
+will be the argument string(s) passed to the routine.
+
+The ARG (and PARSE ARG) instructions may be executed repeatedly (typically
+with different templates) and will always parse the same current data.
+There are no restrictions on the length or content of the data parsed
+except those imposed by the caller.
+
+In the case of a subroutine  or  internal function, multiple arguments
+may be parsed in a single instruction by placing a comma between the parse
+templates.  Each argument will be parsed according to the template in that
+position.
+
+Note: ALL variables in ALL templates will be assigned values even if the
+argument does not exist.  In this case the variables in the effected tem-
+plate will be assigned the NULL string ''.
+
+  call x '1 2 3 4','5 6 7 8','this is a test'
+  in x use the PARSE ARG instruction as follows:
+  parse arg a1 b1 c1 d1 , a2 b2 c2 d3 , a3 b3 c3 d3 , x1 x2 [;]
+
+  The variables will be assigned values as follows:
+
+  a1        '1'
+  b1        '2'
+  c1        '3'
+  d1        '4'
+  a2        '5'
+  b2        '6'
+  c2        '7'
+  d2        '8'
+  a3        'this'
+  b3        'is'
+  c3        'a'
+  d3        'test'
+  x         ''
+
+
+
+
+
+Instructions                                                           8
+Note: The parameters to a REXXPC88 program are treated as a single string,
+and as such are only ONE argument.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│       CALL    name   [expression]   [,expression]]...   [ ; ]         │
+└───────────────────────────────────────────────────────────────────────┘
+
+CALL is used to invoke a routine.  The routine may be an internal routine,
+an external routine or a built-in function.  It may optionally return a
+result, and is functionally identical to the clause
+
+result=name([expression] [,[expression]] ...);
+
+except that the variable RESULT will become uninitialized if no result
+is returned by the routine invoked.
+
+The name given in the CALL instruction must be a symbol, which is treated
+literally, or a literal string.  If a literal string is used for the name
+(that is, the name is specified in quotes) the search for internal labels
+is bypassed and only a built-in function or an external routine will be
+invoked.  Note that the names of built-in functions are in upper case,
+hence the name in the literal string MUST be in upper case for the search
+to succeed.
+
+The expressions following the name are evaluated in order from left to
+right, and for the argument string(s) during execution of the routine.
+The ARG and PARSE ARG instructions (and the ARG built-in function) will
+access these string(s) rather than any active previously, until control
+returns to the CALL instruction. Expressions may be omitted, if appropri-
+ate, by including "extra" commas.
+
+The CALL then causes a branch to the routine called name using exactly
+the same mechanism as function calls.  Therefore the CALL instruction may
+be used to invoke internal routines, external routines and programs, or
+even built-in functions.  The order of search for these routines is de-
+scribed below.
+
+Internal  (Unless the routine name is specified in quotes.) Internal
+          routines are sequences of REXXPC88 instructions inside the same
+          program, which starts at the label that matches the symbol fol-
+          lowing the keyword CALL.  The RETURN instruction is used to
+          complete execution of the routine.
+Built-in  These are routines defined as part of the language.  Most are
+          usually called as functions, and all return a string that con-
+          tains the result of the routine.
+External  It is usually possible to write or make use of routines that
+          are external to a program. These routines may be written in any
+          language (including REXXPC88) which supports the system de-
+          pendent interfaces used by the REXXPC88 language processor to
+          invoke them.  A REXXPC88 program may be invoked as a subroutine
+          by the CALL instruction, and in this case may be passed more
+          than one argument string.  These may be retrieved by using the
+          ARG or PARSE ARG instructions, or the ARG built-in function.
+
+          Note: Only REXXPC88 programs are currently supported.
+
+During execution of an internal routine, all variables previously known
+are normally accessable.  However, the Procedure instruction may be used
+to set up a local variables environment to protect the subroutine and
+caller from each other.  The EXPOSE option on the PROCEDURE instruction
+may further be used to expose selected variables to a routine.
+
+Eventually the subroutine should execute a RETURN instruction, and at that
+point, control will return to the original CALL instruction for com-
+pletion.  If the RETURN instruction specified an expression, then the
+variable RESULT will be set to the value of that expression.  Otherwise
+the variable RESULT is dropped (becomes uninitialized).
+
+Internal routines may include calls to other internal routines.  If a
+routine calls itself (either directly, or indirectly via one or more other
+routines), this is termed a recursive call.
+
+Note: The limit of CALL nesting is 70 for this version of REXXPC88.
+
+
+
+Instructions                                                           9
+During internal routine (and function) execution the following pieces of
+information are automatically saved and are then restored upon return from
+the routine:
+
+∙   The status of DO loops and other structures.
+∙   Trace settings.
+
+    Once a subroutine has been debugged, you may insert a "TRACE Off" (or
+    other appropriate setting) instruction at the beginning of it, and
+    this will not affect the tracing of the caller.  Conversely, if you
+    only wish to debug a subroutine, you could insert a "TRACE Results"
+    instruction at the start - tracing will automatically be restored to
+    the conditions at entry (for example, "Off") upon return.  Interactive
+    tracing status is included in the saved setting.
+
+  See "Procedures and Functions" on page 32 for details on the workings
+of a procedure call.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                DO [ repetitor ] [ conditional ][ ; ]                  │
+│                         [ instructionlist ]                           │
+│                         END [ symbol ] [ ; ]                          │
+│                                                                       │
+│ Where repetitor is one of:                                            │
+│                                                                       │
+│     name = expr [TO exprt] [BY exprb] (FOR exprf]                     │
+│                                                                       │
+│     exprr                                                             │
+│                                                                       │
+│     FOREVER                                                           │
+│                                                                       │
+│ and conditional is either of:                                         │
+│                                                                       │
+│     WHILE exprw                                                       │
+│                                                                       │
+│     UNTIL expru                                                       │
+│                                                                       │
+│ and instructionlist                                                   │
+│                                                                       │
+│     is any sequence of instructions.                                  │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
+
+The DO instruction is used to group instructions together and optionally
+to execute them repetitively.  During repetitive execution a control var-
+iable, name, may be stepped through a series of values.
+
+Syntax notes:
+
+∙   exprr, expri, exprb, exprt and exprf may be any expression that
+    evaluates to a number.  exprr and exprf are further restricted to re-
+    sult in a non-negative whole number.
+∙   exprw or expru may be any expression that evaluates to a '1' or '0'.
+∙   the TO, BY and FOR phrases may be in any order and will be evaluated
+    in the order they are written.
+∙   any instruction is allowed in instructionlist, including any of the
+    more complex constructs such as IF, SELECT, or the DO instruction
+    itself.
+∙   the sub-keywords TO, BY, FOR, FOREVER, WHILE, and UNTIL are reserved
+    within a DO instruction, in that they cannot name variables in the
+    expression(s).
+∙   exprb defaults to '1', if relevant.
+
+DO is the most complex of the REXXPC88 instructions.  It can be treated
+as a simple grouping construct, a pre-determined repetitive loop, and as
+a loop with a bounding condition that is recalculated on each iteration.
+
+Simple DO group
+
+If neither repetitor nor conditional is given, then the construct merely
+groups a number of instructions together; these are executed once.
+
+
+
+
+
+Instructions                                                          10
+  Example:
+
+     if a=3 then do
+       a=a+2
+       say 'Smile!'
+     end
+
+If either repetitor or conditional is given, the group of instructions
+forms a repetitive DO loop, and the instruction list is executed according
+to the repetitor phrase, optionally modified by the conditional phrase.
+
+Simple repetitive loops
+
+If the repetitor is FOREVER (or if no repetitor is given, but there is a
+conditional, see below), then the instruction list will nominally be ex-
+ecuted "forever", that is until the condition is satisfied or a LEAVE,
+SIGNAL, EXIT, or RETURN instruction is executed.
+
+  Example:
+
+  do forever
+    say 'Go caving!'
+     if random(5)=1 then leave
+     end
+
+Alternatively, in the numeric form or repetitor, the expression exprr is
+evaluated immediately (and must result in a whole number that is 0 or
+positive), and the loop is then executed that many times.
+
+  Example:
+
+  do 5
+    say 'Hello'
+  end
+
+Note that, similar to the destinction between a command and an assignment,
+if the first token of exprr is a symbol and the second token is an "=",
+then the controlled form of repetitor is expected.
+
+Controlled repetitive loops
+
+The controlled form specifies a control variable, name,  which is given
+an initial value (the result of expri) before the first execution of the
+instruction list.  The variable is then stepped (by adding the result of
+exprb before the second and subsequent times that the instruction list
+is executed.
+
+The instruction list is executed repeatedly while the end condition (de-
+termined by the result of exprt) is not met.  If exprb is positive, then
+the loop will be terminated when name is greater than exprt.
+
+The expressions expri, exprt, and exprb must result in numbers.  They are
+evaluated only once, before the loop begins and before the control vari-
+able is set to its initial value.  The default value for exprb is 1.  If
+no exprt is given then the loop will execute indefinitely unless it is
+terminated by some other condition.
+
+  Example:
+
+  do i=3 to -2 by -1
+    say i
+  end
+  /* would type out: 3,2,1,0,-1,-2 */
+
+Note that the numbers do not have to be whole numbers.
+
+
+
+
+
+
+
+
+
+
+
+Instructions                                                          11
+  Example:
+
+  x=0.3
+  do y=x to x+4 by 0.7
+    say y
+  end
+  /* would type out: 0.3, 1.0, 1.7 */
+
+
+The control variable may be altered within the loop, and this may affect
+the interation of the loop.  Altering the value of the control variable is
+normally considered to be suspect programming practice, though it may be
+appropriate in certain circumstances.
+
+Note that the end condition is tested at the start of each iteration (and
+after the control variable is stepped, on the second and subsequent it-
+ations).  It is therefore possible for the instruction list to be skipped
+entirely if the end condition is met immediately.
+
+Note also that the control variable is referenced by name.  If, for exam-
+ple, the compound name "A.I" was used for the control variable, then al-
+tering "I" within the loop will cause a change in the control variable.
+
+The execution of a controlled loop may further be bounded by a FOR phrase.
+In this case, exprf must be given and must evaluate to a non-negative
+whole number.  This acts just like the repetition count in a simple re-
+petitive loop, and sets a limit to the number of iterations around the
+loop if it is not terminated by some other condition.  Like the TO and BY
+expressions it is evaluated once only, when the DO instruction is first
+executed and before the control variable is given its initial value. Like
+the TO condition, the FOR count is checked at the start of each iteration.
+
+  Example:
+
+  do y=0.3 to 4.3 by 0.7 for 3
+    say y
+  end
+  /* would type out: 0.3, 1.0, 1.7 */
+
+In a controlled loop, the symbol describing the control variable may be
+specified on the END clause.  REXXPC88 will then check that the symbol
+exactly matches the symbol naming the control variable in the DO clause
+(in all respects except case).  Note that no substitution for compound
+variables is carried out.  If the symbol does not match, then the program
+is in error - this enables the nesting of loops to be checked automat-
+ically.
+
+  Example:
+
+  do K=1 to 10
+    ...
+    ...
+  end k    /* checks that this is the END for K loop */
+
+Note: The values taken by the control variable may be affected by the
+NUMERIC settings, since normal REXXPC88 arithmetic rules apply to the
+computation of the stepping of the control variable.
+
+Conditional phrases (WHILE and UNTIL)
+
+Any of the forms of repetitor (none, FOREVER, numeric or controlled) can
+be followed by a conditional phrase which may cause termination of the
+loop.  If WHILE or UNTIL is specified, the expression following it is
+evaluated each time around the loop using the latest values of all vari-
+ables (and must evaluate to either '0' or '1'), and the instruction list
+will be repeatedly executed either while the results is '1', or until the
+result is '1'.
+
+For a "WHILE" loop, the condition is evaluated before the instruction list
+is executed, and for an "UNTIL" loop the condition is evaluated after the
+instruction list is executed - before the control variable has been
+stepped.
+
+
+
+
+Instructions                                                          12
+  Example:
+
+  do i=1 to 10 by 2 until i>6
+    say i
+  end
+  /* would type out: 1, 3, 5, 7 */
+
+Note that the execution of repetitive loops may also be modified by using
+the LEAVE or ITERATE instructions.
+
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                          DROP namelist [ ; ]                          │
+└───────────────────────────────────────────────────────────────────────┘
+
+This instruction causes subsequent references to the variables named in
+namelist to return the name of the variable rather than the value of the
+variable (i.e. the variables become uninitialized).  This instruction
+frees the storage used by the named variables and makes it available for
+re-use by other variables.  If any of the variables in namelist are stems,
+then all variables with the same stem are dropped (including variables
+that may be shared with other procedures via the EXPOSE instruction).  It
+is not an error to specify a name more than once, or to DROP a variable
+that is not known.
+
+  For example:
+  proc1:
+  list.  = '???'
+  list.1 = 'foo'
+  list.2 = 'bar'
+  call proc2
+  return
+
+           /* share 'list.' with proc1          */
+  proc2: procedure expose list
+  say  list.1 list.2    /* says 'foo bar'       */
+  drop list.1
+  say  list.1 list.2    /* says '??? bar'       */
+  drop list.
+  say  list.1 list.2    /* says 'list.1 list.2' */
+  return
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                       EXIT [ expression ] [ ; ]                       │
+└───────────────────────────────────────────────────────────────────────┘
+
+EXIT is used to unconditionally leave a program, and optionally return a
+character string to the caller.  The program is terminated immediately,
+even if an internal routine is currently being executed.  If no internal
+routine is active, then RETURN and EXIT are identical in function.
+
+If an expression is given, it is evaluated and the string resulting from
+the evaluation is then passed back to the caller when the program termi-
+nates.  If no expression is given, no character string is passed back to
+the caller.
+
+Note:
+
+    "Running off the end" of a program is always equivalent to the in-
+    struction "EXIT;", in that it terminates the whole program and returns
+    no result string.
+
+    Note: This is a change from previous releases of REXXPC88.
+    Also, for PC/DOS the string resulting from expression is lost.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│          IF   expression [ ; ] THEN [ ; ] instruction1 [ ; ]          │
+│                   [ ELSE [ ; ] instruction2 ] [ ; ]                   │
+└───────────────────────────────────────────────────────────────────────┘
+
+The IF instruction is used to conditionally execute an instruction or
+group of instructions.  It can also be used to select between two alter-
+natives.
+
+
+
+Instructions                                                          13
+The expression is evaluated and must result in '0' or '1'.  If the
+result was '1' then the instruction after the THEN is executed.  If the
+result was '0' and an ELSE was given, then the instruction after the ELSE
+is executed.
+
+  Example:
+
+  if answer='YES' then say 'OK!'
+                  else say 'Why not?'
+
+Remember that if the ELSE clause is on the same line as the last clause
+of the THEN part, then you need a semicolon to terminate the clause.
+
+  Example:
+
+  if answer='YES' then say 'OK!'; else say 'Why not?'
+
+The ELSE binds to the nearest IF at the same level.  This means that any
+IF that is used as the instruction following the THEN in an IF construct
+that has an ELSE clause, must itself have an ELSE clause (which may be
+followed by the dummy instruction, NOP).
+
+  Example:
+
+  if answer='YES' then if name='FRED' then say 'OK,Fred.'
+                                      else say 'OK.'
+                  else say 'Why not?'
+
+Note:
+
+∙   An instruction includes all the more complex constructions such as
+    DO groups and SELECT groups, as well as simpler ones and the IF in-
+    struction itself.  A null clause is not an instruction, so putting an
+    extra semicolon after a WHEN clause is not equivalent to putting a
+    dummy instruction (as it would be in PL/I).  The NOP instruction is
+    provided for this purpose.
+∙   A variable called THEN cannot be used within expression, because the
+    keyword THEN is treated differently, in that it need not start a
+    clause.  This allows then expression on the WHEN clause to be termi-
+    nated by the THEN, without a ; (delimiter) being required - this is
+    consistent with the treatment of THEN following an IF clause.
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                      INTERPRET expression [ ; ]                      │
+└──────────────────────────────────────────────────────────────────────┘
+
+INTERPRET is used to execute instructions that have been built dynamically
+by evaluating an expression (in contrast to those that already exist in
+the program).
+
+The expression is evaluated, and will be executed (interpreted) just as
+though the result string were a line inserted in the program (and brack-
+eted by a DO; and an END;).
+
+Any instructions (including INTERPRET instructions) are allowed, but note
+that construction such as DO...END and SELECT...END must be complete. For
+example, a string of instructions being interpreted cannot contain a LEAVE
+or ITERATE instruction (valid only within a repetitive  DO loop) unless
+it also contains the whole repetitive DO...END construct.  Label clauses
+are not permitted in the interpreted character string.
+
+A semicolon is implied at the end of the expression during execution, as
+a service to the user.
+
+  Example:
+
+  data='FRED'
+  interpret data '= 4'
+  /* Will a) build the string "FRED = 4"       */
+  /*      b) execute "FRED = 4"                */
+  /* Thus the variable FRED will be set to '4' */
+
+
+
+
+
+Instructions                                                          14
+Note: If you are new to the concept of the INTERPRET instruction and are
+getting results that you do not understand, then you may find that exe-
+cuting it with "TRACE R" or "TRACE I" set is useful.
+
+  Example:
+
+  The program:
+
+  /* here we have a small program */
+  trace Intermediates
+  name='Kitt'
+  Indirect='name'
+  Interpret 'say "Hello"' Indirect'"!"'
+
+
+  when run gives the trace:
+
+
+  *-*  name='Kitt'
+  >L>    "Kitt"
+  *-*  Indirect='name'
+  >L>    "name"
+  *-*  Interpret 'say "Hello"' Indirect'"!"'
+  >L>    "say "Hello""
+  >V>    "name"
+  >O>    "say "Hello" name"
+  >L>    ""!""
+  >O>    "say "Hello" name"!""
+  *-*  say "Hello" name"!"
+  >L>    "Hello"
+  >V>    "Kitt"
+  >O>    "Hello Kitt"
+  >L>    "!"
+  >O>    "Hello Kitt!"
+  Hello Kitt!
+
+Here, as shown in the trace, two assignments set the variables used in
+the INTERPRET instruction.  Execution of the INTERPRET instruction pro-
+ceeds in two stages. First the string to be interpreted is built up, using
+a literal string, a variable (INDIRECT), and another literal string.  The
+resulting pure character string is then interpreted, just as though it
+were actually part of the original program.  Since it is a new clause, it
+is traced as such (the second "*-*" trace flag under the interpret in-
+struction) and is then executed.  Again a literal string is concatenated
+to the value of the variable (NAME) and another literal string, and the
+final result ("Hello Kitt!") is then displayed.
+
+For many purposes, the VALUE function may be used instead of the INTERPRET
+instruction.  The last example INTERPRET instruction could have been re-
+placed by:
+
+say "Hello" value(indirect)"!"
+
+INTERPRET is usually required only in special cases such as when more than
+one instruction is to be interpreted at once, or when an expression  is
+to be evaluated dynamically.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                        ITERATE [ name ] [ ; ]                         │
+└───────────────────────────────────────────────────────────────────────┘
+
+ITERATE alters the flow within a repetitive DO loop (that is, any DO
+construct other than the plain DO).
+
+Execution of the group of instructions stops, and control is passed to
+the DO instruction just as though the bottom of the group of instructions
+had been reached.  The UNTIL expression (if any) is tested, the control
+variable (if any) is incremented and tested, and the WHILE expression (if
+any) is tested.  If these tests indicate that the conditions of the loop
+have not yet been satisfied, the group of instructions is executed again
+(iterated), beginning at the top.
+
+If name is not specified, ITERATE will step the innermost active repeti-
+tive loop.  If name is specified, it must be the name of the control var-
+
+
+Instructions                                                          15
+iable of a currently active loop (which may be the innermost), and this
+is the loop that is stepped. Any active loops inside the one selected for
+iteration are terminated (as though by a LEAVE instruction).
+
+  Example:
+
+  do i=1 to 4
+    if i=2 then iterate
+    say i
+  end
+  /* would display the numbers: 1, 3, 4 */
+
+Note:
+
+1.  The name, if specified, must match that on the DO instruction exactly.
+    No substitution for compound variables is carried out when the com-
+    parison  is made.
+2.  A loop is active if it is currently being executed.  If a subroutine
+    is called during execution of the loop, the loop becomes inactive
+    until the subroutine has returned.  ITERATE cannot be used to step an
+    inactive loop.
+3.  If more than one active loop uses the same control variable, the
+    innermost loop will be the one selected by ITERATE.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                         LEAVE [ name ] [ ; ]                          │
+└───────────────────────────────────────────────────────────────────────┘
+
+LEAVE causes immediate exit from one or more repetitive DO loops (i.e.,
+any DO construct other than that with a plain DO).
+
+Execution of the instruction list is terminated, and control is passed to
+the instruction following the END clause, just as though the END clause
+had been encountered and the termination condition had been met normally,
+except that on exit the control variable (if any) will contain the value
+it had when the LEAVE instruction was executed.
+
+If no name is specified, then LEAVE will terminate the innermost active
+repetitive loop.  If a name is specified, then it must be the name of the
+control variable of a currently active loop (which may be the innermost),
+and that loop (and any active loops inside it) is then terminated. Control
+then passes to the clause following the END that matches the DO clause
+of the selected loop.
+
+  Example:
+
+  do i=1 to 5
+    say i
+    if i=3 then leave
+  end
+  /* would type out the numbers: 1, 2, 3 */
+
+Note:
+
+1.  The name, if specified, must match that on the DO instruction exactly.
+    No substitution for compound variables is carried out when the com-
+    parison  is made.
+2.  A loop is active if it is currently being executed.  If a subroutine
+    is called during execution of the loop, the loop becomes inactive
+    until the subroutine has returned.  LEAVE cannot be used to terminate
+    an inactive loop.
+3.  If more than one active loop uses the same control variable, the
+    innermost loop will be the one selected by LEAVE.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                               NOP [ ; ]                               │
+└───────────────────────────────────────────────────────────────────────┘
+
+NOP is a dummy instruction that has no effect.  It can be useful as the
+target of an ELSE, WHEN, or THEN clause.
+
+
+
+
+
+
+Instructions                                                          16
+  Example:
+
+  Select
+    when a=b then nop    /* do nothing */
+    when a>b then say 'A > B'
+    otherwise     say 'A < B'
+  end
+
+Note: Putting an extra semicolon instead of the NOP would merely insert
+a null clause, which would just be ignored by REXXPC88.  The second WHEN
+clause would then immediately follow the first, and hence would be treated
+as a syntax error.  NOP is a true instruction, however, and is therefore
+a valid target for the WHEN clause.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                  NUMERIC DIGITS [ expression ] [ ; ]                  │
+│                   NUMERIC FUZZ [ expression ] [ ; ]                   │
+│                   NUMERIC FORM [ SCIENTIFIC ] [ ; ]                   │
+│                   NUMERIC FORM [ ENGINEERING ] [ ; ]                  │
+│              NUMERIC FORM [ [ VALUE ] expression ] [ ; ]              │
+└───────────────────────────────────────────────────────────────────────┘
+
+The NUMERIC instruction is used to change the way in which arithmetic
+operations are carried out.  The effects of this instruction are as
+follows:
+
+NUMERIC DIGITS controls the precision to which arithmetic operations will
+          be computed.  The expression (if specified) must evaluate to a
+          positive whole number.  If no expression is given then the de-
+          fault value of 9 is used.  The value used must be larger than
+          the current FUZZ setting.
+
+          Note: The implementation maximum is 9.
+
+          Note that small values of NUMERIC DIGITS (for example, values
+          less than 6) are generally only useful fore specialized appli-
+          cations.  The setting of NUMERIC DIGITS affects ALL computa-
+          tions, so even the operation of loops may be affected by
+          rounding if small values are used.
+
+          The current setting of NUMERIC DIGITS  may be retrieved with
+          the DIGITS built-in function.
+
+NUMERIC FORM controls which form of exponential notation is to be used by
+          REXXPC88.  This may be either scientific (in which case only
+          one, non-zero, digits will appear before the decimal point),
+          or engineering (in which case the power of ten will always be
+          a multiple of three).  The default is scientific.
+
+          The form is set either directly by the sub-keywords SCIENTIFIC
+          or ENGINEERING, or is taken from the result of evaluating the
+          expression following VALUE.  The result in this case MUST be
+          either 'SCIENTIFIC' or 'ENGINEERING'.  The sub-keyword VALUE
+          may be omitted if the expression does not begin with a symbol
+          or a literal string (i.e., if it starts with a special charac-
+          ter, such as an operator or parenthesis).
+
+          The current setting of NUMERIC FORM may be retrieved with the
+          FORM built-in function.
+
+NUMERIC FUZZ controls how many digits, at full precision, will be ignored
+          during a numeric comparison operation.  The expression (if
+          specified) must result in a zero or positive whole number that
+          must be less than the current DIGITS setting.  If no expression
+          is given then the default value of 0 is used.
+
+          The effect of NUMERIC FUZZ is to temporarily reduce the value
+          of NUMERIC DIGITS the NUMERIC FUZZ value during every numeric
+          comparison operation, so that numbers are subtracted under a
+          precision of DIGITS-FUZZ digits during the comparison and the
+          result is then compared with 0.
+
+          The current setting of NUMERIC FUZZ may be retrieved with the
+          FUZZ built-in function.
+
+
+Instructions                                                          17
+          Note: The three numeric settings are automatically saved across
+          subroutine and internal function calls.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                       OPTIONS expression [ ; ]                        │
+└───────────────────────────────────────────────────────────────────────┘
+
+The OPTIONS instruction is used to pass special requests to the language
+processor.
+
+There are no recognized options at this time. The result of the expression
+is ignored.  This instruction is supplied as part of the 3.5 spec level
+support.
+
+┌───────────────────────────────────────────────────────────────────────┐
+│                PARSE [UPPER]   SOURCE   template [ ; ]                │
+│                PARSE [UPPER]   VERSION   template [ ; ]               │
+│         PARSE [UPPER]   VALUE   expression WITH template [ ; ]        │
+│               PARSE [UPPER]   VAR   name template [ ; ]               │
+│                  PARSE [UPPER]   ARG   template [ ; ]                 │
+│                 PARSE [UPPER]   PULL   template [ ; ]                 │
+│                PARSE [UPPER]   LINEIN   template [ ; ]                │
+└───────────────────────────────────────────────────────────────────────┘
+
+The PARSE instruction is used to assign data (from various sources) to
+one or more variables according to the rules described in the section on
+parsing.
+
+If UPPER is specified, then any character strings to be parsed are first
+translated to upper case. Otherwise no translation takes place during the
+parsing.
+
+If no template is given, then no variables will be set but action will
+be  taken to get the data ready for parsing if necessary.  Thus for PARSE
+LINEIN and PARSE PULL a line will be removed from the appropriate char-
+acter stream or data queue, for PARSE VALUE the expression will be eval-
+uated, and for PARSE VAR the variable will be checked to ensure that it
+has a value.
+
+The following list describes the data used for each variant of the PARSE
+instruction.
+
+PARSE ARG The string(s) passed to the program, subroutine, or function
+          as the input arguments are parsed.
+
+          The argument string(s) to a REXXPC88 program may also be re-
+          trieved or checked by using the ARG built-in function.
+
+PARSE LINEIN  The next line from the default character input stream is
+          parsed. PARSE LINEIN is a shorter form of the instruction PARSE
+          VALUE LINEIN() WITH [template];
+
+          If no line is available, program execution will normally pause
+          until a line is complete.  Note that PARSE LINEIN should only
+          be used when direct access to the character input stream is
+          necessary.  Normnal line-by-line dialogue should be carried out
+          with the PULL or PARSE PULL instructions, to maintain general-
+          ity and programmability.
+
+          The number of lines available in the default character input
+          stream may be found with the LINES built-in function.
+
+PARSE PULL The next string from the data queue is parsed.  The queue is
+          implementation defined, but will at least support the ability
+          to save a series of arbitrary data strings of reasonable length.
+          If the data queue is empty, lines will be read from the default
+          character input stream, and the program will pause if necessary
+          until a line is complete.
+
+          Strings can be added to the head or tail of the queue using the
+          PUSH and QUEUE instructions respectively.  The queue may also
+          be altered by other programs in the system, and may be usable
+          as a means of communication between programs.
+
+
+
+Instructions                                                          18
+          The number of lines currently in the data queue may be found
+          with the QUEUED built-in function.
+
+PARSE SOURCE  The character string parsed describes the source of the
+          program being executed in some implementation dependent way.
+          The string is fixed (will not change) during the execution of
+          the program.  The first word will identify the system or im-
+          plementation under which execution is progressing, the second
+          should state how the program was invoked, and the remainder is
+          entirely implementation dependent but would normally include
+          the full name of the program.
+
+          For example, under IBM PC/DOS, the string contains the charac-
+          ters "MSDOS", followed by either "COMMAND", "FUNCTION", or
+          "SUBROUTINE" depending on whether the program was invoked as
+          some kind of command (for example, a Batch file or editor
+          macro), or from a function call in an expression, or via the
+          CALL instruction. The two words are followed by the drive, path,
+          and filename and extension of the program being executed.
+
+          The string parsed might therefore look like this MSDOS COMMAND
+          c:\tools\logon.bat or MSDOS FUNCTION c:\tools\cleanup.bat
+
+PARSE VALUE  The expression is evaluated, and the resulting character
+          string is parsed. If no expression is given then the null string
+          is used.
+
+          Note: WITH is a sub-keyword in this context and is reserved
+          because it marks the end of the expression.  It cannot be used
+          as a symbol within the expression.
+
+PARSE VAR The value of the variable specified by name is parsed.  The name
+          must be a symbol that is valid as a variable name (i.e., it may
+          not start with a period or digit).  The variable itself is not
+          changed  unless  it  appears  in  the  template,  so  that  for
+          example: parse var string word1 string will remove the first
+          word from STRING and put it in the variable WORD1, and assign
+          the remainder back to STRING.
+
+PARSE VERSION Information describing the language level and the date of
+          the language processor is parsed.  This consists of five words
+          delimited by blanks.  They are:
+          1.  A word describing the language.  The first four letters will
+              be the characters "REXX", and the remainder may be used to
+              identify a particular implementation or processor.  This
+              word may not include any periods.
+
+              Note:  For this release onward, the string will be
+              "REXXPC88"
+          2.  The language level description, for example, "3.50".  For
+              this release the level number is "0.55"
+          3.  Three tokens describing the language processor release date
+              in the foormat as the default for the DATE() function.  For
+              this release (0.55) the date string is "23 June 1987"
+
+Note: The template on the PARSE instruction may refer to more than one
+string only if PARSE ARG is specified.  The other options process a single
+string and so a comma special operator may not be included in the template
+(except within a literal string pattern, i.e., in quotes).
+
+  This rather complex instruction is described in a separate section (See
+"The Parse Instruction" on page 51).
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                  PROCEDURE [ EXPOSE namelist ] [ ; ]                   │
+└────────────────────────────────────────────────────────────────────────┘
+
+The PROCEDURE instruction may be used within an internal routine (sub-
+routine or function) to protect all the existing variables by making them
+unknown to following instructions.  Selected variables may be exposed to
+the internal routine by using the EXPOSE option.  On executing a RETURN
+instruction, the original variables environment is restored, and any
+variables used in the routine which were not exposed are dropped.
+
+
+
+Instructions                                                          19
+A routine need not include a PROCEDURE instruction, in which case the
+variables it is manipulating are those "owned" by the caller.  If a PRO-
+CEDURE instruction is included, it MUST be the first instruction executed
+after the call or function invocation - that is, it must be the first
+instruction following the label.
+
+If the EXPOSE option is used, then the specified variables of the caller
+are exposed, so that any references to them (including setting them and
+dropping them) refer to the variables environment owned by the caller.
+Hence the values of existing variables are accessible, and any changes
+are persistent even on RETURN from the routine.
+
+The symbols in namelist must be valid variable names and are exposed in
+sequence from left to right.  It is not an error to specify a name more
+than once, or to specify a name that has not been used as a variable by
+the caller.
+
+  j=1; x.1='a'
+  call somevars
+  say j k m     /* would type '1 7 M' */
+  exit
+
+  somevars: procedure expose j k x.j
+  say j k x.j   /* would type '1 K a' */
+  k=7; m=3      /* note "M" is not exposed */
+  return
+
+Note that if the "X.J" in the expose list had been placed before the "J"
+then the caller's value of "J" would not have been visible at that time,
+so "X.1" would not have been exposed.
+
+An entire collection of variables may be exposed by specifying their stem
+in namelist.  (The stem is that part of the name up to and including the
+first period).  Again, the variables are exposed for all operations.
+
+Variables may be exposed through several generations of routines, if de-
+sired, by ensuring that they are included (exposed) on all intermediate
+PROCEDURE instructions.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                        PULL [ template ] [ ; ]                         │
+└────────────────────────────────────────────────────────────────────────┘
+
+PULL is used to read a string from the data queue. It is just a short form
+of the instruction
+
+    PARSE UPPER PULL [template] [;]
+
+The current head-of-queue will be read as one string.  If no template is
+specified, no further action is taken (and the data is thus effectively
+discarded). Otherwise the data is translated to upper case and then parsed
+into variables according to the rules described in the section on parsing.
+Use the PARSE PULL instruction if upper case translation is not desired.
+
+  Example:
+
+  say 'Do you want to erase the file? Answer Yes or No:'
+  pull answer .
+  if answer='YES' then erase filename
+
+Here the dummy placeholder "." is used on the template so the first word
+typed by the user is isolated ready for the comparison.
+
+The number of lines currently in the data queue may be found with the
+QUEUED built-in function.
+
+Note: If the data queue is empty, then a console read will occur.  If you
+"type-ahead" before a REXXPC88 program asks for your input, then your
+input will be read at the appropriate timne.  The length of the console
+input buffer can be up to 127 characters.
+
+
+
+
+
+
+Instructions                                                          20
+┌────────────────────────────────────────────────────────────────────────┐
+│                       PUSH [ expression ] [ ; ]                        │
+└────────────────────────────────────────────────────────────────────────┘
+
+The string resulting from the expression will be stacked LIFO (Last In,
+First Out) onto the data queue.  If no expression is specified, a null
+string is stacked.
+
+  Example:
+
+  a="Fred'
+  push      /* Puts a null line onto the stack */
+  push a 2  /* Puts "Fred 2"    onto the stack */
+
+
+The number of lines currently in the data queue may be found with the
+QUEUED built-in function.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                      QUEUE [ expression ] [ ; ]                        │
+└────────────────────────────────────────────────────────────────────────┘
+
+The string resulting from expression will be queued onto the data queue.
+Stacked FIFO (First In, First Out).  If no expression is specified, a null
+string is queued.
+
+  Example:
+
+  a='Toft'
+  queue a 2   /* Enqueues "Toft 2" */
+  queue       /* Enqueues a null line behind the last */
+
+The number of lines currently on the data queue may be found with the
+QUEUED built-in function.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                      RETURN [ expression ] [ ; ]                       │
+└────────────────────────────────────────────────────────────────────────┘
+
+RETURN is used to return control (and possibly a result) from a REXXPC88
+program or internal routine to the point of its invocation.
+
+If no  internal  routine (subroutine or function) is active, then RETURN
+is essentially identical to EXIT.
+
+If a subroutine is being executed (see the CALL instruction) then the
+expression (if any) is evaluated, control passes back to the caller, and
+the variable "RESULT" is set to the value of the expression.  If no ex-
+pression is specified, the variable "RESULT" is dropped (becomes unini-
+tialized).  The various settings saved at the time of the CALL (tracing,
+etc) are also restored - see under the CALL instruction for details of
+these.
+
+If a function is being executed, then the action taken is identical, ex-
+cept that an expression must be specified on the RETURN instruction.  The
+result of the expression is then used in the original expression at the
+point where the function was invoked.
+
+If a PROCEDURE instruction was executed  within the routine  (subroutine
+or internal function), then all local variables are dropped (and the
+previous generation is exposed) after the expression is evaluated and
+before the result is used or assigned to "RESULT".
+
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                        SAY   expression [ ; ]                          │
+└────────────────────────────────────────────────────────────────────────┘
+
+The evaluated expression is written to the standard output stream, fol-
+lowed by a carriage return and a linefeed.
+
+
+
+
+
+
+Instructions                                                          21
+┌────────────────────────────────────────────────────────────────────────┐
+│                             SELECT  [ ; ]                              │
+│                                whenlist                                │
+│             [ OTHERWISE [ ; ] [ instructionlist ] ]                    │
+│                            END [ ; ]                                   │
+│                                                                        │
+│ where whenlist is :                                                    │
+│                                                                        │
+│ one or more whenconstructs                                             │
+│                                                                        │
+│ and whenconstruct is:                                                  │
+│                                                                        │
+│ WHEN expression[;] THEN [;] instructionlist                            │
+│                                                                        │
+│ and instructionlist is:                                                │
+│                                                                        │
+│ any sequence of instructions.                                          │
+└────────────────────────────────────────────────────────────────────────┘
+
+SELECT is used to conditionally execute one of several atlernative in-
+structions.
+
+Each expression following a WHEN is evaluated in turn and must result in
+0 or 1.  If the result is 1, the instruction following the THEN ( which
+may be a complex instruction such as IF, DO, SELECT) is executed and
+control will then pass to the END.  If the result is 0, control will pass
+to the next when clause.
+
+If none of the WHEN expressions succeed, control will pass to the
+instruction(s), if any, following OTHERWISE.  In this situation, the ab-
+sence of an OTHERWISE will cause an error.
+
+  Example:
+
+    a=words(x)
+    select
+        when a=0 then do
+             say 'no words in a'
+             iterate
+        end
+        when a>10 then say 'can''t handle more than 10 words in a string'
+        otherwise
+    end
+
+Notes:
+
+∙   A null clause is not an instruction, so putting an extra semicolon
+    after a WHEN clause is not equivalent to putting a dummy instruction
+    (as it would be in PL/I).  The NOP instruction is provided for this
+    purpose.
+∙   A variable called THEN cannot be used within expression, because the
+    keyword THEN is treated differently, in that it need not start a
+    clause.  This allows the expression on the WHEN clause to be termi-
+    nated by the THEN, without a ; (delimiter) being required - this is
+    consistent wiith the treatment of THEN following an IF clause.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                        SIGNAL  labelname [ ; ]                         │
+│                   SIGNAL [ VALUE ] expression [ ; ]                    │
+│                  SIGNAL [ ON │ OFF ] condition [ ; ]                   │
+│                                                                        │
+│                                                                        │
+│ wnere condition  or labelname is a single symbol or                    │
+│ literal string which is taken as a constant,                           │
+│ and expression evaluates to a label name.                              │
+└────────────────────────────────────────────────────────────────────────┘
+
+In case of neither ON or OFF being specified:
+
+A label name is either taken directly from labelname, or is taken from
+the result of evaluating the expression following VALUE.  The sub-keyword
+VALUE may be omitted if the expression does not begin with a symbol or a
+literal string (i.e., if it starts with a special character, such as an
+operator or parenthesis).
+
+
+Instructions                                                          22
+All active pending DO loops, DO groups, IF constructs, SELECT constructs,
+and INTERPRET instructions in the current routine are then terminated
+(i.e., they cannot be reactivated).  Control then passes to the first
+label in the program that matches the given name, as though the search
+had started from the top of the program.  If labelname is a symbol, the
+matching takes place independently of alphabetic case, but otherwise the
+label must match exactly.
+
+In case of either ON or OFF being specified:
+
+A particular exception trap is either enabled or disabled.  The specified
+condition must be one of the following:
+
+HALT      raised if an external attempt is made to interrupt execution
+          of the program.
+
+          This error is raised if either Control-Break or Control-C is
+          pressed while the REXXPC88 program is execution.
+NOVALUE   raised if an uninitialized variable is used in an evaluated
+          expression of following the VAR sub-keyword of the PARSE in-
+          struction, (or in a compound variable in either of these cir-
+          cumstances).
+SYNTAX    raised if an interpretation error is detected.
+
+If ON is specified, the given condition is enabled; and if OFF is speci-
+fied, the condition is disabled.  The initial setting of all conditions
+if OFF.
+
+When a condition is currently enabled and the specified event occurs,
+instead of the usual action at that point, execution of the current in-
+struction will immediately cease.  A "SIGNAL XXX" (where XXX is HALT,
+NOVALUE, or SYNTAX) is then executed automatically.  The condition will
+be disabled before the signal takes place, and a new SIGNAL ON instruction
+is required to re-enable it.  For example, if the required label is not
+found, a normal syntax error event will occur.  This (if not itself
+trapped) will report the clause in which the event occurred before term-
+minating the program.
+
+The conditions are saved on entry to a subroutine and are then restored on
+RETURN.  This means that SIGNAL ON and SIGNAL OFF may be used in a
+subroutine without affecting the conditions set up by the caller.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│                     TRACE [ tracesetting ] [ ; ]                       │
+│                 TRACE [ [ VALUE ] expression ] [ ; ]                   │
+│                                                                        │
+│ where tracesetting is a symbol or                                      │
+│ literal string which is taken as a constant.                           │
+└────────────────────────────────────────────────────────────────────────┘
+
+The TRACE instruction is used to control the tracing of execution of a
+REXXPC88 program, and is primarily used for debugging.  Its syntax is more
+concise than other REXXPC88 instructions, since it is commonly typed
+manually during interactive tracing.  For this use, economy of keystrokes
+is considered to be more important than readability.
+
+The trace setting is either taken directly from tracesetting, or is taken
+from the result of evaluating the expression following VALUE.  The sub-
+keyword VALUE may be omitted if the expression does not begin with a
+symbol or a literal string (i.e., if it starts with a special character,
+such as an operator or parenthesis).
+
+Trace setting may start with one or more "?" characters.  If so these will
+either swith on or switch off interactive tracing.  If any other charac-
+ters are in the setting then TRACE will take action according to the first
+of them.
+
+The permitted values for the alphabetic part of the setting are:
+
+A         (e.g., "ALL") all clauses are traced before execution.
+C         (e.g., "Commands") all host commands are traced before exe-
+          cution.  If the command results in an error or failure, then
+          the return code from the command is also shown.
+
+
+
+Instructions                                                           23
+E         (e.g., "Error") any host command resulting in an error or
+          failure is traced (after execution) together with the return
+          code from the command.
+F         (e.g., "Failure") any host command resulting in a failure is
+          traced (after execution) together with the return code from the
+          command.  This is the same as "TRACE N".
+I         (e.g., "Intermediates") is the same as "R" except that all terms
+          and intermediate results during expression evaluation (and sub-
+          stituted names) are also traced.
+L         (e.g., "Labels") only traces labels passed during execution.
+          This is especially useful while tracing interactively, when the
+          REXXPC88 language processor will pause after each label; or if
+          one wishes to note all internal subroutine calls and signals.
+N         (e.g., "Normal") nothing is traced except for hosts commands
+          resulting in failure.  These are traced (after execution) to-
+          gether with the return code from the command.
+O         (e.g., "Off") nothing is traced, and interactive tracing is
+          also switched off.
+
+          Note: This is the default setting.
+R         (e.g., "Results") all clauses are traced before execution, to-
+          gether with the final result of any expression evaluated.
+          Values assigned during PULL, ARG and PARSE instructions are
+          also displayed.
+
+          Note: This setting is recommended for general debugging.
+
+If no setting is specified or if the setting is the null string, then
+tracing is reset to its initial (default) setting, that is "Off" and
+"Interactive tracing OFF".
+
+The current setting may be retrieved by using the TRACE built-in function.
+
+For "TRACE A" and for "TRACE C", commands traced before execution have the
+final value of the command (that is, the string passed to the command
+environment) traced as well as the clause generating it.  Whenever any
+command resulting in an error or failure is traced, the return code from
+the command is also traced.
+
+Note: The trace setting is automatically saved across subroutine and
+internal function calls.
+
+Interactive trace setting
+
+The "?" prefix on the trace setting is used to control interactive trac-
+ing.  During normal execution, executing a TRACE instruction with a "?"
+setting prefix causes interactive tracing to be switched on. While tracing
+interactively, interpretation will pause after most clauses that are
+traced.  The state of interactive tracing is saved and restored across
+internal routine calls.
+
+As an example, the instruction "TRACE ?Errors" will make the REXXPC88
+language processor pause for input after executing any host command that
+returns a non-zero return code.
+
+Interactive tracing may be switched off by executing a TRACE instruction
+with a prefix "?" during an interactive pause, or by executing "TRACE
+Off".  Using the "?" prefix therefore switches you alternately in or out
+of interactive tracing.  The prefix may be specified more than once in
+the same setting, if desired, and each occurrence of the prefix reverses
+the previous setting.
+
+The format of TRACE output
+
+Every clause traced will be displayed with automatic formatting (inden-
+tation) according to its logical depth of nesting.  Results (if requested)
+are indented an extra two spaces and have leading and trailing quotes so
+that leading and trailing spaces are apparent.
+
+All lines displayed during tracing have a three-character prefix to
+identify the type of data being traced.  These may be:
+
+'*-*'     Identifies the source of a single clause, i.e., the data actu-
+          ally in the program.
+
+
+Instructions                                                           24
+'+++'     Identifies a trace message.  This may be an error or failure
+          return code from a command.
+'>>>'     Identifies the result of an expression (for TRACE Results), or
+          the value assigned to a variable during parsing, or the value
+          returned from a call to a subroutine or function.
+'>.>'     Identifies the value "assigned" to a placeholder during parsing.
+
+The following prefixes are only used if "TRACE Intermediate" is in
+effect:
+
+'>V>'     The string traced is the contents of a variable.
+'>L>'     The string traced is literal (constant symbol, uninitialized
+          variable, or literal string).
+'>F>'     The string traced is the result of a function call.
+'>P>'     The string traced is the result of a prefix operation.
+'>O>'     The string traced is the result of an operation on two terms.
+'>C>'     The string traced is the name of a compound variable.  It is
+          traced after substitution and before use.
+
+See "Appendix A. Debugging" on page 54 for more information.
+
+
+
+NOTES
+
+
+1.  An expressionlist is a sequence of zero or more expressions, separated
+    by commas.
+2.  A namelist is a sequence of one or more variable names separated by
+    blanks.
+3.  An instructionlist is a sequence of one or more instructions.
+4.  Observe that instructions fall into one of the following four cate-
+    gories based on the first (and possibly second) tokens of the in-
+    struction.  The possibilities are listed in the order in which they
+    are resolved by REXXPC88:
+
+    The first token may be...
+                          in which case...
+
+    a keyword             the (keyword) instruction is executed by
+                          REXXPC88.
+
+                          followed by "="
+
+    a word                the (assignment) instruction is executed by
+                          REXXPC88.
+
+                          followed by ":"
+
+    a word                the (label) instruction is ignored by REXXPC88.
+
+                          string
+
+    a word or             the expression is evaluated by REXXPC88 and the
+                          resulting string is passed to the operating
+                          system for execution as a command or program.
+
+5.  Instructions may be either written entirely on one line (exactly as
+    shown in the instructions definitions in the preceding section) or
+    they may be split into several lines.  However, an instruction may
+    only be split at positions where a semicolon appears in the instruct-
+    ion definition.  We'll call the components of the instruction which
+    appear between semicolons clauses.  Thus, for example, an instruction
+    defined as
+
+      xxxx ; yyyy ; zzzz ;
+
+    (consisting of three clauses) may also be written
+
+      xxxx ; yyyy ;
+      zzzz ;
+
+    or
+
+
+
+Instructions                                                           25
+      xxxx ;
+      yyyy ;
+      zzzz ;
+
+6.  If a semicolon is the last token on a line, it may be omitted.  Thus
+    the preceding example might also have been written
+
+      xxxx ; yyyy ; zzzz
+
+    or
+
+      xxxx
+      yyyy ; zzzz
+
+    or
+
+      xxxx
+      yyyy
+      zzzz
+
+7.  Sometimes a clause may be too large to fit conveniently on a single
+    line, as when a long expression is written.  In these cases the clause
+    may be continued on successive lines by placing a comma at the end of
+    the line(s) to be continued.  The comma functions as a continuation
+    character but is otherwise ignored.  For example, the instruction
+
+      if (a == b) & (c == d) & (e == f) then
+         call foo
+
+    might also be written
+
+      if   (a == b),
+         & (c == d),
+         & (e == f)
+         then call foo
+
+    The comma may not appear in the middle of a token.
+
+8.  Any number of blanks and/or tabs and/or comments may appear between
+    the tokens which comprise an instruction, provided the preceding
+    rules are obeyed.  Thus, the preceding example might also be written:
+
+      if (a == b) /* a comment */ & (c == d),
+       & (e == f)      /* another comment */
+           then call foo /* final comment */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Instructions                                                           26
+

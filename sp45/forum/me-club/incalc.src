@@ -1,0 +1,79 @@
+{*******************************MULTI-EDIT MACRO******************************
+
+Name:  INCALC
+
+Description:  Вставляет в калькулятор число из текста
+			  Если редактор находится в режиме Insert - курсор преремещается
+		  за число ( для удобства PASTE ), если Overwrite - остается на месте
+
+			(C) Stern i K°  14-04-92 11:18
+
+******************************************************************************}
+$MACRO INCALC;
+def_Str(Num := '',tmps, c);
+def_int(asc,point := 0 ,ap := 0, sc );
+
+sc := C_Col;
+
+Ms_left;
+asc := ASCII(Cur_Char);
+WHILE ((( asc > 47 ) and ( asc < 58 )) or (asc = 46) ) DO
+	IF (C_col = 1) THEN
+	goto FIRST_COL;
+	END;
+	left;
+	asc := ASCII(Cur_Char);
+	END;
+right;
+asc := ASCII(Cur_Char);
+
+FIRST_COL:
+WHILE ((( asc > 47 ) and ( asc < 58 )) or (asc = 46) ) DO
+		IF (point) THEN
+		   ++ap;
+		END;
+	IF ( asc = 46 ) THEN
+		IF (point) THEN
+		   goto OK;
+		else
+			point := TRUE;
+		END;
+	END;
+	Num := Num + Cur_Char;
+	Right;
+	asc := ASCII(Cur_Char);
+END;
+
+OK:
+IF ( insert_mode = FALSE ) THEN
+	goto_Col(sc);
+ELSE
+	Right;
+END;
+
+tmps := Global_Str('CALC_PARAMS');
+IF (svl(Num)) THEN
+		asc := XPOS('/DPL=',tmps,1);
+		  IF (( asc ) and ( parse_int('/DPL=',tmps) < 10  )) THEN
+			tmps := Str_del(tmps,asc,6);
+		  elsif asc then
+			tmps := Str_del(tmps,asc,7);
+		  END;
+		tmps := Str_ins('/DPL='+str(ap),tmps,asc);
+	{
+	asc := XPOS('/ENT',tmps,1);
+	IF ( asc > 0 ) THEN
+		tmps := Str_Del(tmps,asc,SVL(tmps)-asc);
+	END;
+	Set_Global_Str('CALC_PARAMS',tmps+'/ENT='+Num);
+	}
+	asc := XPOS('/ACC',tmps,1);
+	IF ( asc > 0 ) THEN
+		tmps := Str_Del(tmps,asc,SVL(tmps)-asc);
+	END;
+	Set_Global_Str('CALC_PARAMS',tmps+'/ACC='+Num +'/ENT='+ NUM);
+else
+	goto_Col(sc);
+END;
+RM('CALC');
+END_MACRO; {INCALC}

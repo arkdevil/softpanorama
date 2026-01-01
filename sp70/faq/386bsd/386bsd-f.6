@@ -1,0 +1,703 @@
+From: burgess@cynjut.infonet.net (Dave Burgess)
+Newsgroups: comp.os.386bsd.announce,comp.answers,news.answers
+Subject: [comp.os.386bsd] BNR/2 derived BSD for PCs FAQ (Part 7 of 10)
+Date: 27 Dec 1994 01:00:31 -0600
+Organization: Dave's House in Omaha
+Message-ID: <386bsd-faq-7-788511609@cynjut.infonet.net>
+
+Posted-By: auto-faq 3.1.1.2
+Archive-name: 386bsd-faq/part7
+
+Section 6.	(Interaction with MS-DOS)
+
+6.0	Working with DOS and BNR/2 related software.
+
+	This section is designed to cover some of the more common 
+	problems that DOS will have when interacting with BNR/2.
+	There are other sections of the FAQ that deal with 
+	indirectly with this .  Try looking in sections 0, 1, and 2
+	to see if something in there (particularly when talking 
+	about DOS and *BSD coexisting on a single drive).
+
+	
+6.1	Formatting a floppy
+
+	There is a rumor that floppy formatting either is possible or was
+	possible at one time.  If you see any software or FTP sites with 
+	anything about this, please contact burgess@cynjut.infonet.net
+	and I will make sure it gets updated in here.
+
+	There was a set of patches that were developed to allow floppy
+	formatting.  They are not currently included in any of the *BSD
+	systems.
+
+	I have actually applied the patches for floppy formatting here
+	on an older version of NetBSD, and they seem to work just fine.
+	The fdformat program could use some work, but seems to work OK.  
+	According to the author, similar patches are available for
+	FreeBSD and the original 386BSD.  The package that I used here
+	was posted in comp.os.386bsd.* somewhere.  I think that it is 
+	available by anonymous FTP from cynjut.infonet.net.  If not,
+	E-Mail me at burgess@cynjut.infonet.net and I will mail you a
+	tar file with the stuff that I have available.
+	
+
+6.2	Sharing the Disk with MS-DOS
+
+	There are a myriad of questions about how to share a disk between
+	386bsd and MS-DOS.  They all boils down to one of the <n> following
+	questions:
+
+	1)  How can I partition my drive for both MS-DOS and 386bsd?
+	2)  I can install using the whole disk, but I can't install when 
+	I try to share the drive between 386bsd and MS-DOS.  Why?
+	3)  I can use either MS-DOS or 386BSD on my hard drive,
+	but shutdown -todos doesn't seem to work.
+
+
+6.2.1	How can I partition my drive to support both MS-DOS and *bsd?
+
+	NOTE:  Before attempting to install *bsd on a computer with an
+	active DOS partition, ALWAYS back up your hard drive.  No one on 
+	the net, no matter how talented, can help you recover a hosed 
+	MS-DOS file system.  If you lose all of your data, it is YOUR
+	fault.
+
+	During the install phase, you need to have un-allocated space left
+	on your disk drive.  This allows the install program to correctly
+	install the *bsd partition in the partition table and DOS to
+	peacefully co-exist with *bsd.
+
+	If you do not have any space available on your hard drive, you will
+	not be able to install both.  Re-fdisk your hard drive and make
+	sure you have left un-allocated space in the partition table.  
+	This WILL wipe out your DOS partition - Permanently.
+
+	Even though the partition table procedure above may have worked, 
+	there are still no guarantees that your system will boot after
+	the install.  This problem most often manifests itself as one of
+	the endless reboot problems.  You would normally be able to boot
+	DOS from the hard disk, but not *bsd (once that partition is
+	marked as active).
+
+	Once the partition table has been correctly defined with both
+	DOS and *bsd, there can still be problem.  One of the most
+	common is that the disk drive works in some sort of translation
+	mode.  This is particularly common with drives that physically have
+	more than 1024 cylinders.  DOS cannot access a drive with more than
+	1024 cylinders.  Translation mode will have to be turned off, usually
+	by redefining your hard drive in SETUP as one of the user definable
+	types.  This change will normally trash your hard drive, or at least
+	render your DOS partition unreadable.
+
+	The solution to this problem is to install *bsd at the end of the
+	hard drive.  While DOS cannot use cylinders above 1024, *bsd has
+	no such limitations, once it has booted.  During the boot-up phase,
+	some of the newer boot blocks will refer to the BIOS for some
+	services.  Specifically, the disk is checked for a bad sector map
+	on the last track.  Since the BIOS cannot deal with cylinders
+	higher than 1024, your bad sector map will be incorrectly
+	identified as 1023 if the number of cylinders is larger than that.
+	This problem is being worked on, and I hope to change this section
+	with better news later.
+
+	NOTE:  The only people that this problem will effect are those 
+	MFM and ESDI users that have drives with more than 1023 tracks.  
+	While drives of this type are not the overwhelming majority, 
+	neither are they an anomoly.  People are working on it.
+
+	As an example, if your hard disk physically has 8 heads, 16 sectors 
+	per track, and 2000 cylinders (128M); you MUST use some sort of disk
+	translation in order to use the entire drive.  An obvious geometry
+	for this drive (for DOS) would be 16 heads, 16 sectors, and 1000
+	cylinders.  Unfortunately, *bsd operates using the disk drives
+	native geometry as reported during the probe phase of boot up.  This
+	will probably be 8/16/2000, and will NOT agree with your translated
+	disk geometry.  This causes an endless reboot cycle.  If you change
+	the geometry so that the drive agrees with the disklabel, your DOS
+	partition is toast.
+
+	The best way to operate in this case would be to (for example)
+	split the disk in half.  That leaves 64M for DOS, using a 
+	geometry of 8 heads, 16 sectors per track, and the first 1000 
+	cylinders for DOS.  The second 1000 cylinders could then safely
+	be used for *bsd.  The DOS partition table may even be capable of
+	showing this partition as it actually exists.
+
+		ACCESSING MS-DOS PARTITIONS FROM NetBSD-i386
+
+	First off, it's important to understand BSD disklabels.  The 
+	disklabel is a description of the Unix parition layout and other 
+	disk parameters stored on-disk, usually somewhere in the first 
+	couple of sectors.  There is a maximum of 8 partitions, labelled 
+	"a" thru "h".  Typically partition "a" is assigned to the root 
+	partition, partition "b" is configured as a swap area, and 
+	partition "c" is defined as the whole disk.  You can change these, 
+	but it's a good idea to stick with this scheme, as many programs 
+	assume that's the way things are going to be.
+
+	If you're whole disk is dedicated to Unix, then that's all you 
+	need to know.  But if you're sharing your disk with DOS, then 
+	there are a few magical things happening.
+
+	DOS has it's own partitioning scheme.  The way NetBSD co-exists 
+	with this is to fit all of the Unix partitions into one DOS 
+	partition.  So partitions a-h all fit inside one DOS partition, 
+	which has a partition type of 165 (each MS-DOS partition has a 
+	"partition type" associated with it.  The BSD partition type is 
+	165).  In this setup, partition "c" refers to the entire BSD 
+	partition.  But in this scheme, partition "d" refers to the ENTIRE 
+	disk, MS-DOS partitions and all.
+
+	So, if you want to access your MS-DOS partition from NetBSD, first 
+	you'll have to create a partition that points to the MS-DOS 
+	partition.  You'll want to run the command:
+
+	disklabel -e -r /dev/r??0d	(fill in with your disk type).
+
+	You'll get popped into an editor with all the disklabel stuff in 
+	it.  Go down to the bottom.  You should see something like:
+
+	6 partitions:
+	#        size   offset    fstype   [fsize bsize   cpg]
+  	a:    30720   409600    4.2BSD     1024  8192    16   # (Cyl...
+  	b:   129024   440320      swap                        # (Cyl...
+  	c:  1617920   409600    unused        0     0         # (Cyl...
+  	d:  2029568        0    unused        0     0         # (Cyl...
+  	e:    61440   569344    4.2BSD     1024  8192    16   # (Cyl...
+  	f:  1396736   630784    4.2BSD     1024  8192    16   # (Cyl...
+	
+	(or whatever it appropriate for your disk).  Note that partition 
+	"a" starts on cylinder 200.  That's where my BSD partition starts 
+	on my disk.  Also note that partition "c" starts at 200 as well 
+	and goes to the end of the disk.  You'll also note that partition 
+	"d" goes from sector 0 all the way to the end of the disk.
+	
+	Add a new line that looks something like:
+	
+  	g:   409568       32    MS-DOS                        # (Cyl.    0*- 199*)
+	
+	(The comment on the end isn't necessary.  Only the partition 
+	letter, size, offset, and parition type are needed.  You can 
+	put unused in instead of MS-DOS if you want).
+	
+	*NOTE* Be sure to change the line that says "6 partitions" to the 
+	new number of paritions that you have!!!  Otherwise you'll get an 
+	obscure error.  In my case I'd change that line to be "7 partitions".  
+	If you aren't sure what your MS-DOS partition size and offsets are, 
+	you can use the NetBSD fdisk to find them out.  Don't forget that 
+	there's a maximum of 8 partitions.  
+
+	Once you do that and you have MSDOSFS configured into your kernel, 
+	you can just do something like "mount -t msdos /dev/sd0g /msdos".  
+	Or you can put a line like this in your fstab:
+	
+	/dev/sd0g /msdos msdos rw 0 0
+	
+	If you want to access a DOS-only HD from NetBSD, here are some 
+	instructions posted by Charles Hannum a while back.  I haven't 
+	tried them myself, but they seem like they would work.
+	
+	Assuming you don't have something (like OS-BS) which uses the extra
+	sectors in the boot track, you can do the following:
+
+	1) Use the NetBSD `fdisk' or DOS `pfdisk' to create a NetBSD 
+	partition in the MBR which spans the entire disk.
+
+	2) Save a copy of the MBR:
+
+		dd if=/dev/rsd0d of=my-mbr bs=1b count=1
+
+	3) Use `disklabel' to create a NetBSD label with the DOS partition 
+	and whatnot.  Answer `y' when it asks you if you want to `overwrite 
+	[a] disk with [a] DOS partition table'.
+
+	4) Put back the saved copy of the MBR:
+
+		dd if=my-mbr of=/dev/rsd0d bs=1b count=1
+
+	This works for me.  Your milage may vary.
+
+	Luke Mewburn <zak@rmit.edu.au> has provided the following tutorial on 
+	using the pfdisk program and making your *bsd/NetBSD partitions
+	peacefully coexist with DOS.  While this is kind of a 'cookbook' 
+	approach, please keep in mind that this is probably easily 
+	transferrable to all BNR derived Unices.
+
+
+			Getting NetBSD 0.8 to coexist with DOS.
+
+		    Written 930510 by Luke Mewburn <zak@rmit.edu.au>
+
+
+	NetBSD can be made to happily co-exist with DOS if its install
+	program knows how to modify the partition table. This assumes
+	that you have access to a program which enables you to edit the
+	partition table of your hard drive (such as Norton Utilities, or
+	pfdisk).
+
+	When you partition your hard drive, you will probably have a large
+	partition in which you wish to place NetBSD. This has to have the
+	partition ID of 165d (or 0xA5). To change this, you can use the
+	'Partition Edit' section of Norton's, or you can use pfdisk.
+	This document will go into more detail on how to use pfdisk, as it's
+	freely available.
+
+	I'll use my personal drive specifications in the following example.
+	It is a 1001 cylinder, 15 trk/cyl, 17 sec/trk, 125MB drive. I
+	low-level formatted it, and used fdisk on a MS-DOS 5.0 boot disk to
+	create a primary partition '1' of 32MB, and an extended partition '2'
+	of 93MB.  I formatted the drive with format c: /s to give myself a
+	bootstrap for DOS (much faster than floppies :), but this isn't that
+	necessary. Now, the next stage...
+
+	Running pfdisk 0 (to access my first (and only :) HD) came up with
+	something like:
+	
+	For help, enter: '?'
+	pfdisk>
+
+	At the prompt, enter 'l' to list partitions, giving (in my case),
+	something like:
+
+	# Partition table on device: 0
+	geometry 1000 15 17 (cyls heads sectors)
+	#  ID  First(cyl)  Last(cyl)  Name  # start, length (sectors)
+	1   4      0        256       DOS16 # 17, 65518
+	2   0    257        999       unkno # 65535, 189465
+	3   0      0          0       empty # 0, 0
+	4   0      0          0       empty # 0, 0
+	active: 0 (none)
+
+	(Note that there is 1 cylinder less - the last one is, I think,
+	for the IDE controller to use when auto-mapping dud sectors out.)
+
+	Now, we want to change the type of #2 (the prospective NetBSD
+	partition) to 165. You can obtain a list of known IDs by selecting
+	'I'. Depending on the version of pfdisk you have, 165 may or may not
+	be known. This doesn't matter too much either way. To get the NetBSD
+	install program to use the 2nd partition, I would enter:
+
+	pfdisk> 2 165 257 999
+
+	Another 'l' to list partitions would show that the entry for
+	partition 2 will either look like one of the following (depending
+	on whether pfdisk knows about the 386bsd partition type or not):
+
+	2 165    257        999       unkno # 65535, 189465
+	or
+	2 165    257        999       386BS # 65535, 189465
+
+
+	You could set the active partition with 'a 2' if you want NetBSD
+	to always boot, but I personally recommend that you obtain a copy
+	of OS-BS 1.35 or BOOTEASY to save you the hassle of running fdisk
+	or pfdisk every time you wish to swap system types.
+
+	To complete everything off, do 'w' to write out the info (once
+	you're sure it's correct! :), and 'q' to quit the program.
+
+
+	Well, I hope that is useful to someone. Comments can be directed
+	to the author (Email: <zak@rmit.edu.au>).
+
+
+6.2.2	I can install using the whole disk, but I can't install when 
+	I try to share the drive between 386bsd and MS-DOS.  Why?
+
+	This is an extension of the question above.  The most common reason
+	for this is, once again, disk translation problems.  If the 
+	disklabel does not agree with the disk geometry, the install will
+	fail.  Other incarnations of this problem are that you can install
+	DOS, then 386bsd, and DOS will be hosed, or vice versa.
+
+	There are more than a couple of people who will blithely suggest that
+	this is a good thing, and you should install 386bsd exclusively,
+	job not withstanding.
+
+
+6.2.3	I can use either MS-DOS or 386BSD on my hard drive,
+	but shutdown -todos doesn't seem to work.
+
+	There is a known bug in shutdown that prevents the -todos option 
+	from working as advertised on all but the smallest DOS partitions.
+	Many people have reported some success while using a very small
+	(less than 32M) DOS partition as the first partition.
+
+	There is a utility available for 386bsd which operates very much
+	like the MS-DOS fdisk partitioning program.  You can use this program
+	to mark the DOS partition active from 386bsd.  A similar procedure
+	is used (fdisk in DOS) to mark the 386bsd partition as the active
+	boot partition.  Boot managers are also an excellent investment for
+	those individuals that need to boot both DOS and 386BSD.
+
+
+6.2.4	Is there any hope of ever running MS-DOS applications under any of
+	the free BSD systems?
+
+	There is currently a project in development to port the Windows 
+	program exvironment to Linux and the *BSD systems.  Here is an
+	excerpt from the original message announcing the project:
+
+	As many of you already know, we are in the process of creating a
+	Windows emulator.  This emulator is similar to Sun's Wabi product, 
+	but is being developed completely independent of them.  Many of 
+	you are anxious to hear the latest status of the project.  I have 
+	created a mailing list for those of you.  To join the list, simply 
+	send mail to:
+
+	wine-project-info@amscons.com
+
+	If your mailing address is not easy to deduce from the mail 
+	headers, then place the following line in the body of the message 
+	that you send.
+
+	Reply-To: youraddress@yourmachine
+
+	where youraddress@yourmachine should be replaced by your actual 
+	mailing address.
+
+
+6.3	Accessing the MS-DOS filesystem 
+
+	One of the most common MS-DOS related questions (with the possible
+	exception of 6.2 above) is how to access the DOS disk partitions
+	from 386bsd.  One way is to modify mtools so that it recognizes your
+	DOS partition.  This solution is provided by Jim Paradis 
+	(paradis@sousa.ltn.dec.com):
+
+	--------------------------------------------------------------------
+	To build a /usr/othersrc/public/mtools.2.0.5/devices.c file that 
+	lets you access the DOS partition, you need to know the byte offset 
+	of the DOS partition from the start of the hard disk.  You would then 
+	add an entry to the devices[] array as follows:
+
+	{'C', "/dev/wd0d", <byte-offset>L, 16, 0, (int (*) ()) 0, 0, 0, 0},
+
+	So, f'rinstance, if your DOS partition starts at the beginning of
+	the disk, you'd have:
+
+	{'C', "/dev/wd0d", 0L, 16, 0, (int (*) ()) 0, 0, 0, 0},
+
+	On the other hand, if your DOS partition starts 32MB into the disk,
+	you'd say something like:
+
+	{'C', "/dev/wd0d", (32768L * 1024L), 16, 0, (int (*) ()) 0, 0, 0, 0},
+
+	--------------------------------------------------------------------
+	Of course, this is both the hard and VERY non-portable way of
+	solving this problem.  An easier way would be to add PCFS or 
+	MSDOSFS to your *BSD system.  Both the PC File system and PC 
+	Network File System (PC-NFS) code has been ported to 386bsd/
+	NetBSD/FreeBSD.  These are available from several sources, 
+	including the patchkit and in the -current trees. 
+
+	The instructions for using PCFS with 386BSD are provided by Scott 
+	Miles <gt1679c@prism.gatech.EDU>. 
+
+	    What would probably be easier would be to add a partition to 
+	    the disklabel for your DOS drive and then just mount it with 
+	    PCFS.  I don't know if it's in the FAQ now, I haven't read it 
+	    for a while, but this is what I did:
+
+		1) run 'fdisk' and write down the DOS partition info for 
+		the start and size that it gives you.
+
+		2) disklabel -e -r /dev/<raw device>
+   		   - Add 1 to the '# partitions:', and then add another line 
+   		   for the DOS partition .  Mine went in after e: as 
+
+	   f:   130977     63   unused      0     0     # (Cyl.    0*- 129*)
+
+	(Ed.Note:  The unused should be something else, although I really
+	    couldn't tell you what. MSDOS is a recognized partition 
+	    type name; maybe that should be used.  Also, make sure that
+	    your c: and d: partitions do not overlap this area.  h: might 
+	    be a better partition letter to use; that way the MSDOS 
+	    partition is graphically separate from the rest of the BSD
+	    partitions.  DO NOT USE a:, b:, c:, or d: for your DOS 
+	    partition.  These are RESERVED for your BSD system and any 
+	    attempt to use these for anything but what BSD uses them for 
+	    will result in a completely hosed, totally dead, absolutely 
+	    screwed up file system.  You have been warned! )
+
+		3) Add a line to /etc/fstab if you want it mounted 
+		automatically.
+   		  Mine is:
+   		  /dev/wd0f   /dos      pcfs  rw   1       2
+
+   	    Otherwise, just mount -t pcfs /dev/<part> /<dir>
+
+	Mount has other options that may improve performance or increase
+	security for your system.  See 'man mount' for more information 
+	about mounting your system read-only and other advanced features.
+
+	In addition to this, Jordan Hubbard has provided us with the
+	following description for mounting the DOS partition specifically
+	from FreeBSD:
+
+		How to mount your DOS partition from FreeBSD
+
+	1. First, be root.  The following won't work as an ordinary user.
+
+	2. Second, use 'fdisk' to see where your DOS partition starts.  
+	It will be labeled as type DOS.  On my system, 'fdisk /dev/sd0d' 
+	produces the following:
+
+		... (extraneous output, not of interest) ...
+	The data for partition 0 is:
+	sysid 6,(Primary 'big' DOS (> 32MB))
+	    start 32, size 306400 (149 Meg), flag 0
+	        beg: cyl 0/ sector 1/ head 1;
+	        end: cyl 149/ sector 32/ head 39
+
+	    This shows me that my DOS partition starts at sector 32, and 
+	is 306400 (512 byte) sectors long.
+
+	NOTE:  If you're trying to mount a DOS `EXTENDED' partition, then 
+	you need to add `32' to this start address you got from fdisk in 
+	subsequent calculations, I.E. in the above example (assuming it 
+	was an EXTENDED partition rather than the Primary), you'd use 
+	`start 64, size 306400'.
+
+	[Ed.Note.  This example assumes a SCSI disk.  For disks with a 
+	number of sectors per track which is different than 32, you will
+	probably see the 32s above replaced with your number of sectors
+	per track. ]
+
+	3. Next, using this information, you craft a new disk entry in your
+	   /etc/disktab file that assigns one of your unused "UNIX" 
+	   partitions to this DOS region.  Again, using my system as a 
+	   default, you see I've created:
+
+	disk0|DEC 5501:\
+		:ty=winchester:dt=SCSI:se#512:nt#8:ns#256:nc#1001:rm#3600:\
+		:pa#956416:oa#307200:ba#8192:fa#1024:ta=4.2BSD:\
+		:pb#131072:ob#1263616:tb=swap:\
+		:pc#1087488:oc#307200:tc=UNUSED:\
+		:pe#306400:oe#32:te=MSDOS:
+
+	   As you can see, partition 'e' now points to the DOS partition as
+	   pointed out by fdisk.
+
+	   [Ed.Note again.  Remember what I said about the 32 above...]
+	   
+
+	4. Now we have to actually stick the label on the disk, which is done
+	   with disklabel.  Using my example, this would be:
+
+	    disklabel -r -w sd0 disk0 SCSI /usr/mdec/sdboot /usr/mdec/bootsd
+
+	5. Reboot your system to see the new disk label.
+
+	6. Mount the DOS partition.  I do:
+
+		mount -t pcfs /dev/sd0e /dos_c
+
+	   Where /dos_c is just a convenient directory to mount it.
+
+	7. You're set!
+
+	With the exception that the '-t' option is msdos in NetBSD, these 
+	instructions seem to work with the same facility for NetBSD.  I
+	also received a note a couple of weeks ago (that I promptly deleted
+	because I new that I would remember what it said) that DOS extended
+	partitions are readable if you skip the first 'n' blocks in your 
+	computations (where 'n' is your number of sectors per track).  This 
+	way, you skip over the 'new' part of the DOS file system.  That means 
+	that insted of the oe:32 above, you would need an oe:48 instead.  
+
+	Also remember that the compressed file system in DOS 6 will probably
+	be completely greek to your NetBSD/FreeBSD system.  I seriuosly 
+	doubt that you will be able to read the compressed DOS file system
+	anytime in the forseeable future.
+     
+
+6.4	NFS/PC-NFS support
+
+	The problems normally associated with PC-NFS are also associated 
+	with NFS in general.  
+
+
+6.4.1	Can I use 8K packets for NFS?  When I try, I have all kinds of 
+	problems.
+
+	In addition to the NE2000 card, this problem can also manifest 
+	itself on other ISA networks cards that have a limited amount of
+	memory.  Ken Raeburn (raeburn@cambridge.cygnus.com) has identified 
+	a common problem with the NE2000 card and provided us with a work
+	around:
+
+	--------------------------------------------------------------------
+	I reported previously that I was seeing problems reading files over
+	NFS using the ne2000 driver; timeouts would eventually be reported, no
+	data would be read.  Listing files and directories (small ones
+	anyway) were not a problem.
+
+	After playing with etherfind and kernel printfs, I've come to this
+	conclusion: Fragmented 8K UDP packets from the NFS server are not
+	reaching the UDP layer in 386bsd.  The Sun is sending them (according
+	to another Sun spying on the network), but the UDP input routine is
+	never called.  I don't know if the bug here is on the 386bsd or Sun
+	side, and won't have time to look into it in the next couple of days.
+
+	In the meantime, mounting NFS file systems with "rsize=1024" does get
+	rid of this problem.
+
+	Ken
+	--------------------------------------------------------------------
+
+	As a matter of policy, specifying "rsize=1024,wsize=1024" works very
+	well also, and makes the transfers seem to run faster.  This is
+	probably because there are fewer collisions.  The disadvantage of 
+	this method comes from the kernel 'sync'ing after all NFS writes.  
+	This can slow NFS accesses considerably.  As with most 
+	generalizations, this one too can do nearly as much harm as good.  
+	Charles Hannum reports that he has no trouble using the default 8K 
+	packet size.  If you have trouble, reduce your default packet size
+	until the problem goes away.
+
+	WIth the newer drivers (especially the ed driver) most of these 
+	problems are solved automagically.  If you are still using the
+	original 386bsd 0.1 release, you REALLY need to upgrade.
+	
+
+6.4.2	How do I get around the NFS "Permission denied" error?
+
+	The problem is not the configuration of the server (unless there is
+	no real requirement to run it in "secure" mode, and you happen to
+	be running it that way anyway).  The problem is the fact that,
+	even though mount request are sent on a privileged port, NFS
+	connections are not.  This is part of secure NFS, and is not
+	supported in 386BSD.
+	
+
+6.4.3	What does the message "BAD MNT RPC: RPC Authentication error; 
+	why = Invalid client credential" mean when I try to mount something
+	from another machine?
+
+	Hellmuth Michaelis (hm@hcshh.hcs.de) offers the solution to this
+	relatively common problem:
+
+	You have to make sure that the user "root" is not present in more
+	than 8 entries in the "/etc/group" - file on the 386BSD machine.
+	Simply remove some entries and the NFS mounts will succeed.
+
+	The problem is also explained in the Clarkson Driver documentation.
+	On 386bsd, the maximum number of groups that can be associated with
+	a particular user is specified in the source (in a #DEFINE).  In 
+	386bsd, this number is set to 8.  So, you actually have two routes
+	you can take to correct this problem.  The first is outlined by
+	Hellmuth, above, and the second is to edit and recompile the NSF
+	software to allow more groups.
+
+
+6.4.4	What does the message "Bad MNT RPC: RPC: Authentication error; 
+	why = Client credential too weak" mean when I try to mount something
+	from another machine?
+
+	This problem is a standard NFS problem; it simply means that your 
+	user number is not one of the ones that can mount this NFS.  
+	Normally, you will get this message when you are trying to mount 
+	a filesystem from a machine that allows 'root' to mount an NFS,
+	but limits other users.
+
+
+6.4.5	I get a lot of 'ring buffer overflow' messages using NFS and the
+	ed0 driver.  Is there a problem?
+
+	David Greenman (davidg@implode.rain.com), the original author of 
+	the ed0 driver, provides us with some insight into the inner 
+	workings of the ed0 driver.
+
+	   It always surpises me that people don't just ask the original 
+	author these questions. :-) Anyway, the reason these are happening 
+	is that the access to the 8bit boards shared memory simply isn't 
+	fast enough to deal with full wire speeds...but the driver tries 
+	hard...so even though packets get dropped, your performance only 
+	drops to about what the ethernet board is capable of (should be 
+	in the 400-600k range with an 8bit card). NFS is especially bad 
+	because the UDP window is quite large (40k last time I looked), 
+	so the overflow condition can happen easily. I've explained this
+	for the most part in the release notes for the driver, but these 
+	didn't make it into either the FreeBSD or NetBSD releases (we 
+	couldn't find an appropriate place to put them).
+
+	>From the release notes:
+
+	receive
+	-------
+	   The 8390 implements a shared memory ring-buffer to store 
+	incoming packets.  The 8bit boards (3c503, and 8003) usually have 
+	only 8k bytes of shared memory.  This is only enough room for about 
+	4 full size (1500 byte) packets. This can sometimes be a problem, 
+	especially on the original WD8003E and 3c503.  This is because these 
+	boards' shared memory access speed is also quite slow compared to 
+	newer boards - typically only about 1MB/second. The additional 
+	overhead of this slow memory access, and the fact that there is 
+	only room for 4 full-sized packets means that the ring-buffer 
+	will occassionally overflow.  When this happens, the board must 
+	be reset to avoid a lockup problem in early revision 8390's.  
+	Resetting the board will cause all of the data in the ring-buffer 
+	to be lost - requiring it to be re-transmitted/received...slowing 
+	things even further.  Because of these problems, maximum throughput 
+	on boards of this type is only about 400-600k per second. The 16bit 
+	boards (8013 series), however, have 16k of memory as well as much 
+	faster memory access speed. Typical memory access speed on these 
+	boards is about 4MB/second. These boards generally have no problems 
+	keeping up with full ethernet speed. The only problem I've seen 
+	with these boards is related to the (slow) performance of 386BSD's 
+	malloc code when additional mbufs must be added to the pool. This 
+	can sometimes increase the total time to remove a packet enough 
+	for a ring-buffer overflow to occur.  
+
+
+6.4.6	Is there any PC software that will allow me to use my enormous PC
+	with all of the unsupported hardware as a PC-NFS server?
+
+	Yes.  It is called SOSS, and is available from MANY FTP sources.
+	You will need the aforementioned Clarkson Packet Drivers for it
+	to work, but that should cause too many problems for most people.
+
+
+6.5	How can I use mtools with the 'new' floppy naming convention?
+
+	With the adoption of BSD 4.4, there is a new way of accessing
+	the floppy disk drive types.  The method uses the minor device
+	number to specify different media sizes and densities.  These
+	densities are established by a table from the file 
+	/usr/src/sys/arch/i386/isa/fd.c (in NetBSD, your mileage may
+	vary).  The table in FreeBSD's fd.c is likely to be slightly
+	different.
+
+	The order of the entries defines the order of the minor
+	numbers, so the table below has the following characteristics:
+
+ 	    /dev/fd0a	1	/* 1.44MB diskette */ 
+	    /dev/fd0b	2	/* 1.2 MB AT-diskettes */ 
+	    /dev/fd0c	3	/* 360kB in 1.2MB drive */ 
+	    /dev/fd0d	4	/* 360kB PC diskettes */ 
+	    /dev/fd0e	5	/* 3.5" 720kB diskette */ 
+	    /dev/fd0f	6	/* 720kB in 1.2MB drive */ 
+	    /dev/fd0g	7	/* 360kB in 720kB drive */
+
+	struct fd_type fd_types[] = {
+        	{ 18,2,0xff,0xcf,0x1b,0x6c,80,2880,1,FDC_500KBPS,2,"1.44MB"  },
+        	{ 15,2,0xff,0xdf,0x1b,0x54,80,2400,1,FDC_500KBPS,2,"1.2MB"   },
+        	{  9,2,0xff,0xdf,0x23,0x50,40, 720,2,FDC_300KBPS,2,"360KB/AT"},
+        	{  9,2,0xff,0xdf,0x2a,0x50,40, 720,1,FDC_250KBPS,2,"360KB/PC"},
+        	{  9,2,0xff,0xdf,0x2a,0x50,80,1440,1,FDC_250KBPS,2,"720KB"   },
+        	{  9,2,0xff,0xdf,0x23,0x50,80,1440,1,FDC_300KBPS,2,"720KB/x" },
+        	{  9,2,0xff,0xdf,0x2a,0x50,40, 720,2,FDC_250KBPS,2,"360KB/x" },
+	};
+
+	In order to add a new device (such as a 2.44 Meg floppy) new
+	tables entries are theoretically all that would be needed.  As
+	new entries are created, the minor device numbers would
+	increase and the associated device names would be added.
+-- 
+TSgt Dave Burgess           | Dave Burgess
+NCOIC, USSTRATCOM/J6844     | *BSD FAQ Maintainer
+Offutt AFB, NE              | Burgess@cynjut.infonet.net or ...@s069.infonet...
+                               
+

@@ -1,0 +1,46 @@
+(operator Display(?)
+  ah=9; dx=offset ^1
+  .int 21h
+operator)
+
+model tiny
+.org 100h
+program today
+  Display(Copyr)
+  ah=30h; .int 21h
+  if al<3 then Display(ErrDos); .int 20h
+  es=[ds:2Ch]
+  cx=ax-1=di=0
+  .repne scasb (while [es:di]<>al)
+  ds=ax=es; dx=di+3; ax=3D00h; .int 21h; ds=dx=cs
+  if is carry goto Error
+  
+  Handle=bx=ax; ax=5700h
+  if .int 21h. is carry goto Error
+  FileTime=cx; FileDate=dx
+  
+  ah=2Ah; .int 21h; ax=cx-1980; ax=<cl=9
+  al=.or.dl; dl=0 ; ax=.or.dx=>cl=3
+  
+  if ax=FileDate goto OkRet
+  if < then Display(ErrDate); goto Error
+  
+  dx=ax; cx=FileTime; bx=Handle; ax=5701h
+  if .int 21h. is carry goto error
+  
+  bx=Handle; ah=3Eh
+  if .int 21h. is carry goto error 
+  
+  al=1; stop
+  
+Error:
+  Display(ErrFile)
+OkRet:
+  if Handle<>(-1) then al=0
+  stop
+
+data FileDate,FileTime,Handle=-1
+bytes ErrDos="Слишком ранняя версия DOS".13.10."$",
+      ErrFile="Аварийное завершение программы".13.10."$",
+      ErrDate="Дата создания файла превосходит текущую !!!!!!".13.10."$",
+      Copyr="TODAY Utility  Version 1.0  Copyright (c) 1991 Good Inc".13.10."$"

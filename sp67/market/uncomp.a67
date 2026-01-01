@@ -1,0 +1,126 @@
+Newsgroups: comp.sys.ibm.pc.hardware.systems
+From: gordon@sneaky.lonestar.org (Gordon Burditt)
+Subject: Re: 386 / 486 / Pentium instruction set differences?
+Organization: /usr/lib/news/organi[sz]ation
+Message-ID: <CvHJrt.BwB@sneaky.lonestar.org>
+Date: Fri, 2 Sep 1994 04:43:04 GMT
+
+Ok, the post I'm replying to may have been a troll for flames, but
+this is a serious question:  
+
+What are the software-visible differences between various varieties
+of 386, 486, and Pentium?
+
+No, I'm not talking about clock speed, bus width, clock cycles per
+instruction, cache size, performance, and I think we all know which 
+ones have a coprocessor and which don't.  I'm asking about new 
+instructions, bits in control registers, etc. and other ways software 
+can be incompatible with older processors if it's not careful.  
+Undocumented instructions included.
+
+486 vs. 486:
+It appears that some 486 processors (e.g. 486DX2/66) have the 
+Pentium CPUID instruction, and the ID bit in the EFLAGS register,
+and some don't (e.g. 486DX/33).  Which processors have it, and 
+which don't?  Is there any difference in the kind of information
+returned?  Did later 486's pick up any more Pentium instructions?
+
+Since there exists such a thing as a "Cyrix aware" BIOS, what
+instructions/registers/etc. are needed to make it "Cyrix aware"?
+
+How are processor power-management features controlled?
+Do these involve new registers or instructions?
+
+Pentium vs. 486:
+
+I don't have a manual for the Pentium, and a lot of the interesting
+stuff is supposedly in Appendix H, which requires a non-disclosure
+agreement.  What I do know includes:
+
+New instructions:
+	CPUID - Identify CPU (also on some 486's) (documented)
+	RDMSR - Read Machine-Specific Register (documented)
+	WRMSR - Write Machine-Specific Register (documented)
+	RDTSC - Read Time Stamp Counter (undocumented)
+		(faster version of RDMSR of an undocumented register)
+New 64-bit machine-specific registers:
+	clock cycles since power-on (undocumented)
+	some registers are documented
+	statistics and performance counters (undocumented)
+
+I'm sure there's a lot more than this, but I don't have the manuals.
+
+486 vs. 386:
+
+(I do have the manuals for this one.  It's an Intel manual, so
+it's only talking about Intel versions of these processors.)
+
+New EFLAGS bit:  AC (bit 18) enable alignment checking
+New exception: 17 - alignment check violation
+6 new instructions:
+	BSWAP - byte-swap 
+	CMPXCHG - compare and exchange (thread control and semaphores)
+	XADD - exchange and add (thread control and semaphores)
+	INVD - invalidate cache, no write-back
+	WBINVD - invalidate cache, write back
+	INVLPG - invalidate TLB entry
+	(BSWAP is probably the only interesting one for applications)
+New Control Register 0 bits:  
+	NE (numeric exception via Exception 16 vs. IRQ 13)
+	WP (write protect (user pages vs. supervisor writes))
+	AM (alignment checking)
+	NW (disable write-through in cache)
+	CD (cache disable)
+New Control Register 3 bits:
+	PCD (external cache disable)
+	PWT (disable write-through in external cache)
+New Page Table bits:
+	PCD (cache disable in selective areas)
+	PWT (disable write-through in cache in selective areas)
+New format of the test registers.
+
+Does anyone know what, if anything, the "LOADALL" and "LOADALLD"
+instructions do on a 386, 486, or Pentium?  They seem to be mentioned
+only in the opcode map in the 486 manual.  As I recall, they were 
+undocumented 286 instructions.  Do they still work?
+
+486/487 vs. 386/387:
+
+(Again, this is from an Intel manual, so it only covers Intel
+coprocessors.)
+
+Control register bits:
+	ET bit hardwired to "1", indicating 387 vs. 287.
+	NE bit in CR0 used to determine whether Exception 16 or
+		external interrupt is used.
+	MP bit determines wait vs. trap on an external device via
+		BUSY# pin, but 486 has no BUSY# pin.  Leave MP
+		bit set.
+Initialization:
+	On FINIT, 387 signals error condition, 486/487 does not.
+	FINIT clears the error pointers (data and instruction) on 486/487,
+		not on 387.
+Exceptions:
+	Floating-point exceptions are not checked for on an illegal
+		ESC opcode.
+	Misaligned data operand may cause an alignment exception.
+	A WAIT instruction after an instruction which waits may
+		be executed as a NOP, so exceptions may be recognized
+		one instruction later than a 386/387.
+	If half of an operand is outside a page, a memory fault may
+		cause the first half to be stored without the second.
+		386/387s store nothing.
+	If a segment fault occurs during FLDENV, part of the environment
+		may be loaded and part not.  The control word is
+		left with 007Fh.
+	Exception 9 does not occur on a 486/487.  The 486 aborts the
+		instruction.  
+Trancendental instructions:
+	Trancendental instructions can be aborted at certain checkpoints
+		if an interrupt is pending.  Don't use them if interrupts
+		are expected 200 clocks apart or less.
+
+
+					Gordon L. Burditt
+					sneaky.lonestar.org!gordon
+

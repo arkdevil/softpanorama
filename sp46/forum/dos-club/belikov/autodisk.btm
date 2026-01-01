@@ -1,0 +1,59 @@
+@Echo Off
+Rem Файл C:\EXEC\BTM\DAY - временный файл Вы вправе настроить его
+Rem местонахождение по своему разумению
+Iff Exist C:\Exec\Btm\Day Then
+Set /r C:\Exec\Btm\Day
+Else
+Set Day=00-00-00
+EndIff
+Rem Проверка вторичного запуска пакетного файла
+If %_Date NE %Day GoSub Work
+UnSet Day >Nul
+Cls
+Quit
+:Work
+ScrPut 1 17 Bright Green On Yellow Тестирование и оптимизация разделов винчестера
+Beep 440 4
+Echo Day=%_Date > C:\Exec\Btm\Day
+Rem Если сегодня 5, 15, 25 - то полная проверка разделов винчестера с
+Rem помощью утилиты NDD, иначе короткая проверка
+Set Speed=Q
+Be MonthDay
+If ErrorLevel EQ 25 Set Speed=C
+If ErrorLevel EQ 15 Set Speed=C
+If ErrorLevel EQ 5  Set Speed=C
+Ndd C: D: E: /%Speed
+Rem Если сегодня 10, 20, 30, суббота или воскресенье - то полная
+Rem оптимизация разделов винчестера с помощью утилиты SpeeDisk,
+Rem иначе дефрагментация отдельных разделов в зависимости от дня недели
+Set Speed=N
+Be MonthDay
+If ErrorLevel EQ 30 GoSub Speed1
+If ErrorLevel EQ 20 GoSub Speed1
+If ErrorLevel EQ 10 GoSub Speed1
+Iff %Speed==N Then
+Be WeekDay
+If ErrorLevel EQ 1 GoSub Speed1
+If ErrorLevel EQ 2 Set Disks=D:
+If ErrorLevel EQ 3 Set Disks=E:
+If ErrorLevel EQ 4 Set Disks=C:
+If ErrorLevel EQ 5 Set Disks=D:
+If ErrorLevel EQ 6 Set Disks=E:
+If ErrorLevel EQ 7 GoSub Speed1
+Iff %Speed==N Then
+GoSub Speed2
+UnSet Disks >Nul
+EndIff
+EndIff
+UnSet Speed >Nul
+Return
+:Speed1
+Set Speed=Y
+SD C: /FF /SN /V
+SD D: /FF /SN /V
+SD E: /FF /SN /V
+Return
+:Speed2
+SD %Disks /U /V
+Return
+

@@ -1,0 +1,93 @@
+#==========================================================
+# Makefile for Win EXEs under Microsoft C 6.0
+# Copyright (c) 1993 Douglas Boling
+#==========================================================
+#----------------------------------------------------------
+# Target filename
+#----------------------------------------------------------
+NAME = fddlls
+NAME1 = statbar
+
+#----------------------------------------------------------
+# Define DEBUG = 1 to add debug info to EXE
+#----------------------------------------------------------
+DEBUG = 0
+
+#----------------------------------------------------------
+# Define MYWIN31 = 1 for Windows 3.1 apps
+#----------------------------------------------------------
+MYWIN31 = 1
+
+#----------------------------------------------------------
+# C compiler switches
+#
+# -c    Compile, no link
+# -Gsw 	No Stack check, Compile for Windows
+# -G2   Use 286 instructions (Win 3.1 only)
+# -Ow   Optimize. Assume no aliases
+# -W3   Print warnings to level 3
+# -Zp   Pack Structures or...
+# -Zpi    If Debug info needed
+# -Od     Disable Optimization
+#----------------------------------------------------------
+!if $(DEBUG)
+CSWITCH = -c -Gsw -Ow -W3 -Zpi -Od
+!else
+CSWITCH = -c -Gsw -Ow -W3 -Zp 
+!endif
+
+!if $(MYWIN31)
+CSWITCH = $(CSWITCH) -G2 
+!else
+CSWITCH = $(CSWITCH) -D WINVER=0x0300
+!endif
+
+#----------------------------------------------------------
+# Link Switches
+#
+# /Align:16  Align segments on 16 byte boundries 
+# /CO        If debug info needed
+# /M         Create Map file
+#----------------------------------------------------------
+!if $(DEBUG)
+LSWITCH = /CO /align:16
+!else
+LSWITCH = /align:16
+!endif
+
+#----------------------------------------------------------
+# Lib files
+#
+# /nod     No defaults
+# slibcew  Small model lib for Windows
+# libw     Windows API lib
+# commdlg  Windows Common Dialog Box lib
+#----------------------------------------------------------
+LIBS = /nod slibcew libw commdlg
+
+#----------------------------------------------------------
+# Resource Compiler switches
+# 30   Require at least Win 3.0
+# 31   Require at least Win 3.1
+#----------------------------------------------------------
+!if $(MYWIN31)
+RCSWITCH = -31
+!else
+RCSWITCH = -30
+!endif
+
+#----------------------------------------------------------
+# Make EXE
+#----------------------------------------------------------
+$(NAME).exe : $(NAME).obj $(NAME1).obj $(NAME).def $(NAME).res
+	link $(LSWITCH) $(NAME) $(NAME1), $(NAME).exe, $(NAME).map, $(LIBS), $(NAME)
+	rc $(RCSWITCH) $(NAME).res 
+
+$(NAME).obj : $(NAME).c $(NAME).h
+	cl $(CSWITCH) $(NAME).c
+
+$(NAME).res : $(NAME).rc $(NAME).h $(NAME).ico
+	rc -r $(NAME).rc
+
+
+

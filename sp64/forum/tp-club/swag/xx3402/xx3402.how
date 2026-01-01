@@ -1,0 +1,226 @@
+
+
+  HOW XX34 WORKS
+
+  The basic premise behind most binary to ASCII encoder/decoders
+  is to convert an element from a larger range of values, to an
+  element from a smaller value range.
+
+  ...Huh? ...Say what?
+
+  In other words, you take a binary byte that could have a value
+  between 0..255, and you convert it to an ASCII character that
+  can have one of 64 values between '+'..'z' (#43..#122).
+
+  ...Ok, but a binary byte has a range of 256 different values,
+  how can you convert this to an ASCII character that has a range
+  of only 64 different values, and ever hope of getting the
+  original byte value back again?
+
+  The "magic" (logic) relies on those little itty bitty bits that
+  make up each byte.
+
+  Each byte is made up of 8 bits. Each bit can have a value
+  of either 0 or 1, which gives us a total of 256 different
+  combinations for each group of 8 bits.
+
+    ie: 2 raised to the power of 8 = 256
+
+  Now what if we took 24 bits (3 bytes), and split them up into
+  four groups of 6 bits. Visually it would look something like
+  this:
+
+    Three 8-bit groups:    ||||||||   ||||||||   ||||||||
+    (256 combinations)
+
+    ...becomes...
+
+    Four 6-bit groups:     ||||||  ||||||  ||||||  ||||||
+    (64 combinations)
+
+  Each 6 bit group would then have a range of 64 different
+  combinations, (2 raised to the power of 6 = 64) and this
+  range fits within the ASCII character range of '+'..'z'.
+
+    ie: (256 x 256 x 256) = (64 x 64 x 64 x 64)
+           8-Bit Groups        6-Bit Groups
+
+  So by processing a binary file in 3 byte chunks, and splitting
+  ("encoding") the 24 bits that these three bytes contain into
+  four 6 bit groups, you can represent 3 binary bytes using 4
+  standard alpha-numeric ASCII characters from a total set of
+  64 ASCII characters.
+
+  By reversing this process ("decoding"), you can rebuild the
+  original 3 bytes, from the 4 ASCII characters that your
+  encoder produced.
+
+  ...So if you were encoding three 8-bit groups that were:
+
+  Byte value :       255        240        15
+  Bit pattern:    11111111   11110000   00001111
+
+  ...You would end up with four 6-bit groups that are:
+
+  Byte value :      63        63         0        15
+  Bit pattern:    111111    111111    000000    001111
+
+  ...Now by defining a Pascal 64 ASCII character array like so:
+
+    type
+      Array64 = array[0..63] of char;
+
+  ...And using this "Array64" type to define a "typed constant" :
+
+    const
+      EncodedSet : Array64 =
+
+  '+-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+  You can then translate those initial three 8-bit numbers,
+  (255, 240, 15) into four 6-bit numbers (63, 63, 0, 15).
+
+  NOTE: Turbo Pascal allows you to move bits around by using the
+        "SHL" and "SHR" operators.
+
+        The "AND" operator is necessary to "mask-out" specific
+        "high" bits, and stop bytes from from "over-flowing" the
+        valid byte number range.
+
+        The "OR" operator combines the "masked" bit-patterns back
+        into a single byte value.
+
+
+        BinByte1 := 255;
+        BinByte2 := 240;
+        BinByte3 :=  15;
+
+        TempByte1 := BinByte1 shr 2;
+
+        TempByte2 := ((BinByte1 AND 3) SHL 4) OR (BinByte2 SHR 4);
+
+        TempByte3 := ((BinByte2 AND 15) SHL 2) OR (BinByte3 SHR 6);
+
+        TempByte4 := BinByte3 AND 63;
+
+  ...And finally into four standard ASCII characters:
+
+      EncodedChar1 := EncodedSet[TempByte1];   (* ASCII char = 'z' *)
+      EncodedChar2 := EncodedSet[TempByte2];   (* ASCII char = 'z' *)
+      EncodedChar3 := EncodedSet[TempByte3];   (* ASCII char = '+' *)
+      EncodedChar4 := EncodedSet[TempByte4];   (* ASCII char = 'C' *)
+
+  ...So after you've encoded the 3 bytes, you end up with the four
+  ASCII chars, 'zz+C'.
+
+  By reversing this process ("decoding"), you can rebuild the
+  original 3 bytes, from the 4 ASCII characters that your encoder
+  produced. To make this a simple/quick process, we could build
+  the following "look-up" (translation) table:
+
+    type
+      Byte80 = array[43..122] of byte;
+
+    const
+      BinSet : Byte80 = ( 0,  0,  1,  0,  0,  2,  3,  4,  5,  6,
+                          7,  8,  9, 10, 11,  0,  0,  0,  0,  0,
+                          0,  0, 12, 13, 14, 15, 16, 17, 18, 19,
+                         20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+                         30, 31, 32, 33, 34, 35, 36, 37,  0,  0,
+                          0,  0,  0,  0, 38, 39, 40, 41, 42, 43,
+                         44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
+                         54, 55, 56, 57, 58, 59, 60, 61, 62, 63);
+
+  ...So to get my original four 6-bit numbers back:
+
+      TempByte1 := BinSet[ord('z')];   (* TempByte = 63 *)
+      TempByte2 := BinSet[ord('z')];   (* TempByte = 63 *)
+      TempByte3 := BinSet[ord('+')];   (* TempByte =  0 *)
+      TempByte4 := BinSet[ord('C')];   (* TempByte = 15 *)
+
+  ...and then translate these four 6-bit numbers (63, 63, 0, 15)
+  back into three 8-bit numbers (255, 240, 15):
+
+      BinByte1 := (TempByte1 SHL 2) OR (TempByte2 SHR 4);
+
+      BinByte2 := ((TempByte2 AND 15) SHL 4) OR (TempByte3 SHR 2);
+
+      BinByte3 := ((TempByte3 and 3) SHL 6) OR (TempByte4 AND 63);
+
+
+  TURNING THEORY INTO REALITY
+
+  So now that we all know how the process works, we need to put
+  the theory into a finished program.
+
+  First of all we need to create two data buffers. One to hold
+  the original binary file data, and another to hold the encoded
+  data. Buffers are needed because, your program will be as fast
+  as a salted slug if you don't buffer the data being read/written
+  to/from disk. (ie: Disk I/O is MUCH slower than moving data
+  around in RAM.)
+
+  To simplify the encoding/decoding process a little, we'll set
+  the size of these two buffers by determining the size of the
+  largest binary/encoded text block we want to encode/decode.
+  In this case the largest encoded text block is 100 columns by
+  200 rows of text:
+
+    Encoded text block size     : (200 rows) * (100 columns)
+    Plus the CrLf's for each row: (200 rows) * 2 bytes
+   ===========================================================
+    Total = 20,400 bytes
+
+  ...Next we need to calculate the binary block buffer:
+
+    Binary block size: (200 rows) * (100 columns) * 3/4
+    =========================================================
+    Total = 15,000 bytes
+
+  Once the buffers sizes have been determined, the complete
+  encoding process would be something like this:
+
+   1- Open binary file.
+
+   2- Open the encoded text file.
+
+   3- Load the binary file into the binary buffer.
+
+   4- Encode from binary buffer to encoded text buffer.
+
+   5- Once a complete binary-block has been encoded, write
+      the encoded text buffer out to the encoded text file.
+
+   6- Repeat steps 3-5 until the entire binary file has been
+      completely encoded.
+
+   7- Close files.
+
+
+  ...The Decoding process is pretty much the same in reverse.
+
+   1- Open encoded text file.
+
+   2- Open binary file.
+
+   3- Load encoded text buffer from encoded text file.
+
+   4- Decode from the encoded text buffer to binary buffer.
+
+   5- Once a complete binary block has been decoded, write
+      the binary buffer out to the new binary file.
+
+   6- Repeat steps 3-5 until the entire binary file has been
+      completely decoded.
+
+   7- Close files.
+
+  This is a great simplification of the complete process,
+  though it should give you the basic idea of how the
+  binary/text encoding/decoding process works. For a more
+  detailed look, take a look at the included XX3402.PAS
+  source-code included with this archive.
+
+                               - Guy
+
+

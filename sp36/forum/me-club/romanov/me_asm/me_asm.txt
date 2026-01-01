@@ -1,0 +1,362 @@
+
+          INTERFACING MULTI-EDIT WITH ASSEMBLY LANGUAGE
+
+                      (Short Communication)
+
+
+                         by Alex Romanov
+                Moscow University Computer Center
+                         (095) 939-24-71
+
+      Messages addressed to me may be sent via InterNet to
+                    MOREYNIS@twin.srcc.msu.su
+
+
+    Did you think it is impossible to call binary code from Multi-
+    Edit macro language programs? This paper offers a roundabout
+    way to do it. After briefly discussing an entertaining example
+    of making a far call to RAM-resident code, we proceed to
+    introducing ME_ASM -- our macro language preprocessor that
+    allows "assembly language includes" in macro programs. Alas,
+    the preprocessor has many shortcomings, which we promptly
+    point out. A viable alternative is then suggested.
+
+
+  (C) 1991 by Alex Romanov. Permission is granted to copy freely
+                            for personal use.
+
+
+       1. How to Make a Far Call from a Multi-Edit macro?
+
+It seems to be an important feature of most modern macro languages
+that they let the programmers write portions of code in conventional
+high-level languages (as C or Pascal), or in assembly language.
+Such external routines (popularly called XCMDs) are especially
+attractive because they offer a neat way to combine ease of use
+and user-friendly interface of a macro language with tightness and
+power of C or assembly code. It is therefore slightly embarrassing
+that such nice and powerful macro language as Multi-Edit's has no
+built-in capability to call external procedures & functions. The
+solution we suggest here is not in fact full-fledged procedure
+calling. We do not use stack, but rather pass parameters directly
+via registers. However, this method is not at all bad for small-
+size kernel routines.
+    Let us start with a simple but entertaining example. We will
+show how to interface Multi-Edit with NOWSpeak 2.00 -- a text-to-
+speech engine by ETLP Publishing. For shortness, we will hereafter
+refer to it as just Speak. Speak essentially consists of two RAM-
+resident routines: NOWPWM, which is the engine itself, and
+NOWSpeak, which is loaded above NOWPWM and manages its screen
+interface. Since we are going to stay with Multi-Edit's screen
+interface, we will not use NOWSpeak. So, you only have to load
+NOWPWM in memory. Do so by typing NOWPWM at DOS prompt in your
+Speak directory. Then return here and read on!
+    If you have installed Additional macros v.3.1, you can at this
+point check that NOWPWM is certainly resident. Invoke Random
+Access Memory Map by pressing <CtrlX> and then hit <AltF5> to
+build a list of RAM-resident programs. You will not find the name
+"NOWPWM" among them because the engine is one of those
+environment-freeing TSRs. However, if you see something occupying
+157 Kbytes of RAM somewhere below your Multi-Edit, that's probably
+it! Select it from the list and hit <Enter>. Display_RAM will show
+you the initial portion of NOWPWM's code. Now, with Speak engine
+lying there before your eyes, you can be reasonably sure it is
+indeed installed.
+    You've probably noticed that NOWPWM intercepts interrupt
+vector 2Fh -- DOS Multiplexor. It is via this interrupt that
+NOWSpeak screen interface driver communicates with NOWPWM -- and,
+predictably, we will follow the same route. To find out whether
+NOWPWM is installed, store 0FBFBh into AX and invoke INT 2Fh. If
+NOWPWM has been loaded, its INT 2Fh handler will
+    1) zero AX register to let us know NOWPWM is there;
+    2) DWORD pointer at ES:[BX+4] will contain engine entry point.
+
+    All that is readily implemented in Multi-Edit macro language:
+
+    R_AX := $FBFB;
+    Intr ($2F);
+    If R_AX Then
+        Make_Message (' NOWPWM Text-To-Speech Engine not found in memory.');
+        GoTo exit;
+    End;
+    Return_Int := Memp (R_ES shl 16 + R_BX + 4);
+
+(Note: Most macro language statements are self-explanatory.
+Usually you will be able to understand them even if you are not a
+macro language programmer. However, if you are unsure about the
+meaning of this or that macro function/procedure, you can greatly
+benefit by using MACROLAN.MAC -- another fine macro from
+Additional Macros 3.1 package! With the cursor under the keyword
+you desire to look up, hit <CtrlH>. The appropriate help screen
+from MACRO.HLX will be brought up.)
+    As you see, we stored in Return_Int the engine entry address.
+Our next job is to pass to Speak a test message that we will ask
+Speak to read aloud. Speak stores the strings it reads in a buffer
+starting at offset 01BCh (the segment value is that returned in ES
+after INT 2Fh call). Buffer length is stored in the word
+immediately preceding the buffer. Here is how we pass a test
+message to Speak in Multi-Edit macro language:
+
+    nowpwm_buffer_addr := R_ES shl 16 + $01BC;
+    test_message := 'Power and wealth  increase in  direct proportion
+  to a man''s   distance  from the material objects
+  from which   wealth and power  are ultimately derived.';
+    Memw (nowpwm_buffer_addr - 2, Svl (test_message));
+    i := 0;
+    While i < Svl (test_message) Do
+        Memb (nowpwm_buffer_addr + i, Ascii (Str_Char (test_message,i+1)));
+        ++ i;
+    End;
+
+Notice the irregular spacing in our test message. This is
+introduced intentionally, in an attempt to make Speak's monotonous
+recitation a trifle more eloquent.
+    Now, having set up everything, we are ready to call Speak! We
+must store a magic value 7 into AL and make a far call to the
+engine entry point. Speak will read the message for us.
+    While there is no problem to store 7 into AL in the macro
+language, making a far call is a lot trickier. It would have been
+very simple if the following procedure had been defined:
+
+    Call_Far (address);     { Oh, it would have been nice! }
+
+Alas, there is no such macro language instruction - and therefore,
+no direct way to perform a far call. So, in the remaining part of
+this section, we will devise a macro called Call_Far that will do
+the job for us. With Call_Far macro, our test message reading
+routine will end like this:
+
+    R_AX := 7;
+    RM ('Call_Far');
+
+    Let us agree that the macro Call_Far will get the far address
+of routine to be called from Return_Int. Now, how shall we
+transfer control to that address?
+    Observe that various CALL instructions are not the only means
+to make inter-segment transfers of control in Intel 80x86
+processors. There are also far jumps - but they are of no help to
+us as we cannot make them in macro language. Then, there is INT
+instruction.
+    This seems to be our only choice. Multi-Edit macro language
+has Intr procedure that gives us access to software interrupts. We
+could find an unused interrupt vector, set it to point to our
+code, and invoke the software interrupt to transfer control there.
+    It is usually quite easy to find an unused interrupt. There
+are plenty of them in the second half of interrupt vector table
+(in fact, Mr. Lozinsky even describes a virus that lurks there!).
+In macro language, we start our search with vector 60h and scan
+the table for the first uninitialized vector:
+
+    i := $60;
+    While (Memp (i shl 2) <> 0) and (i < $FD) Do
+        ++ i;
+    End;
+
+Having found an uninitialized interrupt, we can set it to point to
+any code. However, it would be a gross mistake to store NOWPWM's
+entry address directly into the interrupt table, because an
+interrupt call also saves flags on stack that will never be
+restored (NOWPWM will never suspect it was turned into a user
+interrupt handler). We need a more ingenious solution. We will set
+our interrupt vector to point to a local string variable in our
+Multi-Edit macro, and we will manually store into that string the
+desired CALL FAR instruction, followed by interrupt return. In
+fact, we will compile "by eye" the following three lines in
+assembly language:
+
+        db      09Ah    ;first byte of call imm32 instruction
+        dd      address
+        iret
+
+    By invoking the user interrupt pointing to that code, our
+problem is solved!
+    The rest is easy. The only minor problem that needs to be
+tackled is how to convert a 32-bit integer contained in Return_Int
+into its 4-byte machine representation. Again, there is no special
+macro language function for that task, but an elegant solution
+exists. We can make use of the circumstance that Multi-Edit stores
+its integer variables in precisely the format we need. So we just
+copy Return_Int into a local integer variable, and then get the
+4-byte string from that place in memory where Multi-Edit stores
+that variable:
+
+    i := Return_Int;
+    call_far_code := 'Ü' + Make_Str (Seg (i), Ofs (i), 4) + '╧';
+
+We take advantage of the fact that CALL FAR opcode happens to
+coincide with Russian capital YER. Taken together, our Call_Far
+macro looks like this:
+
+$MACRO Call_Far FROM ALL;       { Call far routine }
+ {  Expected:
+        Return_Int = 32 bit address (segment:offset) of far routine.    }
+    Def_Str (call_far_code[10]);
+    Def_Int (i);
+
+    i := Return_Int;
+    call_far_code := '√Ü' + Make_Str (Seg (i), Ofs (i), 4) + '╧'; { sti // call imm32 // iret }
+    i := $60;
+    While (Memp (i shl 2) <> 0) and (i < $FD) Do { Find an unused user interrupt }
+        ++ i;
+    End;
+    Memp (i shl 2, Seg (call_far_code) shl 16 + Ofs (call_far_code) + 4);   { Set interrupt vector }
+    Intr (i);
+    Memp (i shl 2, 0);  { Clear interrupt table entry }
+
+END_MACRO;
+
+    Two comments should be made. First, notice that we placed one
+little galotchka ('√') in front of our Russian capital YER. Our
+galotchka will command the processor to enable interrupts
+immediately after we get control. Recall that INT instruction
+clears interrupt flag, but there is no reason for us to run in CLI
+mode. Second, notice that we add extra four bytes to the address
+of Multi-Edit string. This is due to Multi-Edit string storage
+format: the first word contains actual current length of the
+string, the second word contains the maximum length.
+    Now we can build the full code of our test message-reading
+macro. It looks as follows:
+
+$MACRO Test TO <CtrlN>;
+    Def_Str (test_message);
+    Def_Int (nowpwm_buffer_addr, i);
+
+    R_AX := $FBFB;
+    Intr ($2F);
+    If R_AX Then
+        Make_Message (' NOWPWM Text-To-Speech Engine not found in memory.');
+        GoTo exit;
+    End;
+    Return_Int := Memp (R_ES shl 16 + R_BX + 4);
+    nowpwm_buffer_addr := R_ES shl 16 + $01BC;
+    test_message := 'Power and wealth  increase in  direct proportion
+  to a man''s   distance  from the material objects
+  from which   wealth and power  are ultimately derived.';
+    Memw (nowpwm_buffer_addr - 2, Svl (test_message));
+    i := 0;
+    While i < Svl (test_message) Do
+        Memb (nowpwm_buffer_addr + i, Ascii (Str_Char (test_message,i+1)));
+        ++ i;
+    End;
+    R_AX := 7;
+    RM ('Augmenta^Call_Far');
+
+ exit:
+
+END_MACRO;
+
+    Copy this macro source code to a separate window, compile it,
+and hit <CtrlN>. You should hear Speak read the test message.
+    This example can be of course generalized. You can get Speak
+read aloud words and sentences in your Multi-Edit windows without
+having to mark them. See SPEAK.SRC (supplied with this paper) for
+sample macros of that flavor.
+    Notice our reference to AUGMENTA macro-file when invoking
+Call_Far macro. You guessed right - Call_Far is yet another fine
+macro from AUGMENTA collection! So you don't need to cut it out of
+this paper and compile it - that's all taken care of.
+
+
+                  2. How to Enhance Macro Speed
+                Using an Assembly Language Kernel?
+
+    The example discussed in the previous section may be expanded
+in yet another direction. If we are able to store binary code into
+a Multi-Edit string and make calls to it, we can obviously do
+better than compiling "by eyesight" several simple instructions.
+Recall that maximum length of a Multi-Edit string is 2048. That's
+not much for Pascal or C programmers, but a smart assembly
+language programmer can squeeze a good deal of meaningful code
+into that amount. By writing tight high-performance assembly
+language kernels to Multi-Edit macros that are used often and
+perform large volumes of work, we can greatly enhance our
+productivity with the editor. In this section we will consider a
+simple example macro whose innermost loop repeatedly calls a
+kernel assembly language routine.
+    Suppose we want to convert all lines of our file using a
+translation table. While easily solved in pure Multi-Edit, this
+problem will probably leave you unsatisfied with the performance
+of the resulting macro code. The inner loop processing each
+individual line of the file will probably look like this:
+
+    i := 1;
+    new_line := '';
+    While i <= Length (Get_Line) Do
+        new_line := new_line +
+             Str_Char (translation_table, Ascii (Copy (Get_Line, i, 1)));
+        ++ i;
+    End;
+    Put_Line (new_line);
+
+This loop can be significantly speeded up if we rewrite it in
+assembly language. We can append the line that needs to be
+processed to the translation table and make use of the fast and
+powerful XLAT processor instruction. Assuming all registers are
+properly initialized, the loop will look as follows:
+
+    cld
+xlat_loop:
+    lodsb
+    xlat    [bx]
+    stosb
+    loop    xlat_loop
+
+    Together with this paper comes macro source file IBMTOMAC.SRC
+where this assembly language routine is invoked. Browsing through
+the source code of IBMTOMAC.SRC, you will probably notice two
+"suspicious" calls: Binary_Code, and Kill_Binary_Handle. There are
+no such keywords in the macro language, so if you try to compile
+this macro with MEMAC, you will promptly get an error message. To
+compile IBMTOMAC.SRC, you need to run ME_ASM - our macro language
+preprocessor that will translate the above statements into
+conventional Multi-Edit. ME_ASM operates as follows:
+    1) It saves macro source file if it is not saved.
+    2) It searches current file for the two keywords it
+recognizes: Binary_Code, and Kill_Binary_Handle.
+    Binary_Code is an integer function that takes two parameters:
+the name of the assembly source file to be included, and the name
+of the batch file that is to be called to compile, link, and
+convert to binary format the assembly language code. This function
+returns an integer handle to the binary routine. Whenever you need
+to make a call to that routine, initialize registers and pull user
+interrupt # handle. Kill_Binary_Handle is a procedure that
+disposes of the previously assigned handle when you don't need it
+anymore.
+    3) Having translated all occurrences of its keywords into
+appropriate conventional Multi-Edit statements, ME_ASM saves the
+preprocessed file under the name MEASMTMP.SRC using your current
+Temp_Path setting. It then performs the usual call to MEMAC to
+compile the temporary file.
+
+    Every time ME_ASM encounters the Binary_Code keyword, it
+undertakes the following actions:
+    1) It checks whether the corresponding .BIN file exists on
+disk, and whether it is up to date. If necessary, the source .ASM
+file is recompiled by a call to the batch file specified as second
+parameter to Binary_Code statement.
+    2) It defines a local string variable where the target binary
+code is to be placed, and pads it with spaces to achieve PARA
+alignment. This is necessary for your binary code to be loaded
+correctly. Then the code is read in using the auxiliary macro
+Binread.
+    3) It searches for an uninitialized interrupt vector using the
+technique described earlier in this paper. The found vector is
+returned as integer handle to the binary code.
+
+    The concept of a preprocessor, though attractive in principle,
+has a number of practical disadvantages. If you have a large macro
+file, the overhead of making a global search through it may be
+inacceptable. For that reason, I finally settled on using Binread
+- a simple macro that reads binary data from disk into a proper
+Multi-Edit string. In many cases it is quite sufficient for all
+practical purposes.
+
+
+                        ACKNOWLEDGEMENTS
+
+Multi-Edit 5.00 is a great text editor from American Cybernetics, Inc.
+
+NOWSpeak 2.00 is a Text-to-Speech Engine from ETLP Publishing.
+
+"Power and wealth ..." quotation is from
+                    "After Many a Summer" by Aldous Huxley, 1939

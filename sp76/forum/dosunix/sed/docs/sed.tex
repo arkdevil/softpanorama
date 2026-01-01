@@ -1,0 +1,446 @@
+\documentstyle[11pt,sed]{article}
+
+\begin{document}
+%\pagestype{threepartheadings}
+\ns NAME
+  \mbox{\qquad\bf sed - the stream editor}
+
+\ns SYNOPSIS
+   \mbox{\qquad\bf sed [-n] [-g] [-e {\it script}]
+   [-f {\it sfilename}] [{\it filename} ] ... }
+
+\ns DESCRIPTION
+   {\bf sed} reads each {\it filename} line by line, edits each line 
+according to a script of commands as specified by the \o-e and 
+\o-f arguments  and then copies the edited line to the
+standard output.
+
+\ns OPTIONS
+The \o-e option supplies a single edit command from the next argument;
+if there are several of these they are executed in the order in  which
+they appear. If there is just one \o-e option and no {\tt-f}'s, the \o-e  flag
+may be omitted.
+   An \o-f option causes commands to be taken from the file 
+{\it sfilename\/};  if
+there are several  of these they are  executed in the order  in  which
+they appear; \,\o-e and \o-f commands may be mixed. The {\it script\/} 
+or {\it sfilename\/} can be adjacent 
+to the \o-e or \o-f or can be the next argument on the command line.
+   The \o-g option causes {\bf sed} to act as though every substitute  command
+in the following script has a \o g suffix.
+   The \o-n option suppresses the default output.
+
+\ns SCRIPTS
+   A script consists of commands of the following form:
+\mbox{\bf[\it address \bf[,\it address\bf] ] \it function \bf[\it arguments\bf]}
+   Normally {\bf sed} cyclically copies a line of input into a  current text
+buffer, then applies in sequence all commands whose addresses select that line  
+and  then copies the buffer to standard output and clears the buffer.
+   The \o-n option suppresses normal output so that only commands 
+which do output  ({\em e.g. \tt p}) cause any writing to occur.
+ Also, some commands (\o n, {\tt N}) do their own line reads, and some
+others (\o d, {\tt D}) cause all commands following in the script to be skipped
+(the \o D command also suppresses the clearing of the current text buffer
+that would normally occur before the next cycle).
+   There is also a second buffer (called the
+`hold space' that can be copied or appended to or from or swapped with
+the current text buffer.
+
+\ns ADDRESSES
+   An address is: a decimal number (which matches that numbered line 
+where line numbers start at 1 and run cumulatively across files), or a
+``{\bf\$}'' (which matches the last line of input), or a 
+``/{\it regular expression\/}/'' (which matches any line satisfying the 
+expression. The following rules govern the address matching:
+\begin{items}
+\item A command line with no addresses selects every input line.
+\item A command line with one address selects every input line that  matches
+    that address.
+\item A command line with two addresses selects the inclusive range from
+    the first input line   that matches the first address up to and including
+the  next input  that matches the second. (If the second address
+    is a number less than or equal to the line number first  selected,
+    only one line is selected.) Once the second address is matched {\bf sed}
+    starts looking for the first one again; thus,  any number of these
+    ranges will be matched.
+\item The second address may be in the form of `$+${\it number\/}'. This means
+that the command will stay selected for {\it number\/} lines after the 
+first address is satisfied.
+\item \bs {\it?regular expression?\/} where {\it ?\/} is any 
+character is identical to /{\it regular expression\/}/.
+\item  The negation operator \o! preceding a function makes 
+      that function apply to every line not selected by the address(es).
+\end{items}
+\newpage
+\ns FUNCTIONS
+   In the following list of functions, the maximum number of addresses
+permitted for each function is indicated in parentheses.
+   An argument denoted {\it text\/} consists of one or more lines,  with all
+but the last ending with `\bs ' to hide the newline. A command with this type 
+argument must be the last on any command line or \o-e argument. Otherwise 
+multiple commands may appear on a line separated by ``;" characters.  A 
+command may have a trailing comment indicated by a ``{\tt\#}'' character. 
+Comment lines begin with a ``{\tt\#}''.    Backslashes in text are treated as
+described in {\it escape sequences\/} below;
+they  may be used to protect initial whitespace
+against the stripping that is done on every line  of
+the script.
+   An argument denoted {\it label\/}, {\it rfile\/} or {\it wfile\/}  
+(which specify labels or file names)  is not processed for 
+{\it escape sequences\/}. Therefore a ``;" or
+a ``{\tt\#}" terminates the label or file name. This simplifies
+entering {\bf DOS} style paths. 
+Each {\it wfile\/} is created before 
+processing begins.  There can be at
+most 10 distinct {\it wfile\/} arguments. 
+\begin{flist}
+\ia a text (1)
+   Append the {\it text\/} on output before reading the next input line.
+\ia b \[label\]  (2)
+   Branch to the `:' command with the given {\it label\/}.  If no {it label\/} 
+is  given, branch to the end of the script.
+\ia c text   (2)
+   Change lines by deleting the current text buffer and 
+at the end of the address range, place {\it text\/} on the output.  
+Start the next input cycle.
+\ib d          (2)
+   Delete the current text buffer. Start the next input cycle.
+\ib D          (2)
+   Delete the first line of the current text buffer (all characters up to the
+first newline). Start the next input cycle.
+\ib g          (2)
+   Replace the contents of the current text buffer with the contents  of
+the hold space.
+\ib G          (2)
+   Append the contents of the hold space to the current text buffer.
+\ib h          (2)
+   Copy the current text buffer into the hold space.
+\ib H          (2)
+   Append a copy of the current text buffer to the hold space.
+\ia i text   (1)
+   Insert the  {\it text\/} on the standard output.
+\ia l {\[w\/\[wfile\]\]}      (2)
+   List current text buffer on standard output or to a file if the \o w option
+follows. Non ASCII printable characters are expanded as shown in the
+{\it escape sequence\/} section below. 
+\ib n          (2)
+   Copy the current text buffer to standard output. Read the next line
+of input into it. The current line number changes.
+\ib N          (2)
+   Append the next line of input to the current text buffer, inserting
+an embedded newline between the two. The current line number changes.
+\ib p          (2)
+   Copy the current text buffer to the standard output.
+\ib P          (2)
+   Copy the first line of the current text buffer (all characters up to the
+first newline) to standard output.
+\ib q          (1)
+   Quit. Perform any pending outputs (\o a or \o r commands) and 
+terminate {\bf sed}.
+\ia r rfile  (1)
+   Read the contents of {\it rfile\/}. Place them on the output before reading
+the next input line.
+\il s /{\it regular expression\/}/{\it replacement\/}/{\it flags}       (2)
+   Substitute the {\it replacement\/} for instances of the
+{\it regular  expression\/}
+in the current text buffer.  Any character may be used instead of `/'. In the
+{\it regular expression\/} and in the {\it replacement\/} text 
+\mbox{\bf \bs1---\bs9} are used
+to indicate the $n^{th}$ subexpression indicated by a ``{\bf \bs(...\bs)}''
+expression in the {\it regular expression\/}.  In the replacement text a
+{\bf \&} may be used to indicate the entire matched expression. If the 
+replacement text consists only of the a single ``\%" character, then 
+a copy of the replacement text for the previous {\bf s} command
+ is used as the replacement text for this command.
+   {\it Flags\/} are any of the following options, with the following
+provisos:
+if present \o w must be the last one; only the last of either \o p or \o P
+is used; and  only the last {\it n} is used.
+\begin{description}
+\item[\quad g --] Global. Substitute for all nonoverlapping instances of the 
+ {\it RE\/} rather than just the first one.
+\item[\quad p --] Print the current text buffer if a replacement was made.
+\item[\quad P --] Print the first line of the current text buffer if a 
+replacement was made.
+\item[\quad w\[\it wfile\/\]--] Append the current text buffer to the file 
+ argument as in  a \o w command if a replacement is made. Standard output is 
+used if no file argument is given.
+\item[\quad $n$--] Where  $n$ can be 1 through 512. Perform only the $n^{th}$ 
+replacement. If \o g is also  set or the \o-g option is selected,  this
+option means that the $n^{th}$ and all succeeding substitutions should
+be performed.
+\end{description}
+\ia t \[label\]  (2)
+   Branch to the `:' command with the given {\it label\/} if any \o s commands
+made any substitutions since the most recent read of an input line
+or execution of a \o t or \o T.  If no {\it label\/} is given,  
+branch to the end of the script.
+\ia T \[label\]  (2)
+   Branch to the `:' command with the given {\it label\/} if  no \o s commands
+have  succeeded since the last input line or \o t or \o T command.
+Branch to the end of the script if no {\it label\/} is given.
+\ia w \[wfile\]  (2)
+   Write the current text buffer to {\it wfile\/}. If no {\it wfile\/} is 
+given standard output is used.
+\ia W \[wfile\]  (2)
+   Write the first line of the current text buffer to {\it wfile\/}. If
+no {\it wfile\/} is given standard output is used.
+\ib x          (2)
+   Exchange the contents of the current text buffer and hold space.
+\il y /{\it string1\/}/{\it string2\//}      (2)
+   Translate. Replace each occurrence of a character  in string1  with
+the corresponding character in string2.  The `/' may be any character not
+in {\it string1\/} or {\it string2\/}.
+The lengths of  the two strings must be equal.
+\ia ! function              (2)
+   All-but.  Apply the function (or group, if function is `\{') only to
+lines not selected by the address(es).
+\ia : label  (0)
+   This command defines a label for \o b \o T and \o t commands.
+\ib =          (1)
+   Write a line containing the current line number to the standard output.
+\ib \{          (2)
+   Execute the following commands through a matching `\}' only when the
+current line matches the address or address range given.
+\ib \}          (0)
+The command marks the end of a grouping started by a `\{'.
+\ib ~  (0) An empty command is ignored.
+\end{flist}
+\newpage
+\ns {ESCAPE SEQUENCES}
+The following escape sequences are used to represent unprintable characters 
+in {\it text\/}, {\it regular expressions\/} and {\it replacement\/} text.
+It is ignored in {\it labels\/} and {\it file\/}s.  If the character following
+the `\bs' is not list below the `\bs' causes the character to
+be quoted during script input.
+The \o l command also uses
+this convention.\\
+\li a \w bell(07)
+\li b \w backspace(08)
+\li e \w escape(27)
+\li f \w formfeed(12)
+\li n \w newline(10)
+\li r \w return(13)
+\li t \w tab(09)
+\li v \w verticaltab(11)
+\li xhh the ASCII character corresponding to 2 hex digits hh.\\
+\li {\bs} the backslash itself.
+
+\ns {REGULAR EXPRESSIONS ({\it REs\/})}
+Regular expressions can be built up from the following ``single-character"
+{\it RE\/}s:
+\begin{llist}
+\item[c] Any ordinary character not listed below. An ordinary character
+matches itself.
+\item[\bs] Backslash. When followed by a special character the {\it RE\/} 
+matches the ``quoted character" as listed in {\it Escape Sequences\/} above. 
+A backslash
+followed by one of $<$,\,$>$,\,(,\,),\,\{,\,\}, or $0...9$ represents an 
+{\it operator\/} in a  regular expression, as described below.
+\item[.] Dot. Matches any single character except the {\tt NEWLINE} at the end
+of a line.
+\item[\^] Carat. As the leftmost character in an {\it RE\/} this 
+constrains the pattern 
+to be an anchored match.  That is it must match anchored at the first character
+in the line.  In any other position the \^\ is an ordinary character.
+\item[\$] The dollar sign as the rightmost character in an {\it RE\/} 
+matches the
+{\tt  NEWLINE} at the end of the line. At any other position the \$ is an
+ordinary character.
+\item[\^\,{\it RE\/}\$] This requires the {\it RE} to match the entire buffer.
+%
+\item[{[c...]}] A nonempty string of characters enclosed by square brackets 
+matches any single character in the string except the {\tt NEWLINE} at the
+end of the string. 
+If the first character of the
+string is a caret (\^\,), then the {\it RE\/} matches any character not in the 
+string {\it except} the {\tt NEWLINE} at the end of the string. A `-'
+sign may be used to express ranges of characters. For example the range
+`[0-9]' is equivalent to the string `[0123456789]'.  The `-' is treated
+as an ordinary character if it occurs in the string at a position 
+that can not be part of a range. This construct is called 
+{\it set definition\/}.
+%
+\item[\bs\{m\bs\}]
+\item[\bs\{m,\bs\}]
+\item[\bs\{m,n\bs\}] When any of these constructs follow an ordinary character,
+a dot, a {\it set  definition\/} or the `\bs n' construct. 
+This construct matches the previous construct  for a {\it range} of 
+occurrences.  At least {\bf m}
+occurrences will be matched and at most {\bf n}.  ``\bs\{m,\bs\}'' matches at
+least {\bf m} occurrences and ``\bs\{m\bs\}'' matches exactly {\bf m}.
+\item[*] When this follows an ordinary character, a dot, a {\it set 
+definition\/}
+or the `\bs n' construct, this {\it RE\/} matches 0 or more occurrences of that
+construct. This pattern is called a {\it closure\/}.
+\item[$+$] This pattern is similar to the star above but matches one
+or more occurrences of the previous construct.
+\item[\bs$<$] The sequence \bs$<$ in an {\it RE\/} requires that the scan 
+position in the line must be immediately following a character that can not be 
+part  of a ``word" and immediately preceding a character that can be part of a 
+``word''.  In this context a ``word'' is any sequence of upper and lowercase
+letters, a numeral [0-9] or the underscore character (\_).
+\item[\bs$>$] The sequence \bs$>$ in an {\it RE\/} requires that the 
+scan position
+in the line must be immediately following a character that can be part of
+a ``word'' and immediately preceding a character that can not be part of
+a ``word''.
+\item[\bs(...\bs)] An {\it RE\/} enclosed between the character sequences \bs( 
+and \bs) matches whatever the unadorned {\it RE\/} matches, but saves the 
+string matched by the enclosed RE in a numbered substring register. There
+can be up to nine such substrings in an {\it RE\/}, and the parenthesis 
+operators can be nested.
+\item[\bs n] Match the contents on the $n^{th}$ substring register. 
+When nested substrings are present, {\it n} is determined by counting the
+occurrences of \bs( starting from the left.
+\item[//] The empty {\it RE\/} (//) is equivalent to the last {\it RE\/}
+encountered in the input processing.  
+\end{llist}
+
+
+\ns {ERROR MESSAGES}
+The following error messages may appear during the compilation
+phase of {\tt sed} processing all cause {\tt sed} to terminate:
+\begin{elist}
+\item[sed: bad expression {\it hh\/}] The escape sequence of ``\bs x" did was
+  not followed by two hex digits
+\item[sed: bad value for match count on s command \c] A maximum
+  value of 512 is allowed for {\it n\/} on an \o s command.
+\item[sed: cannot create {\it file\/}] The listed output file could not be
+  opened
+\item[sed: cannot open command-file {\it file\/}] The {\it file\/} on an \o-f
+ argument could not be opened
+\item[sed: command "\c" has trailing garbage] Command was
+ not terminated properly
+\item[sed: duplicate label {\it label\/}] The indicated {\it label\/} appeared
+ on more than on \o : command
+\item[sed: error proccessing: {\it argument\/}] The {\it argument} is 
+ incorrect either a file name was missing or the \o g or \o n options
+ had trailing garbage
+\item[sed: garbled address \c] Improper {\it regular expression\/}
+  in an address, line number in an address  or $+$ used in first address
+\item[sed: garbled command \c] Error in the construction of
+ the {\it regular expression\/} or {\it replacement\/} in an \o s command,
+ an ill-formed \o y command or a {\it null\/} character was found 
+\item[sed: no addresses allowed for \c] The end of group (\}) and
+  label command (:), can not have addresses 
+\item[sed: no argument for -e] The \o-e option did not have a {\it script\/}
+%
+\item[sed: no such command as \c] The function in the 
+  \c was illegal
+\item[sed: only one address allowed for \c]  The \o a \o i \o q
+ \o r and \o= commands allow only one address
+\item[sed: range error in set \c] A [...{\it x\/}-{\it y\/}...] 
+  constuct was  found where $y<x$ 
+\item[sed: RE too long: \c] Internal buffer overflow while
+ processing  a {\it character set\/}
+\item[sed: too many commands, last was \c] A maximum of
+ 200 commands are allowed
+\item[sed: too many labels: \c]  A maximum of 50 labels  are
+ allowed
+\item[sed: too many line numbers \c] More than 256 different line numbers were
+ used or more than 50 $+$ addresses were used
+\item[sed: too many w files \c] A maximum of 10 output files is allowed
+\item[sed: too many \{'s \c] A \o\{ command did not have a matching \o\} command 
+\item[sed: too many \}'s \c] A \o\} command appeared before an opening \o\{ 
+  command
+\item[sed: too much text: \c] The internal command text buffer 
+ overflowed processing the command
+\item[sed: undefined label {\it label\/}] The listed {\it label\/} was
+  never defined on a \o: command 
+\item[sed: unknown flag {\it option\/}] The listed {\it option\/} is not
+ allowed on the invoking line for {\bf sed}
+\end{elist}
+
+The following warning may be displayed during compilation:
+\begin{elist}
+\item[sed: Label not used {\it label}] The listed {\it label\/} was defined
+but never referenced.
+\end{elist}
+
+During the actual editing the following fatal errors can occur:
+\begin{elist}
+\item[sed: append too long after line {\it number\/}] A \o G \o H or \o N
+  command created a line in the buffer longer than 4000 characters
+\item[sed: cannot open {\it file\/}] The \o r command could not open
+  {\it file\/} 
+\item[sed: infinite branch loop at line {\it number\/}] More than 50 branches
+ were taken without the editing of the line completing
+\item[sed: line too long at line {\it number\/}] While the \o s command
+ was performing a substitution  the line length exceeded 4000 characters 
+\item[sed: RE bad code {\it code\/}] An internal processing error has
+ occurred while matching a {\it regular expression\/}
+\item[sed: too many appends after line {\it number\/}] And append command
+  caused more than 20 reads and appends for the given line
+\item[sed: too many reads after line {\it number\/}] A read command caused
+  more than 20 reads and appends for the give line
+\end{elist}
+
+\ns BUGS
+I tried to fix every problem I could find, but I believe the follow
+bugs still exist in this verstion:
+\begin{items}
+\item The {\tt getline} routine can overflow the buffer before checking
+ for overflow
+\item I still do not know exactly what the \o D command should do
+\item Strange options on the \o s command are allowed
+\item The handling of {\tt inrange} for \o\{ commands
+\item Error processing could be improved
+\item All output files are overwritten even when there are errors
+\end{items}
+
+\ns COMPATIBILITY
+   This version of {\bf sed} is a modification of the Internet supplied GNU
+version.  That version was reverse-engineered from BSD 4.1 UNIX {\bf sed}.
+The following changes, modifications and improvements have been made:
+\begin{items}
+   \item There is no hidden length limit (40 in BSD {\bf sed}) on {\it wfile\/}
+ names.
+   \item There is no limit (8 in BSD {\bf sed}) on the length of {\it labels\/}.
+   \item The exchange command now works for long pattern and hold spaces.
+ \item {\it Escape sequences\/} are inhibited for both {\it label\/}s and
+{\it filename\/}s.
+\item All commands not having a {\it text\/} argument can be separated by ``;''
+or can have trailling comments ({\tt \#})
+  \item \o a, \o c and \o i commands don't insist on a leading backslash 
+      `\bs n' in the text.
+   \item \o r, \o w commands do not insist on whitespace before the filename.
+   \item The g, P, p and {\it n} options on \o s commands may be given in 
+any order.
+ \item Escape sequences are valid in all contexts except file names and labels.
+   \item The full range of characters are allowed all 256 values.
+   \item In an {\it RE\/}, `+' calls for $1...n$ repeats of the 
+     previous pattern.
+   \item The \o l command produces a different format than the UNIX {\bf sed}.
+   \item The \o W command (write first line of pattern space to file).
+   \item The \o T command (branch on last substitution failed).
+   \item {\bf sed}'s error messages have been made more specific and
+   informative and cause processing to halt.
+   \item $+$ allowed in the second address.
+  \item The empty RE ``//'' is allowed as a first address if a previous RE
+has been compiled
+\item The \o-e and \o-f command line options do not require their 
+arguments to be separate options.
+\item If no arguments are given {\bf sed} prints usage data.
+\item In all contexts a blank file name means {\it stdout\/}.
+\end{items}
+
+This version otherwise appears to be equivalent to the UNIX version on
+the Sun4 computer.  That is I believe anything that {\bf sed} did
+on that system, this version of {\bf sed} will do the same on
+either a Sun4 or a PC under DOS. If anyone can really explain what
+{\bf sed} is really supposed to do as explained in the UNIX documentation
+I would appreciate the information.  The manual page refers to {\bf ed} 
+for further details which is ambiguous at best and the description I read
+for either the \o D command or  the options for the \o s command were
+not understandable by me.  
+
+I would appreciate any comments, suggestions and even bug reports.  I 
+sometimes can be reached on INTERNET (the fiscal year is almost over),
+but you can always contact me by 
+mail or phone \newline
+\quad Howard Helman {\tt helman@elm.sdd.trw.com}\newline
+\quad Box 340\newline
+\quad Manhattan Beach, CA 90266\newline
+\quad 213.372.5387 or after 11/1/91 310.372.5387
+\end{document}

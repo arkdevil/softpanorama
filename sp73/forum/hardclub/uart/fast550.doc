@@ -1,0 +1,377 @@
+
+    Technical Note : FAST SERIAL PORTS
+            Author : Michael Spalter, S/E/G Communications
+             Email : segcom@cix.compulink.co.uk
+            Origin : United Kingdom, EC
+     Last Modified : 13th April 1993
+            Status : (c) 1993 Michael Spalter
+
+    NOTE: This document may be distributed  freely  providing  that  all
+    credits  remain  intact  and that it is not modified in any way. Any
+    suggestions for improving this document are welcome. Please  contact
+    the  author  as  shown  at  the foot of the document. Bulletin board
+    sysops are welcome to make this file available as a 'Bulletin'. This
+    document is provided for information only and no support or warranty
+    is offered by the author or publisher.
+
+
+                     ┌────────────────────────────────┐
+                     │ DO I NEED A FAST SERIAL PORT ? │
+                     └────────────────────────────────┘
+
+         ┌───────────────────────────────────────────────────┐
+         │                 C O N T E N T S                   │
+         │                                                   │
+         │  0) INTRODUCTION                                  │
+         │  1) What is a UART ?                              │
+         │  2) Why the sudden craze for high speed cards ?   │
+         │  3) Why aren't normal PC ports good enough ?      │
+         │  4) How would I know if I needs a faster port ?   │
+         │  5) Okay, I want one ! What should I buy ?        │
+         │  6) Is there just one type of 16550 UART ?        │
+         │  7) Replacing a soldered 16450/8250 UART          │
+         │  8) Windows and buffered UARTS                    │
+         │  9) Supplier information                          │
+         └───────────────────────────────────────────────────┘
+
+
+    INTRODUCTION
+    ------------
+
+    Fast  serial  cards  have  become  very  popular  lately  due to the
+    proliferation of high speed (V32/V32bis) modems. Whilst the computer
+    press have been keen to cover modems in general, little coverage has
+    been given to  serial  cards  (they're  just  not  sexy  enough  for
+    mainstream  articles).  This  means that, whilst many people want or
+    need fast serial cards, there is much  confusion  about  them.  This
+    document attempts to answer the most common questions asked.
+
+
+    1) What is a UART ?
+       ----------------
+
+    Throughout this document, we will refer to something called a 'UART'
+    (pronounced 'you-art').  As this is a very important  component,  it
+    is important to understand what it is.
+
+    A  UART  is  an IC (chip!) which takes parallel data from the PC and
+    outputs it to the serial port as a timed serial stream of data.   It
+    is  the  main component of the serial card; all other components are
+    there to support the UART.  Here is a simple functional diagram:
+
+        PC's BUS Slot                         Serial port
+        1 ------------> ╔════════╗
+        1 ------------> ║  UART  ║
+        0 ------------> ║        ║
+        1 ------------> ║        ║ ---------> 11010001
+        0 ------------> ║        ║
+        0 ------------> ║        ║
+        0 ------------> ║        ║
+        1 ------------> ╚════════╝
+
+    The diagram shows conversion of data from a  parallel  to  a  serial
+    stream. Of course, serial ports can receive data as well as transmit
+    it, so the UART also converts serial data back into parallel data.
+
+
+    2) Why the sudden craze for fast serial ports ?
+       --------------------------------------------
+
+    Now that high speed modems (V32, V32bis) have  become  very  common,
+    many PC serial ports are having problems running fast enough to keep
+    up  with the modems which can be driven at speeds of up to 57600 bps
+    (bits per second).  A standard '8250 UART'  based  serial  port  (or
+    one  using a multi i/o chip) cannot possibly run at that speed.  The
+    '16450' UART is only slightly better.
+
+
+    3) Why aren't normal PC ports good enough ?
+       ----------------------------------------
+
+    Standard serial ports were designed  to  drive  mice,  plotters  and
+    modems.  At the time, modems ran at speeds of up to 4800 bps, and we
+    thought that was fast - anyone who has been using  modems  for  more
+    than  5  years  will  remember how lucky we thought we were !
+
+    Problems with serial ports arise for two reasons:
+
+    a) The 8250/16450 or equivalent UARTS are simply not fast enough  to
+       run  at  the  high  speeds  required  by  fast modems. Whilst the
+       BIOS/UART  will  allow  you  to select these speeds, they may not
+       reliably work at these speeds. The chips are rated for high speed
+       use, but that assumes a simple working enviroment (not a PC!).
+
+    b) PC's are busy things, with lots of interrupts to service. If  the
+       port is running  at  high  speed,  the  PC  may  miss  interrupts
+       generated by incoming  data  because  it  is  'busy  doing  other
+       things'  -  this  then means that the UART has nowhere to put the
+       incoming  byte  and  so  it  gets  overwritten  by  the next byte
+       received. This usually causes CRC errors.  The faster  you  drive
+       the port, the more CRC  errors  you  will  get.  This  is  almost
+       always a problem if you multitask with MS-Windows or Desqview, as
+       the rapid task switching keeps the processor very busy.
+
+    The '16550' UART gets around both of these problems:
+
+    a) It is designed to run at  high  speed;  a  16550  chip  will  run
+       happily  at 57600 bps or faster which is fast enough for even the
+       fastest modem.
+
+    b) The 16550 UART incorporates a 16 byte buffer;  if  the  PC  isn't
+       ready to received the current byte then the UART can retain it in
+       the  buffer  until  the  PC is ready for it.  16 bytes provides a
+       comfortatble time margin to ensure that none of the received data
+       is lost.  Many communications packages will empty the FIFO buffer
+       at every interrupt possible, rather than only taking one byte per
+       interrupt.   The  buffer  on  the  UART is a 'FIFO' buffer.  This
+       simply  means  that the first byte in will be the first byte out.
+       The alternative to this would be a LIFO buffer, but that would be
+       useless for a UART as all the data would become scrambled !
+
+
+    4) How would I know if I needed a faster serial card ?
+       ---------------------------------------------------
+
+    If you are multitasking using MS-Windows or Desqview, then you  will
+    almost  certainly need a fast buffered serial card. Typical symptoms
+    will be CRC errors or block retries reported when downloading files.
+    As you will probably be using error correction,  then  these  errors
+    are unlikely to be caused by anything else.
+
+    Another  symptom  of an inadequate serial port is that you're simply
+    not getting the performance you'd expect from your modem. This could
+    be caused by you not having your modem configured correctly,  so  in
+    the  first instance, check with your suppliers or colleagues/friends
+    for any special setup strings particular to your modem (perhaps  you
+    have  forgotten  to enable RTS/CTS handshaking or data compression).
+
+    If  you  have your modem set up correctly and your performance still
+    isn't what it ought to be, then a faster  serial  card  may  be  the
+    solution.  On  a  V32bis/V42bis modem, you should be able to achieve
+    download speeds of up to 3000 cps on ASCII  text,  or  1500  cps  on
+    compressed  (e.g.  ZIP)  files.   Remember that poor phone lines can
+    also affect modem performance.
+
+    Even if you are not using Desqview or MS-Windows, you may still  get
+    the  symptoms details above, especially if you are driving the modem
+    at 38400 bps or faster, in which case you would be wise to invest in
+    a faster serial card. Having said that, there are some people  using
+    high  speed  modems  whose  existing serial port may be adequate, in
+    which case there is no point investing in a faster one !
+
+
+    5) Okay, I want one, what should I buy ?
+       -------------------------------------
+
+    The  important part about a fast serial card is its UART; this means
+    that you may be able to simply swap the UART of your existing serial
+    card, rather than having to fit a whole new card.  You can  only  do
+    this  if your current serial card uses a 40 pin UART (8250, 16450 or
+    equivalent). This needs to be  socketed  for  easy  removal,  unless
+    you're  particularly  experienced  with  a  soldering iron and fancy
+    desoldering the chip yourself - this is detailed in section (7).
+
+    Unfortunately,  most PC's nowadays seem to come with multi i/o cards
+    with one multi-purpose chip which performs serial, parallel and disk
+    operations; if you have a multi i/o card, it will normally be a PLCC
+    package in the centre of the board ( a flat 'surface  mounted'  chip
+    with pins on all four sides). This obviously cannot be replaced with
+    a   16550.   Some  PC's  have  the  i/o  circuitry  built  into  the
+    motherboard; it is unlikely that you can replace the UARTs there.
+
+    Thankfully, and more easily, you can simply buy  a  new  card  based
+    around a 16550 UART. This can either replace or add to your existing
+    serial  ports and your supplier will advise you on the best type.
+
+
+    6) Is there just one type of 16550 UART ?
+       --------------------------------------
+
+    No! As with all  semiconductors, many manufacturers have  jumped  on
+    the 16550  bandwaggon. This is good inasmuch that there is a choice,
+    but bad in that some manufacturers have got it  wrong  -  some  have
+    FIFO  buffers which don't work and some aren't  recognised correctly
+    by applications (this can sometimes be worked around but ideally get
+    one which you know will work).
+
+    The 16550 chip 'by which others are  gauged'  is  made  by  National
+    Semiconductor, and the part no. is NS16550AFN.  There is an older NS
+    version,  but  make  sure you order the 'AFN' type. If your supplier
+    stocks a different 16550 version, ensure that it is 100%  compatible
+    with the NS16550AFN, and ideally get a guarantee that you can return
+    it if you find that it isn't ! The NS type is the most expensive, so
+    you will probably save money by buying a clone, but take note of the
+    above guidelines.
+
+    The  FIFO  buffer  on  a  16550 chip can be enabled and disabled. By
+    default it will be DISABLED. Many comms programs will  automatically
+    detect  and  enable the FIFO buffer, but if yours doesn't, there are
+    several programs to enable them,  which  you  can  include  in  your
+    AUTOEXEC.BAT file or another batch file. Ask your supplier.
+
+    There are several programs around to test 16550 chips, once they are
+    installed  so you'll soon know if your new chip/card is okay. If you
+    can't get hold of one, ask around on BBS's or ask your supplier.
+
+    Both  US  Robotics and Hayes make high speed serial cards  which are
+    very flexible; ask your supplier for details. If your local supplier
+    cannot get hold of a fast serial card, see section (8).
+
+
+    7) Replacing a soldered 8250 or 16450 UART
+       ---------------------------------------
+
+    If your existing UART is a soldered 16450 or 8250 type  (40 pin DIP)
+    and you are competant with a soldering iron, then you  may  want  to
+    remove  the  chip yourself and replace it with a 40 pin socket (into
+    which you plug your new 16550).  It is not  too  complicated  -  the
+    most important thing is to work slowly and carefully.  Here are some
+    useful tips from Bob Kellock:
+
+      >>>> ALWAYS OBSERVE STATIC PRECAUTIONS WHEN HANDLING CHIPS <<<<
+
+    Get  hold  of a scrap double sided printed circuit board to practice
+    on; it's no use practicing on a single sided board as they're easy !
+
+          >>>>>> DO NOT ATTEMPT TO REMOVE THE CHIP WHOLE ! <<<<<<
+
+    Get hold of some fine nosed wire cutters and chop off  each  of  the
+    legs of the UART as close to the body as possible (therefore leaving
+    as much of the leg on the board as possible). Discard the main body.
+
+    Then,  remove  each  of  the legs in turn using a soldering iron and
+    tweezers. (Editors note: Bob says "real men use their fingers",  but
+    I'd  still recommend tweezers). Don't 'wiggle' the iron about on the
+    surface of the board as you will probably damage the tracks/pads  by
+    doing so. The time between applying the iron and pulling the leg  is
+    fairly critical - just keep practicing.
+
+    Make  sure  you  pull  the  leg out square from the board or you may
+    damage the tracks/pads on the component side.
+
+    You may find that it helps to tin the iron with new solder  now  and
+    then,  but don't use too much otherwise you may end up with a pubble
+    of solder, which will be a read problem.
+
+    Get hold of some solder wick or a solder sucker to remove the solder
+    from the vias (holes in the board where the legs came from).   As  a
+    last  resort  you  can  use  stranded wire and Fluxite but it's very
+    tedious. You may find that some holes just don't want to  clean  out
+    - resolder them with fresh solder and try again.
+
+    Check that the holes really are clean - they can be deceptive.  Hold
+    the board up to the light and check that you  can  see through  each
+    clearly.  Clean  off  at  least the component side of the board with
+    PCB cleaner or meths; use it in a well ventilated room using a stiff
+    brush - an old toothbrush is ideal.
+
+    Carefully  inspect the component side of the board - preferably with
+    a magnifying glass.  You can get minute  traces  of  solder  between
+    pads  which  completely  messed  it  up.  Remove any odd bits with a
+    scalpel. Check that there is plating  through  the  holes  -  it  is
+    possible  to  pull  it  out with the leg but it's not too terrible.
+
+    Insert  the  socket  in  the  board  with  the  notch  in  the right
+    direction. This is when you may find out that one (or more!) of  the
+    holes isn't cleaned out properly. Do it again.
+
+    Solder  socket  in position, clean, inspect and rectify as above. If
+    you lost any of the through hole platings then solder those pins  on
+    the top side of the board too.
+
+    The board is now ready to take your new 16550 chip. Remember to take
+    static  precautions  (earth  yourself and don't rub your slippers on
+    the nylon carpet). Ensure that all pins on the 16550  are  straight;
+    if  they  are  not,  carefully  press the chip on a table at a right
+    angle to straighten them. Pins tend of break if they  are  bent  too
+    much, so be careful.
+
+    Place  one  side of the chip just into the socket; do not push it in
+    yet. Then, place the other side's pins just into the  socket.  Check
+    that all pins are in the right holes and that they are all straight.
+    Slowly  press  the  chip into the socket using even pressure, making
+    sure no pins snag on their way in. Once it's in. Give it a firm push
+    against the table to make sure everything  is  home  tightly.  Check
+    that  the  chip  is  inserted properly, the right way round and that
+    none of the pins have curled up under the body instead of  being  in
+    its correct hole.
+
+
+    8) MS-WINDOWS and high speed UARTS
+       -------------------------------
+
+    Microsoft  Windows  is  a  prime  cause of lost interrupts.  This is
+    mostly due to the fact that MS-Windows  is  processor  intensive  so
+    with  high  speed modems, it is even more likely that data will come
+    in quicker than the PC can service  the  interrupts.  This  is  made
+    worse by the fact the Windows Multi-tasks.
+
+    A  properly  configured  16550 UART should solve these problems, but
+    there is a slight complication with Windows 3.1; if you  enable  the
+    UART's  FIFO  buffers  (using a 16550.EXE or whatever), then Windows
+    won't recognise the COM port any more; this is strange  because  the
+    MSD  program supplied with 3.1 will happily report the presence of a
+    16550 UART. If your Windows software is '16550 aware' then  it  will
+    happily get around this, but if you Windows software doesn't, or you
+    are  using  DOS  software  under Windows, then you may have to use a
+    replacement COM driver, or use different software.
+
+
+    DOS Applications Under Windows
+    ------------------------------
+
+    A  company  called  Cherry Hill Software have produced a replacement
+    comm driver for Windows 3.1 called CHCOMB.386 which will enable  DOS
+    programs running under windows to recognise 16550's properly.  It is
+    added  to  your  WIN.INI  file.   It is almost freeware - the author
+    expects either  a  US$10  donation  or  a  tacky  postcard  for  his
+    collection.  They can reached by email at 76050.2204@compuserve.com.
+
+    The following lines should also be amended in WIN.INI:
+
+    device=*combuff      (delete this line - its in your WIN.INI)
+    device=chcomb.386
+
+    [386Enh]
+    COM3FIFO=true
+    COM3Buffer=10000
+    COMBoostTime=4        (normally 2)
+    COMIrqSharing=true
+
+    Experimentation  may be required and doubtless there are people more
+    experienced than me on Windows and 16550's so if you have  something
+    to add, please email me and I'll amend this document appropriately.
+
+
+    9) Supplier information
+       --------------------
+
+    S/E/G  Communications,  based  in  London, England, stock a range of
+    16550 UARTs and 16550 based serial cards at very competitive prices.
+    For full details and pricing information contact:
+
+        ┌────────────────────────────────────────┐
+        │                                        │
+        │    S/E/G Communications                │
+        │    137 Hale Lane                       │
+        │    Edgware                             │
+        │    Middlesex HA8 9QP                   │
+        │    Tel: (081) 959 3377                 │
+        │    Fax: (081) 959 2137                 │
+        │    Email: segcom@cix.compulink.co.uk   │
+        │                                        │
+        └────────────────────────────────────────┘
+
+    Credit Card orders are welcome. Trade enquiries welcome.
+
+
+            ------------------ End of Document ----------------
+
+    (c) 1993 Michael Spalter, S/E/G Communications
+
+    This  document may only be distributed un-modified.  Reproduction as
+    part  of  any  commercial  transaction  or  distribution   via   any
+    non-electronic  medium is prohibited in part of full without written
+    permission from the author.
+
+                          ----- end of file -----

@@ -1,0 +1,188 @@
+Newsgroups: comp.lang.rexx
+Message-ID: <199409141228.AA05633@hsi86.hsi.com>
+Date: Wed, 14 Sep 1994 08:28:26 EDT
+From: Steve Siperas <siperas@HSI.COM>
+Subject: RexxSockets Again???
+
+ Hi
+
+ I am not sure if this has gotten to the listserv before - I was having
+ problems with my email address and could not receive mail from this listserv.
+ So excuse me if this is a repost - if anyone sent a previous reply - I
+ did not receive it.
+
+ I have written a client on a unix box and a server on a VM machine using
+ RexxSockets. It works for one record - now I want the server to stay I
+ guess in the Listen state. I know just enough about client/server to
+ make me dangerous. I was going to put a "DO FOREVER" loop in the
+ server exec around the LISTEN but am not sure were to end this loop
+ that would make the execution clean for tcp/ip. Any thoughts would be
+ great.
+
+ thanks
+
+ steve
+ siperas@hsi.com
+
+ /* Sample Server for APD with client being a interface on VAX */
+ Address Command
+
+ /*
+ **   Set up an IUCV path to the TCPIP virtual machine
+ **
+ **   (This call initializes RXSOCKET)
+ */
+ maxdesc = Socket('Initialize', 'APD100S')
+ If maxdesc="-1" Then Call Error "INITIALIZE", errno
+
+
+ /*
+ **   Now, create a socket descriptor for use with TCP (Sock_Stream)
+ **   protocol.
+ */
+ socket = Socket('Socket', 'AF_INET', 'Sock_Stream')
+ If socket="-1" Then Call Error "SOCKET", errno
+
+
+ /*
+ **   Obtain our HostName (the host name of the processor on which
+ **   TCPIP is running)
+ */
+ rc = Socket('GetHostName', 'hostname')
+ If rc="-1" Then Call Error "GETHOSTNAME", errno
+
+
+ /*
+ **   Obtain our default HOME Internet Address
+ */
+ hostid = Socket('GetHostId')
+ If hostid="-1" Then Call Error "GETHOSTID", errno
+ Parse Var hostid h1 +1 h2 +1 h3 +1 h4 +1 .
+ Say ""
+ Say "APD100SS running on" hostname "("C2D(h1)"."C2D(h2)"."C2D(h3)"."C2D(h4)")"
+ Say ""
+
+
+ /*
+ **   Obtain our client identifier from TCPIP
+ */
+ /*rc = Socket('GetClientId', .my_clientid)
+ *IF rc="-1" Then Call Error "GETCLIENTID", errno
+ *Say ""
+ *Say "Client ID:" my_clientid
+ *Say ""
+ */
+
+ /*
+ **   Now bind our socket to an arbitrary port number (x'3090') and to
+ **   an unspecified Internet Address (if we wanted a specific Internet
+ **   address we could concatenate it to the end of the "my_name" string.
+ **
+ **   Since, we are a server, the BIND is required.
+ */
+ family  = AF_INET                      /* AF_INET = '0002'x */
+ my_port = Htons(3090)                  /* My port */
+
+ my_name = family || my_port
+
+ rc = Socket('Bind', socket, my_name)
+ If rc="-1" Then Call Error "BIND", errno
+
+
+ /*
+ **   Inform TCPIP that we we want a connection request queue built
+ **
+ **   (This enables us to use ACCEPT to establish socket connections
+ **    with our clients)
+ */
+ rc = Socket('Listen', socket, 5)
+ If rc="-1" Then Call Error "LISTEN", errno
+
+
+ /*
+ **   Now just wait around for a client to issue a CONNECT
+ */
+ his_socket = Socket('Accept', socket, 'his_name')
+ If his_socket="-1" Then Call Error "ACCEPT", errno
+
+
+ /*
+ **   At this point, we can pass the values of "my_clientid" and
+ **   "his_socket" to a slave virtual machine (perhaps using AUTOLOG
+ **   parms) and use a GIVESOCKET subfunction to transfer control of
+ **   the socket over to our slave virtual machine.  To make life
+ **   simple, we'll omit using GIVESOCKET and TAKESOCKET in this example.
+ */
+
+
+ /*
+ **   The ACCEPT has completed the socket connection, we now issue
+ **   a READ to retrieve the client's request
+ */
+ bytes_in = Socket('Read', his_socket, 'data')
+ If bytes_in="-1" Then Call Error "READ", errno
+ Say "Client data:" data
+ Say bytes_in "bytes received."
+ Say ""
+
+ /*
+ **   This is the call to the grouper with
+ **           data = codes and demographic info from client
+ **           response = the return buffer from grouper
+ **
+ **   A call from Rexx - the asm pgm and loadmodule name must start
+ **                      with RX but the call statement you drop the RX
+ **                      below the call is APD100 but the loadmod
+ **                      and pgm are RXAPD100
+ */
+ response = APD100(data)
+
+ /*
+ **   Send back the response to the client's request
+ */
+ bytes_out = Socket('Write', his_socket, response)
+ If bytes_out="-1" Then Call Error "WRITE", errno
+ Say "Response data:" response
+ Say bytes_out "bytes sent."
+ Say ""
+
+
+ /*
+ **   Now close our original socket
+ */
+ rc = Socket('Close', socket)
+ If rc="-1" Then Call Error "CLOSE", errno
+
+
+ /*
+ **   And close our client's socket (obtained from the ACCEPT call)
+ */
+ rc = Socket('Close', his_socket)
+ If rc="-1" Then Call Error "CLOSE", errno
+
+
+ /*
+ **   Close our IUCV path
+ */
+ rc = Socket('Terminate', 'APD100S')
+ If rc="-1" Then Call Error "TERMINATE", errno
+
+ Exit rc
+
+
+ /*
+ **   Error routine
+ */
+ Error:
+    Arg subfunction, errno
+
+    Say "RXSOCKET subfunction" subfunction "returned errno:" errno
+
+    rc = Socket('Close', socket)
+    If rc="-1" Then Say "CLOSE:" errno
+
+    rc = Socket('Terminate')
+    If rc="-1" Then Say "TERMINATE:" errno
+
+    Exit
+

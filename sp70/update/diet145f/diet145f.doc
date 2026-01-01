@@ -1,0 +1,785 @@
+
+  ------------------------------------------------------------
+                  DIET.DOC for DIET.EXE v.1.45F
+              ------  by Teddy Matsumoto ---------
+                    (DOCFILE: October 1992)
+  ------------------------------------------------------------
+
+
+1.0.  OVERVIEW.
+
+1.1.  DIET.EXE reduces the disk-storage space needed by ex-
+ecutable and data files WITHOUT giving up immediate access to
+such files.  DIET is a Freeware Program.
+
+  (a)   When DIET compresses an EXECUTABLE file (.EXE or .COM),
+        it adds a header that automatically expands the file when
+        it is executed.
+
+  (b)   On average, DIET reduces the size of .EXE & .COM files
+        by 40%.
+
+  (c)   Self-expansion of DIETed .EXE & .COM files is so fast
+        that it is difficult to measure the change in the speed
+        of file execution.  You certainly won't notice any
+        change.
+
+  (d)   DIET's self-expansion of .EXE and .COM files is similar
+        to PKLITE or LZEXE, except that DIET also lets you com-
+        press overlay files -- something that PKLITE and LZEXE
+        cannot do.
+
+
+1.2.  What makes DIET really unique is its ability to compress
+DATA Files and to automatically expand them when you call them
+into an Word Processor or Editor to read or change them.
+
+  (a)   To use that feature, you must load DIET so that it is
+        resident in memory (i.e., Terminate and Stay Resident, or
+        TSR).
+
+  (b)   DIET reduces the size of an average DATA File by 2/3rd.
+
+  (c)   DIET's automatic expansion of Data Files adds a little
+        time (on a 386SX-16 system, about 3 sec. compared to
+        loading a 100k byte unDIETed text file into an editor).
+        But that is a small price for the benefit of being able
+        to keep infrequently-used Data Files on your Hard Disk,
+        instead of having to store them on floppies. And you can
+        optionally set up DIET so that it will automatically
+        recompress Data Files when you exit your Editor.
+
+  (d)   Many -- but not all -- application programs can use
+        DIETed DATA files.  For example, QUATTRO can use DIETed
+        ???.WQ1 files; dBASE cannot use DIETed ???.DBF files.
+        You'll have to experiment.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+This document is the USER'S GUIDE for DIET v.1.45F.  To learn
+about DIET's internals and changes from version to version, see
+DIETAPI.DOC and DIETTECH.DOC  Those much more technical documents
+are of no importance to the average USER of DIET, but are avail-
+able for programmers and the curious.
+
+
+
+2.0.  A QUICK INTRODUCTION TO WHAT DIET CAN DO.
+
+
+2.1.  OVERVIEW.  For our discussion, it is useful to classify
+DOS files into three general types:
+
+
+       ∙  EXECUTABLE, i.e., ???.EXE and ???.COM
+
+
+       ∙  DEVICE DRIVERS, e.g., ???.SYS or ???.DRV
+
+
+       ∙  DATA, e.g. ???.DOC, ???.TXT, ???.WQ1, etc.
+
+
+2.1.1.  DIET compresses EXECUTABLES and DRIVERS so that from the
+user's perspective they perform the same as if they were not
+compressed.  That means you can execute them directly, or load
+them from your CONFIG.SYS.  We call this feature selF-eXtracting,
+or SFX.
+
+
+2.1.2.  You can use DIET to compress DATA-type files, but they
+are NOT self-extracting.  To use DIETed DATA files, you must
+either decompress manually or load DIET as a TSR so that they are
+decompressed automatically when your application program loads
+them.
+
+
+2.1.3.  To compress your files on the current directory, simply
+type:
+                         DIET filename,
+or use wildcards, e.g.,
+                            DIET *.*
+When you use DIET without any options, EXECUTABLES and DRIVERS
+are compressed as SFX, and all other files as non-SFX types
+files.
+
+
+2.1.4.  To know whether or not a file has been compressed by
+DIET, type:
+                             DIET -l
+That will display all files in the current directory, with com-
+pressed files in reverse color.
+
+
+2.1.5.  To restore non-SFX compressed files to their uncompressed
+status, type
+             DIET -r filename.ext,  or  DIET -r *.*
+
+
+2.1.6.  The simplest -- but not best -- use of DIET would be to
+execute both of the following commands in a directory:
+                            DIET *.*
+followed by
+                           DIET -r *.*
+That would leave you with EXECUTABLES and DRIVERS in SFX mode,
+and all other files (the DATA-type files) uncompressed.
+
+
+To restore all DIETed files, including compressed executable or
+driver files, type
+             DIET -ra filename.ext  or  DIET -ra *.*
+
+
+2.2.  DIET in TSR Mode.
+We assume you're displaying DIET.DOC on your console, using
+the DOS MORE command, Vernon Buerg's LIST.COM, or your favorite
+Editor.  Try the following:
+
+
+  (a)   Return to DOS.
+
+
+  (b)   Execute:
+                            DIET DIET.DOC
+        That will compress this file.  If you now try view the
+        file with MORE, or read it with LIST or your favorite
+        editor, you'll get garbage.
+
+
+  (c)   Now Execute:
+                                 DIET -Z
+        That will load DIET in the TSR mode and allows you to
+        display DIET.DOC with MORE, LIST, or your Editor.  Try
+        it.
+
+
+  (d)   Remove the DIET TSR by executing:
+                                DIET -ZR
+
+
+  (e)   Finally, restore (i.e., decompress) DIET.DOC by
+        executing:
+                           DIET -R DIET.DOC
+
+
+
+3.0.  USING DIET's OPTIONS
+
+
+3.1.  The basic DIET command structure is:
+                   DIET [options] [file-names]
+                {wild-cards are OK in filenames}
+Options require a prefix.  You may use either "-" or "/" as the
+option-prefix.  Multiple options must be separated by spaces,
+e.g.
+                       DIET -z -p -td:\tmp
+
+
+
+3.2.  Options fall into two general categories:
+
+
+  (a)   BASIC options that specify fundamental DIET functions,
+        and
+
+
+  (b)   AUXILIARY Options that modify the operation of a BASIC
+        option.
+
+
+3.3.  The following table summarizes the BASIC and AUXILIARY
+Options:
+
+ ------------------------------------------------------------------
+ BASIC      Function of the           AUXILIARY Options that can
+ Option     BASIC Option              Be used with the BASIC option
+ ------------------------------------------------------------------
+ DIET w/o   Compress the named           -X,-XC,-G,-D,-B,-K,-I,-A
+  option    files                        -E, -Oxxxxx.
+ ------------------------------------------------------------------
+ -R,-RA     Decompress named files       -Oxxxxx.
+ ------------------------------------------------------------------
+ -Cxxxxx    Copy without                 -R,-RA,-A
+            decompress/recompress
+ ------------------------------------------------------------------
+ -L         Identify compressed files.
+ -H         Check integrity of compressed file, using CRC
+ ------------------------------------------------------------------
+ -!         Check DIET's own validity
+ -?         Display Help Screen.
+ -$         Compress later (see -N)
+ ------------------------------------------------------------------
+ -Z[n]      Load DIET as a TSR. Value    -P,-W,-N,-M
+            of [n] defines where in      -S,-Txxxxxx
+            memory DIET is loaded.
+ ------------------------------------------------------------------
+ -ZD        Disable TSR DIET  (also DIET OFF)
+ -ZA        Activate TSR DIET (also DIET ON)
+ -ZR        Remove TSR DIET from memory.
+ ------------------------------------------------------------------
+
+
+
+3.4.  The following table summarizes what the file-related
+AUXILIARY options do.  Not included in the table are the
+AUXILIARY options related to TSR-user of DIET -- they are dis-
+cussed at xx, below.  For more details on options, see the full
+discussion of options at xx, below.
+
+                   SUMMARY of what FILE-RELATED OPTIONS do.
+               -X     Compress as SFX type.
+              -XC     Force compression of a .COM file as a real SFX .COM file
+               -G     Create a larger SFX header to speed up decompression
+               -D     Force compression as DATA type.
+               -B     Compare size in Byte count instead Cluster count
+               -K     Recompress DATA files upon termination of the
+                      application program that uses the files, but not while
+                      the application program is running.
+               -I     Ignore warning "may be overlay files!"
+               -Oxxxx Specify file name or path name of Output.
+               -A     Set READ ONLY attribute of the file.
+
+
+3.5.  AUTOMATIC DECOMPRESSION BY USING DIET AS A TSR.
+The general syntax for making DIET terminate & stay resident is:
+                      DIET -Z[n] [options]
+        -Z    loads DIET into memory as a TSR.  If space is available
+              in upper memory (UMB), DIET will try to use it.
+              If Expanded memory is available, DIET will try to use it.
+              Under DOS 5.0, DIET -Z and DIET -Z1 achieve the same results.
+
+        -Z[n] the [n], if present, tells DIET how to use Expanded Memory.
+             -Z0 do not use Expanded Memory (same as -Z alone)
+             -Z1 use Expanded Memory for DIET's temporary files.
+             -Z2 use Expanded Memory for both DIET's temporary files
+                 and for most of DIET's resident code, too.  If you
+                 have enough Expanded Memory, -Z2 saves you about 6k
+                 bytes of regular memory.
+
+             -ZD   disables DIET in memory, but leaves it loaded.
+                   (DIET OFF does the same thing)
+             -ZA   restores DIET after -ZD has been used.
+                   (DIET ON does the same thing)
+             -ZR   removes DIET from memory.  But don't do that if you loaded
+                      other TSR's after DIET.
+
+        AUXILIARY options available for use with BASIC option "Z" are:
+               -P     automates recompression of DIETed file that has
+                      been opened and changed.
+               -W     automates compression of newly created file.
+               -N     defers automated [re]compression until
+                      DIET -$ is issued.
+               -M     suppress messages in automated compression.
+               -S     display decompressed file size
+               -Txxxx specify temporary work directory for DIET's use
+
+        Notes:  After DIET has been loaded as a TSR, additional use
+                of "Z[n]" has no effect.  But you can modify DIET's TSR
+                functions by using -ZD, -ZA, -ZR, or any of the AUXILIARY
+                options, by executing DIET [options] after having
+                loaded DIET as a TSR.
+
+                If you compress COMMAND.COM or some overlay files, you must
+                make DIET resident in memory.
+
+                Regular users of DIET should include DIET -Z in their
+                AUTOEXEC.BAT file.  Alternatively, you can also load DIET
+                as a Device Driver, e.g.,
+                                DEVICE=DIET.EXE -Z2 -P -K
+                That uses a few additional bytes of memory, but allows
+                you to DIET Device Drivers (to save disk space).  If you
+                have large or many Device Drivers, that may be useful.
+
+                DIET's TSR function may be disabled if ^C or ^Break are used
+                while DIET is executing, or by certain interrupts.  If DIET's
+                TSR function disappears for an unknown cause, try restoring it
+                by typing   DIET -ZA  at the command prompt.
+
+
+
+4.0.  Environment Variables.
+
+
+4.1.  In DOS versions 3.0 and above, DIET uses the following en-
+vironment variable strings, if they are present.  You create them
+(usually from your AUTOEXEC.BAT file) as follows:
+                     SET NameOfEnvVar = data
+
+
+DIETOPT  lets you define the options you want used as a default,
+       e.g.,
+                           SET DIETOPT=-D -K
+       will use option -D and -K whenever a file is DIETed.
+       Options you can set with DIETOPT are: -J,-I,-D,-G,-K,-P,-W,-
+       N,&-S
+
+
+DIETOFF  DIET's ability to automate compression & decompression
+       can have certain undesirable effects.  For some programs,
+       you may prefer to disable DIET, e.g., to speed up file
+       copying without having to use Option -C (see below in
+       Sec.5.0.).  By including an environment string as below,
+       you tell DIET's TSR not to do what it usually would do
+       with DIETed files:
+       SET DIETOFF=COMMAND.COM;FC.COM;DUMP.EXE;XCOPY.EXE;LHA.EXE
+       You don't need to specify a Path for the files -- DIET is
+       concerned only with the programs' names.
+
+
+NODIET  You should suppress DIETing of some files, e.g., archives
+       like *.LZH and *.ZIP, and temporary intermediate files
+       created by some application programs.  You can also tell
+       DIET to ignore all files in specified directories -- if
+       your NODIET string ends with a Directory name, be sure to
+       append a "\".  There is a limit of 10 NODIET entries.
+       Example:
+            SET NODIET=*.LZH;*.ZIP;*.OBJ;C:\TMP\;C:\C600\  
+       will suppress DIETing of all *.LZH, *.ZIP, *.OBJ files,
+       and of all files in directories C:\TMP and C:\C600.
+
+
+  TMP  Define storage area for DIET's Temporary Files by putting
+       into your AUTOEXEC.BAT a line like:
+              SET TMP=E:\DirName     (see also Option -T.)
+       NOTE: When you use DIET in resident mode, it creates and
+       uses temporary files with names such as __DIET__.??? DIET
+       cleans up after itself by erasing such files automatically
+       when DIET finishes its tasks, but if you boot your system
+       or stop DIET's execution by Ctrl-Break, such files may
+       remain on your disk.  You can safely erase any such files.
+
+
+DIETSIZE  Some programs read in DATA files only to the size ob-
+       tained by the Function Call AH=4Eh/4Fh. The environment
+       variable:
+                   SET DIETSIZE=xxxxxx.COM;xxxxx.EXE
+       enables such programs to fully read compressed MSG or HLP
+       files.  Because some programs (e.g., SIDEKICK) check
+       DATA files by other methods, DIET cannot be used with
+       them.  You'll have to experiment.
+
+
+
+5.0.  DETAILS ABOUT DIET's OPTIONS, in ALPHABETICAL ORDER
+
+
+   -!  Makes a self-check of DIET.EXE's internal integrity.
+
+
+   -$  [Re]compress files whose automatic [re]compression was
+       deferred due to use of the -N option (see below).  This
+       command is effective only if you specified -N in addition
+       to -P and/or -W when you invoked DIET as a TSR.  The
+       DIET -$ command MUST be issued before you shutdown your
+       system -- it won't do it's job after a reboot.
+
+
+
+   -A  Set Read-Only Attribute.  Few users will need to use the
+       -A option, but it's there for those who want to be extra
+       safe.  It is a safety measure for users who do not always
+       keep DIET in memory as a TSR.  If you were to call a
+       DIETed file into your editor without DIET in memory, it is
+       possible that your editor could lock up.  To restart you
+       would have to reboot, and you could lose your DIETed DATA
+       file. By using the -A option, you make any DIETed file
+       Read-Only.
+
+
+   -B  Few users will need this option, but it's there for those
+       who do.  If you don't fully understand the following
+       technical discussion, you don't need this option.
+       DIET will not compress files that would -- in their com-
+       pressed form -- use the same (or more) CLUSTERs of disk
+       space.  (The size of CLUSTERS vary with disks e.g., on a
+       High-Density 5.25" disk each CLUSTER consists of 1,024
+       bytes).  However, when you archive files with PKZIP or LHA
+       using those program's No-Compress options, you might want
+       to DIET them first to save as much space as possible.
+       The -B option tells DIET to compress the file even if the
+       number of CLUSTERS of the DIETed file is the same as the
+       un-DIETed version.
+
+
+   -C  Copying DIETed files with DIET's TSR in memory takes extra
+       time because DIETed files are automatically decompressed
+       before copying and recompressed after copying.  You can
+       suppress that by using DIET with the -C option to copy
+       files. The syntax is:
+                    DIET -C<destination> <FILENAMEs>
+
+       Example 1.  To copy all files (including compressed files)
+       in the current directory of C:\ to Drive A:
+                           DIET -CA:\ C:\*.*
+
+       Example 2.  To copy compressed files in drive A: to Drive
+       C: and simultaneously decompress them:
+                         DIET -RA -CC:\ A:\*.*
+       (See also the DIETOFF Environment Variable, above)
+
+
+   -D  DIET forces compression of any file (incl. xxx.COM &
+       xxx.EXE) as a Data type.  If DIET is loaded as a TSR, it
+       will decompress such files on-the-fly and will run them.
+       Why do this?  What benefit can you get?  Well, you can
+       save a little header space in that way (about 100 bytes
+       per executable file).  More importantly, programs that
+       load themselves into high memory, and programs that use
+       many overlays, can be run while DIETed as Data types if
+       they won't run after you DIET them using the -I option.
+       As with certain other highly-technical options, if you're
+       confused by this, just don't use the -D option.
+
+
+   -E  In its Default mode, DIET expands the file that is opened
+       by an application program into a temporary file, and erases
+       that temporary file at the termination of the application.
+       It is possible for WINDOWS 3.1 or some other DOS Task
+       Swapping program to confuse DOS' File Handles and erase
+       the original DIETed file instead of the temporary file,
+       even if the original file like (*.HLP or *.MSG files) was
+       set to R/O (ReadOnly).  The -E option is designed to avoid
+       that risk.  Use the -E option ONLY if you experience this
+       problem with a particular application.
+
+
+   -G  You can speed-up self-extraction if you're willing to use
+       an extra 100 bytes (about 200 vs. 100) for the SFX header.
+       It's worth trying on large executable files, especially
+       when the 100 extra bytes don't change the number of
+       Clusters used by the DIETed file.  We suggest you experi-
+       ment with this option and use it where it's to your
+       benefit.
+
+
+   -H  Make an integrity check of a DIETed file using a CRC
+       algorithm, and determine whether the -K option was used
+       when the file was DIETed.
+
+
+   -I  Ignore warnings.  DIET ordinarily refuses to compress
+       files with overlays when the size of the file in EXEHDR is
+       not the same as the file's actual size, or when a file is
+       to be loaded into high-memory (e.g., ADDRV.EXE).  But
+       since DIETed overlay files can be used when DIET is in its
+       TSR mode, you can use the -I option to force DIET to com-
+       press the files anyway.
+       DO NOT USE THIS OPTION UNLESS YOU LOAD DIET AS A TSR!!!
+
+
+   -J  Ignore this option unless you are using JDOS4.0 from IBM-
+       Japan and can read Japanese.
+
+
+   -K  Kill temporary Files Only on Quitting Program.
+       In its TSR mode, DIET opens a temporary file whenever a
+       program like an editor opens a compressed file.  In its
+       default mode, DIET erases the temporary file when the
+       program closes it. Some programs open, close, and reopen
+       files frequently, e.g. a Help Message file, or communica-
+       tions software with overlay protocol files.  That can be
+       very time consuming.  To avoid that, DIET such files using
+       the -K option -- then the temporary files will be erased
+       ONLY when you quit the main program from which the DIETed
+       files were expanded.
+
+    -L [filename.ext] presents a directory listing for the
+       default disk, with the DIETed files in reverse color.  An
+       "#" means the file has a self-extracting header, and a "*"
+       means it is compressed as a DATA file.  If you add a
+       filename and filetype, you restrict the search to the
+       defined files.  Wildcard filenames are OK, e.g.,
+                             DIET -L *.EXE
+       DIET -L's default is the same as DIET -L *.*
+
+
+   -M  If you don't want DIET to give you a message about what it
+       is doing to your file, suppress the message with -M
+
+
+   -N  When the -W and/or -P options are specified when DIET is
+       loaded as a TSR, DIET automatically compresses newly
+       created files and recompresses files that are not set to
+       READ ONLY.  Specifying the -N option when DIET is loaded
+       as a TSR delays auto-compression and recompression until
+                                DIET -$
+       is issued to instruct DIET to recompress changed files
+       and/or compress newly created files.  The time stamp of
+       the compressed files is set to when they were closed, NOT
+       to when they were actually compressed. This option is
+       useful if you don't want DIET to take time to recompress
+       files as you work, but prefer to have DIET do its job when
+       you're ready to quit.  The DIET -$ command works only if
+       you use it BEFORE you reboot.
+
+
+   -O  By default, DIET overwrites the files it compresses (or
+       uncompresses).  If you want to save the uncompressed (or
+       compressed) file, use the -O option to put the changed
+       file into another directory.  To illustrate:
+
+       Example 1. You are NOT logged into DRIVE A:.  You want a
+       compressed version of A:ALPHA.DAT in your default
+       directory:
+                          DIET -O A:alpha.dat.
+
+       Example 2. You want to compress ALPHA.DAT in your default
+       directory and store the compressed file in directory C:\TMP
+                         DIET -OC:\tmp\ alpha.dat
+          (note the positions of the spaces and back slashes!!)
+
+
+   -P  Use this option to automatically recompress changed DIETed
+       files, because in its default mode DIET does not re-
+       compress DATA files that were changed after being loaded
+       and manipulated by a program such as an Editor or a
+       Spreadsheet.  DIET -P enables automatic recompression.
+       Note: DIET's ability to automatically recompress DATA
+       files depends on your Editor's internal workings.
+       Experiment!
+
+
+   -S  Some application programs read in a specified amount of
+       data from overlay or other files, and get confused if
+       those files have been DIETed.  Specifying the -S option
+       when DIETing avoids that problem.  We suggest ALWAYS using
+       the -S option if you are going to archive files using LHA,
+       PKZIP, or PKARC.  There are no circumstances in which it
+       is disadvantageous to use the -S option -- we suggest
+       using -S when invoking DIET as a TSR.
+
+
+   -T  In its default mode, DIET stores in the default directory
+       certain temporary files that it creates and needs. If you
+       use the Environment Variable  TMP=??? (as may be required
+       by various programs), DIET will attempt to store its tem-
+       porary files in the directory that you've defined as ???.
+       To force DIET to use a particular directory for its tem-
+       porary files, use the -T option on the DIET line in your
+       AUTOEXEC.BAT file, e.g.
+                         DIET -Z2 -TD:\tmp1\  
+               DO NOT FORGET THE LAST "\" IN THIS OPTION.
+       The -T option is especially useful if you define a RAM
+       DISK directory as the recipient of DIET's temporary files.
+
+
+   -W  Automatically DIETs all newly-created files, including any
+       temporary files that your programs may create.  That can
+       be useful but can also waste time.  To avoid this option
+       becoming a nuisance, use the NODIET Environmental Variable
+       to suppress DIETing of files like *.OBJ, *.LZH. Or use -N
+       option together, and issue the command
+                                DIET -$
+       before you quit your session.
+
+
+   -X  As a default, DIET recognizes as device drivers all files
+       with the extensions "SYS" or "DRV" and does NOT compress
+       them.  If you want to DIET a Device Driver, you must make
+       it self-extracting (because you won't have DIET in memory
+       as a TSR until you load it as a TSR in your AUTOEXEC.BAT
+       file). You can force DIET to add a self-extracting header
+       to any file by using the -X option.  But see also option
+       -I, above.
+
+
+  -XC  DIET always compresses a .COM file into .EXE file and
+       renames it as .COM.  You need not be concerned about this.
+       If you have a particular reason to want DIET to produce a
+       real .COM file, you can force that by using this option.
+       But be sure to experiment -- the behavior of such a .COM
+       file may be unpredictable.
+
+
+-Z[?]  See Sec.3.5., above.
+
+
+
+6.0.  CONCLUDING REMARKS.
+
+
+6.1.  Don't allow DIET to be memory-resident when using HardDisk
+Managers like SPEEDDSK, OPTIMIZE, DOG.  Disable DIET by executing
+DIET -ZD when you use such programs!!  In fact, it's always best
+to clear ALL TSRs before using such programs.
+
+
+6.2.  If you elect NOT to make DIET memory-resident:
+
+
+  (a)   Remember to manually decompress Data-type files before
+        using them.  You could simplify that by using Batch files
+        to decompress the Data-type files and then invoking your
+        application program from the Batch file.
+
+
+  (b)   When using a Laptop with a Ramdisk, a useful technique is
+        to store your application program and related Data files
+        on a floppy and transfer them to the Ramdisk (e.g.,
+        Drive D:) with:
+                           DIET -r -CD: a:*.*
+        When you're done, exit from the application program and
+        do:
+                             DIET -CA: D:*.*
+        That will compress the revised Data files and store them,
+        together with the application program, on A:.  Of course,
+        you must have enough room on A: to accept the revised
+        files.
+
+
+6.3.  With DIET memory-resident:
+
+
+  (a)   Specifying a RAM disk for DIET's temporary files speeds
+        up DIET's operation -- see the -T option, above.
+
+
+  (b)   You may see a message like: "Can't find abc.exe" even
+        though the file exists.  This is usually the result of
+        DIET being unable to find enough space in your temporary
+        directory for its temporary files. Check the space in the
+        appropriate directory (the Default directory, of the
+        defined TMP directory) if you get this message.
+
+
+  (c)   DIETOPT variables modify DIET to avoid certain un-
+        desirable effects, like decompressing files before copy-
+        ing them and then recompressing those files after
+        copying.  To optimize DIET's performance in YOUR
+        application, experiment with the -C, -P, -W, and -K
+        options.
+
+
+  (d)   Word processors frequently write files back to disk
+        before you exit them, and create auxiliary files for
+        formatting or controlling a printer.  If you use the -P
+        option, that can take a lot of time for compressing and
+        decompressing these files. By specifying the -K option,
+        you defer all that DIETing until you exit the word
+        processor.  If you have plenty of space on your Hard Disk
+        or Ram Disk, it's easiest to specify -K when you load
+        DIET as a TSR.  If you're short of disk space, be selec-
+        tive about the files that are DIETed with the -K option,
+        by specifying -K when you DIET files that you want to
+        remain expanded until you quit a particular application
+        program.
+
+
+  (e)   The -P option is highly-desirable when you always use
+        DIET as a TSR, especially when appropriately used in
+        conjunction with -K. You may enjoy being reminded of the
+        space you're saving when you quit your application (DIET
+        tells you what it's doing).  If you don't want to be
+        reminded, use the -M option to tell DIET to do its work
+        quietly.
+
+
+  (f)   You can force DIET to compress executable files that use
+        overlays (and the overlays themselves) when you use DIET
+        as a TSR.  To do that, use the -K option and the -D op-
+        tion when DIETING such files.
+
+
+  (g)   You can toggle DIET on and off with "DIET ON" and DIET
+        OFF". Those commands also tell you the status of various
+        options.
+
+
+  (h)   DIET tries to keep track of filenames even with DOS 5.0's
+        task-swapping, or Windows in its enhanced mode. However,
+        you may find some application programs for which DIET
+        fails to trace tasks swapped.  Take due precautions with
+        task swapping -- experiment before relying on using DIET
+        with them.
+
+
+
+7.0.  DISTRIBUTION AND COPYRIGHTS
+
+
+7.1.  Distribution Policy.  DIET.EXE and all documents packed
+with it are copyrighted by Teddy Matsumoto. The package consists
+of DIET.EXE, DIET.DOC, DIETTECH.DOC, DIETAPI.DOC and
+HISTORY.DOC.  No copyright is claimed for files that have been
+DIETed.
+
+
+
+7.2.  DIET may be copied, distributed, and used free of charge
+for PERSONAL use.  Licenses for commercial use must be obtained
+from Teddy Matsumoto PRIOR to making commercial use of DIET.
+
+
+
+7.3.  Except for a nominal fee for materials and postage, no one
+may charge for copying or distributing DIET.  DIET may be dis-
+tributed only as a complete package.  BBS and disk distributors
+should be prepared to distribute up-dates and fixes as such may
+be released.  The author will appreciate being advised by BBS
+operators and disk distributors that they are distributing DIET,
+so that he can try to assure that they received fixes and up-
+dates.
+
+
+7.4.  CONTACTING THE AUTHOR. In Japan, Email to Teddy Matsumoto
+at GBG00230 on Nifty Serve.
+Overseas Users may contact K.Okubo at one of the following:
+                    74100.2565@compuserve.com
+                    GEnie:      K.Okubo
+                    INTERNET:   okubo@tansei.cc.u-tokyo.ac.jp
+
+
+This English Version of DIET.DOC was prepared by K.Okubo, with
+editorial assistance from Eric Stork (STORK on GEnie).
+
+
+
+                               ###
+
+

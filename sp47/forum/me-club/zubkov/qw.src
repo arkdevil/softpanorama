@@ -1,0 +1,283 @@
+{***************************************************************************
+ Macro: QuickWord
+***************************************************************************}
+$MACRO QW FROM EDIT DUMP;
+  Def_Str(IM_BL);
+  Def_Int(Activ_Win,NOM_OKN,Timer_Handle);
+  Set_Global_Int('QW_MAC_' + File_Name, 1);
+  Set_Global_Int('GOT',1);
+  Set_Global_Int('QW_WORK',1);
+  Set_Global_Int('PRG',1);
+  If (First_Run) Then Load_Macro_File('QW'); End;
+  Unassign_Key(<Btn0>,Edit);
+  Macro_To_Key(<MEVENT>,'COPWRD',Edit);
+    Macro_To_Key(<Alt0>,'SHTAMP /K=12',Edit);
+    Macro_To_Key(<Alt1>,'SHTAMP /K=3',Edit);
+    Macro_To_Key(<Alt2>,'SHTAMP /K=4',Edit);
+    Macro_To_Key(<Alt3>,'SHTAMP /K=5',Edit);
+    Macro_To_Key(<Alt4>,'SHTAMP /K=6',Edit);
+    Macro_To_Key(<Alt5>,'SHTAMP /K=7',Edit);
+    Macro_To_Key(<Alt6>,'SHTAMP /K=8',Edit);
+    Macro_To_Key(<Alt7>,'SHTAMP /K=9',Edit);
+    Macro_To_Key(<Alt8>,'SHTAMP /K=10',Edit);
+    Macro_To_Key(<Alt9>,'SHTAMP /K=11',Edit);
+    Macro_To_Key(<AltDel>,'CWWOFF',Edit);
+    Macro_To_Key(<CtrlINS>,'SHTAMP /K=22',Edit);
+    Macro_To_Key(<CtrlEND>,'SHTAMP /K=13',Edit);
+    Macro_To_Key(<CtrlDN>,'SHTAMP /K=14',Edit);
+    Macro_To_Key(<CtrlPGDN>,'SHTAMP /K=15',Edit);
+    Macro_To_Key(<CtrlLF>,'SHTAMP /K=16',Edit);
+    Macro_To_Key(<CtrlCNTR>,'SHTAMP /K=17',Edit);
+    Macro_To_Key(<CtrlRT>,'SHTAMP /K=18',Edit);
+    Macro_To_Key(<CtrlHOME>,'SHTAMP /K=19',Edit);
+    Macro_To_Key(<CtrlUP>,'SHTAMP /K=20',Edit);
+    Macro_To_Key(<CtrlPGUP>,'SHTAMP /K=21',Edit);
+    Min_Window_Row := 5;
+    Activ_Win := Cur_Window;
+    Refresh := 0;
+    NOM_OKN := 1;
+    WHILE (Window_Count >= NOM_OKN ) DO
+      Switch_Window(NOM_OKN);
+      If ((Window_attr And 129) = 0) Then
+        Size_Window(0,5,Screen_Width,Screen_Length);
+        New_Screen;
+      End;
+        NOM_OKN := NOM_OKN + 1;
+    END;
+    Switch_Window(Activ_Win);
+  If (Length(Dir_Path) > 3) Then
+    IM_BL := Dir_Path + '\BLOKNOT.DB';
+   Else IM_BL := Dir_Path + 'BLOKNOT.DB';
+  End;
+  Set_Global_Str('WORK_BL',IM_BL);
+  create_window;
+  window_attr := $80;
+  load_file(IM_BL);
+  if (error_level <> 0) then
+    If (Cur_Char <> '@') Then
+      return_str := IM_BL;
+      RM( 'MESYS^LDFILES /LC=1/NC=1');
+      Text('@DISPLAY_STRING=P1=30'); Cr;
+      Text('/T=СЛОВО/L=1/C=1/W=40/ML=120/DBF=P1'); Cr;
+      Text('****START****'); Cr;
+      Save_File;
+    End;
+  End;
+  Delay(500);
+  Switch_Window(Activ_Win);
+  Refresh := 1;
+  New_Screen;
+  RM('QW^NOV_BLKN');
+  Timer_Handle := set_timer_event('QW^NOV_BLKN', 90, Edit);
+  Set_Global_Int('!TH',Timer_Handle);
+  Make_Message('Для справок нажмите < Alt-H >. '); Delay(1000);
+END_MACRO;
+
+{***************************************************************************}
+$MACRO COPWRD FROM EDIT;
+Def_Int (GGOT);
+Reg_Exp_Stat := 1;
+PUSH_UNDO;
+GGOT := Global_Int('GOT');
+MOU_SET_LIMITS( 1, 1, Screen_Width, Screen_Length );
+IF (GGOT = 1) THEN
+  Mark_Pos;
+END;
+Check_Key;
+IF (Mou_Last_Y < (Min_Window_Row + 1)) And (Mou_Last_Y > (Min_Window_Row - 3)) THEN
+   RM('QW^BLOKNOT'); GoTo EXIT; END;
+IF ( Mou_Last_Y < (Min_Window_Row - 2 )) THEN Key_In(<F2>); GoTo EXIT; END;
+IF ( Mou_Last_Y = (Max_Window_Row)) THEN RM('MOUSEFKEY'); GoTo EXIT; END;
+  RM('PEREMESHENIE');
+  If (GGOT = 1) And ((ASCII(Cur_Char) = 32) Or (ASCII(Cur_Char) = 255)) Then
+    GoTo EXIT;
+  End;
+  If (GGOT = 1) And (ASCII(Cur_Char) <> 32) And (ASCII(Cur_Char) < 255) Then
+    Set_Global_Int('LM_X', Mou_Last_X );
+    Set_Global_Int('LM_Y', Mou_Last_Y );
+    Set_Global_Int('GOT',2);
+    GoTo EX;
+  End;
+  If (GGOT = 2) And ((Global_Int('LM_X') <> Mou_Last_X ) Or (Global_Int('LM_Y') <> Mou_Last_Y )) Then
+    Set_Global_Int('LM_X', Mou_Last_X );
+    Set_Global_Int('LM_Y', Mou_Last_Y );
+      GoTo EX;
+  End;
+  If (GGOT = 2) And (Global_Int('LM_X') = Mou_Last_X ) And (Global_Int('LM_Y') = Mou_Last_Y ) Then
+    If (ASCII(Cur_Char) = 32) Or (ASCII(Cur_Char) > 254) Then
+      GoTo EXIT;
+    End;
+    If Search_Bwd('[(), ]' ,1) Then Right; Col_Block_Begin;  GoTo ok; End;
+    GoTo_Col(1);
+    Col_Block_Begin;
+ok: If Search_Fwd('[(), ]',1) Then Left; Block_End; GoTo po; End;
+    IF Search_Fwd('$',1) THEN Left; Block_End; END;
+po: MOU_SET_LIMITS( 1, Min_Window_Row, Screen_Width, Screen_Length - 1);
+    Read_Key;
+    IF ( Mou_Last_Y = Min_Window_Row ) THEN
+      RM('ZAP_V_BL'); Block_Off; GoTo EXIT; END;
+    If (Key1 = 27) And (Key2 = 1) Then
+      Block_Off;  GoTo EXIT;
+    End;
+    If (Key1 = 32) And (Key2 = 57) Then
+      GoTo_Mark; Left;
+      If (Cur_Char <> ' ') Then Right; Key_In(<SPACE>);
+        Else Right; End;
+      Copy_Block;  Block_Off; Word_Right;
+      GoTo EXIT;
+    End;
+    If Key1 = 0 Then
+      If (Key2 = 82) Then RM('QW^ZAP_V_BL'); Block_Off; GoTo EXIT; End;
+      If (Key2 = 251) Then RM('PEREMESHENIE');
+        Move_Block; GoTo_Col(Block_Col2 + 1); Key_In( );
+      Elsif (Key2 = 250) Then RM('PEREMESHENIE');
+        Copy_Block; GoTo_Col(Block_Col2 + 1); Key_In( );
+      Else Block_Off; GoTo EXIT;
+      End;
+    End;
+    Block_Off;
+    GoTo EXIT;
+  End;
+EXIT:
+Set_Global_Int('GOT',1);
+EX:
+MOU_SET_LIMITS( 1, 1, Screen_Width, Screen_Length );
+POP_UNDO;
+END_MACRO;
+
+{****************************************************************************}
+$MACRO PEREMESHENIE;
+    Def_Int(SM_X,SM_Y,M_X);
+    SM_Y := MIN_WINDOW_ROW;
+    Refresh := 0;
+    SM_X := C_Col - WhereX;
+    Mou_Check_Status;
+    IF Mou_Last_Y - SM_Y > C_Row THEN
+      WHILE ( Mou_Last_Y - C_Row > SM_Y ) DO Down; END; END;
+    IF Mou_Last_Y - SM_Y < C_Row THEN
+      WHILE ( C_Row - Mou_Last_Y > - SM_Y ) DO Up;  END; END;
+    GoTo_Col( Mou_Last_X + SM_X );
+    Refresh := 1;
+    Mou_Check_Status;
+END_MACRO;
+
+{****************************************************************************}
+$MACRO BLOKNOT TO <AltZ> DUMP;
+  RM('USERIN^DB /ABT=Выбрать/NI=1/CBT=Выход/F=' + Global_Str('WORK_BL') +
+   '/NOALPHA=0/LT=БЛОКНОТ/LO=1/H=USER/X=44');
+  RM('NOV_BLKN');
+END_MACRO;
+
+{****************************************************************************}
+$MACRO ZAP_V_BL TO <AltINS> FROM EDIT DUMP;
+  def_str(TMPP[80]);
+  def_int(Active_Window);
+  Active_Window := Cur_Window;
+  Refresh := 0;
+  If (Block_Stat <> 0) Then
+     TMPP := Copy( Get_Line, Block_Col1, Block_Col2 - Block_Col1 + 1 );
+     Switch_File(Global_Str('WORK_BL'));
+     Eof; Down; GoTo_Col(1);
+     Text('P1=' + TMPP);
+     save_file;
+     Switch_Window(Active_Window);
+     Right;
+  End;
+  Refresh := 1;
+  RM('QW^NOV_BLKN');
+END_MACRO;
+
+{****************************************************************************}
+$MACRO STR_DN TO <AltPgDn> FROM EDIT DUMP;
+  Set_Global_Int('PRG',Global_Int('PRG') + 20);
+  RM('QW^NOV_BLKN');
+END_MACRO;
+
+{****************************************************************************}
+$MACRO STR_UP TO <AltPgUp> FROM EDIT DUMP;
+  If Global_Int('PRG') > 1 Then
+    Set_Global_Int('PRG',Global_Int('PRG') - 20);
+  End;
+  RM('QW^NOV_BLKN');
+END_MACRO;
+
+{****************************************************************************}
+$MACRO NOV_BLKN TO <AltV> FROM EDIT DUMP;
+	IF (Global_Int('Menu_Level')) THEN
+		Goto EXIT;
+  End;
+  Def_Int(NOM_SL,N_SL_BL,I_M,Activ_Win);
+  Def_Str(TMP_SLa,TMP_SLb,TMP_STa,TMP_STb);
+  Activ_Win := Cur_Window;
+  NOM_SL := Global_Int('PRG') - 1;
+  N_SL_BL := 1;
+  Refresh := 0;
+  WHILE (N_SL_BL < 11) DO
+    Switch_File(Global_Str('WORK_BL'));
+    GoTo_Line(NOM_SL + 4);
+    TMP_STa := Get_Line + '    ';
+    TMP_SLa := Copy( TMP_STa, 5, 6);
+    GoTo_Line(NOM_SL + 14);
+    TMP_STb := Get_Line + '    ';
+    TMP_SLb := Copy( TMP_STb, 5, 6);
+    Switch_Window(Activ_Win);
+    If N_SL_BL < 10 Then
+      Write( Str(N_SL_BL), (8*(N_SL_BL - 1) + 1), 3, (M_T_Color/16), (15 And M_S_Color));
+     Else Write( '0', 73, 3, (M_T_Color/16), (15 And M_S_Color));
+    End;
+    If TMP_SLa = '' Then  TMP_SLa := '      '; End;
+    Write(' ' + TMP_SLa, (8*(N_SL_BL - 1) + 2), 3, (M_T_Color/16), (15 And M_T_Color));
+
+    If N_SL_BL < 10 Then
+      Write( Str(N_SL_BL), (8*(N_SL_BL - 1) + 1), 4, (M_T_Color/16), (15 And M_S_Color));
+     Else Write( '0', 73, 4, (M_T_Color/16), (15 And M_S_Color));
+    End;
+    If TMP_SLb = '' Then  TMP_SLb := '      '; End;
+    Write(' ' + TMP_SLb, (8*(N_SL_BL - 1) + 2), 4, (M_T_Color/16), (15 And M_T_Color));
+    NOM_SL := NOM_SL + 1;
+    N_SL_BL := N_SL_BL + 1;
+  END;
+  Refresh := 1;
+EXIT:
+END_MACRO;
+
+{****************************************************************************}
+$MACRO SHTAMP FROM EDIT;
+  Refresh := 0;
+  Def_Str(SLOWO);
+  Def_Int(KLAV, Active_Window );
+  KLAV := Parse_Int('/K=', mparm_str);
+  Active_Window := Cur_Window;
+  Switch_File(Global_Str('WORK_BL'));
+  GoTo_Line( Global_Int('PRG') + KLAV );
+  SLOWO := Copy( Get_Line, 5, 120);
+  Switch_Window(Active_Window);
+  IF (SLOWO <> '') THEN Text(SLOWO); END;
+  RM('QW^NOV_BLKN');
+  Refresh := 1;
+END_MACRO;
+
+{****************************************************************************}
+$MACRO POMOSH TO <AltH> FROM EDIT DUMP;
+  Put_Box ( 3, 5, 80, 24, 3, Blue,'', 1);
+  Write('Для ВЫБОРА слова нажмите два раза ЛЕВУЮ кнопку мыши на нужном слове.',5,6, 3, Blue);
+  Write('      После выделения слова Вы можете нажать:',5,8, 3, Blue);
+  Write('Для КОПИРОВАНИЯ слова - ЛЕВУЮ кнопку мыши в нужном месте.',5,9, 3, Blue);
+  Write('Для ПЕРЕМЕЩЕНИЯ слова - ПРАВУЮ кнопку мыши в нужном месте.',5,10, 3, Blue);
+  Write('Для КОПИРОВАНИЯ слова В КОНЕЦ СТРОКИ - ПРОБЕЛ.',5,11, 3, Blue);
+  Write('Для КОПИРОВАНИЯ слова В БЛОКНОТ - INSERT или ЛЕВУЮ кнопку мыши',5,12, 3, Blue);
+  Write('                                      на верхней границе окна.',5,13, 3, Blue);
+  Write('Для КОПИРОВАНИЯ блока в БЛОКНОТ - нажмите <AltINS>: ',5,14, 3, Blue);
+  Write('Для КОПИРОВАНИЯ слова из БЛОКНОТА  в конец строки нажмите: ',5,16, 3, Blue);
+  Write('- клавишу <Alt> и клавишу номера слова для верхней строки;',5,17, 3, Blue);
+  Write('- клавишу <Ctrl> и клавишу (на доп. клавиатуре) номера для нижней строки.',5,18, 3, Blue);
+  Write('Вызов БЛОКНОТА по клавишам <Alt-V>.',5,19, 3, Blue);
+  Write('Вызов БЛОКНОТА для РЕДАКТИРОВАНИЯ - по клавишам <Alt-Z>.',5,20, 3, Blue);
+  Write('Листание БЛОКНОТА - клавишами <Alt-PageUp> и <Alt- PageDn>.',5,21, 3, Blue);
+  Write('Отключение макроса по нажатию клавиш <Alt-DEL>.',5,22, 3, Blue);
+  Write('Для продолжения нажмите любую клавишу.', 18, 23, 3,Red);
+  Read_Key;
+  Kill_Box;
+END_MACRO;
+
+

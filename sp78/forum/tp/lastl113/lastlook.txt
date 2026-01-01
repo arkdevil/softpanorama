@@ -1,0 +1,270 @@
+LASTLOOK 1.1 - Takes one last look at TP/Delphi programs before they ship.
+
+Copyright (c) 1993,1995 D.J. Murdoch.
+
+Syntax:
+
+         LASTLOOK [/D] [/V] fileset [fileset] ...
+
+         will report on the Borland Pascal/Delphi compile options and
+         other characteristics of all selected executable files. If the
+         /D option is used, then all files will be treated as DOS
+         programs. If the /V option is used, then output will be in
+         verbose mode.
+
+
+Example:
+
+         You type "LASTLOOK lastlook", and you'll see the display:
+
+            LASTLOOK.EXE:
+                    Not optimized for 286+ ($G-).
+                    Has I/O checking ($I+).
+                    Has stack checking ($S+).
+
+
+Description:
+
+         A few years ago, I sent out a couple of programs that
+         had inappropriate compiler options, mostly through
+         carelessness.  In one case the program required an 80286 or
+         better processor, when it was designed to run on anything; in
+         another it needed a numeric coprocessor, even though it didn't
+         do any floating point calculations.
+
+         After those embarrassments, I decided to write a program that
+         can take a last minute look at an .EXE, just to assure me that
+         there's nothing wrong with the way I've compiled it.  LASTLOOK
+         scans Turbo/Borland Pascal and Delphi .EXE files for signs of
+         certain compiler options and other details, and reports on them.
+
+         Another use you might have for LASTLOOK could be to take a
+         first look at a new program you've just come across.  If it
+         is written in Turbo/Borland Pascal or Delphi, LASTLOOK can tell
+         you something about the hardware requirements.
+
+What it looks for:
+
+         LASTLOOK does about sixteen tests on the .EXE file.  First, it
+         checks whether it's a regular DOS executable or some kind of
+         protected mode executable, and prints a warning if it needs to
+         use protected mode.  (This will limit your audience, and if
+         it's DOS protected mode, means you'll have to include the DPMI
+         and RTM files with your distribution.)
+
+         The remainder of the tests below are normally done on the
+         protected mode part of the program. To force them to look at
+         the DOS stub, use the /D option on the command line.
+
+         Next it checks whether the program was compiled in
+         Turbo/Borland Pascal or Delphi. (It should recognize any TP/BP
+         version from 4.0 to 7.0, and 16 bit Delphi programs.  It can
+         handle DOS real mode, DOS protected mode, Windows, and 16 bit
+         OS/2 programs created with the BP7 patch.)
+
+         LASTLOOK then checks whether you've included external debugging
+         information with your .EXE.  You should never distribute a
+         program containing debug information; it'll be useless to most
+         people, and perhaps too useful to a few who notice it and use
+         it to reverse engineer your work.
+
+         While it's looking for debug information, it also looks out for
+         TurboVision-style resource files.  If you use TurboVision
+         resources, you'll probably want to see the message telling you
+         that you've remembered to attach them.  Because of the format
+         of the debug information, if you forgot to remove it first,
+         LASTLOOK (and TV!) won't be able to see your resource file.
+
+         The next check determines whether your program does floating
+         point calculations.  If it does, you'll get a report either
+         that the program includes the coprocessor emulator (which tends
+         to bloat it), or that it doesn't, and requires a hardware
+         coprocessor to run.
+
+         The next test is another hardware test:  LASTLOOK determines
+         whether your program is optimized for a 286 or better chip.
+         If you want the widest audience, you may not want to limit
+         yourself to 286+ machines, but these days, many programs
+         just aren't worth running on an 8086, and you probably want to
+         take advantage of the 286+ command set.
+
+         After that, LASTLOOK tries to determine whether your program
+         uses overlays.   If it does, LASTLOOK reports whether it saw
+         an attached overlay file.  If it can't find one, it gives a
+         warning, since it's so much more convenient for the user if you
+         attach the overlay file to the end of the .EXE.
+
+         What follows this are tests of whether you had debugging
+         options set when you compiled the .EXE.  LASTLOOK checks for
+         $I+ (I/O checks), $Q+ (overflow checks), $R+ (range checks),
+         and $S+ (stack checks).  When you know your program works
+         properly, you should turn these checks off.  (Well, maybe:  I
+         generally leave $S+ turned on; I'd rather suffer the
+         embarrassment of having my program abort with a run-time error
+         than trash somebody's disk by having a stack overflow and going
+         berserk.  I also tend to leave $I+ turned on, because it's a
+         fairly cheap test, rarely turns up an error, and requires lots
+         of error-prone fiddling with IOResult if you turn it off.  The
+         other two checks are much slower, and don't belong in
+         production software.)
+
+         Next, if the program is for Windows, pmode DOS or OS/2,
+         LASTLOOK examines the list of required DLLs.  If it includes
+         anything other than the standard ones that come with Windows
+         3.1 (COMMDLG, DDEML, GDI, KERNEL, KEYBOARD, LZEXPAND, MMSYSTEM,
+         MORICONS, OLECLI, OLESVR, PBRUSH, RECORDER, SHELL, TOOLHELP,
+         USER, VER, WIN87EM), or the fake DLLs (RTM and KERNEL) that are
+         used with BP protected mode programs, or the standard 16 bit
+         DLLs for OS/2 (DOSCALLS, KBDCALLS, MOUCALLS, NAMPIPES, PMWIN,
+         QUECALLS, VIOCALLS), then LASTLOOK prints a list of them.
+         You'll need to be sure to include copies of other DLLs when you
+         distribute your program, or tell the user where to get them.
+         (You may instead want to remove DLL dependencies:  Delphi
+         programs tend to accidentally link to BIVBX11.DLL if you
+         install and then remove a VBX control.  You don't really need
+         BIVBX11, but your program won't run without it.)
+
+         LASTLOOK then does two tests that are really only relevant
+         to Delphi programs.  First, it checks for signs that the
+         program used the DBTables unit.  Normally if a program uses
+         this unit, it requires the Borland Database Engine to be
+         installed; you'd better remember to distribute a copy with your
+         program.  (It's possible that your program uses DBTables but
+         doesn't need the BDE, but I think that's fairly unlikely.)
+
+         The next test checks the form of the .EXE file to see
+         if it has been compressed by the W8LOSS program.  (Delphi does
+         this automatically if you check the
+
+           Options|Project|Linker|Optimize for size and load time
+
+         option.)  Generally speaking this results in noticeably smaller
+         programs, so you probably always want to do it.  I think W8LOSS
+         should work with other versions of TPW/BPW, but I haven't tried
+         it.  It doesn't work with pmode programs, so the test is only
+         done on pmode programs if you specify the /V verbose mode.  I
+         don't know about OS/2 programs, and only do the test in /V
+         mode.
+
+         Finally, LASTLOOK checks the EXE header for signs of damage
+         from an obscure bug in TDSTRIP version 2.  TDSTRIP is Borland's
+         utility for removing debug information from an .EXE file;
+         version 2, which shipped with TP 6, contained a bug which
+         zeroed out the "extra paragraphs required" field in the EXE
+         header.  This is normally not too serious, but in certain
+         special conditions it could mean your program would load
+         without space for a stack segment, and could conceivably crash
+         the whole system.  For more details, see my STRIPPED.ZIP
+         utility.
+
+         Normally, LASTLOOK only reports when it finds one of these
+         conditions.  If you use the /V option, it will also report when
+         it doesn't find them.
+
+Limitations:
+
+         None of the tests used above are infallible. Several of them
+         depend on disassembling some code, and looking for signs of
+         specific compiler options.  The problem with this is that
+         LASTLOOK doesn't look at the whole program:  it only
+         disassembles the main program block and the initialization
+         sections of the units that you use.  If the bad options don't
+         happen to have affected the code in those parts of your
+         program, LASTLOOK will probably fail to detect them.  It may
+         also fail to detect options if you're using anything other than
+         Borland Pascal 7.0 real mode or DOS protected mode or Delphi
+         Windows programs.  Some tests work on the other versions of the
+         TP compiler, some don't. The negative claims that are reported
+         with the /V option are particularly error prone.
+
+         If you use assembler code in your initialization sections or
+         main block, you're very likely to confuse the LASTLOOK
+         disassembler; it only reliably disassembles the code that
+         comes from the TP compiler.
+
+         LASTLOOK uses about 140K of RAM when looking at a big program,
+         and can use a bit more when checking a protected mode program.
+         Try not to push it - it will skip some checks if it can't get
+         enough memory for them.
+
+Acknowledgments:
+
+         LASTLOOK makes use of the disassembler written by William Peavy
+         which is used in his excellent TWU1 .TPU dumper, and also in
+         DUMPPROG, my general .EXE disassembler.  Thanks to Brian
+         Grainger for suggesting and testing the OS/2 parts of the
+         program.
+
+License:
+
+         LASTLOOK is *not* public domain software, but you may use it
+         for non-commercial purposes at no charge.  You *may not* use
+         LASTLOOK to check your commercial programs without paying
+         for a commercial license.
+
+         You may distribute copies of the complete LASTLOOK package,
+         provided you charge no more than $5 for the diskette or other
+         media.
+
+         The commercial license is required when LASTLOOK is used in a
+         commercial or institutional or governmental setting.  This
+         license costs only $20 (U.S. dollars drawn on a U.S. bank, or
+         Canadian dollars drawn on a Canadian bank; a postal money order
+         is also acceptable).
+
+         People purchasing the commercial license will also receive a
+         diskette of programs (freeware and shareware) that I've written
+         to support Turbo Pascal programming.  See the included file
+         CONTENTS.TXT for the contents of the current disk.  It tends to
+         change over time; if there's anything there that you want to be
+         sure to get, just mention it.  Please specify preferred
+         diskette format when you order.
+
+         You can register directly with me by sending a cheque or money
+         order to
+
+          Duncan Murdoch
+          337 Willingdon Ave.
+          Kingston, Ontario, Canada.
+          K7L 4J3
+
+         You can also register with the Public (software) Library (PsL)
+         using MC, Visa, AmEx, or Discover card:
+          - by calling 800-242-4775 (US only)
+          - by calling 713-524-6394
+          - by faxing your order to 713-524-6398
+          - by sending your order by Compuserve to 71355,470.
+          - by sending your order by Internet to 71355.470@compuserve.com
+         PsL only accepts payment in US dollars.  Please give PsL your
+         name exactly as it appears on the card, and tell them your
+         card's expiry date.
+
+         The PsL numbers are for ordering only.  I *cannot* be reached
+         at the PsL numbers.  To contact me for information about dealer
+         pricing, volume discounts, site licensing, the status of
+         shipment of the product, the latest version number or for
+         technical information write to me at the address above or at
+         one of the email addresses below.  I'd especially like to hear
+         any suggestions for improvements.
+
+          Fidonet:    DJ Murdoch at 1:249/99.5
+          Internet:   dmurdoch@mast.queensu.ca
+          Compuserve: 71631,122
+
+Release history:
+
+         1.02 - first release
+         1.03 - fixed bug in $G+ detection, added /V option
+         1.1  - added tests for DLLs, made minor changes for Delphi
+                compatibility, fixed bugs in handling fixups and
+                compressed segments in protected mode programs, added
+                BDE and W8LOSS checks.
+         1.11 - switched direction of warning on $G+ test, added test for
+                Windows vs other pmode, restricted W8LOSS test to
+                Windows in non-verbose mode, gave separate lists of
+                standard DLLs for Windows and pmode.
+         1.12 - improved detection of target OS including OS/2
+                detection, added /D switch, added TDSTRIP test
+         1.13 - fixed some bugs in OS/2 detection, added more OS/2 DLLs,
+                added BOSS detection
+

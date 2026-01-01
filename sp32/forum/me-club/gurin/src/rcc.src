@@ -1,0 +1,540 @@
+$macro_file rcc;
+  {для введения  этого макрофайла  необходимо определить  в разделе Install
+   главного меню и подразделе File Extention новое расширение 'rc' и  новый
+   тип языка 'rcc'. Тип отступа нужно установить auto, т.к. на мой  взгляд,
+   тип smart при принятой  стратегии введения языковых конструкций  создает
+   больше  неудобств,  чем  удобств  (поэтому  макрос  для отступа smart не
+   разрабатывался)}
+
+  {в данном файле описаны два макроса:
+   RCCTEMP - вызывается макросом TEMPLATE из основного меню: поддержка
+             языковых конструкций Си в нотации препроцессора rcc
+   RCCMTCH - вызывается макросом MATCH из основного меню: поддержка
+             поиска круглых и фигурных парных скобок}
+
+$macro RCCTEMP;
+  {поддержка языковых конструкций Си в нотации препроцессора rcc}
+  {разработчик Гурин С.В.}
+
+  {файл помощи, вызываемый по  F1 (rcc.hlp), файл примера  заставки проекта
+   (zp.rc)  и  файл  бланка  скелета  разделов  проекта  (blank.rc)  должны
+   находиться в каталоге \me или в текущем каталоге}
+
+  {вызов  языковой   конструкции  происходит   при  вводе   двух  символов,
+   идентифицирующих данную  конструкцию, и  нажатии клавиши  вызова макроса
+   TEMPLATE  (того  же  макроса,  который  используется  для  других языков
+   программирования).  Если идентифицирующие символы не определяют  никакой
+   конструкции, выводится экран подсказки}
+
+  def_int(q,
+          main_window,   {идентификатор основного окна}
+          tmp_window,    {идентификатор вспомогательного окна}
+          ins,           {текущий режим вставка/замена}
+          glo, fun,      {аттрибуты шаблона модуля: глобальный/локальный,
+                                                    функция/процедура}
+          i,             {индекс языковой конструкции}
+          c              {текущий номер столбца}
+         );
+  def_str(error_message[80],  {сообщение об ошибке}
+          fln[60], fn[60],    {буферы для ввода имени и типа модуля}
+          nm0[2],             {буфер входного идентификатора}
+          nm1[2],             {буфер для выборки идентификатора из массива con}
+          con[100]            {массив, содержащий образцы имен идентификаторов
+                               языковых конструкций, имя содержит два символа
+                               и разделитель '|'. Список имен заканчивается
+                               именем '..'}
+         );
+  def_char(c0, c1);           {два символа входного идентификатора}
+
+  error_message := '-';       {нет ошибки}
+  ins := insert_mode;         {сохранение моды вставки/замены}
+  insert_mode := TRUE;
+  con := 'сп|лф|гф|лп|гп|#i|#в|#к|#м|#о|#с|#п|#т|#е|#и|пе|за|см|еи|еа|ес|ци|пт|пв|по|вы|пр|..';
+  refresh := FALSE;           {запрет изменения экрана}
+  push_undo;                  {открытие UNDO-записи, чтобы иметь возможность
+                               восстановить операцию ввода языковой конструкции
+                               за одну операцию UNDO}
+
+
+  if c_col >= 3 then          {если число символов строки >= 2, то прием
+                               двух символов имени конструкции}
+    left; c1 := cur_char;
+    left; c0 := cur_char;
+    nm0 := c0 + c1;
+    i   := 1;
+    nm1 := copy(con, i, 2);   {поиск имени в массиве con}
+    while ((nm1 <> '..') and (nm0 <> nm1)) do
+      i := i + 3;
+      nm1 := copy(con, i, 2);
+    end;
+    if nm1 = '..' then        {если имя не найдено}
+      goto help;
+    else
+      i := ((i - 1) / 3) + 1; {вычисление индекса конструкции}
+      del_char; del_char;     {удаление символов имени}
+    end;
+  else
+    goto help;
+  end;
+
+  c := c_col;                  {выбор исполняющей метки по индеку i}
+  if i =  1 then
+    fln := 'blank.rc'; call load;
+    fln := 'zp.rc';    call load;
+    block_off;
+  else if i =  2 then
+    fun := TRUE;  glo := FALSE; call fnpr;
+  else if i =  3 then
+    fun := TRUE;  glo := TRUE;  call fnpr;
+  else if i =  4 then
+    fun := FALSE; glo := FALSE; call fnpr;
+  else if i =  5 then
+    fun := FALSE; glo := TRUE;  call fnpr;
+  else if i =  6 then
+    goto_col(1); text('#include <.h>');
+    left; left; left;
+  else if i =  7 then
+    goto_col(1); text('#включить ".h"');
+    left; left; left;
+  else if i =  8 then
+    call crp; text('константа  ::=');
+    left; left; left; left;
+  else if i =  9 then
+    call crp; text('макро ');
+    if (c <> 1) then
+      call nlc; text('      {');
+      call nlc; text('      }');
+    else
+      call nlc; text('       {');
+      call nlc; text('       }');
+    end;
+    up; up; eol;
+  else if i = 10 then
+    call crp; text('определить ');
+  else if i = 11 then
+    call crp; text('синоним  ::');
+    left; left; left;
+  else if i = 12 then
+    call crp; text('понятие  ::');
+    left; left; left;
+  else if i = 13 then
+    call crp; text('отменить ');
+  else if i = 14 then
+    call crp; text('если ');
+    call nlp; text('конец');
+    up; eol;
+  else if i = 15 then
+    call crp; text('если ');
+    call nlp; text('иначе');
+    call nlp; text('конец');
+    up; up; eol;
+  else if i = 16 then
+              text('перечисление ');
+    call nlc; text('{');
+    call nlc; text('};');
+    up; up; eol;
+  else if i = 17 then
+              text('запись ');
+    call nlc; text('{');
+    call nlc; text('};');
+    up; up; eol;
+  else if i = 18 then
+              text('смесь ');
+    call nlc; text('{');
+    call nlc; text('};');
+    up; up; eol;
+  else if i = 19 then
+              text('если () то');
+    call nlc; text('{');
+    call nlc; text('}');
+    call nlc; text('иначе');
+    call nlc; text('{');
+    call nlc; text('}');
+    up; up; up; up; up; goto_col(c); word_right; left; left;
+  else if i = 20 then
+              text('если () то');
+    call nlc; text('{');
+    call nlc; text('}');
+    call nlc; text('иначе если () то');
+    call nlc; text('{');
+    call nlc; text('}');
+    call nlc; text('иначе');
+    call nlc; text('{');
+    call nlc; text('}');
+    up; up; up; up; up; up; up; up; goto_col(c); word_right; left; left;
+  else if i = 21 then
+              text('если () то');
+    call nlc; text('{');
+    call nlc; text('}');
+    up; up; goto_col(c); word_right; left; left;
+  else if i = 22 then
+              text('цикл (;;)');
+    call nlc; text('{');
+    call nlc; text('}');
+    up;  up; eol; left; left; left;
+  else if i = 23 then
+              text('петля');
+    call nlc; text('{ ');
+    call nlc; text('}');
+    up;  eol;
+  else if i = 24 then
+              text('повтор');
+    call nlc; text('{ ');
+    call nlc; text('}');
+    call nlc; text('пока ();');
+    up;  up; eol;
+  else if i = 25 then
+              text('пока () делать');
+    call nlc; text('{');
+    call nlc; text('}');
+    up;  up; goto_col(c); word_right; left; left;
+  else if i = 26 then
+              text('выбор ()');
+    call nlc; text('{ вариант      :');
+    call nlc; text('                 выход;');
+    call nlc; text('  вариант      :');
+    call nlc; text('                 выход;');
+    call nlc; text('  прочие       :');
+    call nlc; text('                 выход;');
+    call nlc; text('}');
+    up; up; up; up; up; up; up; eol; left;
+  else if i = 27 then
+    call nl1; text('/*┌─────────────────────────────────────────────────────────────────────────┐');
+    call nl1; text('  │                            программа                                    │');
+    call nl1; text('  └─────────────────────────────────────────────────────────────────────────┘*/');
+    call nl1; text('программа(целое число_аргументов, строковый массив аргумент[])');
+    call nl1; text('начало');
+    call nl1; text('  переменные :: ');
+    call nl1; text('  тело''программы');
+    call nl1; text('конец''программы');
+    up;  up; eol;
+  end; end; end; end; end; end; end; end; end; end; end; end; end; end;
+  end; end; end; end; end; end; end; end; end; end; end; end; end;
+  goto end_prog;
+
+{ вспомогательные функции и процедуры }
+
+nl1: eol; cr; goto_col(1); ret;
+nlc: eol; cr; goto_col(c); ret;
+nlp: eol; cr;
+     if (c <> 1)
+     then goto_col(1); text('#'); goto_col(c);
+     else goto_col(1); text('#');
+     end;
+     ret;
+crp: if (c <> 1)
+     then goto_col(1); text('#'); goto_col(c);
+     else text('#');
+     end;
+     ret;
+
+fnpr: {ввод шаблона функции или процедуры, аттрибуты: glo, fun}
+      if (fun = TRUE) then
+        put_box(8, 5, 75, 8, M_T_COLOR/16, M_B_COLOR, 'имя функции', TRUE);
+      else
+        put_box(8, 5, 75, 8, M_T_COLOR/16, M_B_COLOR, 'имя процедуры', TRUE);
+      end;
+      fn := ''; q := string_in(fn, ' >', 60, 9, 6, 'rcc.hlp^HL');
+      if (q = FALSE) then
+        kill_box;
+        goto exit_prog;
+      end;
+
+      if (fun = TRUE) then
+        write(fn, 12, 6, BLUE, YELLOW);
+        put_box(10, 9, 77, 12, M_T_COLOR/16, M_B_COLOR, 'тип функции', TRUE);
+        fln := ''; q := string_in(fln, ' >', 60, 11, 10, 'rcc.hlp^HL');
+        kill_box;
+        if (q = FALSE) then
+          kill_box;
+          goto exit_prog;
+        end;
+      end;
+      kill_box;
+
+      call nl1; text('/*┌─────────────────────────────────────────────────────────────────────────┐');
+      call nl1; text('  │                                                                         │');
+      insert_mode := FALSE;
+      goto_col(3 + (74 - length(fn))/2); text(fn); {центрирование имени}
+      insert_mode := TRUE;
+      call nl1; text('  └─────────────────────────────────────────────────────────────────────────┘*/');
+      call nl1;
+      if glo = TRUE then  text('глобальная ');
+      else                text('локальная ');
+      end;
+      if fun = TRUE then  text(fln + ' функция ');
+      else                text('процедура ');
+      end;
+      text(fn + '()');
+      call nl1; text('начало');
+      call nl1; text('  переменные ::');
+      call nl1; text('  тело''');
+      if fun = TRUE then    text('функции');
+      else                  text('процедуры');
+      end;
+      call nl1; text('конец''');
+      if fun = TRUE then    text('функции_' + fn);
+      else                  text('процедуры_' + fn);
+      end;
+      eol; cr; up; up; up; up; up; eol; left;
+      ret;
+
+load: {загрузка блока - файла fln}
+      if not(file_exists(fln)) then  fn := '\me\' + fln;
+      else                           fn := fln;
+      end;
+      if not(file_exists(fn)) then
+        error_message := 'Файл ' + fn + ' не найден';
+        goto end_prog;
+      end;
+      main_window := cur_window;
+      create_window; tmp_window  := cur_window;
+      load_file(fn); tof; block_begin; eof; block_end;
+      switch_window(main_window);
+      window_copy(tmp_window);
+      switch_window(tmp_window);
+      delete_window;
+      switch_window(main_window);
+      ret;
+
+help:      retrieve_help('LC', 1, 2, 80, 25, 'rcc.hlp', 'HELP');
+end_prog:  if (error_message = '-')
+            then make_message('Языковая конструкция Си в нотации препроцессора гсс');
+            else make_message(error_message);
+           end;
+exit_prog: refresh := TRUE;
+           redraw;
+           pop_undo; {закрытие UNDO записи}
+           insert_mode := ins;
+end_macro;
+
+{макрос RCMTCH скопирован в оригинальном виде из файла c.src (изменено
+ только имя макроса и его сообщения}
+
+{******************************************************************************}
+{                                MULTI-EDIT MACRO                              }
+{                                                                              }
+{Name: RCMTCH                                                                  }
+{                                                                              }
+{Description: Match occurances of {} or () and handles problems with           }
+{  characters embedded in comments or quotes.                                  }
+{   11/01/88 11:15am  Modified for greater speed.  Also, handles screen        }
+{   									updates much better.                                     }
+{                                                                              }
+{               (C) Copyright 1988 by American Cybernetics, Inc.               }
+{******************************************************************************}
+$MACRO RCCMTCH TRANS;
+
+	DEF_STR( Str1,Str2,  Search_Str );  {Strings to match}
+
+	DEF_INT( Direction,    {1 = Search forward, 0 = backward}
+					 B_Count,      {Brace count.  0 = match found}
+					 S_Res,        {Result of last search}
+					 T_Row, T_Col, T_Line, {Holds the original position}
+					 JX,           {General purpos}
+					 F_Line, F_Col ); {Found position}
+
+	Refresh := False;      {Turn screen display off}
+	T_Line := C_Line;      {Store the current position}
+	T_Col := C_Col;
+
+	Push_Undo;
+	Mark_Pos;
+
+Find_Match_Str:
+
+	IF (Cur_Char = '(') THEN    {If current char is a '(' then setup}
+		Str1 := '(';
+		Str2 := ')';
+		Direction := 1;
+		Goto Start_Match;
+	END;
+	IF (Cur_Char = ')') THEN    {If current char is a ')' then setup}
+		Str1 := ')';
+		Str2 := '(';
+		Direction := 0;
+		Goto Start_Match;
+	END;
+	IF (Cur_Char = '{') THEN    {If current char is a '{' then setup}
+		Str1 := '{';
+		Str2 := '}';
+		Direction := 1;
+		Goto Start_Match;
+	END;
+	IF (Cur_Char = '}') THEN    {If current char is a ')' then setup}
+		Str1 := '}';
+		Str2 := '{';
+		Direction := 0;
+		Goto Start_Match;
+	END;
+															{If nothing matched then }
+															{  Return to original position}
+	Goto_Line(T_Line);
+	Goto_Col(T_Col);
+	Goto_Mark;
+  Make_Message('Нет скобки для поиска пары');
+	Goto Macro_Exit;            {Go exit}
+
+Start_Match:
+
+ { Search_Str := '{\["'']}||[''"]||{/@*}||{@*/}||[' + Str1 + Str2+']'; }
+
+	Search_Str := '["''/' + Str1 + Str2 + ']';
+
+	Reg_Exp_Stat := True;
+	Ignore_Case := True;        {Ignore the search case}
+	B_Count := 1;               {Brace count starts at 1}
+	S_Res := 1;                 {Init search result to true}
+															{Tell the user what we're matching}
+  Make_Message('Поиск парной скобки "'+Str1+'"...');
+
+
+MATCH_LOOP:     {Main loop}
+
+	If S_Res = 0 THEN           {If the last search was a failure then exit}
+		beep;
+		Goto Error_Exit;
+	END;
+
+	If B_Count = 0 THEN         {If brace count is zero then success}
+		Goto Found_Exit;
+	END;
+
+			{Execute search based on direction}
+			{  We are going to search not only for the match brace or paren, but
+				 also for comments and double and single quotes}
+	If Direction = 1 THEN
+		Right;
+		While (NOT (At_EOL)) and ((Cur_Char = '|255') or
+					(Cur_Char = '|9')) Do
+			RIGHT;
+		END;
+		S_Res := Search_Fwd( Search_Str, 0);
+	ELSE
+		Left;
+		While (Cur_Char = '|255') or
+					(Cur_Char = '|9') Do
+			Left;
+		END;
+		S_Res := Search_Bwd( Search_Str , 0);
+	END;
+
+										{If the search result was a failure then exit}
+	If S_Res = 0 THEN
+		Goto Error_Exit;
+	END;
+
+
+										{If we found the original string then up the count}
+	IF Found_Str = STR1 THEN
+		B_Count := B_Count + 1;
+		Goto Match_Loop;
+	END;
+										{If we found the matching string then decrement the count}
+	IF Found_Str = STR2 THEN
+		B_Count := B_Count - 1;
+		Goto Match_Loop;
+	END;
+
+										{If we found a single quote the match it }
+	IF Found_Str = '''' THEN
+		Quote_Loop:
+			If Direction = 1 THEN
+				RIGHT;
+			else
+				LEFT;
+			END;
+			IF Direction = 1 THEN
+				S_Res := Search_Fwd('{\''}||{''}',0);
+			else
+				S_Res := Search_Bwd('{\''}||{''}',0);
+			END;
+			If S_Res = 0 THEN
+				Goto Error_Exit;
+			END;
+			If Found_Str = '\''' THEN
+				Goto Quote_Loop;
+			END;
+			Goto Match_Loop;
+	END;
+
+											{If we found a double quote then match it}
+	IF Found_Str = '"' THEN
+		Quote_Loop2:
+			If Direction = 1 THEN
+				RIGHT;
+			else
+				LEFT;
+			END;
+			IF Direction = 1 THEN
+				S_Res := Search_Fwd('{\"}||"',0);
+			else
+				S_Res := Search_Bwd('{\"}||"',0);
+			END;
+			If S_Res = 0 THEN
+				Goto Error_Exit;
+			END;
+			If Found_Str = '\"' THEN
+				Goto Quote_Loop2;
+			END;
+      Goto Match_Loop;
+	END;
+
+											{If we found a opening comment then match it}
+	If (Found_Str = '/') then
+		If (Direction = 1) then
+			Right;
+			IF (Cur_Char = '*') THEN
+				S_Res := Search_Fwd('@*/',0);
+				right; right;
+			END;
+			Goto Match_Loop;
+		else
+			if c_col > 1 then
+				Left;
+														{If we found a closing comment then match it}
+				IF (Cur_Char = '*') THEN
+						S_Res := Search_Bwd('/@*',0);
+						left;
+				end;
+			end;
+			Goto Match_Loop;
+		END;
+	end;
+
+Error_Exit:       {We go here if no match was found}
+	Goto_Mark;
+  Make_Message('Парная скобка не найдена');
+	Goto Macro_Exit;
+
+Found_Exit:       {We go here if a match was found}
+	F_Line := C_Line;  F_Col := C_Col;
+
+	If C_Line > T_Line THEN
+		JX := C_Line - T_Line;
+	ELSE
+		JX := T_Line - C_Line;
+	END;
+
+	If jx < Screen_Length then
+		goto_mark;
+		while  jx > 0 do
+			--jx;
+			if f_line > t_line then
+				down;
+			else
+				up;
+			end;
+		end;
+	else
+		pop_mark;
+	end;
+	goto_line( f_line );
+	goto_col( f_col );
+  Make_Message('Парная скобка найдена');
+
+Macro_Exit:
+	Refresh := True;
+	Redraw;
+	Pop_Undo;
+END_MACRO;

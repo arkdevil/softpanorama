@@ -1,0 +1,259 @@
+*
+* Xtg_Scr - небольшая резидентная примочка к XTree Gold Pro,
+*           эмулирующая функцию NC <Ctrl-O> (оригинальный
+*           экран пользовательской задачи).
+* Author:
+*    Tony Berezin (Антон Березин), г. Днепропетровск
+*    GalaSoft United Group International
+* Phones:
+*    (0562)50-40-84
+*    (0562)50-58-78
+*    (0562)47-14-72
+*    (0562)47-03-96
+* Usage:
+*    XTG_SCR
+*    После запуска программа остается резидентной
+* Warning:
+*    При использовании нестандартных текстовых видеорежимов (например,
+*    80x30, программа Д. Гуртяка (г. Донецк) vga480) возможны коллизии.
+*    Это связано с тем, что некоторые программы могут неверно устанав-
+*    ливать ряд параметров в BIOS Data Area. Ошибки проявляются потому,
+*    что Xtg_Scr интенсивно использует механизм переключения видеостраниц.
+*    В частности, вышеупомянутая программа Д. Гуртяка устанавливает непра-
+*    вильное значение переменной regen size (слово по адресу 0040:004C),
+*    в котором хранится длина в байтах экранной страницы. В режиме 80x30
+*    там должно находиться значение 12C0H, при использовании же VGA480 в
+*    переменной оказывается значение 10A0H.
+* Comment:
+*    С целью минимизации размера резидентной части и программы в целом
+*    не определяется наличие резидента в памяти - повторный запуск не
+*    отслеживается. С той же целью нельзя менять горячую клавишу вызова,
+*    а именно, <Ctrl-O>. В самом XTG эта комбинация клавиш никак не
+*    используется. Также не отслеживается присутствие CGA-адаптера
+*    (не используются процедуры вывода в экранную память только во
+*    время обратного хода луча).
+*
+..model tiny
+..code
+.org 100h
+Program Xtg_Scr
+  goto Start
+
+*********************** Константы **************************
+Equals RegenSize=44CH, VOffs=44EH, VideoPage=462H, VideoMode=449H;
+Equals PopKey=24, CtrlMask=4
+
+*********************** Переменные *************************
+Bytes SavePage
+
+(Proc GetVSegm
+* Requires:
+*   None
+* Results:
+*   C-bit is set if current video mode <> 2, 3, 7
+*   otherwise
+*   C-bit is clear
+*   es=Video Segment
+*   ax corrupted
+  es=ax=0;
+  al=es:[VideoMode]
+  (if al=7
+    .clc
+    es=ax=0B000H
+  elsif (al=2) or (al=3)
+    .clc
+    es=ax=0B800H
+  else
+    .stc
+  if)
+  return
+End GetVSegm)
+
+(Proc Store
+* Results:
+*   es, ax, cx, si, di, ds corrupted
+*
+  GetVSegm;
+  if is carry then return
+  push es, es;
+  es=ax=0;
+  cx=es:[RegenSize];
+  si=es:[VOffs];
+  di=si+cx;
+  cs:SavePage=al+1=es:[VideoPage];
+  cx=>1;
+  pop ds, es;
+  .cld; .rep movsw;
+  return
+End Store)
+
+(Proc ShowOrg
+* Results:
+*   ax, cx, es corrupted
+*
+  .sti;
+  cs:Activity=1;
+  cs:Activation=00;
+  (save ax, bx, cx, dx, si, di, ds, es
+
+    CheckXTG;
+    if is carry goto NoShow
+
+    es=ax=0; cl=es:[VideoPage];
+    al=cs:SavePage; ah=5; .int 10H;
+    ah=0; .int 16H;
+    ah=5; al=cl; .int 10H;
+
+NoShow:
+  save)
+  cs:Activity=00;
+  return
+End ShowOrg)
+
+Bytes XTGmask='XTG.EXE'.0
+
+(Proc CheckName
+* Requires:
+*   ds:si - подозрительная строка
+* Results:
+*   C-bit is clear if string 'XTG.EXE'.0 founded
+*   si, cx, es, di corrupted
+*
+  (while byte ptr [si]<>00
+    si=+1
+  while)
+  si=-7;
+  cx=4;
+  push cs; pop es;
+  di=offset XTGmask;
+  .cld; .repe cmpsw;
+  .jcxz YesCheck
+  .stc; return;
+YesCheck:
+  .clc; return
+End CheckName)
+
+(Proc CheckXTG
+* Returns:
+*   C-bit is clear if XTG found as current process
+*   ax, ds, bx, si, cx, es, di corrupted
+*
+  ah=62H; .int 21H;
+  ds=bx; ds=ds:[2CH]; si=0;
+  (while word ptr [si]<>00
+    si=+1
+  while)
+  si=+4;
+  CheckName;
+  return
+End CheckXTG)
+
+Bytes Activation, Activity
+DData Original21, Original9, Original8, Original28, DosBusy
+
+(Proc Handler28
+  .pushf; call cs:Original28
+  (if cs:Activation=1 and cs:Activity=00
+    call ShowOrg
+  if)
+  .iret;
+End Handler28)
+
+(Proc Handler8
+  .pushf; call cs:Original8
+  (if cs:Activation=1 and cs:Activity=00
+    (save ds, bx
+      bx=.lds.cs:DosBusy
+      (if byte ptr [bx]=00
+        * Сразу активизируемся !!!
+        call ShowOrg
+      if)
+    save)
+  if)
+  .iret
+End Handler8)
+
+(Proc Handler9
+  (save ax
+    .in al,60H;
+    (if al=PopKey
+      (save ds
+        ds=ax=0;
+        al=ds:[417H];
+        al=.and.CtrlMask;
+        (if al<>0 and cs:Activity=00
+          cs:Activation=1
+          * и заберем код буковки 'O'
+*          .in al,61H; ah=al;
+*          al=.or.80H; .out 61H, al;
+*          al=ah; .out 61H, al;
+*          al=20H; .out 20H, al;
+*          pop ds, ax; .iret;
+        if)
+      save)
+    if)
+  save)
+  goto cs:Original9
+End Handler9)
+
+(Proc Handler21
+  .sti;
+  (if ah=4BH
+    * проверим, запуск XTG или нет ?
+    (save ax, bx, cx, si, di, ds, es
+      si=dx; CheckName;
+      (if not is carry
+        Store
+      if)
+    save)
+    .pushf; .cli; call cs:Original21
+    * проверим, теперь XTG или нет ?
+    push bp; bp=sp;
+    (save ax, bx, cx, si, di, ds, es
+     .pushf
+      CheckXTG;
+      (if not is carry
+        Store
+      if)
+      .pop ax; [bp+6]=ax;
+    save)
+    pop bp;
+    .iret
+  if)
+  .cli;
+  goto cs:Original21
+End Handler21)
+
+*
+* Показываем, только когда активна XTGOLD,
+* запоминаем, когда завершается задача, и новый текущий
+* процесс - это XTG.EXE, либо когда запускается задача,
+* и ее имя - XTG.EXE
+*
+
+Start:
+  * сбросим флаги активизации и активности
+  Activation=00; Activity=00;
+  * запомним адре сфлага занятости DOS
+  ah=34H; .int 21h;
+  word ptr DosBusy=bx; word ptr DosBusy[2]=es;
+  * запомним прерывания 8,9,21,28
+  es=ax=0;
+  .cli
+  ax=es:[(8*4)]; bx=es:[(8*4)+2];
+  word ptr Original8=ax; word ptr Original8[2]=bx;
+  ax=es:[(9*4)]; bx=es:[(9*4)+2];
+  word ptr Original9=ax; word ptr Original9[2]=bx;
+  ax=es:[(21H*4)]; bx=es:[(21H*4)+2];
+  word ptr Original21=ax; word ptr Original21[2]=bx;
+  ax=es:[(28H*4)]; bx=es:[(28H*4)+2];
+  word ptr Original28=ax; word ptr Original28[2]=bx;
+  * перехватим прерывания 8,9,21,28
+  ax=.lea.Handler8; es:[(8*4)]=ax; es:[(8*4)+2]=cs;
+  ax=.lea.Handler9; es:[(9*4)]=ax; es:[(9*4)+2]=cs;
+  ax=.lea.Handler21; es:[(21H*4)]=ax; es:[(21H*4)+2]=cs;
+  ax=.lea.Handler28; es:[(28H*4)]=ax; es:[(28H*4)+2]=cs;
+  .sti
+  * завершимся и останемся резидентом
+  dx=offset Start;
+  .int 27h;

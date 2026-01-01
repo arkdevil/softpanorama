@@ -1,0 +1,86 @@
+From: pollock@ibm.net
+Newsgroups: comp.os.os2.programmer.misc
+Subject: Re: Fast screen-writes in Os/2
+Date: 21 Apr 1995 02:26:53 GMT
+
+In <D75IE8.4zq@knoware.nl>, trham@knoware.nl writes:
+>Hello all! 
+> 
+>Could somebody give me an example of 'direct' screen-writes using the Vio-calls (if you know   
+>any faster way, that's ok with me too...)? It's just for a text-application, but the standard   
+>conio-functions are way too slow. I'm using Borland C++ 2.0 for OS/2. 
+> 
+>Greetinx, 
+>    Koen Vermeer
+
+When I first started using OS/2, I didn't want to bother porting my app and
+learning PM at the same time.  Since my DOS programs use direct screen
+writes I wanted my OS/2 programs to do the same.
+
+I now believe that I have much more flexibility with PM, not to mention the
+user friendliness.  For what its worth, here is the code.  By the way, these
+APIs are not documented because IBM does not want us to use them.
+
+good luck,
+
+Jon Pollock :)
+
+
+/**********************/
+/* FILE: SCREEN.C     */
+/**********************/
+/* Bildschirm Ausgabe */
+/**********************/
+/* Jonathan Pollock   */
+/**********************/
+#define INCL_VIO
+#include <os2.h>
+
+void scr_savebox(word x, word y, word wd, word ht, word *buf) {
+  wd*=2;
+  while (ht--) {
+    VioReadCellStr((byte *)buf, &wd, y++, x, 0);
+    buf+=(wd/2);
+  }
+}
+
+void scr_restorebox(word x, word y, word wd, word ht, word *buf) {
+  wd*=2;
+  while (ht--) {
+    VioWrtCellStr((byte *)buf, wd, y++, x, 0);
+    buf+=(wd/2);
+  }
+}
+
+void scr_prtchars(word x, word y, word len, word fill) {
+  VioWrtNCell(&((byte)fill), len, y, x, 0);
+}
+
+void scr_prtstring(word x, word y, char *str, word attr, word max) {
+  byte ch; word len=0;
+  ch=(byte)(attr>>8);
+  for (;(str[len])&&(len<max); len++);
+  VioWrtCharStrAtt(str, len, y, x, &ch, 0);
+}
+
+void scr_cls(word fill) {
+  VioWrtNCell(&((byte)fill), 80*25, 0, 0, 0);
+}
+
+void scr_clrbox(word x, word y, word wd, word ht, word fill) {
+  while (ht--) scr_prtchars(x, y++, wd, fill);
+}
+
+void scr_drawframe(word x, word y, word wd, word ht, word f, word scr_attr) {
+  scr_prtchars(x, y, 1, TOPLEFT);
+  scr_prtchars(x+(--wd), y, 1, TOPRIGHT);
+  scr_prtchars(x, y+(--ht), 1, BOTLEFT);
+  scr_prtchars(x+wd, y+ht, 1, BOTRIGHT);
+  scr_prtchars(x+1, y, (--wd), HORIZ);
+  scr_prtchars(x+1, (y++)+ht, wd++, HORIZ);
+  while (--ht) {
+    scr_prtchars(x,y,1,VERTICAL);
+    scr_prtchars(x+wd,y++,1,VERTICAL);
+  }
+}
+

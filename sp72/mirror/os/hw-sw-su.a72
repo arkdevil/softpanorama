@@ -1,0 +1,550 @@
+From: blf@pact.srf.ac.uk (Brian Foster)
+Newsgroups: comp.unix.wizards
+Subject: summary - h/w interfaces from a s/w perspective (long)
+Date: 27 Feb 1995 14:59:11 GMT
+Organization: University of Bristol, England
+Message-ID: <3ispbv$gfn@soc2.pop.psu.edu>
+
+several weeks ago, i posted a message asking for references
+and "war stories" on various do's and don'ts of interface
+design (as seen from a smp *ix/micro-kernel software point-
+of-view).  this was to help me writing a report for some of
+our chip designers.
+
+i promised to summarise all the (useful) responses i got.
+this is that summary.  no-one knew of any published prior
+work other than that which i already knew of:
+
+	tom lyon & joseph skudlarek (sun microsystems, inc.)
+	"all the chips that fit"
+	usenix summer 1985 conference proceedings (portland, oregon)
+
+in addition, i've now completed the first draft of my report
+(which is now starting its internal review).  i've appended
+a synopsis of the recommendations made in this first draft,
+and welcome constructive feedback (to assist the reviewing;
+please e-mail to me (but i'll summarise only if appropriate)).
+
+several people asked to see the report when it is complete.
+i will investigate doing so:  i currently believe i need an
+ok from legal-types before i can make it available publicly
+or in full.  don't hold your breath ......  ;-\
+
+my thanks to all those who replied!
+	-blf-
+
+p.s. one of my colleagues suggested a book by stone(?)
+     called something like "microprocessor interfaces" or
+     "interfacing to microprocessors", but i've been unable
+     to track this down.  are any bells ringing??
+
+------- Forwarded Message 1
+
+>From: Roger Ivie <IVIE@cc.usu.edu>
+To: blf@pact.srf.ac.uk
+Subject: Re: h/w interfaces from a s/w perspective (repeat)
+Date: Thu, 16 Feb 1995 14:58:40 -0600 (MDT)
+Message-Id: <01HN4DJHGQ6AHJSHIT@cc.usu.edu>
+
+One difficulty I had with chip designers a few years ago involved
+write-1-to-clear status bits.
+
+The status bits involved were normally zero and become one when the 
+condition happened. Traditionally, you would write a one to the bit in
+order to clear it.
+
+Some wise guy had the idea of making these bits in new products write
+zero to clear. I had a difficult time explaining why write-1-to-clear
+and write-zero-to-clear were not identical. Never did manage to get
+through to them.
+
+By the way, there was a bug in Alpha/VMS 1.0 that involved this sort of
+status bit. The hardware bits were write-zero-to-clear and the interrupt
+service routine forgot to set bits it was not interested in clearing,
+resulting in an occasional lost interrupt.
+----------------+------------------------------------------------------
+Roger Ivie      | Never underestimate the bandwidth of a
+ivie@cc.usu.edu |     truckload of tapes
+
+------- Forwarded Message 2
+
+>From: davew@ironwood.cray.com (Dave Wagner)
+To: blf@pact.srf.ac.uk
+Subject: Re: h/w interfaces from a s/w perspective (repeat)
+Date: Thu, 16 Feb 1995 16:53:05 -0600
+Message-Id: <9502162253.AA23191@hickory422>
+
+I can't give you a paper, but I did talk a lot to our h/w people
+here a while ago.  We decided upon things like:
+
+ - Any "unassigned" bits are Read-As-Zero, and Ignore-on-write
+ - All writeable bits are readable
+ - Interrupts, Status, and Enable bits are "on" with "1".
+ - There's also an ongoing debate as to whether "clear when read"
+    fields are evil.  My feelings is yes, but others' like that
+    as an atomic-read paradigm.
+-- 
+Dave Wagner               
+davew@cray.com	          
+(612) 683-5393            
+
+------- Forwarded Message 3
+
+>From: robertl@arnet.com
+To: blf@pact.srf.ac.uk
+Subject: Re: h/w interfaces from a s/w perspective (repeat)
+Date: Sat, 18 Feb 95 17:36:41 CST
+Message-Id:  <9502181736.aa15307@amsg.arnet.com>
+
+As a driver and firmware dude at a hardware company, I have
+a few to add to your list:
+
+Write-only registers (esp bitmapped ones where the bits aren't
+particularly related) are bad.
+
+ANY cause of an "infinite wait state" is unacceptable.  Some
+devices provide "magic" register that when read at certain times
+will lock the device/bus/system.  This makes debuggers hell.
+You can return trash, but don't nuke the system.  The common 
+argument for this is in interrupt acknowledgement registers when
+no interrupt is pending.  
+
+Accessing address space that isn't decoded should not nuke the 
+system.  Again, trash is OK.
+
+I've programmed lotso comm parts.   I have not found a single one
+where the status bits will not lie to you under some circumstance.
+If they're not accurate, they're useless.
+
+Most processors have some kind of fast "test-for-zero".  Instead
+of telling me how many bytes are currently filled in the tx fifo,
+tell me how many spaces are _left_ in the tx fifo.  This also lets
+you grow the size of the fifo without breaking the code.
+
+Good:
+    fill=device->tx_left ;
+    while (fill--) jammit();
+
+Bad:
+    fill = device->tx_left ;
+    while (fill ++ < MAX_FIFO)  jammit();
+
+Don't make me wait after accessing some register before I do something
+else - this is a real bitch in RISC systems.  Just stall the bus before
+going on.
+
+Accept that some systems have slow buses - the more reads/writes I
+have to do the part, the worse performance is going to be.  For 
+example, don't give me a "tx fifo non-full" bit,  give me a count
+so I don't have to bounce between it and tht tx fifo.
+
+I'd like to see a copy of this final report, please.
+
+Good Luck!
+-- 
+Robert Lipe    Sr. Software Engr.    Arnet Corp.     robertl@arnet.com
+
+------- Forwarded Message 4
+
+>From: "Mike O'Dell" <mo@uunet.uu.net>
+To: blf@pact.srf.ac.uk
+Subject: "Stop helping me!"
+Date: Mon, 20 Feb 1995 09:32:13 -0500
+Message-Id: <QQydxi04662.199502201432@rodan.UU.NET>
+
+the subject line has become something of a catch-phrase around UUNET
+as we deal with various hardwarily things designed by folks apparantly
+short on clues.  most of them try to do too much for you and end up
+losing as a result.  Over the years, I have collected some thoughts on
+the subject which I'll share.  [ ... ]
+
+(1) Don't use a half-duplex interface for a full-duplex job.
+Communications chips are especially bad with this, but they inherited
+the trait from wretched board-level products like the infamous DEC
+DMC-11. This board did 1-megabit full-duplex communication with a
+reliable packet protocol done by stuff on the boards - would have been
+great if it worked.  But the interface was incredibly lame - you had
+to constantly trade control of the register set between the board and
+the driver code and sometimes that screwed up, hanging the board.
+If there is an outgoing channel, there should be a complete set of
+control info for that channel which should be distinct from the
+incoming channel.  Ideally if you can write half of the device driver
+without knowing the other direction exists, the design is pretty good.
+Now there are fine reasons to put interrupt summary bits in a global
+state register so code and do interrupt prevention if it wants, but
+variables which must be shared in a non-readonly manner by driver
+software going both ways is just asking for trouble, and it will
+usually be delivered in truckloads.
+
+(2) Write the device driver first, then make the hardware work that
+way.  Driver code is a much better functional spec than any amount of
+English expended trying to describe an algorithm.  With a proposed
+driver in-hand, the English can be spend discussing the subtleties.
+
+(3) Don't assume that the only job a computer system has to do is
+wet-nurse your bloody chip.  App note after App note for real chips
+goes into considerable detail about how you should make the chip work,
+except that it assumes you can turn off interrupts forever when
+required, and that no one else cares if you spin-loop for a few
+seconds waiting for some condition to come true.  The chip designer
+should assume that the last thing in the world the containing computer
+system wants to do is fiddle with the damn chips.  Usually the system
+has real work to do.  Try to make the chips as self-sufficient as
+possible by ensuring ample buffering, adjustable high and low water
+marks on buffer queues, and connect those events to interrupts so 
+you can ignore the chip until it really needs to do something.
+
+(4) Make it easy to decide what the chip needs when it interrupts.
+There are more than a few chips around which require the driver to
+parse damn near the entire state of the part to use the interrupt
+machinery because of the lack of meaningful summary registers.  At
+least in a few cases it's easier to not use much of the hardware in
+the chip than figure out how to understand what it's doing at
+interrupt time.
+
+(5) Don't put in hardware you don't KNOW is needed.  Many chips use
+lots of chip area putting in features the software folks can't
+understand how to use, or which can't be used  because of one of these
+other reasons.  And in the process, they leave out hardware which
+would be useful if it were there.  As was said above, talk to some
+real software types - and NOT just DOS weenies who don't have any
+experience doing multitasking in protected addres spaces - the Unix
+guys have a lot of experience you can steal from. And don't assume
+people can move heaven and earth to meet your chip's real-time
+botches. It may be busy meeting some other chip's constraint and that
+chip is doing something more important than what yours is doing.
+
+(6) Close to (5) is "Don't Help Me Unless I Ask For It".  Clean,
+simple, fast, comprehensible - those are good.  Ethernet chips come to
+mind as one of the great object lessons in all this.  Way back in the
+early 80s, John Shoch and friends did a paper in an IEEE thing on "How
+to build a fast Ethernet interface."  It drew heavily on their
+experience building Ethernet interfaces for several machines.  The
+conclusions were not startling - make it fast and simple - get the
+data off the wire and into memory as fast as possible.  this way you
+don't have to wonder about how much buffering is needed in the
+interface to take back-to-back packets, for example.  And they went on
+to give 10 good dos and don'ts in Ethernet interface design. So what
+happened??? For YEARS now, Ethernet chips have been seemingly designed
+to see how many of those design dictums the creators could violate and
+still make it work at all. It's rediculous what some of those chips
+do.  And just to pick on one at random (any other one could have been
+picked as readily, but I remember these) the Intel parts are SWIMMING
+in transistors - they do all kinds of things that noone knows how to
+use or make work, but it's all there on the chip, and the behavior you
+WANT is nowhere to be found.  And it's slow and cranky as well. Nice
+job, guys, nice job.
+
+(7) DO NOT ATTEMPT TO FIX "BYTE ORDER" PROBLEMS
+Ever since people discovered that not everyone numbers the bits the
+same way, hardware designers have been botching attempts to deal with
+this in hardware and making the software builder's life a living hell
+in the process.  The smartest hardware designer I've ever seen just
+build a new board having this new "helpful" byte-swapping stuff on it
+which is supposed to "help" you use Intel parts from a Motorola 68K
+processor. His attempt was better than most - he got about half the
+job done instead of the usual 1/4th of the job, but that still left
+the other half to deal with, and of course, this nifty hardware makes
+the remaining task HARDER, enough so that it would have been easier to
+just do it all in software.  At least that way you don't have to
+wonder what the hardware is really doing.  It is a real crock to need
+board logic diagrams to figure out how to get the bytes into a chip
+the way they need to go because SOMETIMES the low address bit(s) get
+inverted.
+
+And this, of course, leads to my subject line....
+
+	STOP HELPING ME!!!!!!!
+
+I'll probably think of a few more, but this is my list for now.  
+I hope your company is smart enough to take what you've collected to
+heart.
+	-mo
+
+------- Forwarded Message 5
+
+>From: albaugh@agames.com (Mike Albaugh)
+To: blf@pact.srf.ac.uk
+Subject: no subject (file transmission)
+Date: Tue, 21 Feb 1995 09:19:35 -0800 (pst)
+Message-Id: <199502211718.JAA21450@agames.com>
+
+	I don't do SMP (yet :-), but am one of the "blessed few" who
+writes initialization and diagnostic software for our products. Some
+of my complaints may seem so obvious that one in your field could wonder
+how anybody could still be having problems with them, but you'd be
+surprised...
+
+	(The horrors of edge-triggered interrupts, and too few of them
+at that, in the PC world are well known, and they doesn't really matter
+to me, so I'll mention them and move on...)
+
+	If at all possible, full-bus-width access to device registers
+should be the "normal" way to control the machine. HW engineers seem
+congenitally incapable of understanding Big-Endian versus Little-Endian,
+and often muck things up really badly trying to "help" the software.
+Since endian-ness is moot with full-width access, the software will be
+_much_ cleaner if it is the default. In a similar vein, write-only
+registers are bad enough, but write-only registers wherin dwell various
+bits that have little to do with each other are a tool of the devil. The
+flip side of this is a set of control bits that are always modified
+together, but which are scattered among various different registers.
+
+	Another common thing the HW boys do is to design things where
+two (or more) registers _must_ be written sequentially, but not _too_
+close together, and with no intervening access to the device. With the
+write buffers in modern processors, it is increasingly difficult to
+manage proper "separation" of writes in time. This is just the most
+virulant form of the "software manages the bus timing" approach to
+design :-)
+
+	I wrote a little internal memo I'm forwarding below. Some parts
+may be mysterious for containing company jargon, but the essence should
+come through.
+
+	I would definitely like to see the summary
+
+	The Zilog chip used for Appletalk (8530?) comes to mind.
+Engineers seem to love it, but I know of no person who has a completely
+satisfactory initialization sequence for it. Although not documented as
+such, it is _extremely_ sensitive to the order in which its various
+registers are set, with each permutation reducing the probability of
+certain errors, while increasing the probability of others. Note that
+at no time did I say "causing" or "eliminating" errors. It all kinda-
+sorta works (most of the time, if your particular shuffle of parameters
+was a "good" one).
+
+	Ah, yes, chip-from-hell, the early Intel Uarts which had:
+
+1) a tendency to "forget" certain settings, which is a common enough
+   problem, usually dealt with by "refreshing" them from a RAM copy.
+
+2) a tendency to trash any character that was being shifted in at the
+   time the control registers were being written, even with the _same_
+   value.
+
+	The original "UART", was not too bad, but I suspect that its
+elegance had something to do with the design constraints. I'm talking
+about the two-board set of discrete transistor logic used for Teletype(tm)
+interfaces on early DEC machines, and then made into a single chip by
+General Instrument. The simplicity enforced by limited resources also
+made it straightforward to use, a virtue lost in many later chips.
+
+| Mike Albaugh (albaugh@agames.com) Time Warner Interactive
+| (The entertainment company formerly known as Atari Games (_NOT_ Tramiel's))
+| 675 Sycamore Dr. Milpitas, CA 95035		voice: (408)434-1709
+| The opinions expressed are my own (Boy, are they ever)
+
+------ My internal memo. email back if something is _really_ puzzling ---
+
+	Just a little list of things that drive me, a programmer,
+nuts when the hardware guys do them. These are not in any particular
+order. Note that none of these are "show stoppers" in that we always
+seem somehow to cope and make things work in spite of them, but they
+all cost time and effort that could otherwise go into designing
+products. They are _all_ based on things I have actually had to deal
+with here, recently.
+
+
+	Related bits scattered all over the memory map, so that
+even though they should always be read or modified together, it is
+physically impossible to do so. A cousin to this is the one where
+the left players controls go left-to-right in one word and the right
+player's go right-to-left and the center player's are high-true...
+
+	You can't seem to make up your minds whether things like the
+Vblank signal and front-panel switches are high-true or low-true.
+This means conditional assembly or compilation scattered all over
+the diagnostics.
+
+	Several portions of a board, each of which "must" be initialized
+before the others. For example, VAD must be initialized before I get a
+working RAM or a stable time-base to initialize EEPROM, which I must
+initialize to get the parameters to initialize VAD. Yes, in every case
+so far we have managed to kluge something that works, but it means
+there is no such thing as a "standard" start-up sequence that is just
+known to work.
+
+	Latches that control things that can be physically harmed if
+not set "correctly" by the processor immediately after reset. What if
+the processor (or more likely memory) is not working? What if the board
+is on a development system? _Sometime_ such latches are set to the
+"safe" value by RESET. Less frequently is the RESET reliable. Even less
+frequently is the ability of the 68K to drive _out_ the RESET pin
+allowed to be used. The result is crisp parts on development boards.
+
+
+	RAM which is "banked". That is, where some of the address bits
+come from a latch somewhere else in the address space. Sometimes this
+arrangement can save a few MUX pins, but it also makes it difficult,
+if not impossible, to test the entire RAM at anything like full speed.
+There are often reasons to do this from the "hardware port" of dual-
+ported RAM, but there are few such excuses from the CPU side (and there
+will be fewer when we ditch the 'EC020)
+
+	IRQ's which come-and-go without any acknowledgement from the
+CPU, also: IRQs which are "or'd" rather than priority-encoded, so a
+level-4 and a level-2 IRQ become a (non-existant) level-6.
+
+	IRQs for which there is _no_ indication other than the interrupt
+itself, which may not be reliable for reasons mentioned above.
+
+	Parts which must be initialized with lists of "magic" numbers
+for which no derivation can be provided, they are determined by
+experiment on _one_ bench by _one_ engineer and passed on as holy writ
+until they fail on another bench and are replaced by another set of
+magic numbers.
+
+	Boards where one area of memory _must_ be accessed with a
+particular word size and another _must_not_. Restrictions are like
+"proper operation requires 16-bit access to Video RAM" are tolerable.
+Restrictions like: "The frob RAM must _always_ be accessed by bytes,
+but the foonly RAM must _never_ be accessed by bytes or flames will
+shoot out the side" are not.
+
+	Using address lines as chip-selects and then having the board
+completely wedged (with even watchdog disabled) if one of the "dual"
+addresses is referenced.
+
+	Parts which have double-edged timing restrictions, and no way
+(other than timing loops and using a scope on a "sample" system) to
+tell whether they are met. Our standard A/D converters come to mind.
+
+	Memory maps which are just plain wrong. This includes both
+initial mis-transcribed from napkins and "Oh, didn't I mention..."
+It also includes carefully labeling the data bits in the wrong byte.
+
+	Major pieces of circuitry that are un-documented and
+un-knowable without access to GAL equations in hidden, or mis-labeled,
+or read-protected directories, or on a floppy locked in the engineer's
+desk drawer.
+
+	Assumptions that it is "no big deal" that the development board
+is different from the production board. That is "Just change these
+addresses, re-compile, burn ROMS, and off you go. Oh, did I forget to
+mention the difference in ROM speed."
+
+------- Forwarded Message 6
+
+>From: geno@joker.ho.att.com (Eugene F Rice)
+To: blf@pact.srf.ac.uk
+Date: Wed, 22 Feb 95 17:01:42 EST
+Message-Id: <9502222201.AA29124@paladin>
+
+I have some pet peeves about h/w interfaces, and they relate to
+making registers behave like memory:
+
+	a: Put them in memory space, not i/o space, if your
+	processor makes the distinction.  Your programmers can
+	then use regular C code, no inport/outport calls.
+	
+	b: Never execute commands on reads, only on writes.  Allow
+	for multiple reads or writes.
+	
+	c: Make everything you can write, readable.  Only the programmer
+	should change writable bits.
+	
+	d: Put status bits in read-only registers, make all other
+	registers fully read-write.  Don't put a few read-only bits
+	in a writable register.
+
+My worst device to program is the MC68230 Parallel I/O chip - a maze
+of inter-dependent moded registers.  Truly a nightmare.
+
+Good luck!
+
+Geno Rice
+
+------- End of Forwarded Messages
+
+this is a synopsis of the first draft of my report.
+e-mail'ed constructive criticims are welcome ....
+
+
+ - Software visible interfaces must be useable by the software.
+ - Software visible interfaces must provide the functions needed by
+    the software.
+
+Documentation matters:
+ - Say what happens.
+ - Diagram what's said.
+
+Keep it simple, stupid:
+ - Avoid complexity!
+
+Software knows how to do things:
+ - The functionality hardware must provide is that which software
+    cannot do.
+
+Avoid modal registers:
+ - Each register has only one purpose.
+ - Registers are either read-only or read/write, but never write-only.
+ - Reading a writable register should return what was last written.
+ - No read-only bits in writable registers.
+
+Reads aren't changes:
+ - Writes change things. Reads don't - usually.
+
+One isn't zero:
+ - Only bits which are set mean something.
+ - Clear bits by setting them.
+
+Mistakes aren't fatal:
+ - "Halt and catch fire" is a joke, not a good interface.
+ - Let the software decide when, whether, and in what order interfaces
+    are initialised.
+ - It there's only one correct setting, it shouldn't be software
+    "configurable".
+
+Level-trigger interrupts:
+ - Edge-triggered interrupts are evil.
+
+Interrupts aren't the only source of information:
+ - An interrupt should never indicate information which cannot be
+    deduced by other means.
+
+Who did what?
+ - It must be easy to determine why software was interrupted.
+ - It must be easy to determine if this interface generated (or could
+    generate) an interrupt.
+
+Interrupts aren't mandatory:
+ - Software controls when, and whether, interrupts are generated.
+
+Full-duplex directions are orthogonal:
+ - Initiating and responding are separate.
+
+Related together and independent separate:
+ - Keep related bits together in the same register.
+ - Separate unrelated bits into distinct registers.
+
+READY means ready:
+ - When the interface says it's ready, then the interface must be ready.
+ - Any ordering, type, and timing of register accesses functions.
+
+Slow buses happen:
+ - Minimize the number of transactions (register reads and writes).
+
+Register layout should be sensible:
+ - Interfaces are structures.
+
+There is only one size of address:
+ - Support the processor's full address space.
+
+Ignore endianess:
+ - Don't "help" solve endianess problems.
+
+Count useful entities:
+ - Counts should be meaningful to software.
+
+Threads have context:
+ - No hidden context.
+
+
+cheers!
+---
+"Pentium long comparison [ CMP a,b ]    | Brian Foster, SGS-Thomson, c/o PACT
+ should be a no-op as the probability   | blf@pact.srf.ac.uk         Bristol
+ two integers are the same is one in    | (+44 or 0)117 9707 156     England
+ four billion." -(paraphrase) Mike Piff | http://www.pact.srf.ac.uk
+

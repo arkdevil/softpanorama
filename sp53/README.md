@@ -1,0 +1,346 @@
+```
+                        С O Ф Т П А Н О Р А М А
+                    Vol.5, No. 3 (37) - март 1993 г.
+           ╔═╗                                            ╔═╗
+           ╚═╬════════════════════════════════════════════╬═╝
+             ║ Поддержите хороший бюллетень, постарайтесь ║
+             ║ оформить  подписку  от  Вашей  организации ║
+           ╔═╬════════════════════════════════════════════╬═╗
+           ╚═╝                                            ╚═╝
+                          С О Д Е Р Ж А Н И Е
+
+contents.053 - Оглавление текущего номера бюллетеня
+foreword.a53 - Колонка редактора
+
+FEATURES\ --------------------------------------- ЕЖЕМЕСЯЧНЫЕ РУБРИКИ
+    news.a53 ----- Панорама новостей.
+    reviews.a53 -- Панорама компьютерной прессы.
+    chronicl.a53 - Хроника заседаний семинара.
+    humor.a53 ---- Околокомпьютерный юмор.
+    views.a53 ---- И хакеры с глазами кроликов "In FIDO veritas" кричат...:-)
+                   (перепечатки некоторых сообщений из конференций FIDO)
+
+FEEDBACK\ ------------------ ОБРАТНАЯ СВЯЗЬ С ЧИТАТЕЛЯМИ СОФТПАНОРАМЫ
+    kohmanyu.a53 - Дмитрий Кохманюк. Софтпанорама-52: мои впечатления
+    pankov.a53 --- Юрий Панков.
+              1. Записки на полях VIEWS.A52 - и надо ж такое придумать!!!
+              2. Вредность установки VERIFY=ON в Вашу систему
+    shkolnik.a53 - Юрий Школьников. "...как исправить
+                   NCMAIN.EXE..."
+
+ERRATUM\ ---------- ИСПРАВЛЕНИЕ ОШИБОК, ВКРАВШИХСЯ В ПРЕДЫДУЩИЙ НОМЕР
+    contents.a52 - Исправленное оглавление предыдущего номера.
+
+EDCHOICE\ --------------------------------- РЕДАКТОР РЕКОМЕНДУЕТ...
+    \ARC-UTIL\ - Утилиты - расширители возможностей архиваторов
+        \LYAPKO\ - Юрий Ляпко. Знаменитый LgaView.
+            lgaview.cfg, lgaview.exe
+    \COMPARE\ - Программы сравнения
+        smcomp.doc \ Л.Г. Бунич. Программа сравнения исходных текстов
+        smcomp.exe /
+        tcomp.exe - В. Чаплинский. Программа сравнения текстовых файлов
+                в двух вертикально расположенных (как панели NC) окнах
+    \DATETIME\ - Утилиты манипулирования датой и временем
+        dattim.doc \ Программа установки системной даты и
+        dattim.exe / времени Г.Г. Иванова
+        first.bat \  Программа, отслеживающая свой запуск
+        first.doc  > Вадима Заливы
+        first.exe /
+        pu_timem.com - Юрий Панков. Резидентные часики + будильник
+                       с коррекцией хода
+    \EDITORS\ - Редакторы
+        \GONTAR\ - Борис Гонтарь. Редактор двоичных файлов.
+            prom.exe, readme.txt
+        \SAFONENK\ - Александр Сафоненков.
+            edit.com    \
+            edit.doc     | Текстовый редактор для NC и не только
+            edit.hlp     |
+            rusedit.hlp /
+            scalc.com \ Научный калькулятор
+            scalc.doc /
+        \SEMENOFF\ - Олег Ананьев, Юрий Семенов. Текстовый редактор
+            menu.ue, readme.ue, ue.exe, ue.hlp
+    \FLOPPY\ - Утилиты взаимодействия с файловой подсистемой на гибких
+               дисках
+        dfcopy.com - Игорь Свиридов. Disk<->File copy by Compact Soft
+        \PANKOV\ - Юрий Панков
+            readme.1st
+            pu_1700.com \ Драйвер - расширитель форматов гибких дисков
+            pu_1700.doc /
+            pu_copfd.com - Disk<->File copy со сжатием
+            pu_c_pfd.com -
+            pu_edpfd.com - Редактор системных областей форматированных флопов
+            pu_optfd.com - Программа,  позволяющая оптимизировать про-
+                           изводительность  гибких носителей.
+            pu_wrcfd.com - Драйвер - примочка к PU_1700, реализующий
+                           запись со сличением
+    \KIRILDRV\ - Драйверы кирилицы (и не только)
+        \BUNICH\ - Леонид Бунич. Драйвер UNI.
+            read.me, uni.doc, unikbd.com, uniscr.com
+        \GURTJAK\ - Дмитрий Гуртяк. Драйвер Keyrus
+            keyrus.com - бета версии 8.0
+            \KEYRUS73\ - знаменитая версия 7.3
+                keyboard.kbd, keyedit.exe, keyrus.txt, keys.txt,
+                qwerty.kbd, setup.doc, setup.exe, ukraine.kbd, _readme.1st
+    \MACRO\ - Макросы
+        \YUTSIS\ - Михаил Юцис. Резидентный клавиатурный макрогенератор.
+            readme.1st
+            int9.com - программка для определения нестандартных сканкодов
+                       клавиш
+            whatsnew.doc \  Версия 2.20 лучшего, по мнению редактора,
+            keymac.doc    > клавиатурного макрогенератора KEYMAC
+            km.exe       /  (для тех у кого не стоит Deskview)
+            keymac.kmc, bc.kmc \
+            c.kmc, lex.kmc      > Примеры входных файлов для KEYMAC
+            main.kmc           /
+            tsr-c.doc - Как писать нормальные резидентные программы
+                        на Microsoft C 6.0 (Quick C 2.5)
+    \NC-PLUS\ - Расширители возможностей NC
+        ncre - резидентная примочка, позволяющая записывать список
+               выделенных  файлов, инвертировать выбор, переименовывать
+               файлы и каталоги "на месте", подставлять в командную строку
+               PATH с соседней панели (клавиша Ctrl-H).
+        viewnc.doc \ Диспетчер вьюеров для NC
+        viewnc.exe / by Gandalf Software
+    \POPUP\ - "Всплывалки" :-)
+        \CS\ - Compact Soft представляет...
+            ascii.doc \ Утилита вставки любых ASCII символов
+            ascii.exe /
+            halc.com - Стековый калькулятор
+            insert.com - Александра Милюков. Утилита для быстрой вставки слов
+                       при редактировании !!!
+        \GURTYAK\ - Дмитрий Гуртяк
+            peek.com \ Анализатор памяти компьютера
+            peek.doc /
+            calc.com - Знаменитый калькулятор Гуртяка.
+    \PRINTING\ - Утилиты печати и форматирования текстов Альперовича Л.З.
+        prpage.doc \ Интеллектуальная программа печати текстов
+        prpage.exe / (печать в несколько колонок, в виде брошюры, etc)
+        tform.doc \ Форматтер текстов
+        tform.exe /
+    \VIEWERS\ - Различные вьюеры
+        \PANKOV\ - Юрий Панков.
+            pu_views.com - Если Вам лень нажимать PgDn.
+        \SUSLIKOV\ - Евгений Сусликов.
+            hiew.exe    \ Hacker's view
+            hiewread.me /
+            stl!read.me \  'Смотрелка' различных структур
+            stl.dat      >
+            stl.exe     /
+        \TROFIMEN\ - Дмитрий Трофменко. Смотрелка .DBF-файлов.
+            dbview.exe
+    \ZAP\ - Программы удаления файлов по шаблону и ветвей дерева каталогов
+        purge.cfg \ Purge Utility by Elisoft Computer Group
+        purge.com /
+        purge.exe - Garbage Cleaner by MamSoft
+        zap.com - Игорь Свиридов. Знаменитый ZAP.
+        zf.exe - Дмитрий Коробовский. Zap Files and Directories by
+                 "DK-SQRT Soft Inc."
+    \ETC\ - Прочие программы
+        colorset.com - резидентная "перекраска" досовского окна.
+        ee           - Редактирование переменных  окружения ДОС
+        xrepl.com - V. Balcytis. Утилита глобального поиска и замены
+                    фрагментов текста
+
+REPRINTS\ ----------------------------------------------- ПЕРЕПЕЧАТКИ
+    \SOCIAL\ ------------------------------------- СОЦИАЛЬНЫЕ ВОПРОСЫ
+        ~~~~~~~~~~~~~~ Перепечатки из газеты Нью-Йорк Таймс ~~~~~~~~~~~~
+        emigrat1.a53 - Дебора Сонтаг. Иммигрантский рай, но не для новых
+                       иммигрантов
+        emigrat2.a53 - Чарлз С.Майер. Жалость к себе или терпимость.
+        korea.a53    - Эндрю Поллак. Препятствия на пути во вторую Японию.
+        japan.a53    - Эндрю Поллак. Японский экспресс сошел с рельсов.
+        lukach.a53    - Джон Лукач. Этот безумный мир.
+
+MARKET\ --------------------------------------------- ПЛАТНАЯ РЕКЛАМА
+    bhv.a53 ------ Реклама тоpгово-издательского бюpо BHV
+    indexpro.a53 - Реклама журнала "Index PRO"
+
+README\ ------------------------------------ ИНФОРМАЦИЯ ДЛЯ ЧИТАТЕЛЕЙ
+    advert.1st --- Цены на размещение рекламы в бюллетене
+    authors.1st  - Информация для авторов
+    distribu.1st - Индивидуальная подписка через общественных распространителей
+    readme.1st   - Информация о бюллетене
+    subscrip.1st - Условия распространения
+    osp.1st ------ Информация ОСП
+    prices.1st --- Цены на подписку
+    honor.1st ---- Наши лауреаты
+
+                                Выпуск С
+                     A Н А Л И З  П Р О Г Р А М М
+                                   И
+          К О М П Ь Ю Т Е Р Н А Я     В И Р У С О Л О Г И Я
+
+     (специальный выпуск посвященный двухлетнему юбилею выхода в свет
+                        "Компьютерной вирусологии")
+
+readme.c ---- Информация для авторов
+contents.c53 - Содержание выпуска
+
+AVIRDISK\ - ЭЛЕКТРОННОЕ ПРИЛОЖЕНИЕ К МОНОГРАФИИ "КОМПЬЮТЕРНАЯ ВИРУСОЛОГИЯ"
+    readme.1st   -- Информация о приложении.
+    bnn-anti.txt -  Николай Безруков. О методике защиты от вирусов,
+                    отвечающей принципу "разумной достаточности"
+    \BNN-ANTI.KIT\ ------------------ РЕКОМЕНДУЕМЫЕ АНТИВИРУСНЫЕ СРЕДСТВА
+                   (ревизор ADINF опущен из-за недостатка места)
+
+        \DET&REVI\ - ДЕТЕКТОРЫ И РЕВИЗОРЫ
+            \SHEHOVTS\ - Шеховцов Александр. Virus Locator 2.51.
+                !read.me, mask.ml, ml.doc, ml.exe, vl.doc, vl.exe,
+                vl.hlp, vl.msk
+            \SUSLIKOV\ - Сусликов Е.Н. Lie Detector. release 3.4.
+                ld!read.me, ld.bit, ld.exe
+
+        \FAGS\ - ФАГИ
+            \BOGDANOV\ - Вадим Богданов. ANTIAPE Версия 3.686.
+                antiape.doc, antiape.exe, antiape.lst, antiape.sys,
+                volgdoct.com, volgdoct.txt
+
+        \GUARDS\ - СТОРОЖА
+            !readme.1st, readme.txt
+            \FORSJUK\ - ПРОГРАММЫ-ПОБЕДИТЕЛИ КОНКУРСА АНТИВИРУСНЫХ ПРОГРАММ
+                       состоявшегося в ходе конференции "Методы и средства
+                       защиты от компьютерных вирусов в операционной системе MS DOS"
+                       (Киев, ноябрь, 1990)
+                dir-vacc.com, dir-vacc.txt
+            \KUPCHS\ - Мартиньш КУПЧС. Резидентный детектор вирусов MVT V232
+                demo.doc, mvdemo.exe, mvt.com, mvt.doc
+            \PARFENOV\ - Парфенов В.Н. DIRECTOR - интегрированная вакцина-фаг.
+                director.com, director.doc
+            \PONOMARE\ - Виталий Пономаренко. Резидентная поли(вакцина/детектор) NeatVac
+                      версия 3.0   от 14.05.91
+                neatvac.doc, neatvac.exe
+            \SESSA\ - Александр Сесса (MasterSoft) Программа форматирования дискет
+                     с вакцинированием от бутовых вирусов. Версия 1.9.
+                fdformat.doc, fdformat.fb, vformat.exe, vformat.txt
+            \SUSLIKOV\ - Евгений Сусликов. Резидентная программа-блокиратор Inspector.
+                     версия 4.2  от  10 июня 1992.
+                ins!read.me, inspect.com
+            \SVIRIDOV.!!!\ - Игорь Свиридов. File Defender версии 4.5
+                   Антивирусная система-усилитель атрибута ReadOnly.
+                f_defend.doc, f_defend.sys, readme.1st
+
+    \VGUIDE1\ - Н.Н.БЕЗРУКОВ. КОМПЬЮТЕРНАЯ ВИРУСОЛОГИЯ.
+                         (текст монографии)
+        !readme.1st, 00begin.txt, 00cont.txt, 00forewd.txt, 01hist.txt,
+        02func.txt, 03class.txt, 04file.txt, 05tsr.txt, 06filnew.txt,
+        07boot.txt, 08botnew.txt, 09net.txt, 10finish.txt, 11bibl.txt,
+        12bibl-a.txt, 13erratu.txt, supl1.txt, supl1tab.txt, supl2.txt,
+        supl2tab.txt, supl3.txt, supl3new.txt, supl4.txt, supl5.txt
+
+    \VGUIDE2\ - ТЕХНОЛОГИЯ ПРИМЕНЕНИЯ СРЕДСТВ ЗАЩИТЫ ОТ ВИРУСОВ
+              ( Дополнение к тексту монографии, редакция 0.8 от 14.05.92)
+        !readme.1st, 00begin.txt, 00cont.txt, 00forewd.txt, 01defen.txt,
+        02recov.txt, 03law.txt, dsuppl1.txt, dsuppl2.txt
+
+                               Выпуск B
+readme.b
+
+CALENDAR\ ------------------------------------- КАЛЕНДАРЬ КОНФЕРЕНЦИЙ
+    anifraph.b53, cad-cam-.b53, moscaw.b53, nyit93.b53, san-ii.b53,
+    sigplan.b53, sigsac.b53, spb.b53, usenix-m.b53, usenix-w.b53,
+    usenix2k.b53
+
+DEMO\------------------------------- ДЕМОНСТРАЦИОННЫЕ ВЕРСИИ ПРОГРАММ
+    \BUCHKO\ - Бычко С.И. Салитренник В.Б. PSHELL - Программа связи
+              компьютеров по телефонным линиям
+        mon.exe, phlink.exe, pshell.doc, pshell.exe, pshell.hlp,
+        readme.txt, telephon.lst
+    \GAMUS\ - Гамус А.Л. RTD - Библиотека параллельного программирования.
+        readme.1st   -- Информация о бюллетене
+        rtd.doc
+        \RTD\
+            read_me.rtd
+            \DEMO\
+                rtd_demo.exe
+            \DEMO.SRC\
+                demoprot.h, demotext.cpp, demotext.inc, happs.h,
+                priors.h, rtdfunc.cpp, rtd_demo.cpp, rtd_demo.prj,
+                ssms.h, task_123.cpp, task_4.cpp, task_5.cpp, task_6.cpp,
+                task_7.cpp, _read_me
+            \INCLUDE\
+                asmdef.h, commdef.h, funcodes.h, happs._h_, hwints.h,
+                intregs.h, priors._h_, rtd.h, rtddefp.h, rtdprot.h,
+                ssms._h_, typconst.h
+            \LIB\
+                rtdc.lib
+            \SRC\
+                read_me.src
+                \ALLOC\
+                    alloc.c, keralloc.c
+                \INTERRUP\
+                    rtdint0a.c, rtdint0b.c, rtdint0c.c, rtdint0d.c,
+                    rtdint0e.c, rtdint0f.c, rtdint10.c, rtdint16.c,
+                    rtdint21.c, rtdintf0.c, rtdintf1.c, rtdintf2.c,
+                    rtdintf3.c, rtdintf4.c, rtdintf5.c, rtdintf6.c,
+                    rtdintf7.c
+                \KEYBOARD\
+                    clrkeybd.c, rtdgetch.c, rtdint5.c, rtdint9.c,
+                    rtdkbhit.c
+                \SCREEN\
+                    clearscr.c, cursoff.c, editstr.c, scrparam.c,
+                    scrputch.c, scrputs.c
+                \SYS\
+                    errmess.c, initrtd.c, setvect.c
+    \THSTOP\ - НПП "Форвард" - Cистема криптографической защиты и идентификации
+                отправителей информации, передаваемой по открытым каналам связи
+        dps1.txt, stots2.txt, thstop.hlp, thstop2.txt, thstop_d.exe,
+        tsop.txt
+
+BOOKS\ -------------------------------------------------------- КНИГИ
+    compiboo.b53, n-cla.b53
+
+MARKET\ --------------------------------------------- ПЛАТНАЯ РЕКЛАМА
+    \SERVICE\ ------------------------------------------------ УСЛУГИ
+        elvisti.b53  - Ценовой обзор копмьютерного рынка Украины.
+        gal-cont.b53 - Подписка на электpонные матеpиалы "Галицкие контpакты"
+        sovet.b53    - Часть ежедневной сводки Инфоpмационной гpуппы "Совет"
+                      от 2.03.93г.
+    \HARDSELL\ ----------------------------------------------- ЖЕЛЕЗО
+        386dx.b53 - Анатолий Безродных. 386/DX/40/4/125/SVGA
+        486dx-33.b53 - белые 486/DX/33/кэш64/4/120/SVGA+1Мb
+        486dx.b53 - CAAD-SCAAN INC. 486/dx/33/8/200,SVGA+1Mb
+        abv.b53   - Small Introductional Venture ABV. Price List
+        alean.b53 - Фирма "Алеан" предлагает.
+        alma.b53  - МНПФ "АЛМА-СП" Price-List  1.03.93
+        bookzise.b53 - НПФ "АИР" Предлагает компьютеры BOOK SIZE.
+        elizabet.b53 - Фирма "ЭЛИЗАБЕТ". Price List.
+        hard-rus.b53 - ИЦ "ИНФОТЕХ" Price List.
+        hytec.b53   - BELTEX  TARGET COMPUTERS Price List.
+        infomir.b53, infotech.b53, izmajlov.b53, lizing.b53, prin-rus.b53,
+        sineus.b53, sparc.b53, teac.b53, tehnika.b53, uvente.b53
+        \COMPUTER\
+            ibm.txt, summit.txt
+    \LANGSOFT\
+        ukr-rus.b53 - Владимир Петрухин. Русско-Украинско-Русский переводчик
+    \SOFTSELL\ ----------------------------- ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ
+        grahp.b53, letters, newsmana.b53, ukr-rus
+        \DIALOG\ - АО ДиалогНаука.
+            adinfext.!!!, antivir.$$$, antivir.ad, by_post.$$$,
+            firstaid.$$$, homeprod.lzh, liceprod.lzh, sheriff.ad
+
+BLACKLOG\ ------------------------------ ЧЕРНЫЙ СПИСОК "СОФТПАНОРАМЫ"
+    c&p.b53
+
+PRESS\ ------------------------------------------------- ОБЗОР ПРЕССЫ
+    cw-ukr.b53 - Новая газета "COMPUTERWORLD - UKRAINE"
+    fin-izv.b53 - "Финансовые Известия" N16 Содержание
+    u-press.b53 - "Обращение ко всем промышленникам и предпринимателям Украины"
+    \AVIZA\ - Объявления газеты AVIZO-Киев
+        avizo.b53
+    \DILO\ - Объявления газеты ДIЛО
+        dilo.b53, price.b53, prices.b53
+    \GC\ - Бiзнес-тижневик  "Галицькi контракти ENor" N 9-1 '93р.
+        gc1.b53, gc2.b53
+    \RFE\ - RFE/RL Daily Report
+        rfe-rl42.b53 - No 42
+        rfe-rl44.b53 - No 44
+        rfe-rl45.b53 - No 45
+    \SVIT\ - Журнал Свiт про Україну  No.6
+        svit#6.txt
+
+SP-BASE\ - Оглавление предыдущих выпусков СофтПанорамы
+    a51.txt, a52.txt, sp92.txt
+
+--------------------------------- end -------------------------------------
+```

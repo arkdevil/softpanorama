@@ -1,0 +1,230 @@
+# readme. - GNUish MS-DOS find, v1.2
+# Copyright (C) 1990 by Thorsten Ohl, ohl@gnu.ai.mit.edu
+
+This is GNU find for MS-DOS.  To recompile it, you also need the
+original GNU sources (Version 1.2) and the gnulib (available from the
+same place where you picked up this file).
+
+GNU find is known to compile with Microsoft C 5.1 and 6.0.  Reports of
+successful compilation with other compilers are very much appreciated.
+
+
+Sorry, but there is no documentation available yet.  If you don't have
+the original source, here's the comment from the beginning of find.c:
+
+/* Usage: find path... [expression]
+
+   Predicates:
+
+   Numbers can be specified as
+   +n for greater than n, or
+   -n for less than n,
+   n for exactly n.
+
+   If none of -print, -ls, -ok, -exec are given, -print is assumed.
+
+   -atime n			file last accessed n*24 hours ago
+   -ctime n			file status last modified n*24 hours ago
+   -depth			true; process dir contents before dir itself
+   -exec cmd			exec cmd, true if 0 status returned
+   -fulldays			true; from day boundaries rather than from now
+   -fstype type			file is on a filesystem of type type
+   -group gname			file belongs to group gname (gid allowed)
+   -inum n			file has inode number n
+   -links n			file has n links
+   -ls				true; list current file in 'ls -li' format
+   -mtime n			file data last modified n*24 hours ago
+   -name pattern		base of path name matches glob pattern
+				('*' and '?' do not match '.' at start)
+   -newer file			modtime is more recent than file's
+   -nouser			no user corresponds to file's uid
+   -nogroup			no group corresponds to file's gid
+   -ok cmd			like exec but ask user first; false if not 'y'
+   -perm mode			perm bits are exactly mode (octal or symbol)
+   -perm -mode			perm bits mode are set (s,s,t checked)
+   -permmask mode		true; set significant bits mask for next -perm
+				(allows testing for unset bits)
+   -print			true; print current full pathname
+   -prune			(no -depth) true; do not descend current dir
+				(-depth) false; no effect
+   -regex pattern		path name matches regex pattern
+   -size n[c]			file has n blocks (or chars)
+   -type c			file type: b, c, d, p, f, l, s
+   -user uname			file is owned by uname (uid allowed)
+   -version			true; print find version number on stderr
+   -xdev			true; don't descend dirs with different st_dev
+
+   Grouping operators (in order of decreasing precendence):
+
+   ( expr )			force precedence
+   ! expr			true if expr is false
+   expr1 expr2			and (implied); expr2 not eval if expr1 false
+   expr1 -o expr2		or; expr2 not eval if expr1 true
+   expr1 -or expr2		same as -o
+
+   find processes files by applying each predicate in turn until the
+   overall expression evaluates false.  The expression evaluation
+   continues until the outcome is known (left hand side false for and,
+   true for or).  Once this happens no more expressions are
+   evaluated and find moves on to the next pathname.
+
+   Exits with status 0 if all files are processed successfully,
+   >0 if error occurrs. */
+
+
+========================================================================
+
+Below is a patch for those that have a version of gnulib that is
+not 100%ly up-to-date.  By mistake, I included an obsolete version of
+pwd.[ch] in the first release.
+
+Install this patch only if you have pwd.c (Revision 1.1)
+and pwd.h (Revision 1.0).
+
+*** e:\tmp/RCSt1005582	Sun Sep 23 17:00:20 1990
+--- pwd.c	Sun Sep 23 16:59:26 1990
+***************
+*** 15,21 ****
+      along with this program; if not, write to the Free Software
+      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  
+!     $Header: e:/gnu/lib/RCS/pwd.c 1.1 90/09/18 13:43:44 tho Exp $
+  */
+  
+  /* This 'implementation' is conjectured from the use of this functions in
+--- 15,21 ----
+      along with this program; if not, write to the Free Software
+      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  
+!     $Header: e:/gnu/lib/RCS/pwd.c 1.2 90/09/23 11:20:57 tho Exp $
+  */
+  
+  /* This 'implementation' is conjectured from the use of this functions in
+***************
+*** 62,67 ****
+--- 62,68 ----
+    pw.pw_name = getlogin ();
+    pw.pw_dir = home_dir;
+    pw.pw_shell = login_shell;
++   pw.pw_uid = 0;
+  
+    return &pw;
+  }
+***************
+*** 77,86 ****
+--- 78,94 ----
+  getgrgid (int uid)
+  {
+    gr.gr_name = getgr_name ();
++   gr.gr_gid = 0;
+  
+    return &gr;
+  }
+  
++ struct group *
++ getgrnam (char *name)
++ {
++   return (struct group *) 0;
++ }
++ 
+  /* return something like a username. */
+  char *
+  getlogin ()
+***************
+*** 148,153 ****
+--- 156,165 ----
+  {
+  }
+  
++ void
++ endgrent ()
++ {
++ }
+  
+  /* return groups.  */
+  int
+*** e:\tmp/RCSt1005582	Sun Sep 23 17:00:20 1990
+--- pwd.h	Sun Sep 23 16:59:28 1990
+***************
+*** 15,21 ****
+      along with this program; if not, write to the Free Software
+      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  
+!     $Header: e:/gnu/lib/RCS/pwd.h 1.0 90/09/10 23:16:19 tho Stable $
+  */
+  
+  /* This 'implementation' is conjectured from the use of this functions in
+--- 15,21 ----
+      along with this program; if not, write to the Free Software
+      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  
+!     $Header: e:/gnu/lib/RCS/pwd.h 1.1 90/09/23 11:21:12 tho Exp $
+  */
+  
+  /* This 'implementation' is conjectured from the use of this functions in
+***************
+*** 26,50 ****
+  
+  struct passwd
+  {
+!   /*     ...	     */
+!   /* missing stuff */
+!   /*     ...	     */
+    char *pw_name;		/* login user id		*/
+    char *pw_dir;			/* home directory		*/
+    char *pw_shell;		/* login shell			*/
+  };
+  
+  struct group
+  {
+!   /*     ...	     */
+!   /* missing stuff */
+!   /*     ...	     */
+    char *gr_name;		/* login user id		*/
+  };
+  
+  extern struct passwd *getpwuid (int);
+  extern struct passwd *getpwnam (char *);
+  extern struct group *getgrgid (int);
+  extern char *getlogin (void);
+  extern char *getgr_name (void);
+  extern int getuid (void);
+--- 26,53 ----
+  
+  struct passwd
+  {
+!   /*	...		*/
+!   /*    missing stuff	*/
+!   /*	...		*/
+    char *pw_name;		/* login user id		*/
+    char *pw_dir;			/* home directory		*/
+    char *pw_shell;		/* login shell			*/
++   int  pw_uid;
+  };
+  
+  struct group
+  {
+!   /*	...		*/
+!   /*    missing stuff	*/
+!   /*	...		*/
+    char *gr_name;		/* login user id		*/
++   int  gr_gid;
+  };
+  
+  extern struct passwd *getpwuid (int);
+  extern struct passwd *getpwnam (char *);
+  extern struct group *getgrgid (int);
++ extern struct group *getgrnam (char *);
+  extern char *getlogin (void);
+  extern char *getgr_name (void);
+  extern int getuid (void);
+***************
+*** 59,64 ****
+--- 62,68 ----
+  extern struct passwd *getpwent (void);
+  extern void setpwent (void);
+  extern void endpwent (void);
++ extern void endgrent (void);
+  
+  /*
+   * Local Variables:

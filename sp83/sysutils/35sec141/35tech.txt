@@ -1,0 +1,125 @@
+35sec interface calls
+═════════════════════╝
+
+
+  Magic double word on input  :  EAX = $EABE CEDA
+                    on output :  EAX = $35EC 35EC
+
+
+  Service select in BX
+
+  0000 : installed? call
+  0001 : allocate memory & read disk from A: to buffer
+  0002 :                                  B:
+  0003 : select active buffer for drive A: (V1.3+:previous buffer number in cl)
+  0004 :                                B: (               "                  )
+  0005 : write changed fields of buffer to A:
+  0006 :                                   B:
+  0007 : write whole buffer to A:
+  0008 :                       B:
+  0009 : free memory for buffer
+  000A : cancel current operation (V1.2+)
+  000B : allocate memory only (V1.3+) (ES:DI points to valid boot sector)
+  000C : mark all tracks read
+  000D : mark selected track read (CH track*2+head)
+  000E : free memory for all buffers (V1.4+)
+
+Installed? call
+───────────────┘
+on output:
+  EAX set to magic value
+  DS  set to 35sec's CS
+  BX  set to 35sec's CS
+  CX  trashed
+
+Other calls
+───────────┘
+on input:
+  CL  buffer number, 1..4, 0 for assign operations
+  BX  service select
+
+on output:
+  EAX set to magic value
+  CX  trashed / previous buffer number
+  BX  =0000 command not implemented             XNotImpl
+      =0001 can't free memory                   XFreeErr
+      =0002 memory succesfully freed            XFree
+      =0003 already doing something             XWorking
+      =0004 attempt to write empty buffer       XBufEmpty
+      =0005 bad boot sector                     XBadBoot
+      =0006 bad buffer used                     XBadBuffer
+      =0007 not enough XMS                      XNoMem
+      =0008 incompatible disk                   XBadForm
+      =0009 O.K.                                XOK
+      =000A can not read boot sector            XReadBoot
+      =000B caching started                     XBufSet
+      =000C caching ended                       XBufReset
+      =000D no such drive                       XNoDrive
+      =000E can't cancel operation              XCantCancel
+      =000F operation canceled                  XCanceled
+
+35sec utilities detection
+─────────────────────────┘
+  New ability has been added in version 1.4 do detect (nearly) all residents
+shipped with 35sec. It detects only presence in memory.
+
+  Call Int13 with EAX = $35EC 1515 and BX = 0. Upon return, bits will be set
+in BX register according to residents loaded.
+
+
+BL:
+   7 6 5 4 3 2 1 0
+   │ │ │ │ │ │ │ \─ 35sec loaded
+   │ │ │ │ │ │ \─── 35secW loaded
+   │ │ │ │ │ \───── 35cache? loaded
+  \ Unused /
+
+35sec callbacks
+═══════════════╝
+
+  EAX contains magic value EAX = $35EC CA11
+  BX contains info on event
+    BH = 00 R/W operation done
+    BH = 01 R/W operation done with error
+      BL =
+          7 6 5 4 3 2 1 0
+                        X - write operation
+
+    BH = 02 attempt to read from floppy while working
+      carry clear -> return error
+            set   -> retry
+
+    BH = 03 R/W operation error (Not Implemented)
+       7 6 5 4 3 2 1 0
+                   X   - write operation
+      DH/CX sector info
+
+
+
+35sec variables - block starts at cs:103h
+═════════════════════════════════════════╝
+
+  (103h)
+  FailAll BYTE flag: 0 - when drive has asssigned buffer and sector is not in
+                           buffer, bypass request to BIOS
+                     1 - fail such request
+
+  SecSlid0 BYTE Sector sliding for drive 0:
+  SecSlid1 BYTE                          1:
+
+  (106h)
+  Disk BYTE Values of actual sector in R/W operation
+  Head BYTE  - need to be shifted right by 2
+  Cyl  BYTE
+  Sec  BYTE
+
+  (Version 1.2+)
+  sig  8 BYTES Ascii text, starting with "35sec"
+  ver  BYTE Version, BCD
+
+  flags BYTE 7654 3210
+                     |
+                     \- Windows version
+
+  (Of course there are more variables, which are public. Mail me, if you want
+to know about them <machek@k332.feld.cvut.cz>)

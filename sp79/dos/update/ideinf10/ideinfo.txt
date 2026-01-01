@@ -1,0 +1,245 @@
+IDEINFO.EXE                                     Page 1
+
+                Contents
+
+        Introduction.......................... 1
+        Output................................ 2
+        How to interpret the output........... 3
+        Some notes............................ 5
+        Credits............................... 5
+        Me.................................... 5
+
+
+Introduction
+-------------
+
+Try ? or H as parameter and you will see a short description on possible
+parameters. This is what the output looks like:
+___________________________________________________________________________
+IDEINFO [[H] || [?] || [R]] || [[F]] [P xxx] [P xxx].. ]]
+
+Tries to tell all about all IDE drives, including ATA-2 stuff.
+
+Options may be preceded with -, / or none
+-H or -? prints this help.
+-R Reads idedrive.* files from current directory.
+-F Writes drive identify info to idedrive.* files to current directory.
+-P xxx looks only adapter at port xxx, xxx in hex format
+
+File extension is next available number when writing.
+
+File size is 512 bytes.
+You may redirect output.
+
+Example: Look only for adapters at 1F0h (primary) and 170h (normal secondary)
+and write info to files.
+IDEINFO P 1f0 P 170 F
+_________________________________________________________________________
+
+
+Default action is to scan all four addresses mentioned in ATA-2 draft spec
+for IDE adapters(1f0h, 0170h, 0f0h, 070h), if found, report characteristics
+of master drive and search also for slave.
+
+
+                                               Page 2
+Output
+--------
+
+Output for a normal ATA (not ATA-2) drive looks like this:
+Note: Identify Device Information words used are in brackets.
+____________________________________________________________________________
+DRIVE 0 Adapter 1 at base address 170h
+                        Disk Reports    BIOS Reports
+                    Default     Current
+# of Cylinders______: 665 [1]     665 [54]  0
+# of Heads__________:  16 [3]      16 [55]  0
+# of Sectors/Track__:  63 [6]      63 [56]  0
+Model Number________: Conner Peripherals 340MB - CFA340A [27-46]
+Serial Number_______:           BQBA27A                  [10-19]
+Controller Rev. #___: 6FT1.70                            [23-26]
+Double Word Transfer:     No                             [48]
+Controller type_____: a dual ported multi-sector buffer capable of simultaneous
+                      transfers with a read caching capability. [20]
+Buffer size (kB)____:     64 [21]
+# of ECC bytes______:      4 [22]
+# of secs/interrupt_:     64[47]Current setting  16 [59]
+LBA support               No [49],[60-61],[53],[57-58]
+DMA support              Yes [49]
+IORDY supported           No [49]
+IORDY can be disabled     No [49]
+PIO data txfer cycle timing mode:       1 [51]
+SW DMA txfer cycle timing modes:       [62]  Active [62]
+MW DMA txfer cycle timing modes:        0    Active 0 [63]
+Sorry, no ATA-2 features implemented
+
+Adapter 1 at 170h Drive 1 not found
+Last status  0h
+
+_________________________________________________________________________
+The output above was generated running under OS/2 2.11. For some reason
+OS/2 lets user programs access secondary adapters and correctly inhibits
+access to primary adapter. Note the effect of /SMS (Set Multiple Support)
+parameter of OS/2 IDE driver IBM1S506.ADD (# of secs/interrupt_:,
+Current setting  16 ).
+
+
+For newer drives you might get also  something like this:
+_______________________________________________________________________
+Congratulations, your drive supports ATA-2 [53]
+Advanced PIO txfer modes supported:                3 [64]
+Min MW DMA txfer cycle time/word:                363 ns   5.5MB/s  [65]
+Mfg Recommended MW DMA txfer Cycle Time          363 ns   5.5MB/s  [66]
+Min PIO txfer Cycle Time w/o Flow Control        363 ns   5.5MB/s  [67]
+Min PIO txfer Cycle Time w IORDY Flow Control    250 ns   8.0MB/s  [68]
+________________________________________________________________________
+
+For ATA-2 reference I used Revision 2c April 29, 1994. I may have messed
+up some interpretations of spec, hope not too many.
+
+
+                                               Page 3
+
+How to interpret the output
+---------------------------
+
+For a more complete reference you should get ATA-2 spec (draft) from:
+
+ATA Anonymous FTP Site
+fission.dt.wdc.com
+ATA directory is:  "/pub/ata"
+
+SCSI Bulletin Board 719-574-0424
+
+Document Distribution
+Global Engineering
+15 Inverness Way East
+Englewood, CO   80112-5704
+Tel: 303 -792-2181 or  800-854-7179
+Fax: 303 -792-2192
+
+Translation:
+------------
+                        Disk Reports
+                    Default     Current
+# of Cylinders______: 665         665
+# of Heads__________:  16          16
+# of Sectors/Track__:  63          63
+
+First column is default translation and next is current. Current may be all
+-1 if validity bit is not set. Some drives accept any translation that doesn't
+exceed capacity and some accept only one translation.
+
+Multiple sector setting:
+------------------------
+Normally the drive generates an interrupt for each sector read/written
+but enabling multiple sector setting and using read/write multiple commands
+enables the drive controller to work more efficiently and saves CPU cycles
+because interrupt is generated and processed only once for a given number
+of sectors. You must have BIOS support or a software driver to utilize this.
+Some drives get 30% boost, others only %5.
+
+Buffer size (kB)____:     64
+# of secs/interrupt_:     64    Current setting  16
+
+If Buffer size is half of secs/interrupt value and "Current setting" is
+missing the drive doesn't most propably support multiple sector per interrupt
+feature. If "Current setting" is shown the drive should work with multiple
+sector per interrupt.
+
+LBA support
+-----------
+Found in most drives with capacity over 528MB. Normal BIOS and IDE translation
+parameters together have a limit of 528MB. BIOS alone has a 8GB limit.
+IDE alone has a 137GB limit. LBA (Logical Block Address) uses no translation
+and blocks or sectors are addressed with 0 to a device specific maximum LBA
+number. The maximum LBA number cannot exceed 268 435 455 (137GB). Using LBA
+should save some CPU cycles.
+
+DMA support
+-----------
+DMA (Direct Memory Access) means that the device writes directly to main
+memory thus freeing CPU from I/O handling. The other transfer mode is PIO
+(Programmable I/O). ISA bus has a limit of 16MB DMA addressable memory.
+                                               Page 4
+
+IORDY supported
+---------------
+IORDY is needed with PIO mode 3
+
+Transfer modes
+--------------
+
+     +----------------------------------------------------------------------+
+     | PIO                                      |Mode 0|Mode 1|Mode 2|Mode 3|
+     | timing parameters                        | nsec | nsec | nsec | nsec |
++----+------------------------------------------+------+------+------+------+
+| t0 | Cycle time (1)                     (min) | 600  | 383  | 240  | 180  |
+       Transfer rate (calculated) MB/s          | 3.3  | 5.2  | 8.3  | 11.1 |
+
+Modes 0 .. 2 are included in ATA spec, PIO mode 3 in ATA-2.
+
+     +----------------------------------------------------------+
+     | Single word DMA                  | Mode 0| Mode 1| Mode 2|
+     | timing parameters                |  nsec |  nsec |  nsec |
++----+----------------------------------+-------+-------+-------|
+| t0 | Cycle time                 (min) |  960  |  480  |  240  |
+| Transfer rate (calculated) MB/s       |  2.1  |  4.2  |  8.3  |
+
+
+      +----------------------------------------+-----------+
+      | Multiword DMA              |   Mode 0  |   Mode 1  |
+      | timing parameters          |    nsec   |    nsec   |
+      |                            | Min | Max | Min | Max |
++-----+----------------------------+-----+-----|-----+-----|
+| t0  | Cycle time                 | 480 |     | 150 |     |
+| Transfer rate (calculated) MB/s  | 4.2 |     | 13.3|     |
+
+DMA mode 0 is included in ATA spec, mode 1 in ATA-2.
+                                               Page 5
+
+
+Some notes
+----------
+
+IDEINFO was compiled with BC++ 3.1 using 286 intructions. XT or 8-bit
+interfaces were not even considered, so you should have a 286 or better
+to use this program.
+Currently IDEINFO tries to read idedrive.0 .. idedrive.99 files with R
+parameter. I hope that 100 files is enough for a while. Increasing it
+would slow it down or extensions would have to be in sequence.
+The line
+# of secs/interrupt_:     64[47]Current setting  16 [59]
+apparently tells also if OS/2 (2.1, 2.11) IBM1S506.ADD will support
+/SMS parameter. Word 59 has a validity bit and if it is not set
+"Current setting" will not be displayed and IBM1S506.ADD ignores /SMS.
+There are some drives that have validity bit set but still IBM1S506.ADD
+ignores /SMS but the only such drive I have encountered is Seagate ST3391A.
+
+I am not sure about which last status values (displayed when adapter is
+not found) mean that there is no device responding. I have seen 7fh on
+EISA bus machine and OS/2, ffh on others. If you see some other value there
+is propably something using that address.
+
+
+Credits
+--------
+
+Great help in getting started was the source code of:
+DUG_IDE : Provides IDE disk info on both drives in the system
+          Version 1.0
+Copyright (c) 12 Jan 1993 by Doug Merrett - All rights reserved
+
+Linux 1.1 kernel sources were also consulted.
+
+
+
+Me
+---
+
+Copyright (c) July 1994 by Raimo Koski - All rights reserved
+Postal Address: Uudenmaantie 23 K 3
+                20720
+                Finland
+
+

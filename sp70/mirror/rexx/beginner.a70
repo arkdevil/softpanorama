@@ -1,0 +1,570 @@
+
+(Copyright (c) 1993 by Raja Thiagarajan. This file may be copied for
+any NONcommercial purpose as long as it is left unchanged.)
+
+Since there are plenty of books, articles, and even OS/2 help files
+that teach REXX, why do we need this article? Because those books,
+articles, etc. are mostly aimed at people who have *never* programmed
+before. Thus, they have two major drawbacks. First, they dwell on
+things that programmers already know, like what a variable is. Second,
+they don't warn would-be REXX programmers that some things are
+*different* in REXX, and some of the "habits" that you might carry over
+from other languages can get you in trouble.
+
+This article gives six "rules of thumb" that should help you get
+started in REXX if you already know C or Pascal (or, really, any of the
+children of Algol).
+
+START EVERY REXX PROGRAM WITH A COMMENT!
+
+You already know this. There shouldn't be any reason for me to repeat
+it ... except that it's an easy mistake to make, and it ties in with an
+important concept that we'll get to under the second rule.
+
+Here's "hello, world" in REXX:
+
+	/* hello.cmd -- program to say hi*/
+	say "Hello, world"
+
+Type these two lines in your favorite editor, save the result as
+HELLO.CMD, and enter HELLO at an OS/2 prompt. Your computer should
+respond "Hello, world".
+
+Under OS/2, you are *required* to start *every* REXX program with a
+comment. And I *do* mean *start*; if there's so much as a space or
+carriage return in front of that comment--well, why don't you try that
+now? Insert a space in front of the comment and try running the program
+again. You'll see a big fat error message. So: START EVERY REXX PROGRAM
+WITH A COMMENT.
+
+(By the way, the conventions for comments in REXX are simple. Each
+comment begins with a "/*" and ends with a "*/". Comments can be spread
+over several lines. Unlike ANSI C or Pascal, REXX permits you to nest
+comments, so it's *much* easier to comment out hunks of code for
+testing.)
+
+BE CAREFUL ABOUT USING SPACES IN CERTAIN PLACES!
+
+You've already had a taste of this in the previous rule: If you put a
+space before the opening comment, your program will bomb. But there are
+two more places where the significance of spaces will trip up someone
+who's used to programming in C or Pascal. In REXX, everything is
+ultimately a string. If you want to concatenate two strings, you can do
+so by putting the explicit string abuttal operator ("||") between them.
+You can *also* concatenate them by simply writing one after another
+(this is known as "implied abuttal"). Please enter and run the
+following program.
+
+	/* hello2.cmd -- Another program to say hi*/
+	greeting = "Hello"
+	say greeting "world"
+	say greeting"world"
+
+You should see "Hello world" on one line, followed by "Helloworld" on
+the second line. Your first guess might be that SAY in REXX is like
+PRINTF in C or WRITELN in Pascal; that it can accept an arbitrary
+number of arguments. But you'd be wrong. SAY can only be followed by a
+*single* expression: the string to be displayed. However, since
+greeting holds a string and "world" is a string, and since you've
+written one after the other, REXX treats this as implied abuttal. That
+is, REXX concatenates the two strings to form a *single* string which
+it then passes to SAY. Thus, the third line in the program above is
+equivalent to
+
+	say "Hello" "world"
+
+or
+	say "Hello world"
+
+On the other hand, the last line of the program is equivalent to
+
+	say "Hello"'world'
+
+(In REXX, strings can be delimited by either single or double quotes.
+As in Pascal, you can "double" the delimiter to make it appear in a
+string literal. If I hadn't switched delimiters, the string would have
+been the one displayed as Hello"world.) Since there is no space between
+the strings, REXX abuts the strings *without* inserting a space between
+them. Thus, this line is equivalent to
+
+	say "Helloworld"
+
+and it displays what you saw when you ran the program.
+
+Going back to the third line: You typed it with a single space between
+the variable 'greeting' and the string "world". What if you had used
+*two* spaces? Try it now. Edit the program and re-run it.
+
+Surprised? In REXX, more than one space is always treated the same as a
+single space (except in string literals). This is why you can write
+
+	if greeting = 'hello' then
+	   say "It's hello"
+
+instead of having to always write
+
+	if greeting = 'hello' then
+	say "It's hello"
+
+Some of you are starting to yawn. So spaces are significant when you do
+string concatenation; so what? How often do you *do* string
+concatenation? Well, in REXX, you do it *a lot*. After all, it's the
+easiest way to output more than one thing at a time using the
+"preferred" output instruction! But there's a serious implication here
+that will cause you no end of grief until you figure it out. It's
+*only* a problem for people who have learned another language like C or
+Pascal and who expect REXX will work the same way. Up above, I wrote
+"You can *also* concatenate [strings] by simply writing one after
+another." Do you see a problem there?
+
+No? Enter the following program:
+
+	/* func.cmd -- program to demonstrate a "problem" with
+	               function calls*/
+	say abs(-3) "is *not*" abs (-3)
+
+Before you run it, try to predict what it will display. Now run it.
+
+Well, whatever you predicted, it probably wasn't the
+
+	3 is *not* ABS -3
+
+that you actually got. What happened?
+
+The "problem" is this. When you write abs(-3), REXX interprets it as a
+call to the absolute value function with -3 as an argument. However,
+when you put a space in front of the parentheses, REXX interprets this
+as an implicit abuttal; it assumes that you want to concatenate the
+string value of the variable 'abs' with the string '-3'. (The default
+value of 'abs' is "ABS" since the default value of *every* REXX
+variable is a string consisting of its name written in uppercase. By
+the way, like Pascal but unlike C, REXX ignores the upper/lower-case
+distinction outside of string literals.) Of course, since there's a
+space between the elements, you get a space between "ABS" and "-3".
+
+Some of you will recoil in horror at this: How dare REXX mandate that
+you *cannot* put a space between a function's name and its arguments!
+For my own part, I can only say that it's reasonable when you get used
+to it. And if REXX had been the first language you'd learned, it
+probably would seem weird the other way. So, grin and bear it, and BE
+CAREFUL ABOUT USING SPACES IN CERTAIN PLACES.
+
+An important digression: These first two rules of thumb bring up a very
+important difference between REXX and Pascal, C, or many other
+programming languages. Namely: *REXX* *is* *not* *entirely* *a*
+*free-form* *language*. Sometimes, you have to be careful about where
+you put spaces in REXX. And sometimes you have to be careful about
+where you split lines. For instance, while Pascal or C have no trouble
+if you put arguments to a procedure on a different line from the name
+of the procedure, REXX is *not* as forgiving. Using SAY as an example,
+
+	say
+	"Hello world"
+
+is *not* the same as
+
+	say "Hello world"
+
+The latter displays "Hello world"; the former displays a blank line and
+then bombs when it tries to execute "Hello world" as an OS/2 command.
+If you need to continue a clause across a line break, use a comma. The
+comma will be replaced by a space and then REXX will continue as if the
+end-of-line character didn't exist. So, for instance,
+
+	say ,
+	"Hello world"
+
+*will* display "Hello world".
+
+Enough digression, and on to the third rule of thumb, which is
+
+DON'T CONFUSE SUBROUTINE CALLS WITH FUNCTION CALLS!
+
+In C or Pascal, you use pretty much the same syntax whether you're
+calling a function (ie, a routine that returns a value) or a procedure
+(a routine that *doesn't* return a value). In fact, C blurs the
+distinction by letting you "ignore" the return value of a function if
+you want. But in REXX, the way you call a subroutine (which is REXX's
+term for a procedure) is *completely* different from the way you call a
+function. Here's an example of a function call in REXX:
+
+	length = max(x_coord, y_coord)
+
+and here's an example of a subroutine call:
+
+	call charout myFile, dist
+
+In REXX, a function is called by giving its name, followed *directly*
+by the left parenthesis (no space permitted! Remember the second
+rule!), followed by zero or more arguments (separated by commas) and
+then the right parenthesis.
+
+By contrast, a subroutine is called by using the keyword CALL, followed
+by the name of the subroutine, followed by a list of zero or more
+arguments separated by commas. No parentheses are used.
+
+(Digression: Am I the only one who's noticed that Microsoft's latest
+Visual Basic products seem to have picked up this distinction *and*
+syntax from REXX?)
+
+Having said all that, let me confess that you *can* call functions as
+if they were subroutines. In this case, the return value goes into the
+special variable RESULT. For instance:
+
+	/* subr.cmd -- Calls a function like a subroutine */
+	call abs -3
+	say "abs(-3) is" result
+
+will display "abs(-3) is 3". Calling a subroutine as if it were a
+function is an exercise in futility. Thus, *don't* do something like
+
+	charout(myFile, "foo")	/*WRONG!*/
+
+And always remember: DON'T CONFUSE SUBROUTINE CALLS WITH FUNCTION
+CALLS!
+
+On to the next rule of thumb, namely:
+
+DON'T TREAT REXX COMPOUND VARIABLES AS ARRAYS!
+
+In Pascal and C, you declare arrays and reference their elements using
+brackets ("[]"). In REXX, you *don't* declare arrays for two good
+reasons: First, you can't declare variables, and second, REXX doesn't
+*have* arrays. Okay, more seriously: REXX's compound variables can
+*often* be used as arrays. For instance, try the following program:
+
+	/* comp1.cmd -- 1st program to try compound vars */
+	do j = 1 to 3
+	   square.j = j * j
+	end j
+
+	do i = 1 to 3
+	   say "square."i "is" square.i
+	end i
+
+You will get "square.1 is 1", "square.2 is 4", and "square.3 is 9". In
+this case, we could treat the square compound variable as if it were an
+array. But in other cases, we can't. For instance, try deleting the
+last three lines in the above program and replace them with the
+following:
+
+	do i = 2 to 4
+	   say "square."i-1 "is" square.i-1
+	end i
+
+If the dots in REXX worked like brackets in C or Pascal, this program
+should display the same thing as before, right? Well try it.
+
+You got "square.1 is 3", "square.2 is 8", and then a "Bad arithmetic"
+error message. What happened? Well, "square.i-1" does *not* mean
+"calculate i-1 and then reference that element of the square array". It
+more nearly means, "calculate i, reference that element of the square
+array, and subtract 1 from it." (The "bad arithmetic" occurs when you
+try to subtract 1 from the value of square.4, which is "SQUARE.4".)
+Actually, it doesn't even mean that, because REXX doesn't *have*
+arrays--oh, I said that before.
+
+"Aha!" you say. "There's an easy way to fix this! We can use
+parentheses and write
+
+	do i = 2 to 4
+	   say "square."i-1 "is" square.(i-1)
+	end i
+
+and *that* will work!" Uh huh. Try it now.
+
+This time, the program bombs *immediately*. The problem is,
+"square.(i-1)" means "Call the function named 'square.' with the
+argument 'i-1'." Since you haven't declared a function named 'square.',
+REXX complains that the "Routine was not found."
+
+(Hold it! Do *not* tell me that we can fix this by putting a space in
+front of the parentheses! It'd break my heart to find out that you
+slept through the second rule. ;-)
+
+How can we fix this? How can we easily reference an array element in
+REXX using an arbitrary expression? Simple enough: We *can't*. If you
+want to reference a compound variable using some arbitrary expression,
+you should set a variable to that expression and then use the variable.
+So, for instance, replacing those three lines with
+
+	do i = 2 to 4
+	   j = i - 1
+	   say "square."j "is" square.j
+	end i
+
+will do the trick.
+
+In case some of you may *still* be holding out hopes that you can think
+of compound variables in REXX as arrays in C or Pascal, let's try
+running another program. Type in and run the following:
+
+	/* comp2.cmd -- 2nd program to try compound vars */
+	j = 3
+	k = 4
+	ary.j.k = "one"
+	m = 34/10
+	say ary.3.4 "is the same as" ary.j.k "is the same as" ary.m
+
+If you're going to convince me that REXX compound variables are the
+same as arrays in C or Pascal, you'll have to explain how the program
+above works. Any volunteers?
+
+			*	*	*
+
+Actually, the fact that REXX compound variables are not the same as
+arrays is a great *opportunity*, not a difficulty. Try the program
+below:
+
+	/* comp3.cmd -- 3rd use of compound variables */
+	count. = 0
+	textWords = ''
+	say "Enter a line of text below:"
+	parse upper pull textLine
+	do i = 1 to words(textLine)
+	   w = word(textLine, i)
+	   count.w = count.w + 1
+	   if count.w = 1 then
+	      textWords = textWords w
+	end i
+
+	do i = 1 to words(textWords)
+	   w = word(textWords, i)
+	   say 'You used the word "'w'"' count.w 'time(s).'
+	end i
+
+Whew! Okay, now run this program. Enter "The quick brown fox jumps over
+the lazy dog". Your computer will tell you each word that appeared in
+the line of text, and how many times each word appeared. As far as
+*this* rule of thumb goes, there are two important things to point out
+in this program:
+
+First, there is the line "count. = 0". This shows the use of a *stem*
+variable in REXX. When you initialize a stem variable, *any* variable
+that begins with that stem is set to that value. So, after this line,
+the variables count., count.1, count.57, count.foo, and count.dracula
+all have a value of zero. (Also, you can use the DROP instruction on
+a stem variable to return all those compound variables to their initial
+state.)
+
+Second: Loosely speaking, we're turning count. into an "array". But
+what are the indexes? The REXX function "words" returns the number of
+blank-delimited words in a string, and "word(str, j)" returns the j-th
+such word in str. So w is a word -- and the indexes on count are the
+actual words that appear in the string! So, for instance, count."the"
+holds the number of times that "the" appears in the string -- for our
+sample run, that was 2.
+
+So it's important that you DON'T TREAT REXX COMPOUND VARIABLES AS
+ARAYS, because it can get you into trouble, and because you'll miss the
+chance to write some *very* powerful and flexible programs.
+
+			*	*	*
+
+MAKE THE MOST OF THE EXTERNAL DATA QUEUE!
+
+Enter the following program:
+
+	/* sayhi.cmd -- program to say hello */
+	say "Please enter your name below:"
+	parse pull name
+	if name = "" then
+	   name = "Stranger"
+	say "Hello," name"."
+
+and run it, entering your name. Your computer will say hello to you.
+Okay, this isn't very earth-shattering. But I want to draw your
+attention to the third line of the program: "parse pull name". This is
+the line that accepts input from the keyboard. *However*, that's not
+its "primary" use. The PARSE PULL instruction removes a line from the
+external data queue, falling back on standard input only if the queue
+is empty.
+
+To demonstrate this, enter and run the following program:
+
+	/* push1.cmd -- program to put an item in the external data queue */
+	push "Jean-luc"
+
+and run it. What happened?
+
+Okay, so nothing happened. Get a directory, clear the screen, and do
+some other housekeeping tasks. *Now* enter "sayhi" at the prompt.
+
+If *that* doesn't impress you, nothing will. REXX's external data queue
+can be used to communicate between far-flung programs, and it isn't
+affected by any intervening non-REXX programs. It's also useful
+*within* a program; one subroutine can stuff as much into the external
+data queue as it wants, and another subroutine can get it back out by
+using PARSE PULL.
+
+You can put things in the external data queue using PUSH or QUEUE. PUSH
+puts them at the front of the queue, and QUEUE puts them at the back.
+(That is, PUSH treats the queue like a LIFO stack, and QUEUE treats it
+as a FIFO queue.) You take elements off the front of the queue by using
+PARSE PULL. Finally, you use the REXX function QUEUED to find the
+number of items that are in the external data queue. So, one quick way
+to flush the queue would be
+
+	/* flush.cmd -- Program to flush the external data queue*/
+	do queued()
+	   parse pull dummy
+	end
+
+(If you want to see what you're flushing, insert a "say dummy" line
+after the parse pull line.) By now, I hope I've convinced you to MAKE
+THE MOST OF THE EXTERNAL DATA QUEUE.
+
+Okay, time for the sixth and last rule of thumb:
+
+USE PARSE TEMPLATES!
+
+Type in this sample program:
+
+	/* temp1.cmd -- 1st program to use template */
+	parse arg i j k
+	say 'i is "'i'", j is "'j'", and k is "'k'"'
+
+and run it by entering
+
+	temp1 Alfa Bravo Charlie Delta
+
+at an OS/2 prompt. Your computer will respond
+
+	i is "Alfa", j is "Bravo", and k is "Charlie Delta"
+
+Let's analyze the second line in detail. When OS/2 calls this program,
+everything after the "temp1 " on the command line will be packed into a
+string. The PARSE ARG instruction is used to "split up" this string and
+put pieces of it into the variables you specify. In this case, you used
+a parse template of "i j k", which means to put the first word from the
+argument string into i, put the second word into j, and put the rest
+into k. The spaces that separate these words are discarded, though any
+trailing spaces *are* saved and put in the last variable. (As in
+comp3.cmd, a "word" is any sequence of non-space characters that is
+delimited by one or more spaces.) If this program is passed more than
+three words (as in our example), the extras all become part of k. If
+*fewer* than three words are given, then the "extra" variables are set
+to the empty string. Try entering "temp1 hello world" to see the latter
+rule in action.
+
+If you're a C programmer, you may already see the great convenience of
+parse templates over argc and argv[]; certainly it's nice that the
+arguments go into the variables *you* want without having to do lots of
+calls to strcpy. But wait, there's more! For one thing, PARSE ARG is an
+*instruction*, not a declaration. Add the following two lines to the end
+of temp1.cmd:
+
+	parse arg m
+	say 'm is "'m'"'
+
+and rerun it with "temp1 Alfa Bravo Charlie Delta". You get the same
+results as above, *and* the computer will also inform you that 'm is
+"Alfa Bravo Charlie Delta"'. So if you "change your mind" about what
+values should go where, or if you want to use the values in several
+different ways, you can do it easily.
+
+But wait, there's still more! Suppose you're only interested in the
+first and third words given to your program. You can use a period as a
+placeholder in the template. Add the following lines to temp1:
+
+	parse arg w1 . w3 .
+	say 'w1 is "'w1'" and w3 is "'w3'"'
+
+The top line means, "Put the first word in w1, discard the second word,
+put the third word in w3, and discard the rest of the line." You should
+be able to easily predict what will happen when you enter "temp1 Alfa
+Bravo Charlie Delta". Try it to check if you're right.
+
+If *that* isn't enough, you can also use column numbers in parse
+templates. Try adding these lines to your (now quite large!) temp1.cmd:
+
+	parse arg c1 5 c5 10
+	say 'c1 is "'c1'" and c5 is "'c5'"'
+
+and run it via "temp1 Alfa Bravo Charlie Delta". (Note the spelling of
+"Alfa".) You will be told that c1 is "Alfa" and c5 is " Brav". This new
+PARSE ARG line means "Put the characters in columns 1-4 into the
+variable c1, put the characters in columns 5-9 into the variable c5,
+and discard the characters from column 10 on (if any)." Column 1 is the
+first character after the space that follows the name of your program.
+Try predicting what would happen if you put an extra space in front of
+the word "Alfa" when you execute temp1 with the same arguments again,
+and try it to see if your prediction was correct.
+
+(By the way, you can also use "relative positional patterns"; for
+instance, the PARSE ARG line could have been written with "+5" instead
+of "10".)
+
+Have we exhausted the possibilities of the parse template? NO! However,
+I'll just show one more example. I'm sure you're sick of temp1, so
+let's try a new program, namely:
+
+	/* vcopy.cmd -- verbose copy command */
+	parse upper arg "FROM: " srcFile "TO: " destFile 
+	"copy" srcFile destFile
+
+Type this program in and save it as vcopy.cmd. (Note that we've added a
+new keyword, "upper". This keyword will convert everything to
+uppercase, so the program will work no matter what combination of
+upper- or lowercase our users type). Now run it by entering
+
+	vcopy from: temp1.cmd to: boring.cmd
+
+OS/2 will copy the file temp1.cmd to boring.cmd. (We put the OS/2 copy
+command in quotes so REXX wouldn't mistake it for a variable name.) The
+nice thing is, the following command will give the same results:
+
+	vcopy this is ignored from: temp1.cmd to: boring.cmd
+
+To summarize, you can use string literals in a parse template and REXX
+will do all the hard work of matching the arguments to your template.
+Clearly you should USE PARSE TEMPLATES because they'll make your job
+much easier.
+
+(Here's an exercise for the reader: Modify vcopy.cmd so that if the
+user types more than one word after "FROM: " or "TO: ", the extra words
+are ignored. Test your modified program by entering
+
+	vcopy from: temp1.cmd through OS/2 to: boring.cmd at long last
+
+and seeing that it *still* copies temp1.cmd to boring.cmd. Hint: You
+only need to add two characters!)
+
+WHERE TO GO FROM HERE
+
+If you're serious about REXX, I highly recommend that you get Michael
+F. Cowlishaw's _The REXX Language_. _TRL_ is *the* standard book that
+defines REXX; it's like "K&R" is to C. I found the book to be a joy to
+read because Cowlishaw explains much of the *why* behind the features
+of REXX, and because he has a good sense of humor that he *never* uses
+to put down other computer languages (or the people who program in
+them). My only complaint about the book is the price; does
+Prentice-Hall *really* have to charge $38 for a 200-page paperback?
+
+The full title is _The REXX Language: A Practical Approach to
+Programming, Second Edition_. It's published by Prentice Hall, and the
+ISBN number is 0-13-780651-5.
+
+Another book I found quite helpful is Charles Daney's _Programming in
+REXX_, published by McGraw-Hill, Inc. and with ISBN 0-07-015305-1.
+Though not as concise (and sometimes not as clear) as _TRL_, it
+provides *many* interesting sample programs and a thorough discussion
+of various time-saving REXX tips and tricks. I really liked the
+discussion on writing filters in REXX (page 187 on). Daney's book is
+$44.95.
+
+There are several newsgroups and mailing lists that include much useful
+information. If you have access to the Internet, I highly recommend
+that you check out the comp.lang.rexx newsgroup. The people on c.l.r
+are among the friendliest I've "met" on the Internet. For matters
+specific to OS/2 REXX, it's also worth reading comp.os.os2.misc and
+comp.os.os2.programmer. If you have access to BITNet, check out the
+REXXLIST discussion list.
+
+Finally, comp.lang.rexx has a FAQ maintained by Eric Giguerre. You can
+obtain it as the file rexxfaq in the pub/ directory on the
+rexx.uwaterloo.ca ftp site. This FAQ includes a bibliography of REXX
+books, detailed information on the BITnet lists, ftp sites for
+REXX-related information, and much more.
+
+Raja Thiagarajan / sthiagar@bronze.ucs.indiana.edu / 6-6-93

@@ -1,0 +1,5 @@
+yywrap()
+{
+	return(1);
+}
+

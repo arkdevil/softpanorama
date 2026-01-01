@@ -1,0 +1,177 @@
+```
+               Электронный бюллетень  С О Ф Т П А Н О Р А М А
+                     Vol.3, No. 5 (19) -  май 1991 г.
+
+                            С О Д Е Р Ж А Н И Е
+
+!readme.1st - Информация о бюллетене
+content -- Cодержание текущего выпуска СОФТПАНОРАМЫ
+foreword - Колонка редактора
+subscrip - Условия распространения, цена подписки
+virguide - Условия подписки на комплект "Компьютерная вирусология + дискета"
+\FEATURES\ - ЕЖЕМЕСЯЧНЫЕ РУБРИКИ
+   news ----- Новости
+   chronicl - Повестка дня семинара
+   crime ---- Компьютерные преступления, новости защиты от вирусов
+   views ---- Панорама мнений
+   reviews -- Обзор компьютерной прессы
+\ARTICLES\ - CТАТЬИ УЧАСТНИКОВ СЕМИНАРА
+   arhipov -- Архипов А.А. Сравнительный анализ TopSpeed Modula-2 v2.0
+   sviridov - Свиридов И. Internet in KIEV
+\BBS\ - НЕСКОЛЬКО СПИСКОВ ОТЕЧЕСТВЕННЫХ BBS
+   su_bbs16 - Список советских BBS на 10 мая 1991 г.
+              Составлен на Kronverk BBS (812)126-6972 Александром Ивановым
+   subbs311 - List of soviet BBS`s on state of 21 Mar 1991
+              Compiled by Leonid Avtushenko, version 3.11
+   ubl_v14 -- USSR BBS list version #14 from 7 may 1991
+              Compiled by Mikel soft, Lavrentyev Mikel, Moscow, 2:5020/6.6
+\FORUM\ - ЗАМЕТКИ И ПРОГРАММЫ УЧАСТНИКОВ СЕМИНАРА
+   !forum.1st - Условия включения в этот раздел
+   \ARC-CLUB\ - Клуб пользователей и разработчиков архиваторов
+      cherniv -- Заметка С.Чернивецкого о поведении Charc
+                 при сжатии больших файлов (NG.ASM)
+      pkzip120 - Еще раз о "лже pkzip120"
+      \MIRONOVI\ - Сжатие одинаковых символов в com-файлах К.Мироновича
+         cpu.asm, vcpu.com
+   \ASM-CLUB\ - Клуб "Настоящие программисты предпочитают ассемблер"
+      pu_psprs - Заметка Ю.Панкова об использовании PSP в TSR программах
+   \C-CLUB\ - Клуб любителей С
+      ecug ---- Сообщение об образовании и электронный адрес
+                European C++ User Group
+      contest - Правила международного конкурса на самую непонятную
+                программу на языке С
+   \ME-CLUB\ - Клуб любителей MultiEdit
+      \ZUBKOV\  - Макрос для постраничной печати документа Юрия Зубкова
+         str.doc,mac,src
+      \BUNICH\ - Набор полезных макросов Леонида Бунича
+         lgb.src, read.me
+      \ROMANOV\ - Макрос Алексея Романова для гашения экрана на манер NC !!!
+         scrsaver.hlp,src, startup2.src
+   \DOS-CLUB\ - Клуб пользователей MS DOS
+      adm_prot - Вариация на тему "вскрытие ADM" М.Цанко и Д.Гельмана
+      \DOLINSKI\ - Рекомендации по форматированию дискет для Софтпанорамы
+                   Олега Долинского
+         fmt720ec.boo, fmt720ms.boo, fmtingsp.txt, hdskdeth.txt
+   \RE-ENGIN\ - Клуб "реинженерии"
+      tph.exe,doc  - Турбо Help -> документ
+   \VIR-CLUB\ - Клуб вирусологов
+      kamasya - Первый вирус с философскими размышлениями:
+               "As long as you live, sex and pleasing of the senses is useless.
+                The essence of life is the desire to know, not money or fame."
+      anticad - Plastique, Taiwan 3 и Anticad 2 - это разные названия
+                одного и того же блюда
+      \KURKOVSK\ - Ревизор С.Курковского (интерес представляет интерфейс
+                   и режимы. Самой программой пользоваться не рекомендуется,
+                   поскольку она работает через функции MS DOS - Б.Н.Н.)
+         crc.exe, help.crc, readme.crc
+      \ROBIN\ - В.Рабинович. Описание работы вакцинированного COMMAND.COM'a
+                и некоторые соображения о компьютерных вирусах. (Вакцинированный
+                COMMAND.COM использовать не рекомендуется - Б.Н.Н.)
+         command.com,doc
+\BENEFIC\ - CОФТПАНОРАМА ПРЕДСТАВЛЯЕТ ...
+   !readme.1st - Условия включения в этот раздел
+   \ALEKSEEV\ - Программа для разделения NG C.Алексеева
+      ngdiv.exe
+   \BIP\ - Рекурсивный подсчет pазмеpов файлов в текущей диpектоpии и ниже
+           по иеpаpхии Б.Паpлагашвили (используется инфоpмация
+           из File Size из Norton Integrator 4.50)
+      -fs.bat, brn_info.exe,pas, pseudo, readme
+   \FORSJUK\ - Вьюер для TechHelp и русифированный Help к NC В.Форсюка
+      h!-read.me, h!view.exe, nc.hlp
+   \GORIN\ - Просмотрщик LZH- (и ICE-) архивов Р.Горина
+      lhext.exe,doc
+   \KAKHIDZE\ - Пpогpамма для испpавления BGI фонтов, созданных
+                с помощью Borland Font Editor V1.1
+      badf.chr, reconst.exe,doc
+   \KURKOVSK\ - Программа установления цветов графического режима С.Курковского
+      color.exe,doc
+   \MIRDZVEL\ - Установка цветов экрана в NC !
+      ncolour.exe
+   \TITOV\ - Программы А.Титова
+      readme.1st
+      \DRIVERS\ - Разные драйверы
+      \FPS\ ----- Система объектно-ориентированного программирования
+\ANTIVIR\ - АНТИВИРУСНЫЕ ПРОГРАММЫ
+   \AIDSTEST\ - Полифаг AIDSTEST версии 120 Д.Н.Лозинского
+      aidstest.exe, aidsread.me
+   \SCAN77.SHR\ - VIRUSCAN Version 7.2V77 Copyright (C) 1989, 1990, 1991
+                  by McAfee Associates. All rights reserved
+      agents.txt, register.doc, scan.exe, scan77.doc, virlist.txt
+   \PONOMARE\ - Демо вируса RC-3595 (Andryushka) В.Пономаренко
+      demo1.com
+\SOFTWARE\ - ЗАРУБЕЖНОЕ ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ
+   \SHEZ60.SHR\ - Shez 6.0 (позволяет просматривать архивы lha 2.xx)
+      cvtcfg.com, readme.now, shez.ico,reg,ref,rev,exe,hlp,doc,
+      shez2.ico, shezcfg.com
+   \DIET\ - Еще одна вариация на тему LZEXE (в некоторых случаях дает более
+            высокую степень сжатия, однако сжатие в ряде случаев необратимо)
+      diet.exe, diet10.doc
+\REPRINTS\ - ПЕРЕПЕЧАТКИ
+   norton - Выступление П.Нортона на открытии выставки Comtek'91,
+            Москва, 8 апреля 1991 года
+   \COMPRESS\ - Перепечатки из журнала КомпьютерПресс
+      piano.c - Программа "Пианино" к статье "Программирование для мыши".
+               "КомпьютерПресс" 11, 1990 г.
+      \MAKEWND\ - Программы и проект MAKEPRT к статье "Как создать оконный
+                  интерфейс". "КомпьютерПресс" 1,2, 1991 г.
+         inlutil.c, main.c, makeprt.h,prj, utilit1.c, utilit2.c, utilit3.c
+      \READDATA\ - Программа READDATA и статья "Чтение неформатированных
+                 данных из файла". "КомпьютерПресс" 4, 1991 г.
+         readdata.c,035
+\FOND\ - ФОНД НЕЗАВИСИМОЙ ПОДДЕРЖКИ СИСТЕМНЫХ ПРОГРАММИСТОВ ОСП
+   fond --- Устав ФОНДА и образцы ведомостей
+   report - Отчет о текущих поступлениях в ФОНД
+
+------------------------------------------------------------------------------
+
+         Пятый выпуск коммерческого приложения к бюллетеню СОФТПАНОРАМА
+                  (скомпонован в виде отдельного файла SP35B)
+
+!readme.2nd - Информация для авторов
+contentb ---- Cодержание текущего выпуска приложения
+\CRIMELOG\ - ХРОНИКА КРАЖ КОМПЬЮТЕРОВ
+   crimelog.035 -
+\DEMO\ - ДЕМОНСТРАЦИОННЫЕ СИСТЕМЫ
+   !readme.1st -- Условия включения демонстрационных версий в этот раздел
+   \MOSTOVOY\ - Антивирусная программа-ревизор Мостового Д.Ю. версии 1.04
+      adinf.exe,doc,txt, add_ext.exe
+   \TITOV\ - Набор инвариантных модулей САПР
+      demoecga.bat, demohrc.bat, ecurg.com, grass.fks, grs.exe,doc,
+      int10hrc.asm,com, j.c, kzc.grs, m.c,exe, nim.doc,
+      readme.1st, tgi.doc,lib, vfk.c,exe,grs,kln,klx,kpr, vvk.exe
+   \TKACHENK\ - Конвертор текстовых файлов в формат Microsoft Word 5.0
+      preword.exe, readme.1st
+   \NIKOLAEN\ - Автоматизированный обзор программных средств,
+                разработанных в стране развитого социализма
+      editor.exe, saver.exe, soviets.doc
+   \GRAFOX\ - Система работы с графикой в Clipper, FoxBASE, DBase
+      clipdemo.exe,doc,prg, videomng.exe, demo.bat
+   \DOC-FORM\ - Форматеры текста
+      \SIVOLOBO\ - Документатор подобный фиpменному DOC из ОС РАФОС для СМ ЭВМ
+         doc.exe, prmdoc.prm, readme.txt, sampl1.doc, sampl2.doc
+      \ABRAMTSE\ - Автономный фоpматеp текста (Freeware !)
+         charter.inc, daf.exe, fullrecl.daf, helper.daf, index.inc, read.me,
+         socrhlp.txt, specsimb.inc
+      \AIM-BIP\ - Универсальный форматер текстов
+         blist-d.exe, blist.blh,bls,pcx, readme
+      \PAGER31\ - Пакетный документатор
+         a4.a4, eskd1.a4, eskd2.a4, eskdo.a4, espd0.a4, espd1.a4, pager.prn,
+         pagerrek.exe, spds0.a4, spds1.a4, spds2.a4, sufler.d
+\TEXTS\ - ТЕКСТОВАЯ РЕКЛАМА
+   !readme.1st - Условия включения рекламы в этот раздел
+   \SELLERS\ - ПРОДАЮ
+      \SOFT\ - Реклама программного обеспечения
+         aidsread - Документация к AIDSTEST версии 130 от 04.04.91
+         pie_1 ---- Новейшая информационная система телекоммуникации
+         pie_2 ---- Коммеpческое пpедложение по созданию сети
+         optishar - "НОВИНТЕХ-ОПТИС" - ПРЕДЛАГАЕТ !
+         optisin -- "НОВИНТЕХ-ОПТИС" - ПРЕДЛАГАЕТ РАЗРАБОТКИ !
+         optisout - "НОВИНТЕХ-ОПТИС" - ПРЕДЛАГАЕТ ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ !
+         optispai - "НОВИНТЕХ-ОПТИС" - ПРЕДЛАГАЕТ РАЗРАБОТКУ РЕКЛАМНЫХ РОЛИКОВ !
+   \SUBSCRIB\ - БЛАНКИ ПОДПИСКИ
+     virguide ---- На комплект из книги "Компьютерная вирусология" и дискеты
+     compress.91 - На журнал КомпьютерПресс
+
+P.S. Редакция приносит извинения Алексею Романову за искажение его имени
+     в бета-версии оглавления данного выпуска
+```

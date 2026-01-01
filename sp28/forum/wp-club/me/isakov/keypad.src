@@ -1,0 +1,359 @@
+                            { KeyPad.SRC }
+{ ///////////////////////////////////////////////////////////////////// }
+{         Поддержка функций дополнительной цифровой клавиатуры.         }
+{   03-Aug-90 :    Константин Исаков  MK.soft (C)1990.    : 24-Aug-90   }
+{ ///////////////////////////////////////////////////////////////////// }
+
+$MACRO KeyPad;
+  DEF_STR (Delimiters [40]);
+  Delimiters := '|255|9 ;,';          {Здесь Разделители слов для KEYPAD}
+
+  IF Length (Global_Str('KEYPAD_DLM')) = 0 THEN
+    Set_Global_Str ('KEYPAD_BUF' ,'');
+    Set_Global_Str ('KEYPAD_DLM' ,Delimiters);
+    Make_Message ('KeyPad turn ON');
+  ELSE
+    Set_Global_Str ('KEYPAD_BUF' ,'');
+    Set_Global_Str ('KEYPAD_DLM' ,'');
+    Make_Message ('KeyPad turn OFF');
+  END;
+
+  IF First_Run THEN
+    Macro_To_Key (<ShftINS>  ,'KEYPAD^KP /0' ,EDIT);
+    Macro_To_Key (<ShftDEL>  ,'KEYPAD^KP /.' ,EDIT);
+    Macro_To_Key (<GreyENTER>,'KEYPAD^KP /C' ,EDIT);
+    Macro_To_Key (<ShftEND>  ,'KEYPAD^KP /1' ,EDIT);
+    Macro_To_Key (<ShftDN>   ,'KEYPAD^KP /2' ,EDIT);
+    Macro_To_Key (<ShftPGDN> ,'KEYPAD^KP /3' ,EDIT);
+    Macro_To_Key (<ShftLF>   ,'KEYPAD^KP /4' ,EDIT);
+    Macro_To_Key (<ShftCNTR> ,'KEYPAD^KP /5' ,EDIT);
+    Macro_To_Key (<ShftRT>   ,'KEYPAD^KP /6' ,EDIT);
+    Macro_To_Key (<ShftHOME> ,'KEYPAD^KP /7' ,EDIT);
+    Macro_To_Key (<ShftUP>   ,'KEYPAD^KP /8' ,EDIT);
+    Macro_To_Key (<ShftPGUP> ,'KEYPAD^KP /9' ,EDIT);
+  END;
+END_MACRO;
+
+{ ///////////////////////////////////////////////////////////////////// }
+
+$MACRO KP;
+
+  DEF_STR  (TmpDelimits ,Buf);
+  DEF_CHAR (KeyCh);
+  DEF_INT  (Pos ,Len ,State ,Tmp);
+
+  Push_Undo;
+  TmpDelimits := Word_Delimits;
+  Word_Delimits := Global_Str ('KEYPAD_DLM');
+
+  IF Word_Delimits  = '' THEN
+    State := 0;                             {KeyPad отключена}
+  ELSE IF Marking THEN
+    State := 2;                             {Блок "открыт"}
+  ELSE IF Block_Stat > 0 THEN
+    State := 3;                             {Блок определен}
+  ELSE
+    State := 1;                             {Блок выключен}
+  END; END; END;
+
+  KeyCh := Parse_Str ('/' ,MParm_Str);
+  IF ASCII(KeyCh) = 0 THEN GOTO InvalidCall; END;
+
+  IF KeyCh = '0' THEN GOTO KeyPad_Ins; END;
+  IF KeyCh = '.' THEN GOTO KeyPad_Del; END;
+  IF KeyCh = 'C' THEN GOTO KeyPad_Cr;  END;
+  IF KeyCh = '1' THEN GOTO KeyPad_1;   END;
+  IF KeyCh = '2' THEN GOTO KeyPad_2;   END;
+  IF KeyCh = '3' THEN GOTO KeyPad_3;   END;
+  IF KeyCh = '4' THEN GOTO KeyPad_4;   END;
+  IF KeyCh = '5' THEN GOTO KeyPad_5;   END;
+  IF KeyCh = '6' THEN GOTO KeyPad_6;   END;
+  IF KeyCh = '7' THEN GOTO KeyPad_7;   END;
+  IF KeyCh = '8' THEN GOTO KeyPad_8;   END;
+  IF KeyCh = '9' THEN GOTO KeyPad_9;   END;
+
+InvalidCall:
+  Make_Message ('KP: Invalid Call');
+  GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Ins:                                                { "0" }
+  IF State = 0 THEN
+    Text ('0');
+  ELSE
+    Buf := Global_Str ('KEYPAD_BUF');
+    IF SVL(Buf) = 0 THEN
+      Make_Message ('Buffer Empty');
+    ELSE
+      Mark_Pos; Text (Buf); Goto_Mark;
+    END;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del:                                                { "." }
+  IF State = 0 THEN
+    Text ('.');
+  ELSE
+    Read_Key;
+    IF (Key1 = 48) AND (Key2 = 82) THEN  GOTO KeyPad_Del_Ins; END;
+    IF (Key1 = 46) AND (Key2 = 83) THEN  GOTO KeyPad_Del_Del; END;
+    IF (Key1 = 13) AND (Key2 = 224) THEN GOTO KeyPad_Del_Cr;  END;
+    IF (Key1 = 49) AND (Key2 = 79) THEN  GOTO KeyPad_Del_1;   END;
+    IF (Key1 = 50) AND (Key2 = 80) THEN  GOTO KeyPad_Del_2;   END;
+    IF (Key1 = 51) AND (Key2 = 81) THEN  GOTO KeyPad_Del_3;   END;
+    IF (Key1 = 52) AND (Key2 = 75) THEN  GOTO KeyPad_Del_4;   END;
+    IF (Key1 = 53) AND (Key2 = 76) THEN  GOTO KeyPad_Del_5;   END;
+    IF (Key1 = 54) AND (Key2 = 77) THEN  GOTO KeyPad_Del_6;   END;
+    IF (Key1 = 55) AND (Key2 = 71) THEN  GOTO KeyPad_Del_7;   END;
+    IF (Key1 = 56) AND (Key2 = 72) THEN  GOTO KeyPad_Del_8;   END;
+    IF (Key1 = 57) AND (Key2 = 73) THEN  GOTO KeyPad_Del_9;   END;
+    Push_Key (Key1,Key2);
+    IF State = 1 THEN
+      Run_Macro ('MEUTIL2^MSTRBLCK');
+    END;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Cr:                                         { "GreyENTER" }
+  IF State <> 0 THEN
+    Eol;
+  END;
+  Run_Macro ('^CR');
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_1:                                                  { "1" }
+  IF State = 0 THEN
+    Text ('1');
+  ELSE
+    Word_Left;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_2:                                                  { "2" }
+  IF State = 0 THEN
+    Text ('2');
+  ELSE
+    Mark_Pos; Word_Right; Len := C_Col;
+    Goto_Mark; Len := Len - C_Col;
+    Set_Global_Str ('KEYPAD_BUF' ,Copy (Get_Line ,C_Col ,Len));
+    Del_Chars (Len);
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_3:                                                  { "3" }
+  IF State = 0 THEN
+    Text ('3');
+  ELSE
+    Word_Right;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_4:                                                  { "4" }
+  IF State = 0 THEN
+    Text ('4');
+  ELSE
+    Len := C_Col - 1; Goto_Col (1);
+    Set_Global_Str ('KEYPAD_BUF' ,Copy (Get_Line ,1 ,Len));
+    Del_Chars (Len);
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_5:                                                  { "5" }
+  IF State = 0 THEN
+    Text ('5');
+  ELSE
+    Set_Global_Str ('KEYPAD_BUF' ,Get_Line);
+    Del_Line;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_6:                                                  { "6" }
+  IF State = 0 THEN
+    Text ('6');
+  ELSE
+    Pos := C_Col; Eol; Len := C_Col - Pos;
+    Set_Global_Str ('KEYPAD_BUF' ,Copy (Get_Line ,Pos ,Len));
+    Goto_Col (Pos);
+    Refresh := FALSE;
+    Run_Macro ('^DelEol');
+    Refresh := TRUE;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_7:                                                  { "7" }
+  IF State = 0 THEN
+    Text ('7');
+  ELSE
+    Run_Macro ('WINDOW^NEXTWIN');
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_8:                                                  { "8" }
+  IF State = 0 THEN
+    Text ('8');
+  ELSE
+    Tmp := Insert_Mode; Insert_Mode := TRUE;
+    Text (' '); Left;
+    Insert_Mode := Tmp;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_9:                                                  { "9" }
+  IF State = 0 THEN
+    Text ('9');
+  ELSE
+    Run_Macro ('MEUTIL2^REPSRCH');
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+{                 Функции клавиатуры "с префиксом"                      }
+
+KeyPad_Del_Ins:
+  IF State = 1 THEN
+    Block_Off; Run_Macro ('MEUTIL2^MARKBLCK');
+  ELSE IF State = 2 THEN
+    { NONE }
+  ELSE IF State = 3 THEN
+    Copy_Block;
+  END; END; END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_Del:
+  IF State = 3 THEN
+    Run_Macro ('MEUTIL2^BLOCKOFF');
+  ELSE
+    Run_Macro ('MEUTIL2^MSTRBLCK');
+    IF State = 1 THEN Right; END;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_Cr:
+  IF (State = 1) OR (State = 3) THEN
+    Block_Off; Run_Macro ('MEUTIL2^MCOLBLCK');
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_1:
+  IF (State = 1) OR (State = 3) THEN
+    Block_Off; Mark_Pos; Word_Left;
+    Run_Macro ('MEUTIL2^MSTRBLCK');
+    Goto_Mark; Right; Left;
+    Run_Macro ('MEUTIL2^MSTRBLCK');
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_2:
+  IF State = 1 THEN
+    Mark_Pos; Left;
+    WHILE (Xpos(Cur_Char ,Word_Delimits ,1) = 0) AND (C_Col > 1) DO
+      Left;
+    END;
+    Word_Right; Run_Macro ('MEUTIL2^MSTRBLCK');
+    Word_Right; Run_Macro ('MEUTIL2^MSTRBLCK'); Goto_Mark;
+  ELSE IF State = 2 THEN
+    { NONE }
+  ELSE IF State = 3 THEN
+    Move_Block;
+  END; END; END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_3:
+  IF (State = 1) OR (State = 3) THEN
+    Block_Off; Mark_Pos; Run_Macro ('MEUTIL2^MSTRBLCK'); Word_Right; Left;
+    WHILE (Xpos(Cur_Char ,Word_Delimits ,1) > 0) AND (C_Col > 1) DO
+      Left;
+    END;
+    Right; Run_Macro ('MEUTIL2^MSTRBLCK'); Goto_Mark;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_4:
+  IF (State = 1) OR (State = 3) THEN
+    Block_Off; Mark_Pos; Run_Macro ('MEUTIL2^MSTRBLCK');  Goto_Col (1);
+    Run_Macro ('MEUTIL2^MSTRBLCK');  Goto_Mark;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_5:
+  IF State = 1 THEN
+    Run_Macro ('MEUTIL2^MARKBLCK'); Run_Macro ('MEUTIL2^MARKBLCK');
+  ELSE IF State = 2 THEN
+    Run_Macro ('MEUTIL2^MARKBLCK');
+  ELSE IF State = 3 THEN
+    Delete_Block;
+  END; END; END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_6:
+  IF (State = 1) OR (State = 3) THEN
+    Block_Off; Mark_Pos; Run_Macro ('MEUTIL2^MSTRBLCK');
+    Eol; Run_Macro ('MEUTIL2^MSTRBLCK'); Goto_Mark;
+  END;
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+KeyPad_Del_7:
+  Run_Macro ('WINDOW^LASTWIN');
+GOTO Exit;
+
+KeyPad_Del_8:
+  Run_Macro ('MEUTIL2^S_REPL');
+GOTO Exit;
+
+KeyPad_Del_9:
+  Run_Macro ('MEUTIL2^SEARCH');
+GOTO Exit;
+
+{ / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / }
+
+Exit:
+  Word_Delimits := TmpDelimits;
+  Pop_Undo;
+
+END_MACRO;
+
+{ ///////////////////////////////////////////////////////////////////// }
+{                      Конец файла "KeyPad.SRC"                         }
+{ ///////////////////////////////////////////////////////////////////// }
+

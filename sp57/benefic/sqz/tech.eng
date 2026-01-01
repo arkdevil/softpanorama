@@ -1,0 +1,148 @@
+The information in this document may, or may not be correct, but is given
+as a bonus. Someone might find it useful.
+-------------------------------------------------------------------------------
+DOSversion:	3.3 and onwards,
+		2.0 to 3.2 will work as long as you use UPPERCASE in all
+		filenames and don't use SFX/SFXjr.
+
+Memory: 	For packing;	≈400 kB, but more than 330 kB
+		Decoding;	≈96 kB
+
+		These figures does not include SQZ itself which requires
+		≈50 kB and filenames which call for their length + 5 bytes
+		in overhead (450/380 : 150).
+
+		These figures can be shrinked at cost of speed.
+
+Others: 	Given filespec may result in a maximum of 4096 filenames
+		per run. The archive in itself will handle any number
+		of files.
+
+		A maximum of 64 filespec's for files to skip.
+
+		A maximum of 16 extension's for files to copy.
+-------------------------------------------------------------------------------
+Archive header:
+    offset  0..4:   Id: 	HLSQZ	    (072d 076d 083d 081d 090d)
+	    5:	    Version:	1	    (049d)
+	    6:	    OS:     76543210
+			    xxxxx000	0   PC-DOS
+			    xxxxx001	1   OS/2
+			    xxxxx010	2   MVS
+			    xxxxx011	3   HPSF(OS/2)
+			    xxxxx100	4   Amiga
+			    xxxxx101	5   Macintosh
+			    xxxxx110	6   *nix
+			    xxxxx111	7   Future use
+			    XXXXXxxx	    Future use
+	    7:	    Flag    76543210
+			    xxxxxxx1	    Big Endian
+			    xxxxxx1x	    DOS format for Date and Time
+					    in file: E8631E19.
+					    Decoded:	1992/08/30 12.31.32
+					    MSB 		    LSB
+					    19	    1E	    63	    E8
+					    76543210765432107654321076543210
+					    00011001000111100110001111101000
+					    YYYYYYYMMMMDDDDDHHHHHMMMMMM22222
+					    12	   8   30   12	 31    16
+					    +=1980		       *=2
+					    1992   08  30   12	 31    32
+			    xxxxx1xx	    Security Envelope
+			    XXXXXxxx	    Future use
+-------------------------------------------------------------------------------
+File header:
+    offset  Size	Comment
+    0	    1		Header size and type
+			0	->  End of archive
+			1	->  Comment
+			2	->  Password
+			3	->  Security envelope
+			4..18	->  future use
+			19..	->  normal file header
+			if normal file
+    1	    1		Header algebraic sum  & 0FFh
+    0	    1:76543210
+	      xxxxXXXX	Method 0..4(15)
+	      xxx1xxxx	Security envelope should follow
+	      XXXxxxxx	Future use
+    1	    4		Compressed size
+    5	    4		Original size
+    9	    4		Last DateTime
+    13	    1		Attributes
+    14	    4		CRC
+    18..    (size-18)	filename, w/o \0.
+
+
+If  End of archive, done
+If  > 18 normal file
+    Read HeaderSum(1 byte)
+    Read size bytes
+    Calculate headersum
+	{short i; unsigned short s = 0U;
+	for(i = 0; i < size; i++)
+	    s += header[i];
+	if(headersum != (unsigned char)s) WRONG HEADERSUM
+    header[size] = '\0';    // just to makes things easier to handle, ie.
+			    // zero terminate filename
+    <= 18
+    Next word gives number of bytes which are used, excluding this word
+    COMMENT:
+	0   2		Number of bytes in comment
+			Uncompressed size = this field - 7
+	2   2		Number of bytes compressed
+	4   1:76543210
+	      xxxxXXXX	Method 0..4(15)
+	      xxx1xxxx	Security envelope should follow
+	      XXXxxxxx	Future use
+	5   4		CRC
+	9   size-9	Comment
+    PASSWORD:
+	0   2		4
+	2   4		CRC for password
+
+	    **************************************************************
+	    I'm not done thinking about this one yet, so I'll be in touch.
+	    **************************************************************
+    SECURITY ENVELOPE:
+	0   2		n
+	n   1		None of your buisness (to be honest, I'm not done yet)
+    OTHERWISE:
+	0   2		Number of bytes to skip
+
+-------------------------------------------------------------------------------
+Errorlevels
+#define EC_NO		    0	    No error
+#define EC_NOMEM	    1	    Out of memory
+#define EC_WRITE_ARC	    2	    Error writing to archive file
+#define EC_WRITE_TMP	    3	    Error writing to temp archive file
+#define EC_WRITE_OUT	    4	    Error writing to extracted file
+#define EC_READ_ARC	    5	    Error reading from archive file
+#define EC_READ_INP	    6	    Error reading from file to archive
+#define EC_OPEN_ARC	    7	    Error opening archive file
+#define EC_OPEN_INP	    8	    Error opening file to archive
+#define EC_OPEN_SFX	    9	    Error opening SFX/SFXjr.exe
+#define EC_OPEN_TMP	    10	    Error opening temp (archive) file
+#define EC_CREATE_ARC	    11	    Error creating archive file
+#define EC_CREATE_TMP	    12	    Error creating temp archive file
+#define EC_CREATE_OUT	    13	    Error creating file to extract
+#define EC_CREATE_SFX	    14	    Error creating archive file EXE
+#define EC_CLOSE_ARC	    15	    Error closing archive file
+#define EC_CLOSE_TMP	    16	    Error closing temp archive file
+#define EC_CLOSE_INP	    17	    Error closing file to archive
+#define EC_CLOSE_OUT	    18	    Error closing extracted file
+#define EC_HEADER_SUM	    19	    Archive corrupted
+#define EC_CORRUPT_HDR	    20	    Archive corrupted
+#define EC_2_MANY_EXT	    21	    Too many extensions to copy (<= 16)
+#define EC_UNKNOWN_SWITCH   22	    Unknow switch given
+#define EC_ILL_COMB_SW	    23	    Illegal combination of switches, eg.
+				    include subdirectories and strip path
+#define EC_CBREAK	    24	    User C-Break
+#define EC_UNKNOWN	    25	    Unknown type of archive file
+#define EC_NOT_ON_SFX	    26	    Those commands not allowed on SFX
+#define EC_NOT_MS_DOS	    27	    Archive file was not for MS-DOS
+#define EC_CRC		    28	    CRC-errors in Extracting/Testing
+#define EC_SQZ_CORRUPT	    29	    Someone has tangled with SQZ,
+				    look out for virii or a hacker.
+#define EC_CORRUPT_ARC	    30	    Corrupted archive file.
+

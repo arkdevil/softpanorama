@@ -1,0 +1,1376 @@
+*KKKKKKKKKKK
+ ! *************************** KEG ****  _K_8 - 17.02.92-18:33 **********
+ !      -----  издевательства над STANDARD.MDL Release 2105  ----
+ ! _K        C. Корзун Е.Г.  (095) р 231-07-72, д 924-52-73
+ ! _K_1 - 23.10.91-14.14  KKFORM Calcfields-N раз - по переменной K_REDISP#
+ ! _K_2 - 25.10.91-13.32 при CTRL_B  в TABLE взять старую в кач. образца
+ ! _K_3 - 28.10.91-10.25  KNFORM "Пустая" без ввода, выдача calcfields
+ ! _K_3 -   запуск setup ПОСЛЕ высветки экрана (т.е. KNFORM-фоновая картинка)
+ ! _K_4 - 30.10.91-11.53  все FORM - испр. ошибки "зацикливания" при CTRL_ENTER
+ ! _K_5 - 27.11.91-15:53  по SHFT_ENTER (при APP-ENTER-KEY) вход в TABL c
+ ! _K_5 -                 .    текущим значением LOOKUP - реквизита .
+ ! _K_6 - 07.02.92-16:44  "изменения" в TABL по TOTAL + начальные установки
+ ! _K_6_1 - "установки" = установки как при ACTION=4, а работа как при 0
+ ! _K_6_1 - "установки" = при ACTION=6 , работа "по старому"
+ ! _K_6_2 - при вызове HOTKEY стандартно пересчет TOTAL по текущей записи TABL,
+ ! _K_6_2 -  а при возврате из HOTPROC ACTION==5647 пересчитать TOTAL целиком.
+ ! _K_7 - 07.02.92-17:36  "изменения" в LOCATOR для "не первого" ключа
+ ! _K_8 - 17.02.92-18:33 FORM -"настройка" в SETUP N первого поля K_FRST_IN#
+*KNFORM********************** "Пустая" без ввода  calcfields , setup ********
+@PROCNAME    PROCEDURE
+ ! _K_3 - 28.10.91-10.25  KNFORM "Пустая" без ввода, выдача calcfields
+ ! _K_3 -   запуск NEXTPAGE ПОСЛЕ высветки экрана (т.е. фоновая картинка)
+SCREEN       SCREEN       PRE(SCR),@SCREENOPT
+                          @PAINTS
+                          @STRINGS
+                          @VARIABLES
+                          @FIELDS
+                          @PAUSE
+             .
+
+  EJECT
+  CODE
+  OPEN(SCREEN)                                   ! OPEN THE SCREEN
+  SETCURSOR                                      ! TURN OFF ANY CURSOR
+  K_MNREDISP# = 10                               ! _K_1 Ограничение "прокруток"
+  K_NREDISP#  = 1                                ! _K_1 Станд.кол-во "прокруток"
+  @SETUP                                         !
+  DISPLAY                                        ! DISPLAY THE FIELDS
+    MEM:MESSAGE = CENTER(MEM:MESSAGE,SIZE(MEM:MESSAGE)) !DISPLAY ACTION MESSAGE
+    K_REDISP# = 0                                ! _K_1 Счет "прокруток"
+    Loop While(K_REDISP# < K_NREDISP#)           ! _K_1
+      K_REDISP# += 1                             ! _K_1 Счет "прокруток"
+      DO CALCFIELDS                              ! _K_1 CALC DISPLAY FIELDS
+      If (K_REDISP# > K_MNREDISP#)               ! _K_1 Дальше крутиться
+        Break                                    ! _K_1 бесполезно - уходим
+      End                                        ! _K_1
+    End                                          ! _K_1
+
+  @NEXTPAGE                                      ! _K_3 Запуск процедуры
+                                                 ! Result ACTION - из NEXTFORM
+  RETURN                                         ! AND RETURN TO CALLER
+
+
+CALCFIELDS   ROUTINE
+  @LOOKUPS                                       ! DISPLAY FROM OTHER FILES
+  @SHOW                                          ! DISPLAY STRING VARIABLES
+  @COMPUTE                                       ! DISPLAY COMPUTED FIELDS
+  @RESULT                                        ! MOVE RESULTING VALUES
+
+*KKFORM*************************************************************************
+@PROCNAME    PROCEDURE
+ ! _K_1 - 23.10.91-14.14  KKFORM CALCFIELDS - N раз - по переменной K_REDISP#
+ ! _K_1 - ИСПОЛЬЗОВАНИЕ : если требуется N "прокруток" по CALCFIELDS
+ ! _K_1 -                 присвоить K_NREDISP# значение = N (можно в динамике)
+ ! _K_8 - 17.02.92-18:33 FORM -"настройка" в SETUP N первого поля K_FRST_IN#
+SCREEN       SCREEN       PRE(SCR),@SCREENOPT
+                          @PAINTS
+                          @STRINGS
+                          @VARIABLES
+                          ENTRY,USE(?FIRST_FIELD)
+                          @FIELDS
+                          @PAUSE
+                          ENTRY,USE(?LAST_FIELD)
+                          PAUSE(''),USE(?DELETE_FIELD)
+             .
+
+  EJECT
+  CODE
+  OPEN(SCREEN)                                   ! OPEN THE SCREEN
+  SETCURSOR                                      ! TURN OFF ANY CURSOR
+  K_MNREDISP# = 10                               ! _K_1 Ограничение "прокруток"
+  K_NREDISP#  = 2                                ! _K_1 Станд.кол-во "прокруток"
+  K_FRST_IN# = ?FIRST_FIELD + 1                  ! _K_8 Умолчание - с первого
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  DISPLAY                                        ! DISPLAY THE FIELDS
+  field# = 0                                     ! _K_4 Сбросить old-поле
+  LOOP                                           ! LOOP THRU ALL THE FIELDS
+    MEM:MESSAGE = CENTER(MEM:MESSAGE,SIZE(MEM:MESSAGE)) !DISPLAY ACTION MESSAGE
+    K_REDISP# = 0                                ! _K_1 Сброс счета "прокруток"
+    Loop While(K_REDISP# < K_NREDISP#)           ! _K_1 По "цепным" ссылкам
+      K_REDISP# += 1                             ! _K_1 Счет "прокруток"
+      DO CALCFIELDS                              ! _K_1 CALC DISPLAY FIELDS
+      If (K_REDISP# > K_MNREDISP#)               ! _K_1 Дальше крутиться
+        Break                                    ! _K_1 бесполезно - уходим
+      End                                        ! _K_1
+    End                                          ! _K_1
+    ALERT                                        ! RESET ALERTED KEYS
+    ALERT(ACCEPT_KEY)                            ! ALERT SCREEN ACCEPT KEY
+    ALERT(REJECT_KEY)                            ! ALERT SCREEN REJECT KEY
+    ALERT(SHFT_ENTER)                            ! _K_5 ALERT "TABLE-KEY"
+    @ALERT                                       ! ALERT HOT KEY
+    ACCEPT                                       ! READ A FIELD
+    @CHECKHOT                                    ! ON HOT KEY, CALL PROCEDURE
+    IF KEYCODE() = REJECT_KEY THEN RETURN.       ! RETURN ON SCREEN REJECT KEY
+    If SELECTED() > FIELD() AND KEYCODE()=0 Then ! _K_4 Был CTRL-ENTER
+      if FIELD() < field# then                   ! _K_4 это уже безвыходность
+        MEM:MESSAGE = '_K 4 ^CR '            |   ! _K_4 привесить признак
+              & Clip(Left(MEM:MESSAGE))          ! _K_4 к ошибке
+        SELECT(field())                          ! _K_4 POSITION TO "ERROR"
+        BEEP                                     ! _K_4 гуднем по ошибке
+        CYCLE                                    ! _K_4 GET OUT OF EDIT LOOP
+      End                                        ! _K_4
+      field# = field()                           ! _K_4 Запомнить old-поле
+    else                                         ! _K_4 Что-то нажали
+      field# = 0                                 ! _K_4 Сбросить old-поле
+    End                                          ! _K_4 of Был CTRL-ENTER
+    EXECUTE ACTION                               ! SET MESSAGE
+      MEM:MESSAGE = 'Запись будет ДОБАВЛЕНА'     !
+      MEM:MESSAGE = 'Запись будет ЗАМЕНЕНА '     !
+      MEM:MESSAGE = 'Жми Enter для УДАЛЕНИЯ'     !
+    .
+    If ~Inrange(ACTION,1,3) Then                 ! _K_8 не корректура
+      MEM:MESSAGE = ' Только просмотр  '         ! _K_8
+    End                                          ! _K_8
+    IF KEYCODE() = ACCEPT_KEY                    ! ON SCREEN ACCEPT KEY
+      UPDATE                                     ! MOVE ALL FIELDS FROM SCREEN
+      SELECT(?)                                  ! START WITH CURRENT FIELD
+      SELECT                                     ! EDIT ALL FIELDS
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .
+    CASE FIELD()                                 ! JUMP TO FIELD EDIT ROUTINE
+    OF ?FIRST_FIELD                              ! FROM THE FIRST FIELD
+      IF KEYCODE() = ESC_KEY THEN RETURN.        ! RETURN ON ESC KEY
+      If Inrange(ACTION,1,2) Then                ! _K_8 Ввод и корректировка
+        SELECT(K_FRST_IN#)                       ! _K_8 - на первое поле ввода
+      Else                                       ! _K_8 удаление и просмотр
+        SELECT(?DELETE_FIELD)                    ! _K_8
+      End                                        ! _K_8
+    @EDITS                                       ! EDIT ROUTINES GO HERE
+    OF ?LAST_FIELD                               ! FROM THE LAST FIELD
+      EXECUTE ACTION                             ! UPDATE THE FILE
+        ADD(@FILENAME)                           ! ADD NEW RECORD
+        PUT(@FILENAME)                           ! CHANGE EXISTING RECORD
+        DELETE(@FILENAME)                        ! DELETE EXISTING RECORD
+      .
+      IF ERRORCODE() = 40                        ! DUPLICATE KEY ERROR
+        MEM:MESSAGE = ERROR()                    ! DISPLAY ERR MESSAGE
+        SELECT(2)                                ! POSITION TO TOP OF FORM
+        CYCLE                                    ! GET OUT OF EDIT LOOP
+      ELSIF ERROR()                              ! CHECK FOR UNEXPECTED ERROR
+        STOP(ERROR())                            ! HALT EXECUTION
+      .
+      PUT(@FILENAME2)                            ! UPDATE SECONDARY FILES
+      PUT(@FILENAME3)                            ! UPDATE SECONDARY FILES
+      PUT(@FILENAME4)                            ! UPDATE SECONDARY FILES
+      @NEXTFORM                                  ! CALL NEXT FORM PROCEDURE
+      ACTION = 0                                 ! SET ACTION TO COMPLETE
+      RETURN                                     ! AND RETURN TO CALLER
+
+    OF ?DELETE_FIELD                             ! FROM THE DELETE FIELD
+      IF KEYCODE() = ENTER_KEY          |        ! ON ENTER KEY
+      OR KEYCODE() = ACCEPT_KEY                  ! OR CTRL-ENTER KEY
+        SELECT(?LAST_FIELD)                      ! DELETE THE RECORD
+      ELSE                                       ! OTHERWISE
+        BEEP                                     ! BEEP AND ASK AGAIN
+  . . .
+
+CALCFIELDS   ROUTINE
+  IF FIELD() > ?FIRST_FIELD                      ! BEYOND FIRST_FIELD?
+    IF KEYCODE() = 0                      |
+    AND SELECTED() > FIELD() THEN EXIT.          ! GET OUT IF NOT NONSTOP
+  .
+  @LOOKUPS                                       ! DISPLAY FROM OTHER FILES
+  @SHOW                                          ! DISPLAY STRING VARIABLES
+  @COMPUTE                                       ! DISPLAY COMPUTED FIELDS
+  @RESULT                                        ! MOVE RESULTING VALUES
+
+*GLOBAL*************************************************************************
+             INCLUDE('STD_KEYS.CLA')
+             INCLUDE('CTL_KEYS.CLA')
+             INCLUDE('ALT_KEYS.CLA')
+             INCLUDE('SHF_KEYS.CLA')
+
+REJECT_KEY   EQUATE(CTRL_ESC)
+ACCEPT_KEY   EQUATE(CTRL_ENTER)
+TRUE         EQUATE(1)
+FALSE        EQUATE(0)
+
+             MAP
+               PROC(G_OPENFILES)
+               @RUNMAP
+               @MODULES
+             .
+             EJECT('FILE LAYOUTS')
+             @FILE
+             EJECT('GLOBAL MEMORY VARIABLES')
+ACTION       SHORT                               ! 0 = NO ACTION
+                                                 ! 1 = ADD RECORD
+                                                 ! 2 = CHANGE RECORD
+                                                 ! 3 = DELETE RECORD
+                                                 ! 4 = LOOKUP FIELD
+             @MEMORY
+
+             EJECT('CODE SECTION')
+  CODE
+  SETHUE(7,0)                                    ! SET WHITE ON BLACK
+  BLANK                                          ! AND BLANK
+  HELP(@HELPFILE)                                ! OPEN THE HELP FILE
+  G_OPENFILES                                    ! OPEN OR CREATE FILES
+  SETHUE()                                       ! THE SCREEN
+  @BASEPROC                                      ! CALL THE BASE PROCEDURE
+  RETURN                                         ! EXIT TO DOS
+
+G_OPENFILES  PROCEDURE                           ! OPEN FILES & CHECK FOR ERROR
+  CODE
+  @OPENFILES                                     ! OPEN EACH FILE
+  BLANK                                          ! BLANK THE SCREEN
+
+  @RUNPROC
+
+*MENU***************************************************************************
+@PROCNAME    PROCEDURE
+
+SCREEN       SCREEN       PRE(SCR),@SCREENOPT
+                          @PAINTS
+                          @STRINGS
+                          @VARIABLES
+                          ENTRY,USE(?FIRST_FIELD)
+                          @FIELDS
+                          ENTRY,USE(?PRE_MENU)
+                          MENU,USE(MENU_FIELD"),REQ
+                            @CHOICES
+             .            .
+
+  EJECT
+  CODE
+  OPEN(SCREEN)                                   ! OPEN THE MENU SCREEN
+  SETCURSOR                                      ! TURN OFF ANY CURSOR
+  MENU_FIELD" = ''                               ! START MENU WITH FIRST ITEM
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  LOOP                                           ! LOOP UNTIL USER EXITS
+    @LOOKUPS                                     ! DISPLAY FROM OTHER FILES
+    @SHOW                                        ! DISPLAY STRING VARIABLES
+    @COMPUTE                                     ! DISPLAY COMPUTED FIELDS
+    @RESULT                                      ! MOVE RESULTING VALUES
+    ALERT                                        ! TURN OFF ALL ALERTED KEYS
+    ALERT(REJECT_KEY)                            ! ALERT SCREEN REJECT KEY
+    ALERT(ACCEPT_KEY)                            ! ALERT SCREEN ACCEPT KEY
+    @ALERT                                       ! ALERT HOT KEYS
+    ACCEPT                                       ! READ A FIELD OR MENU CHOICE
+    @CHECKHOT                                    ! ON HOT KEY, CALL PROCEDURE
+    IF KEYCODE() = REJECT_KEY THEN RETURN.       ! RETURN ON SCREEN REJECT
+
+    IF KEYCODE() = ACCEPT_KEY                    ! ON SCREEN ACCEPT KEY
+      UPDATE                                     ! MOVE ALL FIELDS FROM SCREEN
+      SELECT(?)                                  ! START WITH CURRENT FIELD
+      SELECT                                     ! EDIT ALL FIELDS
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .                                            !
+
+    CASE FIELD()                                 ! JUMP TO FIELD EDIT ROUTINE
+    OF ?FIRST_FIELD                              ! FROM THE FIRST FIELD
+      IF KEYCODE() = ESC_KEY THEN RETURN.        ! RETURN ON ESC KEY
+
+    @EDITS                                       ! EDIT ROUTINES GO HERE
+    OF ?PRE_MENU                                 ! PRE MENU FIELD CONDITION
+      IF KEYCODE() = ESC_KEY                     ! BACKING UP?
+        SELECT(?-1)                              ! SELECT PREVIOUS FIELD
+      ELSE                                       ! GOING FORWARD
+        SELECT(?+1)                              ! SELECT MENU FIELD
+      .
+    OF ?MENU_FIELD"                              ! FROM THE MENU FIELD
+      EXECUTE CHOICE()                           ! CALL THE SELECTED PROCEDURE
+        @MENU                                    !
+  . . .
+*TABLE**************************************************************************
+@PROCNAME    PROCEDURE
+ ! _K_2 - 25.10.91-13.32 при нажатии CTRL_B вызвать ввод (UPDT + ACTION=1) ,
+ ! _K_2 -                  взяв выделенную запись в качестве образца для ввода
+ ! _K_6 - 07.02.92-16:45  "изменения" в TABL по TOTAL + начальные установки
+ ! _K_6_1 - "установки" = как при ACTION=4, работа как при ACTION=0
+ ! _K_6_1 -    --"--    но при ACTION=6  работа "по старому"
+ ! _K_6_2 - при вызове HOTKEY стандартно пересчет TOTAL по текущей записи TABL,
+ ! _K_6_2 -  а при возврате из HOTPROC ACTION==5647 пересоздать TABL целиком.
+SCREEN       SCREEN       PRE(SCR),@SCREENOPT
+                          @PAINTS
+                          @STRINGS
+                          @VARIABLES
+                          ENTRY,USE(?FIRST_FIELD)
+                          @FIELDS
+                          ENTRY,USE(?PRE_POINT)
+                          REPEAT(@COUNT),EVERY(@PROWS),INDEX(NDX)
+              @PLOC         POINT(@PROWS,@COLS),USE(?POINT),ESC(?-1)
+                            @SCROLLVARIABLES
+             .            .
+
+NDX          BYTE                                ! REPEAT INDEX FOR POINT AREA
+ROW          BYTE                                ! ACTUAL ROW OF SCROLL AREA
+COL          BYTE                                ! ACTUAL COLUMN OF SCROLL AREA
+COUNT        BYTE(@COUNT)                        ! NUMBER OF ITEMS TO SCROLL
+ROWS         BYTE(@ROWS)                         ! NUMBER OF ROWS TO SCROLL
+COLS         BYTE(@COLS)                         ! NUMBER OF COLUMNS TO SCROLL
+FOUND        BYTE                                ! RECORD FOUND FLAG
+NEWPTR       LONG                                ! POINTER TO NEW RECORD
+
+TABLE        TABLE,PRE(TBL)                      ! TABLE OF RECORD DATA
+               @TABLEFIELDS                      ! SCREEN AND KEY COMPONENTS
+PTR            LONG                              ! POINTER TO FILE RECORD
+             .
+             @SAVEITEMS                          ! SELECTOR FIELD SAVE AREA
+             @SAVETOTALS                         ! TOTAL FIELD ACCUMULATORS
+
+  EJECT
+  CODE
+  If (ACTION  = 6 ) Then                         ! _K_6 "по - старому"
+    POINT# = 0                                   ! _K_6 сбросить флаг
+  Else                                           ! _K_6
+    POINT# = 1                                   ! _K_6 установить флаг всем
+    NEWPTR = POINTER(@FILENAME)                  ! _K_6 POINTER TO last RECORD
+    IF NOT NEWPTR                                ! _K_6
+      SET(@KEYNAME,@KEYNAME)                     ! _K_6 по ключу в RECORD
+      NEXT(@FILENAME)                            ! _K_6 взять следующую
+      NEWPTR = POINTER(@FILENAME)                ! _K_6
+    End                                          ! _K_6
+  End                                            ! _K_6
+  If (ACTION <> 4 ) Then                         ! _K_6
+    ACTION = 0                                   ! _K_6 действия - стандартные
+  End                                            ! _K_6
+  ACTION# = ACTION                               ! SAVE ACTION
+  OPEN(SCREEN)                                   ! OPEN THE SCREEN
+  SETCURSOR                                      ! TURN OFF ANY CURSOR
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  @INITSELECTS                                   ! SAVE SELECTOR FIELDS
+  @TOTCLEAR                                      ! ZERO TOTAL ACCUMULATORS
+  TBL:PTR = 1                                    ! START AT TABLE ENTRY
+  NDX = 1                                        ! PUT SELECTOR BAR ON TOP ITEM
+  ROW = ROW(?POINT)                              ! REMEMBER TOP ROW AND
+  COL = COL(?POINT)                              ! LEFT COLUMN OF SCROLL AREA
+  RECORDS# = TRUE                                ! INITIALIZE RECORDS FLAG
+  CACHE(@KEYNAME,.15)                            ! _K_ эконмия KEY FILE
+  @BUILDTABLE                                    ! BUILD SCROLLING TABLE
+  LOOP                                           ! LOOP UNTIL USER EXITS
+    If (ACTION = 5647) Then                      ! _K_6 Запрошен пересчет
+      DO K_TOTALCALC                             ! _K_6 пресчет TOTAL
+      DO FIND_RECORD                             ! _K_6 POSITION IN FILE
+    End                                          ! _K_6
+    ACTION = ACTION#                             ! RESTORE ACTION
+    @RESTSELECTS                                 ! RESTORE SELECTOR FIELDS
+    @TOTSHOW                                     ! DISPLY TOTAL AMOUNTS ON SCRN
+    @LOOKUPS                                     ! DISPLAY FROM OTHER FILES
+    @SHOW                                        ! DISPLAY STRING VARIABLES
+    @COMPUTE                                     ! DISPLAY COMPUTED FIELDS
+    @RESULT                                      ! MOVE RESULTING VALUES
+    ALERT                                        ! RESET ALERTED KEYS
+    ALERT(REJECT_KEY)                            ! ALERT SCREEN REJECT KEY
+    ALERT(ACCEPT_KEY)                            ! ALERT SCREEN ACCEPT KEY
+    ALERT(CTRL_B)                                ! _K_2 KEY  ввода по образцу
+    @ALERT                                       ! ALERT HOT KEYS
+    ACCEPT                                       ! READ A FIELD
+    @TABLEHOT                                    ! CALL HOT KEY PROCEDURES
+    IF KEYCODE() = REJECT_KEY THEN BREAK.        ! RETURN ON SCREEN REJECT KEY
+
+    IF  KEYCODE() = ACCEPT_KEY    |              ! ON SCREEN ACCEPT KEY
+    AND FIELD() <> ?POINT                        ! BUT NOT ON THE POINT FIELD
+      UPDATE                                     ! MOVE ALL FIELDS FROM SCREEN
+      SELECT(?)                                  ! START WITH CURRENT FIELD
+      SELECT                                     ! EDIT ALL FIELDS
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .
+
+    CASE FIELD()                                 ! JUMP TO FIELD EDIT ROUTINE
+
+    OF ?FIRST_FIELD                              ! FROM THE FIRST FIELD
+      IF KEYCODE() = ESC_KEY   |                 ! RETURN ON ESC KEY
+      OR RECORDS# = FALSE                        ! OR NO RECORDS
+        BREAK                                    ! EXIT PROGRAM
+      .
+    @EDITS                                       ! FIELD EDIT ROUTINES
+    OF ?PRE_POINT                                ! PRE POINT FIELD CONDITION
+      IF KEYCODE() = ESC_KEY                     ! BACKING UP?
+        SELECT(?-1)                              ! SELECT PREVIOUS FIELD
+      ELSE                                       ! GOING FORWARD
+        SELECT(?POINT)                           ! SELECT MENU FIELD
+      .
+      @INITLOCATE                                ! SHOW CURSOR FOR LOCATOR
+    OF ?POINT                                    ! PROCESS THE POINT FIELD
+      IF RECORDS(TABLE) = 0                      ! IF THERE ARE NO RECORDS
+        CLEAR(@PRE:RECORD)                       ! CLEAR RECORD AREA
+        ACTION = 1                               ! SET ACTION TO ADD
+        GET(@FILENAME,0)                         ! CLEAR PENDING RECORD
+        AUTONUMKEY#=0                            ! _K_2
+        @AUTONUMKEY                              ! AUTO INCREMENT KEY FIELD
+        @TOTACTN                                 ! SAVE TOTACTN
+        @RESTSELECTS                             ! RESTORE SELECTOR FIELDS
+        @UPDATE                                  ! CALL FORM FOR NEW RECORD
+        NEWPTR = POINTER(@FILENAME)              ! SET POINTER TO NEW RECORD
+        DO FIRST_PAGE                            ! DISPLAY THE FIRST PAGE
+        IF RECORDS(TABLE) = 0                    ! IF THERE AREN'T ANY RECORDS
+          RECORDS# = FALSE                       ! INDICATE NO RECORDS
+          SELECT(?PRE_POINT-1)                   ! SELECT THE PRIOR FIELD
+        .
+        CYCLE                                    ! AND LOOP AGAIN
+      .
+      @LOCATE                                    ! PERORM LOCATOR LOGIC
+      CASE KEYCODE()                             ! PROCESS THE KEYSTROKE
+
+      OF INS_KEY                                 ! INS KEY
+      OROF CTRL_B                                ! _K_2 - взять старую
+        if (KEYCODE() = CTRL_B)                  ! _K_2 - просили взять старую
+          DO GET_RECORD                          ! _K_2 - взять старую
+          AUTONUMKEY# = 1                        ! _K_2  и сказать AUTONUMKEY
+        else
+          CLEAR(@PRE:RECORD)                     ! _K_2 - чистить новую
+          AUTONUMKEY# = 0                        ! _K_2  и сказать AUTONUMKEY
+        end
+        ACTION = 1                               ! SET ACTION TO ADD
+        GET(@FILENAME,0)                         ! CLEAR PENDING RECORD
+        @AUTONUMKEY                              ! AUTO INCREMENT KEY FIELD
+        @TOTACTN                                 ! SAVE ACTION for TOTALS
+        @RESTSELECTS                             ! RESTORE SELECTOR FIELDS
+        @UPDATE                                  ! CALL FORM FOR NEW RECORD
+        IF ~ACTION                               ! IF RECORD WAS ADDED
+          NEWPTR = POINTER(@FILENAME)            ! SET POINTER TO NEW RECORD
+          DO FIND_RECORD                         ! POSITION IN FILE
+        .
+      OF ENTER_KEY                               ! ENTER KEY
+      OROF ACCEPT_KEY                            ! CTRL-ENTER KEY
+        DO GET_RECORD                            ! GET THE SELECTED RECORD
+        IF ACTION = 4 AND KEYCODE() = ENTER_KEY  ! IF THIS IS A LOOKUP REQUEST
+          ACTION = 0                             ! SET ACTION TO COMPLETE
+          BREAK                                  ! AND RETURN TO CALLER
+        .
+        IF ~ERROR()                              ! IF RECORD IS STILL THERE
+          ACTION = 2                             ! SET ACTION TO CHANGE
+          @TOTACTN                               ! _K_6 TOTCHECK->в GET_RECORD
+          @UPDATE                                ! CALL FORM TO CHANGE REC
+          IF ACTION THEN CYCLE.                  ! IF SUCCESSFUL RE-DISPLAY
+          DO K_TOTMINUS                          ! _K_6 TOTMINUS - ROUTINE
+        .
+        NEWPTR = POINTER(@FILENAME)              ! SET POINTER TO NEW RECORD
+        DO FIND_RECORD                           ! POSITION IN FILE
+      OF DEL_KEY                                 ! DEL KEY
+        DO GET_RECORD                            ! READ THE SELECTED RECORD
+        IF ~ERROR()                              ! IF RECORD IS STILL THERE
+          ACTION = 3                             ! SET ACTION TO DELETE
+                                                 ! _K_6 TOTCHECK->в GET_RECORD
+          @UPDATE                                ! CALL FORM TO DELETE
+          IF ~ACTION                             ! IF SUCCESSFUL
+            DO K_TOTMINUS                        ! _K_6 TOTMINUS - ROUTINE
+            N# = NDX                             ! SAVE POINT INDEX
+            DO SAME_PAGE                         ! RE-DISPLAY
+            NDX = N#                             ! RESTORE POINT INDEX
+        . .
+      OF DOWN_KEY                                ! DOWN ARROW KEY
+        DO SET_NEXT                              ! POINT TO NEXT RECORD
+        DO FILL_NEXT                             ! FILL A TABLE ENTRY
+        IF FOUND                                 ! FOUND A NEW RECORD
+          SCROLL(ROW,COL,ROWS,COLS,ROWS(?POINT)) ! SCROLL THE SCREEN UP
+          GET(TABLE,RECORDS(TABLE))              ! GET RECORD FROM TABLE
+          DO FILL_SCREEN                         ! DISPLAY ON SCREEN
+        .
+
+      OF PGDN_KEY                                ! PAGE DOWN KEY
+        DO SET_NEXT                              ! POINT TO NEXT RECORD
+        DO NEXT_PAGE                             ! DISPLAY THE NEXT PAGE
+
+      OF CTRL_PGDN                               ! CTRL-PAGE DOWN KEY
+        DO LAST_PAGE                             ! DISPLAY THE LAST PAGE
+        NDX = RECORDS(TABLE)                     ! POSITION POINT BAR
+
+      OF UP_KEY                                  ! UP ARROW KEY
+        DO SET_PREV                              ! POINT TO PREVIOUS RECORD
+        DO FILL_PREV                             ! FILL A TABLE ENTRY
+        IF FOUND                                 ! FOUND A NEW RECORD
+          SCROLL(ROW,COL,ROWS,COLS,-(ROWS(?POINT)))! SCROLL THE SCREEN DOWN
+          GET(TABLE,1)                           ! GET RECORD FROM TABLE
+          DO FILL_SCREEN                         ! DISPLAY ON SCREEN
+        .
+
+      OF PGUP_KEY                                ! PAGE UP KEY
+        DO SET_PREV                              ! POINT TO PREVIOUS RECORD
+        DO PREV_PAGE                             ! DISPLAY THE PREVIOUS PAGE
+
+      OF CTRL_PGUP                               ! CTRL-PAGE UP
+        DO FIRST_PAGE                            ! DISPLAY THE FIRST PAGE
+        NDX = 1                                  ! POSITION POINT BAR
+  . . .
+  If ACTION <> 4                                 ! _K_6 если не LOOKUP
+    Do GET_RECORD                                ! _K_6 настроиться на запись
+  End                                            ! _K_6
+  FREE(@KEYNAME)                                 ! _K_6 FREE KEY BUFFERS
+  FREE(TABLE)                                    ! FREE MEMORY TABLE
+  RETURN                                         ! AND RETURN TO CALLER
+
+SAME_PAGE ROUTINE                                ! DISPLAY THE SAME PAGE
+  GET(TABLE,1)                                   ! GET THE FIRST TABLE ENTRY
+  DO FILL_RECORD                                 ! FILL IN THE RECORD
+  SET(@KEYNAME,@KEYNAME,TBL:PTR)                 ! POSITION FILE
+  FREE(TABLE)                                    ! EMPTY THE TABLE
+  DO NEXT_PAGE                                   ! DISPLAY A FULL PAGE
+
+FIRST_PAGE ROUTINE                               ! DISPLAY FIRST PAGE
+  BLANK(ROW,COL,ROWS,COLS)
+  FREE(TABLE)                                    ! EMPTY THE TABLE
+  CLEAR(@PRE:RECORD,-1)                          ! CLEAR RECORD TO LOW VALUES
+  CLEAR(TBL:PTR)                                 ! ZERO RECORD POINTER
+  @SETFILE                                       ! POSITION FILE POINTERS
+  LOOP NDX = 1 TO COUNT                          ! FILL UP THE TABLE
+    DO FILL_NEXT                                 ! FILL A TABLE ENTRY
+    IF NOT FOUND THEN BREAK.                     ! GET OUT IF NO RECORD
+  .
+  NDX = 1                                        ! SET TO TOP OF TABLE
+  DO SHOW_PAGE                                   ! DISPLAY THE PAGE
+
+LAST_PAGE ROUTINE                                ! DISPLAY LAST PAGE
+  NDX# = NDX                                     ! SAVE SELECTOR POSITION
+  BLANK(ROW,COL,ROWS,COLS)                       ! CLEAR SCROLLING AREA
+  FREE(TABLE)                                    ! EMPTY THE TABLE
+  CLEAR(@PRE:RECORD,1)                           ! CLEAR RECORD TO HIGH VALUES
+  CLEAR(TBL:PTR,1)                               ! CLEAR PTR TO HIGH VALUE
+  @SETFILE                                       ! POSITION FILE POINTERS
+  LOOP NDX = COUNT TO 1 BY -1                    ! FILL UP THE TABLE
+    DO FILL_PREV                                 ! FILL A TABLE ENTRY
+    IF NOT FOUND THEN BREAK.                     ! GET OUT IF NO RECORD
+  .                                              ! END OF LOOP
+  NDX = NDX#                                     ! RESTORE SELECTOR POSITION
+  DO SHOW_PAGE                                   ! DISPLAY THE PAGE
+
+FIND_RECORD ROUTINE                              ! POSITION TO SPECIFIC RECORD
+  IF NEWPTR <> 0                                 ! _K_6 NEWPTR установлен
+    Get(@FILENAME,NEWPTR)                        ! _K_6 Взять ключ в RECORD
+  End                                            ! _K_6
+  SET(@KEYNAME,@KEYNAME,NEWPTR)                  ! -? По ключу @FILENAME-RECORD
+  IF NEWPTR = 0                                  ! NEWPTR NOT SET
+    NEXT(@FILENAME)                              ! READ NEXT RECORD
+    NEWPTR = POINTER(@FILENAME)                  ! SET NEWPTR
+    SKIP(@FILENAME,-1)                           ! BACK UP TO DISPLAY RECORD
+  .
+  FREE(TABLE)                                    ! CLEAR THE RECORD
+  DO NEXT_PAGE                                   ! DISPLAY A PAGE
+
+NEXT_PAGE ROUTINE                                ! DISPLAY NEXT PAGE
+  SAVECNT# = RECORDS(TABLE)                      ! SAVE RECORD COUNT
+  LOOP COUNT TIMES                               ! FILL UP THE TABLE
+    DO FILL_NEXT                                 ! FILL A TABLE ENTRY
+    IF NOT FOUND                                 ! IF NONE ARE LEFT
+      IF NOT SAVECNT#                            ! IF REBUILDING TABLE
+        DO LAST_PAGE                             ! FILL IN RECORDS
+        EXIT                                     ! EXIT OUT OF ROUTINE
+      .
+      BREAK                                      ! EXIT LOOP
+  . .
+  DO SHOW_PAGE                                   ! DISPLAY THE PAGE
+
+SET_NEXT ROUTINE                                 ! POINT TO THE NEXT PAGE
+  GET(TABLE,RECORDS(TABLE))                      ! GET THE LAST TABLE ENTRY
+  DO FILL_RECORD                                 ! FILL IN THE RECORD
+  SET(@KEYNAME,@KEYNAME,TBL:PTR)                 ! POSITION FILE
+  NEXT(@FILENAME)                                ! READ THE CURRENT RECORD
+
+FILL_NEXT ROUTINE                                ! FILL NEXT TABLE ENTRY
+  FOUND = FALSE                                  ! ASSUME RECORD NOT FOUND
+  LOOP UNTIL EOF(@FILENAME)                      ! LOOP UNTIL END OF FILE
+    NEXT(@FILENAME)                              ! READ THE NEXT RECORD
+    @CHECKSELECT                                 ! SELECTOR
+    IF ~(@FILTER) THEN CYCLE.                    ! FILTER
+    FOUND = TRUE                                 ! SET RECORD FOUND
+    DO FILL_TABLE                                ! FILL IN THE TABLE ENTRY
+    ADD(TABLE)                                   ! ADD LAST TABLE ENTRY
+    GET(TABLE,RECORDS(TABLE)-COUNT)              ! GET ANY OVERFLOW RECORD
+    DELETE(TABLE)                                ! AND DELETE IT
+    EXIT                                         ! RETURN TO CALLER
+  .
+PREV_PAGE ROUTINE                                ! DISPLAY PREVIOUS PAGE
+  LOOP COUNT TIMES                               ! FILL UP THE TABLE
+    DO FILL_PREV                                 ! FILL A TABLE ENTRY
+    IF NOT FOUND THEN BREAK.                     ! GET OUT IF NO RECORD
+  .
+  DO SHOW_PAGE                                   ! DISPLAY THE PAGE
+
+SET_PREV ROUTINE                                 ! POINT TO PREVIOUS PAGE
+  GET(TABLE,1)                                   ! GET THE FIRST TABLE ENTRY
+  DO FILL_RECORD                                 ! FILL IN THE RECORD
+  SET(@KEYNAME,@KEYNAME,TBL:PTR)                 ! POSITION FILE
+  PREVIOUS(@FILENAME)                            ! READ THE CURRENT RECORD
+
+FILL_PREV ROUTINE                                ! FILL PREVIOUS TABLE ENTRY
+  FOUND = FALSE                                  ! ASSUME RECORD NOT FOUND
+  LOOP UNTIL BOF(@FILENAME)                      ! LOOP UNTIL BEGINNING OF FILE
+    PREVIOUS(@FILENAME)                          ! READ THE PREVIOUS RECORD
+    @CHECKSELECT                                 ! SELECTOR
+    IF ~(@FILTER) THEN CYCLE.                    ! FILTER
+    FOUND = TRUE                                 ! SET RECORD FOUND
+    DO FILL_TABLE                                ! FILL IN THE TABLE ENTRY
+    ADD(TABLE,1)                                 ! ADD FIRST TABLE ENTRY
+    GET(TABLE,COUNT+1)                           ! GET ANY OVERFLOW RECORD
+    DELETE(TABLE)                                ! AND DELETE IT
+    EXIT                                         ! RETURN TO CALLER
+  .
+SHOW_PAGE ROUTINE                                ! DISPLAY THE PAGE
+  NDX# = NDX                                     ! SAVE SCREEN INDEX
+  LOOP NDX = 1 TO RECORDS(TABLE)                 ! LOOP THRU THE TABLE
+    GET(TABLE,NDX)                               ! GET A TABLE ENTRY
+    DO FILL_SCREEN                               ! AND DISPLAY IT
+    IF TBL:PTR = NEWPTR                          ! SET INDEX FOR NEW RECORD
+      NDX# = NDX                                 ! POINT TO CORRECT RECORD
+      @DOTOTALS                                  ! CALCULATE TOTAL FIELDS
+  . .
+  NDX = NDX#                                     ! RESTORE SCREEN INDEX
+  NEWPTR = 0                                     ! CLEAR NEW RECORD POINTER
+  CLEAR(@PRE:RECORD)                             ! CLEAR RECORD AREA
+
+FILL_TABLE ROUTINE                               ! MOVE FILE TO TABLE
+  @LOOKUPSCROLL                                  ! PERFORM LOOKUPS
+  @FILLTABLE                                     ! LOAD TABLE FIELDS
+  TBL:PTR = POINTER(@FILENAME)                   ! SAVE RECORD POINTER
+  @COMPUTESCROLL                                 ! DO COMPUTES AND CONDITIONALS
+  @RESULTSCROLL                                  ! MOVE RESULT FIELDS
+
+FILL_RECORD ROUTINE                              ! MOVE TABLE TO FILE
+  @FILLRECORD                                    ! LOAD FILE KEYS
+
+FILL_SCREEN ROUTINE                              ! MOVE TABLE TO SCREEN
+  @FILLSCREEN                                    ! DISPLAY SCREEN VARIABLES
+
+GET_RECORD ROUTINE                               ! GET SELECTED RECORD
+  GET(TABLE,NDX)                                 ! GET TABLE ENTRY
+  GET(@FILENAME,TBL:PTR)                         ! GET THE RECORD
+  NEWPTR = POINTER(@FILENAME)                    ! _K_6 и запомнить где были
+                                                 ! _K_6 SAVE TOTALS-GET_RECORD
+  @TOTSAVE                                       ! _K_6 SAVE TOTALS of RECORD
+
+  @COMPUTETOTS                                   ! CALCULATE TOTAL FIELDS
+
+K_TOTMINUS ROUTINE                               ! _K_6 вычесть TOTAL "старой"
+  @TOTMINUS                                      ! _K_6 TOTMINUS - ROUTINE
+  EXIT                                           ! _K_6 of K_TOTMINUS
+
+K_TOTALCALC ROUTINE                              ! _K_6 Пересчет TOTAL+создание
+                                                 ! _K_6 TABLE полностью
+  @TOTALCALC                                     ! _K_6 CALC TABLE TOTAL FIELDS
+  EXIT                                           ! _K_6 of K_TOTALCALC
+
+*FORM***************************************************************************
+@PROCNAME    PROCEDURE
+
+SCREEN       SCREEN       PRE(SCR),@SCREENOPT
+                          @PAINTS
+                          @STRINGS
+                          @VARIABLES
+                          ENTRY,USE(?FIRST_FIELD)
+                          @FIELDS
+                          @PAUSE
+                          ENTRY,USE(?LAST_FIELD)
+                          PAUSE(''),USE(?DELETE_FIELD)
+             .
+
+  EJECT
+  CODE
+  OPEN(SCREEN)                                   ! OPEN THE SCREEN
+  SETCURSOR                                      ! TURN OFF ANY CURSOR
+  K_FRST_IN# = ?FIRST_FIELD + 1                  ! _K_8 Умолчание - с первого
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  DISPLAY                                        ! DISPLAY THE FIELDS
+  field# = 0                                     ! _K_4 Сбросить old-поле
+  LOOP                                           ! LOOP THRU ALL THE FIELDS
+    MEM:MESSAGE = CENTER(MEM:MESSAGE,SIZE(MEM:MESSAGE)) !DISPLAY ACTION MESSAGE
+    DO CALCFIELDS                                ! CALCULATE DISPLAY FIELDS
+    ALERT                                        ! RESET ALERTED KEYS
+    ALERT(ACCEPT_KEY)                            ! ALERT SCREEN ACCEPT KEY
+    ALERT(REJECT_KEY)                            ! ALERT SCREEN REJECT KEY
+    ALERT(SHFT_ENTER)                            ! _K_5 ALERT "TABLE-KEY"
+    @ALERT                                       ! ALERT HOT KEY
+    ACCEPT                                       ! READ A FIELD
+    @CHECKHOT                                    ! ON HOT KEY, CALL PROCEDURE
+    IF KEYCODE() = REJECT_KEY THEN RETURN.       ! RETURN ON SCREEN REJECT KEY
+    If SELECTED() > FIELD() AND KEYCODE()=0 Then ! _K_4 Был CTRL-ENTER
+      if FIELD() < field# then                   ! _K_4 это уже безвыходность
+        MEM:MESSAGE = '_K 4 ^CR '          |     ! _K_4 привесить признак
+              & Clip(Left(MEM:MESSAGE))          ! _K_4 к ошибке
+        SELECT(field())                          ! _K_4 POSITION TO "ERROR"
+        BEEP                                     ! _K_4 гуднем по ошибке
+        CYCLE                                    ! _K_4 GET OUT OF EDIT LOOP
+      End                                        ! _K_4
+      field# = field()                           ! _K_4 Запомнить old-поле
+    else                                         ! _K_4 Что-то нажали
+      field#=0                                   ! _K_4 Сбросить old-поле
+    End                                          ! _K_4 of Был CTRL-ENTER
+    EXECUTE ACTION                               ! SET MESSAGE
+      MEM:MESSAGE = 'Запись будет ДОБАВЛЕНА'     !
+      MEM:MESSAGE = 'Запись будет ЗАМЕНЕНА '     !
+      MEM:MESSAGE = 'Жми Enter для УДАЛЕНИЯ'     !
+    .
+    If ~Inrange(ACTION,1,3) Then                 ! _K_8 не корректура
+      MEM:MESSAGE = ' Только просмотр  '         ! _K_8
+    End                                          ! _K_8
+    IF KEYCODE() = ACCEPT_KEY                    ! ON SCREEN ACCEPT KEY
+      UPDATE                                     ! MOVE ALL FIELDS FROM SCREEN
+      SELECT(?)                                  ! START WITH CURRENT FIELD
+      SELECT                                     ! EDIT ALL FIELDS
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .
+    CASE FIELD()                                 ! JUMP TO FIELD EDIT ROUTINE
+    OF ?FIRST_FIELD                              ! FROM THE FIRST FIELD
+      IF KEYCODE() = ESC_KEY THEN RETURN.        ! RETURN ON ESC KEY
+      If Inrange(ACTION,1,2) Then                ! _K_8 Ввод и корректировка
+        SELECT(K_FRST_IN#)                       ! _K_8 - на первое поле ввода
+      Else                                       ! _K_8 удаление и просмотр
+        SELECT(?DELETE_FIELD)                    ! _K_8
+      End                                        ! _K_8
+
+    @EDITS                                       ! EDIT ROUTINES GO HERE
+    OF ?LAST_FIELD                               ! FROM THE LAST FIELD
+      EXECUTE ACTION                             ! UPDATE THE FILE
+        ADD(@FILENAME)                           ! ADD NEW RECORD
+        PUT(@FILENAME)                           ! CHANGE EXISTING RECORD
+        DELETE(@FILENAME)                        ! DELETE EXISTING RECORD
+      .
+      IF ERRORCODE() = 40                        ! DUPLICATE KEY ERROR
+        MEM:MESSAGE = ERROR()                    ! DISPLAY ERR MESSAGE
+        SELECT(2)                                ! POSITION TO TOP OF FORM
+        CYCLE                                    ! GET OUT OF EDIT LOOP
+      ELSIF ERROR()                              ! CHECK FOR UNEXPECTED ERROR
+        STOP(ERROR())                            ! HALT EXECUTION
+      .
+      PUT(@FILENAME2)                            ! UPDATE SECONDARY FILES
+      PUT(@FILENAME3)                            ! UPDATE SECONDARY FILES
+      PUT(@FILENAME4)                            ! UPDATE SECONDARY FILES
+      @NEXTFORM                                  ! CALL NEXT FORM PROCEDURE
+      ACTION = 0                                 ! SET ACTION TO COMPLETE
+      RETURN                                     ! AND RETURN TO CALLER
+
+    OF ?DELETE_FIELD                             ! FROM THE DELETE FIELD
+      IF KEYCODE() = ENTER_KEY |                 ! ON ENTER KEY
+      OR KEYCODE() = ACCEPT_KEY                  ! OR CTRL-ENTER KEY
+        SELECT(?LAST_FIELD)                      ! DELETE THE RECORD
+      ELSE                                       ! OTHERWISE
+        BEEP                                     ! BEEP AND ASK AGAIN
+  . . .
+
+CALCFIELDS   ROUTINE
+  IF FIELD() > ?FIRST_FIELD                      ! BEYOND FIRST_FIELD?
+    IF KEYCODE() = 0 AND SELECTED() > FIELD() THEN EXIT. !GET OUT IF NOT NONSTOP
+  .
+  @LOOKUPS                                       ! DISPLAY FROM OTHER FILES
+  @SHOW                                          ! DISPLAY STRING VARIABLES
+  @COMPUTE                                       ! DISPLAY COMPUTED FIELDS
+  @RESULT                                        ! MOVE RESULTING VALUES
+
+*MEMFORM************************************************************************
+@PROCNAME    PROCEDURE
+
+SCREEN       SCREEN       PRE(SCR),@SCREENOPT
+                          @PAINTS
+                          @STRINGS
+                          @VARIABLES
+                          ENTRY,USE(?FIRST_FIELD)
+                          @FIELDS
+                          @PAUSE
+                          ENTRY,USE(?LAST_FIELD)
+             .
+
+  EJECT
+  CODE
+  OPEN(SCREEN)                                   ! OPEN THE SCREEN
+  SETCURSOR                                      ! TURN OFF ANY CURSOR
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  DISPLAY                                        ! DISPLAY THE FIELDS
+  LOOP                                           ! LOOP THRU ALL THE FIELDS
+    @LOOKUPS                                     ! DISPLAY FROM OTHER FILES
+    @SHOW                                        ! DISPLAY STRING VARIABLES
+    @COMPUTE                                     ! DISPLAY COMPUTED FIELDS
+    @RESULT                                      ! MOVE RESULTING VALUES
+    ALERT                                        ! RESET ALERTED KEYS
+    ALERT(ACCEPT_KEY)                            ! ALERT SCREEN ACCEPT KEY
+    ALERT(REJECT_KEY)                            ! ALERT SCREEN REJECT KEY
+    ALERT(SHFT_ENTER)                            ! _K_5 ALERT "TABLE-KEY"
+    @ALERT                                       ! ALERT HOT KEY
+    ACCEPT                                       ! READ A FIELD
+    @CHECKHOT                                    ! ON HOT KEY, CALL PROCEDURE
+    IF KEYCODE() = REJECT_KEY THEN RETURN.       ! RETURN ON SCREEN REJECT KEY
+
+    IF KEYCODE() = ACCEPT_KEY                    ! ON SCREEN ACCEPT KEY
+      UPDATE                                     ! MOVE ALL FIELDS FROM SCREEN
+      SELECT(?)                                  ! START WITH CURRENT FIELD
+      SELECT                                     ! EDIT ALL FIELDS
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .                                            !
+
+    CASE FIELD()                                 ! JUMP TO FIELD EDIT ROUTINE
+    OF ?FIRST_FIELD                              ! FROM THE FIRST FIELD
+      IF KEYCODE() = ESC_KEY THEN RETURN.        ! RETURN ON ESC KEY
+
+    @EDITS                                       ! EDIT ROUTINES GO HERE
+    OF ?LAST_FIELD                               ! FROM THE LAST FIELD
+      PUT(@FILENAME2)                            ! UPDATE SECONDARY FILES
+      PUT(@FILENAME3)                            ! UPDATE SECONDARY FILES
+      PUT(@FILENAME4)                            ! UPDATE SECONDARY FILES
+      @NEXTFORM                                  ! CALL NEXT FORM PROCEDURE
+      ACTION = 0                                 ! SET ACTION TO COMPLETE
+      RETURN                                     ! AND RETURN TO CALLER
+  . .
+
+*REPORT*************************************************************************
+
+@PROCNAME    PROCEDURE
+
+REPORT       @REPORT
+
+             @SAVEITEMS
+
+  CODE
+  DONE# = 0                                      ! TURN OFF DONE FLAG
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  @INITSELECTS                                   ! SAVE SELECTOR FIELDS
+  CLEAR(@PRE:RECORD,-1)                          ! MAKE SURE RECORD CLEARED
+  @RESTSELECTS                                   ! RESTORE SELECTOR CRITERIA
+  BUILD(@INDEX)                                  ! BUILD FILE INDEX
+  @INITREPORT                                    ! INIT REPORT VARIABLES
+  @RPTHEADER                                     ! DO REPORT HEADER COMPUTES
+  PRINT(TTL:RPT_HEAD)                            ! PRINT TITLE PAGE
+  @PRINTMEMO                                     ! PRINT ANY MEMO FILES
+  CLOSE(TITLE)                                   ! CLOSE TITLE REPORT
+  @SETRPTFILE                                    ! SET TO FIRST RECORD
+  DO NEXT_RECORD                                 ! READ FIRST RECORD
+  @PAGEHEADER                                    ! DO PAGE HEADER COMPUTES
+  @PAGEFOOTER                                    ! DO PAGE FOOTER COMPUTES
+  @APPENDON                                      ! APPEND REPORT TO TITLE
+  OPEN(REPORT)                                   ! OPEN THE REPORT
+  @FIRSTBREAK                                    ! PRINT INITIAL BREAK HEADERS
+  LOOP UNTIL DONE#                               ! READ ALL RECORDS IN FILE
+    SAVE_LINE# = MEM:LINE                        ! SAVE LINE NUMBER
+    LAST_REC# = POINTER(@FILENAME)
+    @RUNTOTALS                                   ! ACCUMULATE RUNNING TOTALS
+    @INITDETAIL                                  ! SET UP FOR DETAIL LINE
+    PRINT(RPT:DETAIL)                            ! PRINT DETAIL LINES
+    DO CHECK_PAGE                                ! DO PAGE BREAK IF NEEDED
+    @PRINTMEMO                                   ! PRINT ANY MEMO FIELD
+    @TOTALS                                      ! ACCUMULATE TOTALS
+    @PAGEFOOTER                                  ! DO PAGE FOOTER COMPUTES
+    DO NEXT_RECORD                               ! GET NEXT RECORD
+    @PAGEHEADER                                  ! DO PAGE HEADER COMPUTES
+    @PAGEEJECTDTL                                ! GO TO NEW PAGE
+    @CHECKBREAK                                  ! CHECK FOR BREAK
+  .                                              !
+  @LASTBREAK                                     ! PRINT ENDING BREAK FOOTERS
+  @RPTFOOTER                                     ! DO REPORT FOOTER COMPUTES
+  PRINT(RPT:RPT_FOOT)                            ! PRINT GRAND TOTALS
+  DO CHECK_PAGE                                  ! DO PAGE BREAK IF NEEDED
+  @PRINTMEMO                                     ! PRINT ANY MEMO FIELD
+  CLOSE(REPORT)                                  ! CLOSE REPORT
+  @APPENDOFF                                     ! TURN OFF REPORT APPEND
+  RETURN                                         ! RETURN TO CALLER
+
+
+NEXT_RECORD ROUTINE                              ! GET NEXT RECORD
+  LOOP UNTIL EOF(@FILENAME)                      ! READ UNTIL END OF FILE
+    NEXT(@FILENAME)                              ! READ NEXT RECORD
+    @CHECKSELECT                                 ! STOP IF PAST SELECTOR
+    @DETAIL                                      ! DO DETAIL COMPUTES
+    IF ~(@FILTER) THEN CYCLE.                    ! IF FILTERED OUT, GET NEXT
+    EXIT                                         ! EXIT THE ROUTINE
+  .                                              !
+  DONE# = 1                                      ! ON EOF, SET DONE FLAG
+
+CHECK_PAGE ROUTINE                               ! CHECK FOR NEW PAGE
+  IF MEM:LINE <= SAVE_LINE#                      ! ON PAGE OVERFLOW
+    SAVE_LINE# = MEM:LINE                        ! RESET LINE NUMBER
+    @INITPAGE                                    ! INIT PAGE VARIABLES
+  .
+  LOOP UNTIL NOT KEYBOARD()                      ! LOOK FOR KEYSTROKE
+    ASK                                          ! GET KEYCODE
+    IF KEYCODE() = REJECT_KEY                    ! ON CTRL-ESC
+      @APPENDOFF                                 ! TURN OFF REPORT APPENDING
+      CLOSE(REPORT)                              ! CLOSE REPORT
+      RETURN                                     ! ABORT PRINT
+  . .
+
+@BREAKRTN                                        ! CHECK FOR GROUP BREAK
+*MEMREPORT**********************************************************************
+
+@PROCNAME    PROCEDURE
+
+REPORT       @REPORT
+
+  CODE
+  @SETUP                                         ! CALL SETUP PROCEDURE
+  @INITREPORT                                    ! INIT REPORT VARIABLES
+  @RPTHEADER                                     ! DO REPORT HEADER COMPUTES
+  PRINT(TTL:RPT_HEAD)                            ! PRINT TITLE PAGE
+  @MEMMEMO                                       ! PRINT ANY MEMO FILES
+  CLOSE(TITLE)                                   ! CLOSE TITLE REPORT
+  @PAGEFOOTER                                    ! DO PAGE FOOTER COMPUTES
+  @PAGEHEADER                                    ! DO PAGE HEADER COMPUTES
+  @APPENDON                                      ! APPEND REPORT TO TITLE
+  OPEN(REPORT)                                   ! OPEN REPORT BODY
+  @MEMMEMO                                       ! PRINT ANY MEMO FIELD
+  @DETAIL                                        ! DO DETAIL COMPUTES
+  @RUNTOTALS                                     ! ACCUMULATE RUNNING TOTALS
+  @INITDETAIL                                    ! SET UP FOR DETAIL RECORD
+  PRINT(RPT:DETAIL)                              ! PRINT DETAIL LINES
+  @MEMMEMO                                       ! PRINT ANY MEMO FIELD
+  @TOTALS                                        ! ACCUMULATE TOTALS
+  @MEMMEMO                                       ! PRINT ANY MEMO FIELD
+  @PAGEFOOTER                                    ! DO PAGE FOOTER COMPUTES
+  @RPTFOOTER                                     ! DO REPORT FOOTER COMPUTES
+  PRINT(RPT:RPT_FOOT)                            ! PRINT REPORT FOOTER
+  @MEMMEMO                                       ! PRINT ANY MEMO FIELD
+  CLOSE(REPORT)                                  ! CLOSE REPORT
+  @APPENDOFF                                     ! TURN OFF REPORT APPEND
+  RETURN                                         ! RETURN TO CALLER
+
+*ALERT**************************************************************************
+  ALERT(@HOTKEY)                                 ! ALERT HOT KEY
+*APPENDON***********************************************************************
+  APPEND# = FALSE                                ! TURN OFF APPEND FLAG
+  IF SUB(MEM:DEVICE,1,1) <> '+'        ! NOT ALREADY APPENDING REPORTS
+    MEM:DEVICE = '+' & MEM:DEVICE                ! APPEND DISK RPT TO TITLE
+    APPEND# = TRUE                               ! SET FLAG TO TURN OFF APPEND
+  .
+*APPENDOFF**********************************************************************
+  IF APPEND#                                     ! IF REPORT WAS APPENDED
+    MEM:DEVICE = SUB(MEM:DEVICE,2,LEN(MEM:DEVICE)-1)!TURN OFF APPEND REPORT
+  .
+*AUTONUMKEY*********************************************************************
+  CLEAR(@PRE:RECORD,1)                           ! CLEAR RECORD TO HIGH VALUES
+  @SETFILE                                       ! SET TO HIGHEST KEY VALUE
+  PREVIOUS(@FILENAME)                            ! READ LAST KEY RECORD
+  IF ERROR()                                     ! IF THERE WAS AN ERROR
+    CLEAR(@PRE:RECORD)                           ! CLEAR THE RECORD
+    KEYFIELD# = @LOWER                           ! INTITIALIZE THE FIELD
+    IF KEYFIELD# = 0 THEN KEYFIELD# = 1.         ! IF ITS 0 MAKE IT 1
+  @CHECKSELAUTO                                  ! CHECK SELECTOR AND
+  ELSE                                           ! ELSE
+    KEYFIELD# = @INCFIELD + 1                    ! INCREMENT FIELD
+  .
+
+  IF AUTONUMKEY#=0                               ! _K_2 "старый остаток"
+    CLEAR(@PRE:RECORD)                           ! CLEAR LAST KEY RECORD
+  ELSE                                           ! _K_2 " по новой схеме"
+    DO GET_RECORD                                ! _K_2 - взять старую
+  END
+  @RESTSELECTS                                   ! LOAD PRIOR KEY FIELDS
+  @INCFIELD = KEYFIELD#                          ! LOAD KEY FIELD
+*AUTOTABLE**********************************************************************
+  @ACCESSFIELD = @FIELD                          ! MOVE RELATED FIELDS
+  GET(@FILENAME,@ACCESSKEY)                      ! READ THE RECORD
+  ACTION# = ACTION                               ! SAVE ACTION
+  ACTION = 4                                     ! REQUEST TABLE LOOKUP
+  @LOOKUP                                        ! CALL LOOKUP PROCEDURE
+  IF ACTION                                      ! NO SELECTION WAS MADE
+    SELECT(?@FIELD-1)                            ! BACK UP ONE FIELD
+    ACTION = ACTION#                             ! RESTORE ACTION
+    CYCLE                                        ! GO TO TOP OF LOOP
+  .
+  @LOOKFIELD = @ACCESSFIELD                      ! DISPLAY LOOKUP FIELD
+  @FIELD = @ACCESSFIELD                          ! MOVE LOOKUP FIELD
+  DISPLAY(?@FIELD)                               ! AND DISPLAY IT
+  ACTION = ACTION#                               ! RESTORE ACTION
+*BREAKFOOTER********************************************************************
+  IF BRK_FLAG# <= @BRKNUM                        ! CHECK BREAK LEVEL
+    @GRPFOOTER                                   ! DO FOOTER COMPUTES
+    PRINT(GRP_FOOT@BRKNUM)                       ! PRINT GROUP FOOTER
+    @PRINTMEMO                                   ! PRINT ANY MEMO FIELD
+    DO CHECK_PAGE                                ! DO PAGE BREAK IF NEEDED
+    @PAGEEJECT                                   ! GO TO NEW PAGE
+  .
+*BREAKHEADER********************************************************************
+  IF BRK_FLAG# <= @BRKNUM                        ! CHECK BREAK LEVEL
+    @INITGROUP                                   ! INIT GROUP VARIABLES
+    @GRPHEADER                                   ! DO HEADER COMPUTES
+    PRINT(GRP_HEAD@BRKNUM)                       ! PRINT GROUP HEADER
+    @PRINTMEMO                                   ! PRINT ANY MEMO FIELD
+    DO CHECK_PAGE                                ! DO PAGE BREAK IF NEEDED
+  .
+*BREAKRTN***********************************************************************
+CHECK_BREAK  ROUTINE                             ! CHECK FOR GROUP BREAK
+  @COMPAREBREAK                                  ! GENERATE IF STATEMENTS
+
+PRT_BRK_HDRS ROUTINE                             ! DO GROUP HEADERS
+  @BREAKHEADER                                   ! PRINT HEADERS
+  @INITBREAK                                     ! INITIALIZE BREAK FIELDS
+
+PRT_BRK_FTRS ROUTINE                             ! DO GROUP FOOTERS
+  GET(@FILENAME,LAST_REC#)                       ! REREAD PREVIOUS RECORD
+  @BREAKFOOTER                                   ! PRINT FOOTERS
+  SKIP(@FILENAME,-1)                             ! BACKUP ONE RECORD
+  NEXT(@FILENAME)                                ! AND REREAD IT
+*BUILDTABLE*********************************************************************
+  DO K_TOTALCALC                                 ! _K_6 - Счет TOTAL
+! IF ACTION = 4                        |         ! _K_6 TABLE LOOKUP REQUEST
+  If POINT# = 1                                  ! _K_6 сделать установку
+!   IF NOT NEWPTR                                ! _K_6 - эти действия
+!     SET(@KEYNAME,@KEYNAME)                     ! _K_6 - перенесены
+!     NEXT(@FILENAME)                            ! _K_6 - в начало
+!     NEWPTR = POINTER(@FILENAME)                ! _K_6 - TABLE
+!   .                                            ! _K_6
+    DO FIND_RECORD                               ! POSITION FILE
+  ELSE
+    NDX = 1                                      ! PUT SELECTOR BAR ON TOP ITEM
+    DO FIRST_PAGE                                ! BUILD MEMORY TABLE OF KEYS
+  .
+  POINT# = 0                                     ! _K_6 забыть установку
+  RECORDS# = TRUE                                ! ASSUME THERE ARE RECORDS
+*CHECKBREAK*********************************************************************
+  IF NOT DONE# THEN DO CHECK_BREAK.              ! CHECK FOR GROUP BREAK
+*CHECKHOT***********************************************************************
+  IF KEYCODE() = @HOTKEY                         ! ON HOT KEY
+    UPDATE(?)                                    ! RETRIEVE FIELD
+    SAVACTN# = ACTION                            ! SAVE ACTION
+    @HOTPROC                                     ! CALL HOT KEY PROCEDURE
+    ACTION = SAVACTN#                            ! RESTORE ACTION
+    SELECT(?)                                    ! DO SAME FIELD AGAIN
+    CYCLE                                        ! AND LOOP AGAIN
+  .
+*CHECKSELAUTO*******************************************************************
+  ELSIF @FIELD <> @SAVEFIELD                     ! NO SELECTOR MATCHES
+     CLEAR(@PRE:RECORD)                          ! CLEAR THE RECORD
+     KEYFIELD# = @LOWER                          ! AND INITIALIZE THE FIELD
+     IF KEYFIELD# = 0 THEN KEYFIELD# = 1.        ! IF ITS 0 MAKE IT 1
+*CHECKSELECT********************************************************************
+  IF @FIELD <> @SAVEFIELD                        ! IF END OF SELECTION
+     @FIELD = @SAVEFIELD                         ! RESTORE THE SELECTOR
+     BREAK                                       ! AND BREAK
+  .
+*COMPAREBREAK*******************************************************************
+  IF @FIELD <> @SAVEFIELD                        ! BREAK ON NEW GROUP
+    BRK_FLAG# = @BRKNUM                          ! SET BREAK LEVEL
+    DO PRT_BRK_FTRS                              ! PRINT FOOTERS FOR THIS LEVEL
+    DO PRT_BRK_HDRS                              ! PRINT HEADERS FOR THIS LEVEL
+    EXIT                                         ! RETURN TO REPORT
+  .
+*COMPUTETOTS********************************************************************
+COMP_TOTALS  ROUTINE                             ! CALCULATE TOTAL FIELDS
+  IF NOT ACTN# THEN EXIT.                        ! GET OUT IF ACTN NOT SET
+  @TOTPLUS                                       ! ADD TO TOTALS
+  ACTN# = 0                                      ! CLEAR ACTION
+*CONDITIONAL********************************************************************
+  IF @IFCOND                                     ! EVALUATE CONDITION
+    @IFCONDTRUE                                  ! CONDITION IS TRUE
+  ELSE                                           ! OTHERWISE
+    @IFCONDFALSE                                 ! CONDITION IS FALSE
+  .
+*CREATEFILE*********************************************************************
+  OF 2                                           ! IF NOT FOUND,
+    SHOW(25,1,CENTER('Создание файла: ' & '@FILENAME',80)) ! DISPLAY FILE NAME
+    CREATE(@FILENAME)                            ! CREATE
+*DOTOTALS***********************************************************************
+  DO COMP_TOTALS                                 ! CALCULATE TABLE TOTALS
+*ENTERTABLE*********************************************************************
+  @ACCESSFIELD = @FIELD                          ! MOVE RELATED FIELDS
+  GET(@FILENAME,@ACCESSKEY)                      ! READ THE RECORD
+  IF ERROR()              |                      ! IF NO RECORD IS FOUND
+  OR KEYCODE() = SHFT_ENTER            ! _K_5 IF SHFT_ENTER KEY PRESSED
+    ACTION# = ACTION                             ! SAVE ACTION
+    ACTION = 4                                   ! REQUEST TABLE LOOKUP
+    @LOOKUP                                      ! CALL LOOKUP PROCEDURE
+    IF ACTION                                    ! NO SELECTION WAS MADE
+      SELECT(?@FIELD)                            ! STAY ON FIELD
+      ACTION = ACTION#                           ! RESTORE ACTION
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .
+    @FIELD = @ACCESSFIELD                        ! MOVE LOOKUP FIELD
+    DISPLAY(?@FIELD)                             ! AND DISPLAY IT
+    ACTION = ACTION#                             ! RESTORE ACTION
+  .
+*FIRSTBREAK*********************************************************************
+  BRK_FLAG# = 0                                  ! CLEAR BREAK LEVEL FLAG
+  DO PRT_BRK_HDRS                                ! PRINT GROUP HEADER(S)
+*HOTTABLE***********************************************************************
+  IF KEYCODE() = @HOTKEY                         ! IF HOT KEY PRESSED
+    UPDATE                                       ! UPDATE ALL FIELDS
+    @ACCESSFIELD = @FIELD                        ! MOVE RELATED FIELDS
+    GET(@FILENAME,@ACCESSKEY)                    ! READ THE RECORD
+    ACTION# = ACTION                             ! SAVE ACTION
+    ACTION = 4                                   ! REQUEST TABLE LOOKUP
+    @LOOKUP                                      ! CALL LOOKUP PROCEDURE
+    IF ACTION                                    ! NO SELECTION WAS MADE
+      SELECT(?@FIELD)                            ! BACK UP ONE FIELD
+      ACTION = ACTION#                           ! RESTORE ACTION
+      CYCLE                                      ! GO TO TOP OF LOOP
+    .
+    @FIELD = @ACCESSFIELD                        ! MOVE LOOKUP FIELD
+    DISPLAY(?@FIELD)                             ! AND DISPLAY IT
+    ACTION = ACTION#                             ! RESTORE ACTION
+  .
+*INITBREAK**********************************************************************
+  @SAVEFIELD = @FIELD                            ! SAVE BREAK FIELD
+*INITLOCATE*********************************************************************
+  IF KEYCODE() = ESC_KEY                         ! BACKING UP?
+    SCR:LOCATOR = ''                             ! CLEAR LOCATOR
+    SETCURSOR                                    ! AND TURN CURSOR OFF
+  ELSE                                           ! GOING FORWARD
+    LEN# = 0                                     ! RESET TO START OF LOCATOR
+    SETCURSOR(ROW(SCR:LOCATOR),COL(SCR:LOCATOR)) ! AND TURN CURSOR ON
+  .
+*INITSELECTS********************************************************************
+  @SAVEFIELD = @FIELD                            ! SAVE SELECTOR FIELD
+*INRANGE************************************************************************
+  IF ~INRANGE(@FIELD,@LOWER,@UPPER)              ! IF FIELD IS OUT OF RANGE
+    BEEP                                         ! SOUND KEYBOARD ALARM
+    SELECT(?@FIELD)                              ! AND STAY ON THIS FIELD
+    CYCLE                                        ! GO TO TOP OF LOOP
+  .
+*LASTBREAK**********************************************************************
+  BRK_FLAG# = 0                                  ! CLEAR BREAK LEVEL FLAG
+  DO PRT_BRK_FTRS                                ! PRINT GROUP FOOTER(S)
+*LOCATE*************************************************************************
+  IF (KEYCODE() > 31                  |          ! _K_7 Отображаемые символы
+  AND KEYCODE() < 255)                |          ! _K_7 для LOCATE RECORDS
+  OR  (KEYCODE() = BS_KEY) Then                  ! _K_7 или BACKSPACE
+    IF KEYCODE() = BS_KEY                        ! _K_7 BACKSPACE
+      IF LEN# > 0                                ! _K_7 Если что-то есть
+        LEN# -= 1                                ! _K_7 DECREMENT THE LENGTH
+        SCR:LOCATOR = SUB(SCR:LOCATOR,1,LEN#)    ! _K_7 ERASE THE LAST CHAR
+      End                                        ! _K_7
+    ELSE                                         ! _K_7 FOR ANY OTHER CHARACTER
+      IF LEN# < SIZE(SCR:LOCATOR)                ! _K_7  IF THERE IS ROOM LEFT
+        SCR:LOCATOR = SUB(SCR:LOCATOR,1,LEN#) & CHR(KEYCODE())       ! _K_7
+        LEN# += 1                                ! _K_7 INCREMENT THE LENGTH
+      End                                        ! _K_7
+    End                                          ! _K_7
+    I# = 0                                       ! _K_7
+    Loop While(KEYBOARD() = 0          |         ! _K_7 Ждем пока не нажмут
+      AND I# < 1000                    |         ! _K_7 Но не очень долго
+      AND(LEN# > 0) AND (LEN# < SIZE(SCR:LOCATOR)))      !_K_7 если есть смысл
+      I# += 1                                    ! _K_7
+    End                                          ! _K_7 07.02.92-17:36
+  Else                                           ! FOR ANY OTHER CHARACTER
+    LEN# = 0                                     ! ZERO THE LENGTH
+    SCR:LOCATOR = ''                             ! ERASE THE LOCATOR FIELD
+  .
+  SETCURSOR(ROW(SCR:LOCATOR),COL(SCR:LOCATOR)+LEN#) !AND RESET THE CURSOR
+  @SETLOCATE
+  IF KEYBOARD() > 31                 |           ! THE DISPLAYABLE CHARACTERS
+  AND KEYBOARD() < 255               |           ! ARE USED TO LOCATE RECORDS
+  OR KEYBOARD() = BS_KEY                         ! INCLUDE BACKSPACE
+    CYCLE
+  .
+  IF LEN# > 0                                    ! ON A LOCATOR REQUEST
+    DO GET_RECORD                                ! _K_7 для "старших" ключей
+    @RESTSELECTS                                 ! --SET SELECTOR COMPONENTS--
+    @SETLOCATE
+    SET(@KEYNAME,@KEYNAME)                       ! POINT TO NEW RECORD
+    NEXT(@FILENAME)                              ! READ A RECORD
+    IF (EOF(@FILENAME) AND ERROR())              ! IF EOF IS REACHED
+      SET(@KEYNAME)                              ! SET TO FIRST RECORD
+      PREVIOUS(@FILENAME)                        ! READ THE LAST RECORD
+    .
+    NEWPTR = POINTER(@FILENAME)                  ! SET NEW RECORD POINTER
+    SKIP(@FILENAME,-1)                           ! BACK UP TO FIRST RECORD
+    FREE(TABLE)                                  ! CLEAR THE TABLE
+    DO NEXT_PAGE                                 ! AND DISPLAY A NEW PAGE
+  .
+*LOOKUPS************************************************************************
+  UPDATE                                         ! UPDATE RECORD KEYS
+  @ACCESSFIELD = @FIELD                          ! MOVE RELATED KEY FIELDS
+  GET(@FILENAME,@ACCESSKEY)                      ! READ THE RECORD
+  IF ERROR() THEN CLEAR(@PRE:RECORD).            ! IF NOT FOUND, CLEAR RECORD
+  @SCRFIELD = @LOOKUPFIELD                       ! DISPLAY LOOKUP FIELD
+*LOOKUPSCROLL*******************************************************************
+  @ACCESSFIELD = @FIELD                          ! MOVE RELATED KEY FIELDS
+  GET(@FILENAME,@ACCESSKEY)                      ! READ THE RECORD
+  IF ERROR() THEN CLEAR(@PRE:RECORD).            ! IF NOT FOUND, CLEAR RECORD
+  @SCRFIELD = @LOOKUPFIELD                       ! DISPLAY LOOKUP FIELD
+*MEMMEMO************************************************************************
+  @MEMOLEN                                       ! DETERMINE MEMO SIZE
+  J# = 2                                         ! START WITH ROW 2
+  LOOP                                           ! LOOP THRU ALL USED ROWS
+    MEMODONE# = 0                                ! NO MEMOS DONE YET
+    @SETMEMO                                     ! SET THE MEMO VARIABLES
+    IF MEMODONE# = 0 THEN BREAK.                 ! ALL MEMOS PRINTED
+    @PRTDETAIL                                   ! AND PRINT IT
+    J# += 1                                      ! INCREMENT COUNTER
+  .
+*MEMOLEN************************************************************************
+  LOOP @MEMOTMP# = @MEMOSIZE TO 2 BY -1          ! BACKSCAN THE MEMO FIELD TO
+    IF @MEMOROW[@MEMOTMP#] <> '' THEN BREAK.     ! FIND NUMBER OF ROWS USED
+  .                                              ! END OF MEMOLEN
+*NEXTFORM***********************************************************************
+  IF ACTION <> 3                                 ! IF THIS IS NOT A DELETE
+    ACTION = 2                                   ! SET ACTION TO CHANGE MODE
+    @NEXTPAGE                                    ! CALL NEXT FORM PROCEDURE
+    IF ACTION                                    ! IF RECORD WAS NOT CHANGED
+      SELECT(?LAST_FIELD - 1)                    ! SELECT THE LAST ENTRY
+      CYCLE                                      ! AND LOOP AGAIN
+  . .
+*NOTREQUIRED********************************************************************
+  IF @FIELD = ''                                 ! IF NOT REQUIRED THEN
+    @EDITPROC                                    ! CALL THE EDIT PROCEDURE
+    CYCLE                                        ! END THE EDIT
+  .
+*OPENFILES**********************************************************************
+  BLANK(25,1,1,80)                               ! BLANK THE MESSAGE
+  SHOW(25,1,CENTER('Открытие файла: ' & '@FILENAME',80))   ! DISPLAY FILE NAME
+  OPEN(@FILENAME)                                ! OPEN THE FILE
+  IF ERROR()                                     ! OPEN RETURNED AN ERROR
+    CASE ERRORCODE()                             ! CHECK FOR SPECIFIC ERROR
+    OF 46                                        ! KEYS NEED TO BE REQUILT
+      SETHUE(0,7)                                ! BLACK ON WHITE
+      SHOW(25,1,CENTER('ПЕРЕСОЗДАНИЕ ключей для @FILENAME',80)) !INDICATE MSG
+      BUILD(@FILENAME)                           ! CALL THE BUILD PROCEDURE
+      SETHUE(7,0)                                ! WHITE ON BLACK
+    @CREATEFILE                                  ! IF NOT FOUND, THEN CREATE
+    ELSE                                         ! ANY OTHER ERROR
+      LOOP;STOP('@FILENAME: ' & ERROR()).        ! STOP EXECUTION
+  . .
+
+*PAGEEJECT**********************************************************************
+  MEM:LINE = 0                                   ! SET FOR CALL TO CHECK_PAGE
+  DO CHECK_PAGE                                  ! INITIALIZE PAGE VARIABLES
+  IF NOT DONE#                                   ! MORE ITEMS TO PRINT
+    PRINT(PAGE_FOOT)                             ! PRINT PAGE FOOTER
+    PRINT(PAGE_HEAD)                             ! PRINT PAGE HEADER
+  .
+*PAUSE**************************************************************************
+  OF ?PAUSE_FIELD                                ! ON PAUSE FIELD
+    IF KEYCODE() <> ENTER_KEY    |               ! IF NOT ENTER KEY
+    AND KEYCODE() <> ACCEPT_KEY  |               ! AND NOT CTRL-ENTER KEY
+    AND KEYCODE() <> 0                           ! AND NOT NONSTOP MODE
+      BEEP                                       ! SOUND KEYBOARD ALARM
+      SELECT(?PAUSE_FIELD)                       ! AND STAY ON PAUSE FIELD
+    .
+*PICLOCATE**********************************************************************
+  @LOCFIELD = DEFORMAT(SCR:LOCATOR)              ! UPDATE THE KEY FIELD
+*PRINTMEMO**********************************************************************
+  @MEMOLEN                                       ! DETERMINE MEMO SIZE
+  J# = 2                                         ! START WITH SECOND ROW
+  LOOP                                           ! LOOP THRU ALL USED ROWS
+    MEMODONE# = 0                                ! NO MEMOS DONE YET
+    @SETMEMO                                     ! SET THE MEMO VARIABLES
+    IF MEMODONE# = 0                             ! ALL MEMOS PRINTED
+      DO CHECK_PAGE                              ! DO PAGE BREAK IF NEEDED
+      BREAK                                      ! EXIT MEMO PRINT LOOP
+    .                                            !
+    @PRTDETAIL                                   ! AND PRINT IT
+    J# += 1                                      ! INCREMENT COUNTER
+    DO CHECK_PAGE                                ! DO PAGE BREAK IF NEEDED
+  .
+*PRTDETAIL**********************************************************************
+  PRINT(@MEMDETAIL)                              ! PRINT THE DETAIL RECORD
+*REQUIRED***********************************************************************
+  IF @FIELD = ''                                 ! IF REQUIRED FIELD IS EMPTY
+    BEEP                                         ! SOUND KEYBOARD ALARM
+    SELECT(?@FIELD)                              ! AND STAY ON THIS FIELD
+    CYCLE                                        !
+  .
+*RESTSELECTS********************************************************************
+  @FIELD = @SAVEFIELD                            ! RESTORE SELECTOR FIELD
+*RUNCODE************************************************************************
+  G_RUNPROC('@RUNDESC')                          ! RUN DOS PROGRAM
+*RUNMAP*************************************************************************
+  PROC(G_RUNPROC)                                ! GLOBAL MODULE RUN PROCEDURE
+*RUNPROC************************************************************************
+G_RUNPROC    PROCEDURE(DOSPROG)                  ! GLOBAL RUN PROCEDURE
+DOSPROG      STRING(12)                          ! PROGRAM TO RUN
+SCREEN       SCREEN    WINDOW(25,80),HUE(7,0,0). ! SAVE WINDOW
+
+  CODE
+  OPEN(SCREEN)                                   ! SAVE CURRENT SCREEN
+  SETCURSOR(25,1)                                ! POSITION CURSOR AT BOTTOM
+  RUN(DOSPROG)                                   ! RUN DOS PROGRAM
+  CLOSE(SCREEN)                                  ! RESTORE SCREEN
+  RETURN                                         ! EXIT BACK TO CALLING MENU
+*SAVEITEMS**********************************************************************
+  GROUP,PRE(SAV)
+    @BREAKFIELDS
+    @SELECTFIELDS
+  .
+*SAVETOTALS*********************************************************************
+TOT_GROUP    GROUP,PRE(TOT)                      ! TABLE TOTAL FIELDS
+               @TOTALFIELDS
+             .
+*SETKEY*************************************************************************
+  SET(@KEYNAME)                                  ! POINT TO FIRST RECORD
+*SETKEYKEY**********************************************************************
+  @RESTSELECTS                                   ! --SET SELECTOR COMPONENTS
+  SET(@KEYNAME,@KEYNAME,TBL:PTR)                 ! POINT PAST LAST RECORD
+*SETMEMO************************************************************************
+  IF J# <= @MEMOTMP#                             ! IF IN THE RANGE OF THIS MEMO
+    @MEMOVAR = @MEMOROW[J#]                      ! MOVE A MEMO FIELD ROW
+    MEMODONE# = 1                                ! MEMO HAS BEEN MOVED
+  ELSE                                           ! OTHERWISE
+    @MEMOVAR = ''                                ! NO MEMO TO DO
+  .                                              ! END OF SETMEMO
+*SETRECORD**********************************************************************
+  BUFFER(@FILENAME,.75)                          ! _K_6 (+.5) FOR TOTAL-ONLY
+  SET(@FILENAME)                                 ! POINT TO FIRST RECORD
+*SETSELECT**********************************************************************
+  SET(@KEYNAME,@KEYNAME)                         ! SET TO FIRST SELECTED RECORD
+*SETTOP*************************************************************************
+  SET(@KEYNAME)                                  ! SET TO FIRST RECORD
+*SHOWMEMO***********************************************************************
+  R# = ROW(@SCRMEMO)                             ! SAVE ROW OF MEMO
+  C# = COL(@SCRMEMO)                             ! SAVE COL OF MEMO
+  SETHUE(FOREHUE(R#,C#),BACKHUE(R#,C#))          ! RETRIEVE COLOR OF MEMO
+  LOOP I# = 1 TO @MEMOROWS                       ! DISPLAY MEMO FIELD BY ROWS
+    SHOW(R#+I#-1,C#,@MEMOROW[I#],@S@MEMOCOLS)    ! SHOW NEXT ROW
+  .
+  SETHUE                                         ! TURN OFF COLOR
+*STRLOCATE**********************************************************************
+  @LOCFIELD = CLIP(SCR:LOCATOR)                  ! UPDATE THE KEY FIELD
+*TABLEHOT***********************************************************************
+  IF KEYCODE() = @HOTKEY                         ! _K_6 ON TABLE HOT KEY
+    IF FIELD() = ?POINT            |             ! _K_6 курсор в таблице
+    OR (K_TOTAL# = 1)                            ! _K_6 или есть TOTAL-поля
+      POINT# = 1                                 ! _K_6 будем "брать" запись
+      DO GET_RECORD                              ! _K_6 взять REC + save TOTAL
+    .                                            ! _K_6 пресчет TOTAL будет
+    @HOTPROC                                     ! CALL HOT KEY PROCEDURE
+    If (POINT# = 1)                              ! _K_6 - "брали" запись
+      POINT# = 0                                 ! _K_6 забыть установку
+      IF (K_TOTAL# = 1)                          ! _K_6 пресчет TOTAL
+        If (ACTION = 5647) Then                  ! _K_6 из HOT-полный пресчет
+          CYCLE                                  ! _K_6 на пресчет TOTAL
+        Else                                     ! _K_6
+          DO K_TOTMINUS                          ! _K_6 вычесть "старое" по REC
+          Actn# = 2                              ! _K_6 пресчет TOTAL для REC
+        End                                      ! _K_6
+      End                                        ! _K_6
+      DO FIND_RECORD                             ! _K_6 встать на запись REC
+    Else                                         ! _K_6 - не "брали" запись
+      DO SAME_PAGE                               ! восстановить страницу и IND
+    End                                          ! _K_6
+    CYCLE                                        ! AND LOOP AGAIN
+  .
+*TODO***************************************************************************
+@PROCNAME    PROCEDURE                           ! PROCEDURE IS NOT DEFINED
+
+  CODE                                           !
+  ACTION = 0                                     ! SET ACTION TO 0
+  RETURN                                         ! RETURN TO CALLER
+*TOTACTN************************************************************************
+  ACTN# = ACTION                                 ! SAVE ACTION FOR COMP_TOTALS
+*TOTALCALC**********************************************************************
+  K_TOTAL# = 1                                   ! _K_6 флаг - TOTAL есть
+  @TOTCLEAR                                      ! ZERO TOTALS
+  CLEAR(@PRE:RECORD,-1)                          ! CLEAR RECORD TO LOW VALUES
+  CLEAR(TBL:PTR)                                 ! SET POINTER TO ZERO
+  FREE(TABLE)                                    ! _K_6 FREE MEMORY TABLE
+  SETHUE(BACKHUE(ROW,COL),BACKHUE(ROW,COL))      ! TURN OFF DISPLAY
+  @SETFILETOT                                    ! READ DATA RECORD SEQUENCE
+  LOOP UNTIL EOF(@FILENAME)                      ! LOOP UNTIL END OF FILE
+    NEXT(@FILENAME)                              ! READ A RECORD
+    @CHECKSELECT                                 ! SELECTOR MATCH?
+    IF ~(@FILTER) THEN CYCLE.                    ! FILTER MATCH?
+    ACTN# = 1                                    ! SET ACTION FOR ADD
+    DO FILL_TABLE                                ! TOTAL SCREEN VARIABLES
+    DO COMP_TOTALS                               ! ADD TO TOTAL AMOUNT
+  .
+  SETHUE()                                       ! TURN OFF SETHUE
+  FREE(@FILENAME)                                ! _K_6 FREE FILE BUFFERS
+  FREE(TABLE)                                    ! FREE MEMORY TABLE
+*TOTCHECK***********************************************************************
+  @TOTACTN                                       ! SAVE ACTION
+                                                 ! _K_6 SAVE TOTALS-TOTCHECK
+  @TOTSAVE                                       ! SAVE EXISTING VALUES
+*TOTCLEAR***********************************************************************
+  CLEAR(TOT_GROUP)                               ! ZERO TOTALS
+  @TOTCLEARIMPL                                  ! ZERO AVERAGE CALC IMPLICITS
+*UNIQUEKEY**********************************************************************
+  IF DUPLICATE(@ACCESSKEY)                       ! CHECK FOR DUPLICATE KEY
+    MEM:MESSAGE = 'Создан ДУБЛЬ ключа '          ! MOVE AN ERROR MESSAGE
+    SELECT(?@FIELD)                              ! STAY ON THE SAME FIELD
+    BEEP                                         ! SOUND THE KEYBOARD ALARM
+    CYCLE                                        ! AND LOOP AGAIN
+  .
+*VALIDATE***********************************************************************
+  @ACCESSFIELD = @FIELD                          ! MOVE RELATED FIELDS
+  GET(@FILENAME,@ACCESSKEY)                      ! READ THE RECORD
+  IF ERROR()                                     ! IF NO RECORD IS FOUND
+    MEM:MESSAGE = 'Запись не найдена'            ! MOVE AN ERROR MESSAGE
+    BEEP                                         ! SOUND THE KEYBOARD ALARM
+    SELECT(?@FIELD)                              ! AND STAY ON THE SAME FIELD
+  .
+********************************************************************************

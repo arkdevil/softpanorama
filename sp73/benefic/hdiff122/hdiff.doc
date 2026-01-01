@@ -1,0 +1,593 @@
+                                  hdiff 1.22
+
+        Purpose
+        -------
+        Hdiff compares two DOS text files and records the differences
+        between them in a third file.  Although hdiff can be used for
+        simple "what's changed?" purposes, its real function is to
+        assist in maintaining program source code or similar text files
+        that change over time.  By maintaining a original, base file and
+        a series of "difference" files, it's possible to retain all
+        versions of a file at a great savings in space over retaining
+        the full text of all versions.
+
+        The hdiff system includes an auxiliary program, hed, that is
+        used to apply the difference files to the original (although
+        EDLIN can also be used if the files are small enough).
+
+
+        New in version 1.22
+        -------------------
+        The following features have been changed or added since version
+        1.14, the last publicly released version:
+
+        1. A new difference-applier (HED.EXE) is included.  This
+        replaces most use of EDLIN for the hdiff system and allows you
+        to apply multiple update files in one operation.
+
+        2. The syntax of hdiff has changed slightly:
+            a. A third filename can be supplied on the command line.
+               This replaces the redirection used in earlier versions.
+            b. It is no longer necessary to specify a maximum number
+               of lines (the old -nnnn parameter).  For downward
+               compatibility, hdiff 1.22 will accept and ignore the
+               parameter if present.
+
+        3. The true file date of the original file is retained if you
+        use hdiff and hed as described below.
+
+        4. Maximum line length has been extended to 1000 characters.
+
+
+        Running hdiff
+        -------------
+        The general syntax for hdiff is:
+
+            hdiff [-ecs] old-file new-file [dif-file]
+
+        The simplest use of hdiff is exemplified by:
+
+            hdiff oldfile.txt newfile.txt
+
+        which displays a simple report of differences between the two
+        files: it shows which lines of OLDFILE.TXT do not appear in
+        NEWFILE.TXT (deletions), and which lines of NEWFILE.TXT do not
+        appear in OLDFILE.TXT (insertions).  The simple change report
+        consists of text lines in this format:
+
+            nnnn[+/-] text
+
+        A '+' format indicates that the line is new (an insertion); the
+        '-' indicates that the line is gone (a deletion).  Thus:
+
+            0001- This line appears in the old file only
+            0001+ This line appears in the new file only
+
+        The 'nnnn' represents the line number.  For '+' lines, it's the
+        line number in the new file; for '-' lines, it's the line number
+        in the old file.
+
+        (Note that the first file named on the command line is always
+        assumed to be the "old" file, and the second is the "new" file.)
+
+        If you want the report to be sent to a text file rather than to
+        the screen, simply include the file name as a third parameter:
+
+            hdiff oldfile.txt newfile.txt changes.txt
+
+        NOTE: the simple report does not show lines that have been
+        moved.  The edlin-format report (-e switch) does include moved
+        lines.  Use the -e report for maintaining difference files; the
+        simple report does not contain enough information.
+
+
+        Optional switches
+        -----------------
+        Here are the switches that can optionally be added to the
+        command line.  They must precede the file names:
+
+        -c      Case insensitive: hdiff ignores differences in
+                alphabetic case.  Thus, the two lines:
+
+                        This is text
+                        THIS IS TEXT
+
+                are not reported as changed.
+
+        -e      Edlin: produce an edlin-compatible difference file
+                rather than the simple difference report described
+                above.  This switch is also used to created hed-format
+                files.  See succeeding sections for more information.
+
+        -s      Space insensitive: hdiff ignores differences in spacing.
+                This, the two lines:
+
+                        This is text
+                        This  is    text
+
+                are not reported as changed.
+
+        The switches may be combined, and they may be in any order:
+
+                -e -c
+                -ec
+                -ce
+                -c -e
+
+        are all equivalent.  All switches must, however, precede the
+        first filename.
+
+        Examples of hdiff use:
+
+            hdiff foo.c newfoo.c
+
+                compares file 'foo.c' with file 'newfoo.c' and displays
+                a simple report showing insertions (lines in newfoo that
+                do not appear in foo) and deletions (lines in foo that
+                do not appear in newfoo).  Lines that have been moved
+                but are otherwise unchanged do not appear in this
+                report.
+
+            hdiff -ec foo.c newfoo.c foo.114
+
+                compares foo.c with newfoo.c, ignoring case differences,
+                and prepares an edlin/hed script in the file foo.114.
+                This script, if applied to foo as described below, will
+                create a copy of newfoo.
+
+
+        Applying difference files: edlin and version control
+        ----------------------------------------------------------
+        The main purpose of hdiff is to assist you in maintaining
+        multiple versions of program source or other text files.  Many
+        programmers like to keep archival copies of old source, for any
+        of a number of reasons (one reason: sometimes changes don't work
+        and it's necessary to go back to a previous version!).  You
+        could simply keep an archive or library with the complete text
+        of all versions, but this is wasteful of disk space.
+
+        A better solution (short of purchasing a true SCCS ["Source Code
+        Control System"] for big bucks) is to use hdiff and hed or edlin
+        to keep one original source file plus smaller difference files
+        that can be used to re-create any version.
+
+        To see how this works, assume that you have an old version of
+        your program MYPROG.C (in a file called MYPROG.SCC) and a new
+        version named MYPROG.C:
+
+                myprog.scc     (version 1.00)
+                myprog.c       (version 1.10)
+
+        To create a difference file, use hdiff:
+
+            hdiff -e myprog.scc myprog.c myprog.110
+
+        After hdiff is finished, you will have a file (MYPROG.110) that
+        contains the differences between 1.00 and 1.10.  Because of the
+        -e switch, this file is in a special format:  it is actually the
+        text of a series of edlin commands that would turn version 1.00
+        source into version 1.10 source.  It is an edlin script.  So, if
+        you were to execute the commands (remember that MYPROG.SCC is
+        version 1.00):
+
+            copy myprog.scc myprog.c
+            edlin myprog.c < myprog.110
+
+        the result (after edlin finished) would be a file called
+        MYPROG.C that contains the source for version 1.10.  Thus,
+        between the original (1.00) MYPROG.SCC and the difference file
+        MYPROG.110 you have all you need to re-create either version of
+        the program.  Chances are, however, that MYPROG.110 is much
+        smaller than the full source for MYPROG.C, so considerable
+        storage is saved.
+
+        Note that edlin cannot deal, in this context, with files larger
+        than about 48K.  If you try to apply a difference file to a base
+        file larger than 48K using edlin, the resultant file will be
+        damaged and probably unusable.  For this reason and others, we
+        recommend using the supplied program "hed" rather than edlin.
+
+
+        Using hed
+        ---------
+        Hed is a simple program that can be used in place of edlin to
+        apply update files.  We prefer it to edlin for this purpose;
+        there are several reasons:
+
+            1. It's much faster.
+            2. It doesn't suffer from Edlin's 48K file size restriction.
+            3. It handles file dates in a more useful manner.
+            4. It can create a new file with a different name.
+            5. It can apply more than one update file at a time.
+
+        Hed's full syntax is:
+
+            hed [-nv] base diff[+diff...] [new]
+
+        where base is the original source file (MYPROG.SCC, in the above
+        example), diff is the difference file created by hdiff, and new
+        is the optional output file name.
+
+        The optional parameters are:
+
+            -n  No sort: instructs hed not to sort multiple update
+                files, i.e., to apply them in the stated order.
+
+            -n  reVerse: instructs hed to sort multiple updates
+                files is reverse order (more about this shortly).
+
+        If both -n and -v are specified, -n takes precedence.
+
+        This command creates MYPROG version 1.10 from the 1.00 source
+        and the difference file created above:
+
+            hed myprog.scc myprog.110 myprog.c
+
+        On completion, you'll have the 1.10 source in the file MYPROG.C.
+
+        If you do not include a third file name (new), hed will change
+        the extension of the base file to BAK and re-use the base file
+        name for the output.  In other words,
+
+            hed myprog.scc myprog.110
+
+        wil leave the original MYPROG.SCC in MYPROG.BAK, and the new
+        MYPROG.SCC will be the source for version 1.10.  This is exactly
+        what edlin would do.
+
+        Note that you can apply several updates at once:
+
+            hed myprog.scc myprog.110+myprog.111+myprog.120 myprog.c
+
+        More information about this feature is in the section called
+        "Hed and Multiple Updates".
+
+
+        File dates
+        ----------
+        If you use hdiff's -e switch and specify an output file, hdiff
+        will set the difference file date to the same date as new-file.
+        That is, after
+
+            hdiff -e myprog.scc myprog.c myprog.110
+
+        MYRPOG.110 will have the same date as MYPROG.C.  This is useful
+        because hed uses the difference file date for its own output.
+        That is, after:
+
+            hed myprog.scc myprog.110 myprog.c
+
+        MYPROG.C will have the same date as MYPROG.110, which, in turn,
+        has the same date as the original copy of MYPROG.C.
+
+        In this manner, the hdiff/hed system can retain true file dates
+        for all versions.
+
+
+        Cdelta and cget
+        ---------------
+        The two demonstration batches, cdelta and cget, provide a quick
+        sample of the kinds of things that can be done with hdiff and
+        hed.  The two batches are designed for C programs; to revise
+        them for other languages, simply replace all references to ".c"
+        with the desired extension (.asm, for example).
+
+        The purpose of cdelta is to generate a change script that will
+        convert a "base" source file into a specified version of your
+        source.  Cget performs the inverse task; it applies a specified
+        change file to the base and produces a file containing the
+        specified version.  File naming conventions are as follows:
+
+                file.scc:    "base" source; scc = source code control
+                file.###:    A change script to produce version ###
+                file.c:      The current version (cdelta), or the
+                             output file (cget)
+
+        For example, suppose you are working with a C program called
+        FOO.  A base (earliest) version of this file should be in
+        FOO.SCC.  You have just finished revision 1.10 of FOO.  To
+        create the change file, type
+
+                cdelta foo 110
+
+        The batch will create a new file, FOO.110; this file is an
+        edlin/hed compatible script that will convert FOO.SCC into
+        version 1.10 of FOO.C.
+
+        To retrieve a specified version, say 1.05, use
+
+                cget foo 105
+
+        The batch will apply the script FOO.105 to FOO.SCC (using hed)
+        and produce FOO.C, which will contain the source for version
+        1.05.
+
+        Note that cget always creates a file with a C extension,
+        overwriting any existing file with the same name.  This implies
+        that you do NOT keep your current source in FILE.C; you keep the
+        current source only by retaining FILE.SCC and the delta files.
+
+
+        Sequential version control
+        --------------------------
+        If you have access to a system that provides more sophisticated
+        control over the execution of DOS commands (Personal REXX or
+        Extended Batch Language, for example), it's not difficult to
+        provide for "sequential" version control for even greater space
+        savings.  The demo batch files, cdelta and cget, use only one
+        base file; each new version is represented by a difference file
+        that is the difference from the original version:
+
+                foo.scc + foo.110 = foo.c (version 1.10)
+                foo.scc + foo.111 = foo.c (version 1.11)
+                foo.scc + foo.120 = foo.c (version 1.20)
+
+        This scheme has the virtue of simplicity, but there is a
+        disadvantage:  the difference files just keep getting bigger and
+        bigger.  Each difference file contains the cumulative
+        differences of all preceding versions.  You may eventually find
+        that the difference files are larger than the base file.
+
+        The sequential method keeps differences between versions, rather
+        than differences between the current version and an original
+        base.  That is, FOO.110 is the difference between FOO.SCC and
+        version 1.10; FOO.111 is the difference between versions 1.10
+        and 1.11; FOO.120 is the difference between versions 1.11 and
+        1.20.  To obtain version 1.20, we start with the base file and
+        apply all difference files sequentially:
+
+                foo.scc + foo.110 = temp.c (foo version 1.10)
+                temp.c + foo.111 = temp2.c (foo version 1.11)
+                temp2.c + foo.120 = foo.c  (foo version 1.20)
+
+        This scheme is obviously somewhat more complex, but it allows
+        you to save all versions of a file in the least amount of space.
+
+        Note that the single command:
+
+                hed foo.scc foo.110+foo.111+foo.120 hed.c
+
+        would do the whole job in one step.  See the next section for
+        more information on how to apply sequential update files.
+
+
+        Hed and Multiple Updates
+        ------------------------
+        As noted, you can apply more than one update file per hed run by
+        using the "+" operator:
+
+            hed file.scc file.110+file.111+file.112 file.c
+
+        Here are the full rules:
+
+            1. You can use wildcard file specifications.  For example,
+               if FILE.110, FILE.111, and FILE.112 were the only update
+               files in the current directory, you could use:
+
+                    hed file.scc file.1* file.c
+
+               If you had FILE.110, FILE.121, and FILE.200:
+
+                    hed file.scc file.1*+file.2* file.c
+
+            2. The file list must be separated by "+" ONLY; spaces are
+               not permitted.  Thus,
+
+                    hed file.scc file.100 + file.110
+
+                is not legal.  It must be
+
+                    hed file.scc file.100+file.110
+
+            3. A total of up to 40 update files (including all
+               wildcard expansions) may be specified.
+
+            4. Hed sorts the files by extension and applies them in
+               sorted order, one after the other.  (If you use the -v
+               switch, hed will sort in reverse order; if you use -n, no
+               sorting will be performed.)  In other words, if you
+               enter:
+
+                    hed file.scc file.1* file.c
+
+               and files FILE.120 and FILE.110 are present in the
+               current directory (in that order), hed will:
+
+                    a. Sort the update files by extension; 110 will
+                       precede 120 even though they are "out of order"
+                       in the disk directory.
+                    b. Read in FILE.SCC.
+                    c. Apply FILE.110 updates, creating an "in-memory"
+                       copy of version 110.
+                    d. Apply FILE.120 updates, creating an "in-memory"
+                       copy of version 120.
+                    e. Write out the resultant file as FILE.C
+
+        Note that intermediate versions are not written to disk.
+
+
+        Reverse sorting
+        ---------------
+        The purpose of the -v switch is to allow you to implement a
+        "reverse" version scheme.  Rather than keeping an original base
+        and multiple updates from that base, some people prefer to keep
+        the full current source and difference files for earlier
+        versions.  For example, if you have FOO versions 1.00, 1.05, and
+        1.10 (the current), the "traditional" scheme would be to keep
+        the source for 1.00 and update files for 1.05 and 1.10:
+
+                foo.scc + foo.105 -> foo.c (version 1.05)
+                foo.c + foo.110 ->   foo.c (version 1.10)
+
+        The "reverse" scheme would be to keep the full source to version
+        1.10 and keep a difference file that would create 1.05 and 1.00:
+
+                foo.scc = current (1.10)
+                foo.scc + foo.105 -> foo.c (version 1.05)
+                foo.c + foo.100 ->   foo.c (version 1.00)
+
+        Using this scheme, the hed command
+
+                hed foo.scc foo.1* foo.c
+
+        (to create version 1.00) wouldn't work, because the update files
+        would be sorted in the wrong order:  1.00 would precede and be
+        applied before 1.05.  However, the command
+
+                hed -v foo.scc foo.1* foo.c
+
+        would sort in reverse order and apply 1.05 before 1.00,
+        correctly producing 1.00.
+
+        The advantage to the "reverse" scheme is that the most current
+        version of the source can be obtained immediately, without the
+        need to apply many sequential files.
+
+
+        Other uses of hdiff
+        -------------------
+        In addition to the version control application of hdiff, you can
+        find other uses for the system.
+
+        The simplest use for hdiff is to compare two files to see if
+        they are the same.  This can be used to check for corruption
+        during backups, copies, etc., or to determine which of two files
+        is newer.  Even this simple use of hdiff can be useful in
+        unexpected ways, however.  For example, look at this small batch
+        file:
+
+                dir a: > temp
+                find "-" temp > dir.a
+                dir b: > temp
+                find "-" temp > dir.b
+                hdiff dir.b dir.a > temp.bat
+                erase dir.a
+                erase dir.b
+                erase temp
+
+        This batch can be used for a simple backup system.  Assume that
+        the default directory in drive A contains a series of files that
+        you want to backup, and that the default directory in drive B
+        contains the same set of files from the last backup.  The batch
+        will isolate differences between the two directories and prepare
+        a file called TEMP.BAT that contains a list of those files that
+        have been changed or added since the last backup.  Many popular
+        text editors could very easily convert (or be programmed to
+        automatically convert) TEMP.BAT file into a series of copy
+        commands that could be used, in batch mode, to perform the
+        copying.
+
+
+        Restrictions
+        ------------
+        The following act, in one way or another, as restrictions on
+        hdiff:
+
+        - File format:  hdiff is intended as a DOS text file differencer
+        only.  It is NOT a replacement for the DOS utility COMP or our
+        own QCMP.  Don't use it on binary (program or data) files, or on
+        most word processor files.
+
+        - Available memory:  hdiff works entirely in memory, and it
+        needs quite a lot.  The starting memory requirement is about
+        220K; then, for each UNIQUE line in either file, hdiff needs
+        about 12 bytes plus the length of the line.  Identical lines are
+        stored only once, no matter how many times they occur.  Thus,
+        the two files:
+
+            File 1:
+                Line 1
+                /* Comment */
+                Line 2
+
+            File 2:
+                Line 1
+                /* Comment */
+                /* Comment */
+                Line 2
+                Line 3
+
+        have four unique lines ("Line 1", "/* Comment */", "Line 2", and
+        "Line 3").  These will use about 79 bytes of storage (in
+        addition to the 220K starting memory!):
+
+            4 lines @ 12 bytes:  48
+            Total text length:   31
+
+        - Number of lines: neither file can exceed 5000 lines of text.
+
+        - Line size: limited to a maximum of 1000 characters per line.
+
+
+        Notes on the algorithm
+        ----------------------
+        Hdiff uses a file comparison algorithm that was developed by
+        Paul Heckel and described by Dave Cortesi in Dr.  Dobb's Journal
+        #94 (August, 1984).  The algorithm is substantially more
+        efficient than traditional file comparison methods; it can
+        generate a difference report between two files in little more
+        than the time it takes for the program to read them.
+
+        Hdiff was derived from Cortesi's demonstration program, with
+        substantial modifications that
+
+            - accomodate differences between edlin and CP/M's "ed" (for
+              which the demo was written)
+
+            - allow use of edlin's block move capabilities
+
+            - allow for much larger files through the use of all
+              available memory.
+
+            - allow case and spacing insensitive comparisons.
+
+            - allow the user to request the simpler difference report
+              rather than the edlin script.
+
+
+        Copyright/License/Warranty
+        --------------------------
+        This document and the program files HDIFF.EXE and HED.EXE ("the
+        software") are copyrighted by the author.  The copyright owner
+        hereby licenses you to:  use the software; make as many copies
+        of the program and documentation as you wish; give such copies
+        to anyone; and distribute the software and documentation via
+        electronic means.  There is no charge for any of the above.
+
+        However, you are specifically prohibited from charging, or
+        requesting donations, for any such copies, however made; and
+        from distributing the software and/or documentation with
+        commercial products without prior permission.  An exception is
+        granted to not-for-profit user's groups, which are authorized to
+        charge a small fee (not to exceed $7) for materials, handling,
+        postage, and general overhead.  NO FOR-PROFIT ORGANIZATION IS
+        AUTHORIZED TO CHARGE ANY AMOUNT FOR DISTRIBUTION OF COPIES OF
+        THE SOFTWARE OR DOCUMENTATION, OR TO INCLUDE COPIES OF THE
+        SOFTWARE OR DOCUMENTATION WITH SALES OF THEIR OWN PRODUCTS.
+
+        THIS INCLUDES A SPECIFIC PROHIBITION AGAINST FOR-PROFIT
+        ORGANIZATIONS DISTRIBUTING THE SOFTWARE, EITHER ALONE OR WITH
+        OTHER SOFTWARE, AND CHARGING A "HANDLING" OR "MATERIALS" FEE OR
+        ANY OTHER SUCH FEE FOR THE DISTRIBUTION.  NO FOR-PROFIT
+        ORGANIZATION IS AUTHORIZED TO INCLUDE THE SOFTWARE ON ANY MEDIA
+        FOR WHICH MONEY IS CHARGED.  PERIOD.
+
+        No copy of the software may be distributed or given away without
+        this document; and this notice must not be removed.
+
+        There is no warranty of any kind, and the copyright owner is not
+        liable for damages of any kind.  By using this free software,
+        you agree to this.
+
+        The software and documentation are:
+
+                       Copyright (C) 1985, 1986, 1987 by
+                            The Cove Software Group
+                            Christopher J. Dunford
+                                 P.O. Box 1072
+                           Columbia, Maryland 21044
+
+                                (301) 992-9371
+                        CompuServe 76703,2002 [IBMNET]
+
+        Software and documentation author: Chris Dunford

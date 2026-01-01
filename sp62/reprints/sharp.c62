@@ -1,0 +1,304 @@
+                                                        Sharp, Oliver
+
+                            Networking with Perl: 
+            Perl scripts can simplify network communication
+
+
+Abstract:  The Perl programming language makes handling the socket
+           protocol easier when using Berkeley sockets to make UNIX
+           networks communicate with each other.  Berkeley sockets
+           provides an interface that hides many of the complicated
+           details when interconnecting UNIX networks.  Perl is a
+           language that handles a broad array of systems administration
+           tasks and makes using the socket protocol even easier.  The
+           Perl application called PostIt enables users on different
+           computers to leave each other notes that are tagged by
+           keywords.  Perl simplifies the socket interface, making the
+           code shore and more easily understood than it would have been
+           in C. The PostIt program includes a server on a designated
+           machine to accept commands and a client program that users
+           invoke to send commands.
+
+Wary of becoming entangled, try to write networked applications.  While
+connecting computers together can be difficult and complex, you don't
+necessarily have to master the alphabet soup of standards and the wide
+array of specialized hardware just to get started writing programs that
+work over networks.  There are software interfaces that hide many of
+these details from you.
+
+Although no single interface is supported everywhere, the one that's
+almost universally available under UNIX is Berkeley sockets.  Perl, a
+language designed to handle a wide variety of system administration
+tasks, makes handling the socket protocol easier still.  This article
+shows how you can write Perl scripts that communicate across networks of
+UNIX machines.  For details on Perl itself, refer to the accompanying
+textbox entitled, "Perl Fundamentals."
+
+The Berkeley socket protocol was developed to allow communication between
+networked computers.  After examining sockets in a general way, I'll
+present a Perl application that takes advantage of them.  The
+application, called "PostIt," allows users on different machines to leave
+notes for each other, tagged by a keyword.  Of course, I could have
+written PostIt in C, but Perl simplifies the socket interface, making the
+code shorter and easier to understand.  Also, since the names of the
+socket routines are the same, you can later scale up to C without much
+difficulty.
+
+Sockets
+
+A socket is an abstraction of the communication link between two
+machines.  The easiest way to understand it is to think of it as an
+extention of a UNIX pipe.  Through a socket, two processes can
+communicate with each other, whether or not they are on the same
+computer.  The socket is a two-way link, so each process can read or
+write on it just the way that it would use a file descriptor.  In fact,
+to the standard I/O library, sockets look like file descriptors and you
+can pass a socket to any library routine that expects a descriptor (such
+as read and write).
+
+Generally, the easiest way to use sockets is to set them up in stream
+mode, where they'll act like you'd expect: If you send two messages,
+they're guaranteed to arrive in the same order that you sent them.
+PostIt uses stream mode because such guarantees make the programmer's
+life much simpler.
+
+There are, however, alternatives to stream mode.  Datagram mode, for
+example, models the way the underlying network acts: You send data back
+and forth in discrete packets of some particular size.  If you want to
+send more information than fits in one packet, you divide it up.  Packets
+can arrive in any order and they can also get lost, often requiring a
+protocol layer on top of the socket interface.  The advantage to
+datagrams is that they are more efficient, since fewer layers of software
+lie between you and the network; as always, higher levels of abstraction
+impose a cost.
+
+PostIt
+
+There are two parts to the PostIt program: a server sitting on a
+designated machine that accepts commands, and a client program invoked by
+the user to send the commands.  Once up and running, the server waits for
+clients to call it up with commands, of which there are three kinds: set,
+get, and die.  The server keeps track of messages, each of which has an
+associated key word.  A set has a tag and a string value, telling the
+server to associate the string with that tag.  A get has a tag, and the
+server returns the string (if any) associated with that tag.  For a get
+with the tag all-tags, the server sends back a list of all the tags that
+have information associated with them.  The die command tells the server
+to terminate itself.  Figure 1 shows a simple dialog using PostIt.
+
+The first thing that happens is that somebody runs the server.  In Figure
+1, the third machine runs the server and fields queries from the others.
+Real servers (such as the ftp and finger daemons) are, of course, started
+automatically when the system boots up; for now, however, I'll start
+PostIt by hand.
+
+The next step is that Joe on Machine #2 asks if anyone has left a message
+under the tag lunch; the system responds that there's no message.  Joe
+wants to tell anyone who's interested that he is at the Sandwich House,
+and leaves a message.  The next person to come along is Mary on Machine
+#1, who looks to see what messages are available.  She sees the tag
+lunch, gets the message, and decides to join Joe.  She changes the lunch
+message to let the rest of their group know where to go.  There is one
+message per tag, so if somebody sets a new one, it replaces the old.
+Since the example is simple, there's no message protection, message
+history, or any of the other elaborations you'd want in a real messaging
+program.
+
+PostIt Implementation
+
+Perl and C syntax are quite similar.  I
+
+Perl and C syntax are quite similar.  I tried to avoid using the more
+exotic features of Perl in PostIt to keep the code straightforward for C
+programmers.  The server uses a simple strategy for storing data: It
+creates a file for each PostIt note in the directory where the server was
+invoked.  The name of the file is the tag for that note.  The server sits
+in a loop, waiting for clients to get in touch with it and either leave
+messages or request them.
+
+Listing One (page 117) is the server code.  The first line is a command
+to the UNIX shell that this is a script and should be run by handing it
+to Perl. The script starts by stashing away its process ID into the
+variable $parent[unscore]pid.  (All string variables in Perl start with a
+dollar sign.) The variable $$ is a built-in Perl variable that contains
+the process ID--Perl has many of these variables, and they are useful (if
+rather cryptic) shortcuts.
+
+The next two lines check if the user specified a port number when
+invoking the server.  If so, I set the variable $port to that number;
+otherwise, I use 2001.  Port numbers are a simple way for two processes
+to get in touch with each other, somewhat like a phone number.  If the
+server process is running on a machine called "green," it tells green
+that it will handle any requests to a given port (2001, say).  Any
+client, whether it is on green or not, can "dial" to machine green, port
+2001, and the system will notify the server that somebody called.
+
+The problem with port numbers is that you don't know which are available.
+ A variety of services already use the lower numbers; 21, for example, is
+the port used by the file-transfer utility ftp.  You can request a
+specific port, or you can ask the system to pick any available one (by
+asking for port number 0).  If the server doesn't use the default value,
+the user will have to specify the port number to the client.  Just as
+with a phone, if you don't know the right number, you can't get in touch
+with the server you are looking for.
+
+The next line tells Perl that if an interrupt signal comes in, it should
+call the subroutine suicide (which appears at the bottom of the script),
+and close the socket.  It is important to close sockets, because they
+won't be shut down when a process exists.  Some systems have a time-out,
+but many versions of UNIX won't recover the socket until a system reboot.
+
+Next, set up some variables that will be used in calling the socket
+interface routines.  The first is $family, which is set to 2 to indicate
+that I want Internet protocols.  There are several different protocol
+families, including the Xerox NS and internal UNIX protocols.  Since I'm
+going to be communicating via TCP/IP to other UNIX machines, I'll stick
+to the Internet protocol.
+
+The next variable, $sock_type, is set to 1 for stream mode.  The last
+variable, $sockaddr, is a character encoding of some network ID
+information; unless you are doing something fancy, you can usually stick
+to this standard value.
+
+To call socket routines, start by calling getprotobyname, which takes the
+name of a protocol and returns three identification keys used by other
+socket routines.  Perl's string parsing comes in handy, letting you
+separate the protocol information into three variables and then recombine
+with pack.  Before actually creating the socket, I tell Perl to set up a
+stream called NEW_S that flushes on every input and output.  Otherwise,
+the socket buffering causes problems; in a conversation, the processes
+want to send a message, wait for a response, and so on.  Without
+automatic flushing, a sent message may sit in a socket buffer because the
+system doesn't think it is long enough to be worth sending yet.  The
+select command sets a stream to be the current one, and $/ is a special
+variable that controls whether flushing is done automatically.
+
+Next, the call to socket creates a disembodied socket--it has buffering
+set up, but isn't connected to anything.  The call to bind gives the
+system some more information about how the socket will be used.  Now
+you're ready to do something with the socket, depending on whether you be
+calling somebody or they'll be calling you.  In the case of a server, you
+want to wait for incoming calls, so you use listen.  The second argument
+tells the system to allocate enough space for five processes to wait to
+get in touch with you.
+
+With the socket setup finished, you can get down to the business of being
+a server--sitting in a loop, waiting for clients to connect.  Each call
+to accept returns when somebody calls, creating a new socket (NEW
+[underscore]S) for that particular connection.  The socket library makes
+extra sockets to allow servers to be more responsive.  A simple strategy
+would be to handle incoming clients in order, forcing everyone to wait
+until the socket was free.  Instead, the original socket is only used to
+make the connection.  Once a client attaches to it, a new socket is
+created for that conversation and will be closed after it is over.
+
+PostIt uses the typical server strategy of spawning a child process to
+handle each conversation; that leaves the parent server free to handle
+the next client who comes along.  Now you see the point of the argument
+to listen--it tells the socket library how many clients should be able to
+wait until the server accepts them.  Choose a number based on the number
+of requests you expect clients to make and the delay between calls to
+accept.  If the line for server access is too long, the next client will
+be turned away.
+
+The call to fork creates a child process which looks just like the parent
+and has the same streams, variables, and so forth.  The two processes can
+figure out which they are by looking at the return value from fork.  The
+one that gets a 0 is the child and is responsible for handling the
+client.  The parent gets a nonzero return value; since it doesn't need to
+talk to the client, it closes the temporary socket NEW[underscore]S and
+loops, calling accept to get the next client.
+
+The child reads the first line from the socket into $command and uses the
+Perl command split to peel off the instruction and the tag.  PostIt can
+handle get, set, and die; anything else is ignored.
+
+To shut down, PostIt uses the Perl kill command, sending the parent UNIX
+signal SIGINT.  This tells Perl it will handle that signal in the routine
+suicide, which closes the main server socket if it is open, prints out a
+death message, and exits.
+
+To handle a get, the program first checks if it has the special tag
+all-tags. If so, just send the names of all the files in the server's
+directory.  One way to do this in UNIX is with the command 'echo *'; by
+putting it in backquotes, you tell Perl to execute the command and
+replace it on the line with its output.  When print is issued a stream as
+its first argument (NEW[underscore]S in this case), the other argument
+strings are written to that stream.  That's all it takes to send the list
+of files back to the client.  If you're asked about some other tag, use
+the UNIX cat command to send the file.  If a file doesn't exist, nothing
+is sent.
+
+A set is equally simple.  You open a file with the value of $tag as its
+name, write the message from the client, and close it.  Return OK to the
+client if you succeeded, Nope if you fail.
+
+On the server side of the connection, PostIt uses a standard UNIX trick
+because most of the work is the same, regardless of the message you send.
+ PostIt uses the same source code for different commands.  In this case,
+the script can be invoked in one of three ways: getinfo <info-tag>
+[server-machine server-port]; setinfo <info-tag> <value> [server-machine
+server-port]; and kill-server [server-machine server-port].  Under UNIX,
+you can save some disk space by having three separate names for the same
+file (using links).  Alternatively, you can just make three copies.
+
+The first version of the client asks the server for a message with the
+given tag; the user can optionally specify a machine and a port to
+connect to.  Remember that a port is like a telephone number within a
+given machine.  To connect to the server, the client "rings" on that
+number; if a server wants to answer requests, it will have called accept
+and a connection will be set up.  If no server information is given, we
+will use the default machine (master.euphoria.edu) and port number
+(2001).  The second kind of invocation sets up a note with the given tag
+and value, again optionally specifying the server information.  The third
+one tells the server to close up and exit.
+
+First, the client parses the arguments.  The variable $0 contains the
+name used to invoke the script, so PostIt uses it to figure out whether
+to get, set, or die.  If it's not just killing the server, you get the
+tag argument using the Perl command shift, which takes an array and
+returns the first element, removing it and shifting the rest down.  If no
+array is specified, shift uses the arguments to the script as its
+default.
+
+For setinfo, you get the contents of the note and make sure that the user
+isn't trying to assign a value to the special tag alltags.  Having read
+the required arguments (the tag, if we are getting info, both tag and
+value, if we are setting), you can check for server information.  Put the
+next two arguments, if they exist, into $machine and $port.  Use the
+defaults if you didn't get anything.
+
+The next several lines are similar to the server, though the arguments to
+the socket functions are a bit different.  The main difference is that
+you call connect, specifying the host and port number of the server.
+Remember that in the server you called listen, to tell the system that we
+were waiting for clients to call us.  The connect call to a listening
+socket creates a connection.  Another difference is that the client uses
+its original socket to communicate with, unlike the server, which got a
+new one for each connection from accept.
+
+Once connected, PostIt sets the socket to flush I/O and sends the
+message.  For a setinfo, send the set request, and see if you get back an
+OK.  To get info, send the get request and wait for a response.  If you
+get back an empty string, there wasn't a note with that name, so print
+out a message.  Otherwise, print out the note's contents.  Once you have
+gotten the response from the server, you're done, so close the socket and
+exit.
+
+Conclusion
+
+For more complete discussions of UNIX network programming issues, I
+recommend UNIX Network Programming, by W. Richard Stevens (Prentice-Hall,
+1990) and Internetworking with TCP/IP, by Douglas Comer (Prentice-Hall,
+1988).
+
+For more information on Perl, turn to Programming Perl, by Larry Wall and
+Randal L. Schwartz (O'Reilly and Associates, 1990).  Larry invented the
+language, so this book is the authoritative word.  In fact, like many
+Perl programs, the skeleton of PostIt comes from an example in the book.
+Both the authors and many others are active participants in the Usenet
+group, comp.lang.perl, where you can get exhaustive answers to almost any
+conceivable question about Perl.
+
+                   Journal:    Dr. Dobb's Journal  Oct 1993 v18 n11 p94(6)
+                   * Full Text COPYRIGHT M&T Publishing Inc. 1993.

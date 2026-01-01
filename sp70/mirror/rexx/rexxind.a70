@@ -1,0 +1,176 @@
+Date: Mon, 22 Aug 94 09:14:02 MET
+From: "W. J. Metzger" <U632111@VM.UCI.KUN.NL>
+To: Nikolai Bezroukov <bezronn@iia.org>
+Subject: Re: Source "Beautifier"
+
+
+------------------------ cut here    following is REXXFORM XEDIT --------
+/*** PSU-DOC-BOX-BEGIN ***********************************************
+*
+*   ROUTINE:      REXXFORM
+*
+*   PURPOSE:      Structure/indent REXX execs
+*
+*   AUTHOR:       Robert Fowles, 02/04/84
+*                 (based on original exec by Jeffery Almoney)
+*                 Pennsylvania State University
+*                 122J Computer Building
+*                 University Park, PA  16802
+*                 814 863-0422
+*                 SHARE Installation code: PSU
+*
+*   REVISIONS:
+*                 11/26/84 refine detection of unbal DO's.
+*                 85/08/28 converted to UOW format
+*                 86/06/24 general cleanup and improvements (PHS3@WATDCS)
+*                 88/05/02 verify off (U632111@HNYKUN11)
+*** PSU-DOC-BOX-END *************************************************/
+   arg j
+   if j='?' then signal INFO
+   'EXTRACT /VERIFY'
+   'SET VERIFY OFF'
+   in=3; cj=0; ci=0; com=0
+   do while j^=''
+      parse var j s j
+      select
+         when datatype(s,'W') then in=abs(s)
+         when s='CJ' then cj=1
+         when s='CI' then ci=1
+         otherwise signal INVALID
+      end
+   end
+   signal on SYNTAX
+   'COMMAND PRESERVE'; 'COMMAND SET MACRO OFF'; 'COMMAND SET SYNONYM OFF'
+   'SET ZONE 1 *'; 'SET LINEND OFF'; 'SET IMAGE OFF'; 'SET RANGE :0 *'
+   'SET DISPLAY 0 *'; 'EXTRACT /LINE/SIZE'; 'TOP'
+   indent=1; cont=0; unbal=''
+   ds=''                   /* Line-number stack for DO's and SELECT's. */
+   es=''                               /* Line-number stack for END's. */
+   do i=1 to size.1
+      '+1 EXTRACT/CURLINE/'
+      if curline.3='' then iterate
+      w1=word(curline.3,1); lw=word(curline.3,words(curline.3))
+      j=XSCAN(curline.3)
+      if j>0 then lastdo=i
+      if j<0 then indent=indent+j
+      if indent<=0 then indent=1
+      select
+      when substr(w1,length(w1),1)=':' | word(curline.3,2)=':' then do
+         blanks=left(' ',(indent-1)*in)
+         call REPLACE blanks||strip(curline.3)
+         if j>0 then indent=indent+j
+      end
+      when substr(w1,1,2)='/*' | com>0 then do
+         if cj then call REPLACE strip(curline.3)
+         if ci then call REPLACE substr(' ',1,(indent-1)*in)||strip(curline.3)
+         if j>0 then indent=indent+j
+         if com=2 then com=0
+      end
+      otherwise
+         call REPLACE substr(' ',1,cont+indent*in)||strip(curline.3)
+         if substr(lw,length(lw))=',' then cont=2; else cont=0
+         if j>0 then indent=indent+j
+      end
+   end
+   ':'line.1 'RESTORE'
+   if es^='' then 'COMMAND MSG Unbalanced "END"s detected at lines: 'es
+   if ds^='' then do
+      nds=''
+      do i=1 to words(ds)
+         nds=word(ds,i) nds
+      end
+      'COMMAND MSG Unbalanced "DO"s or "SELECT"s at lines: ' nds
+   end
+   'SET VERIFY' verify.1 verify.2
+   exit
+SYNTAX:
+   r=rc
+   'MSG Line' sigl', source line' i
+   'MSG' sourceline(sigl)
+   'MSG' errortext(r)
+   'SET VERIFY' verify.1 verify.2
+   exit r
+XSCAN:
+   procedure expose com i ds es
+   arg s
+   if com=1 then do
+      k=pos('*/',s)
+      if k>0 then do
+         j=pos('/*',s)
+         if j=0 | j>k+1 then com=2
+      end
+      return 0
+   end
+   k=pos('/*',s)
+   if k>0 then do
+      if pos('*/',s,k+2)=0 then do
+         com=1; return 0
+      end
+   end
+   k=0; s2=' '
+   do until s2=''
+      parse var s s1 "'" s2 "'" s3
+      if s2^='' then s=s1 s3
+   end
+   s2=' '
+   do until s2=''
+      parse var s s1 '"' s2 '"' s3
+      if s2^='' then s=s1 s3
+   end
+   s2=' '
+   do until s2=''
+      parse var s s1 '/*' s2 '*/' s3
+      if s2^='' then s=s1 s3
+   end
+   s=translate(s,' ',';')
+   do j=1 to words(s)
+      w=word(s,j)
+      select
+         when w='DO' | w='SELECT' then do
+            k=k+1; ds=i ds
+         end
+         when w='END' then do
+            k=k-1
+            if ds='' then es=es i
+            ds=delword(ds,1,1)
+         end
+         otherwise nop
+      end
+   end
+   return k
+REPLACE:
+   if arg(1)^==curline.3 then 'REPLACE' arg(1)
+   return
+INVALID:
+   'COMMAND EMSG XRF520E Invalid operand : ' j
+   'SET VERIFY' verify.1 verify.2
+    exit 16
+INFO:
+   parse upper source . . . . . macro_name .
+   address command 'HELP XEDIT' macro_name
+   exit rc
+------------------------ cut here    following is REXXFORM HELPXEDI  ----
+.cs 1 on
+REXXFORM can be used to reformat a REXX exec.
+.cs 1 off
+.cs 2 on
+
+     REXXFORM  <CJ> <CI> <n>
+
+This XEDIT macro  scans the entire active  file and offsets each  SELECT and DO
+group <n>  columns to  the right.   As each  DO or  SELECT is  encountered, the
+margin is moved  <n> to the right.  As  each END is encountered,  the margin is
+moved <n> left.  If  <n> is not given, it is assumed to  be 3.  Lines beginning
+with a comment delimiter are not shifted unless CJ or CI is given.  The operand
+CI causes comments to  be indented like all other lines, and  CJ causes them to
+be left-justified.  The arguments may be given  in any order.  The first margin
+is always set  at <n>.  The command  "REXXFORM 0" will left-justify  the entire
+file.   When REXXFORM  completes, it  will display  the line  numbers of  lines
+containing  unbalanced  DOs, SELECTs,  or  ENDs.   REXXFORM cannot  handle  all
+possible combinations of comment constructions and literals with slash-asterisk
+or asterisk-slash.  The worst that can happen  is that the indentation will not
+be consistent throughout the file.  It  detects and processes comment blocks (a
+block  starting with  slash-asterisk  and ending  with  asterisk-slash but  not
+containing any comment delimiters).
+.cs 2 off
+------------------------ cut here    that's all  for REXXFORM  ----------

@@ -1,0 +1,422 @@
+            Turbo and Microsoft C Mouse Routines - Release 1.0
+            --------------------------------------------------
+
+Tue Jan 8, 1991.
+
+CONTENTS
+
+  1. What do these routines do?
+  2. How it works.
+  3. Variable and definition reference.
+  4. Function reference.
+  5. The test program.
+  6. Disclaimer and other stuff.
+
+
+1. What do these routines do?
+-----------------------------
+
+These routines will allow you to interface with the mouse driver in your
+programs.  It works with Microsoft compatible mouse drivers (i.e. Logitech,
+PC Mouse, Dexxa, etc).  The routines have the added feature of displaying a
+'true' mouse cursor in text mode on an EGA or VGA by reprograming the font
+on the fly.
+
+The routines consist of several functions used to initialize, draw the
+cursor, and get mouse events (button presses).
+
+These routines do not handle drawing the mouse cursor in graphics mode,
+only text mode.  If the routines detect the presense of an EGA/VGA adapter,
+it will use the 'true' mouse cursor, if not it will use a simple block
+cursor implemented by switch the foreground/background colors of the
+position the cursor is.
+
+2. How it works.
+---------------
+
+All character coordinates used by the mouse driver are zero based.  I.e. in
+80x25 text mode the range of values for x and y are 0-79 and 0-24.  The
+routines should work in all memory models.
+
+The routines first check for the presense of a mouse driver, and if none is
+present, they return without doing anything.  It is safe to call the
+routines such as MOUhide() and others even if a mouse is not installed,
+they will simply return.
+
+Once the presense of a Microsoft compatible mouse driver is verified, the
+routine checks the presense of DESQview and an EGA/VGA.  If an EGA/VGA is
+in the system, and the program is not running under DESQview, the routines
+will choose to use a 'true' cursor, otherwise a simple block cursor will be
+used.  A 'true' cursor is not used under DESQview because DESQview doesn't
+really like having it's font changed on the fly by a program.  The 'true'
+mouse cursor would probably interfere with other programs running at the
+same time.
+
+The mouse driver does have a glitch that these routines have to work
+around, that being that when in text mode, the mouse driver returns the
+coordinates as multiples of 8 (i.e. 0, 8, 16, 24 ...).  Since the 'true'
+cursor has a pixel resolution, we need to get the mouse driver to return
+coordinates in pixels (i.e. 0, 1, 2, 3 ...).  To do this, we 'trick' the
+mouse driver into thinking it is in graphics mode (where coordinates are
+returned in pixels) by changing the current video mode.  This is done by
+placing a value of 6 in memory location 0x0040:0x0049, 6 being the number
+for CGA 640x200 2 color graphics mode.  We then tell the mouse driver to
+initialize again (using mouse driver function 0), and the mouse driver
+checks the video mode, sees that we are in graphics mode, and sets itself
+up accordingly.  We then restore the mode byte at 0x0040:0x0049 to it's
+previous value.  After this, the mouse driver returns all coordinates in
+pixels.  I had to hack out this fix on my own, I called Microsoft and got
+nothing from them, but I remembered that when you are running the mouse
+driver in graphics mode on a Hercules graphics adapter, you have to do this
+'trick.'  It worked in this case as well.
+
+Next the initialization routine sets up the maximum x and y ranges for the
+mouse cursor based on the dimensions of the video mode.  Lastly it installs a
+mouse function handler using mouse driver function 12 -- define handler.
+The handler is installed for mouse movement, and left or right button
+presses and releases.
+
+The handler is defined in the function 'void far mousehandler(void)'.  This
+function is called by the mouse driver upon one of the events happening as
+defined in the call to mouse driver function 12.  The handler will
+automatically update the mouse cursor, change the global variables mousex
+and mousey to the character (not pixel) coordinates of the mouse.  It also
+checks for mouse events (button presses and releases) and stores them into
+a buffer if an event happens.  This event is later retrieved with a call to
+MOUpreview() or MOUget().
+
+The drawing of the mouse cursor on non EGA/VGA adapters is quite simple.
+It reverses the foreground and background color of the character where the
+mouse is located.  This is the default text cursor that the mouse driver
+uses itself.
+
+On an EGA/VGA adapter, things get a little more complicated.  A 3x3
+character arangement is used to draw the cursor.  The function
+plotegavgacursor() handles saving the 3x3 character array, restoring it
+later, and drawing the 3x3 array of characters that is redefined.  The
+redefinition consists of reading the definitions of the characters,
+preforming an AND and OR of the mouse cursor onto the existing definitions,
+then copying those modified definitions to a new location.  I copy to
+characters 0xd0 to 0xd8.  Then the characters 0xd0 to 0xd9 are placed in
+the 3x3 grid where the mouse cursor is located, thereby drawing the cursor.
+
+The mouse cursor is a simple array of dwords (32 bit unsigned long) that is
+used to update the character definitions.  The cursor can be changed from
+the default one provided, as defined in the mouse driver documentation for
+defining graphics cursors.  It consists of two masks:  the screen mask, and
+the cursor mask.  The screen mask is bitwise AND'ed to the existing character
+definitions, then the cursor mask is bitwise OR'ed to the existing character
+definitions.
+
+The functions MOUshow(), MOUhide() and MOUconditionalhide() perform as
+their counterpart functions provided by the mouse driver.
+MOUconditionalhide() is a special function (that some 'clone' drivers
+_don't_ have) that allows you to update a rectangular region on the screen
+without distrubing the mouse (if it is not in the region).  It is called
+with the character coordinates of a rectangular region on the screen.  If
+the mouse is in that region, or if the mouse moves into that region, the
+mouse cursor will automatically turn off.  A call to MOUshow() cancels the
+rectangular region.  You can't make multiple calls to MOUconditionalhide()
+between calls to MOUshow().
+
+Various 'glitches' arise by using a 'true' mouse cursor.  They are listed
+as follows:
+
+  1. On the VGA adapter, standard text mode consists of 9 by 16 characters.
+     The character are not actually 9 bits wide, but 8.  The VGA duplicates
+     the rightmost bit for the border characters (characters 176 to 218).
+     The 'true' cursor uses (rather redefines) characters 208 to 216 (0xd0
+     to 0xd8 hex), thereby having its rightmost bit duplicated.  If another
+     set of characters is used, the cursor appears to have a 'gap' in the
+     middle of it.  The problem lies in that if the cursor is moved over a
+     character that has some of its rightmost bit set, the rightmost bit
+     will be duplicated.  Characters such as the lower case 'm' are
+     examples of this.  It is much easier to see the effect of this than
+     explain it.  Run the TEST program that comes with the routines and
+     place the cursor over a lower case m on the screen.  You will notice
+     the effect.  I can't see any way around this.  This doesn't happen on
+     an EGA as the EGA uses 8 pixel width characters (not 9).
+
+  2. Since the 'true' mouse cursor is larger than one character, moving the
+     cursor into areas of the screen with different foreground colors will
+     cause the cursor to take on that color.  If the cursor is at the
+     border of two different foreground colors, it will appear that the
+     cursor is in two colors.  I got around this by always using the same
+     foreground color for all characters on the screen (i.e. WHITE) and
+     just using different background colors to show differences on the
+     screen.
+
+  3. DESQview doesn't like its font changed on the fly.  It interfers with
+     the 'true' cursor to the point where it's disfunctional.  The mouse
+     routines will automatically detect DESQview and fall back to a normal
+     block cursor if running under DV.
+
+  4. Since the font is changed, characters 0xd0 to 0xd8 are not available
+     for use by the program.  These characters are the IBM border
+     characters used to connect double line and single line boxes together.
+     I don't use these characters in my programs, and they aren't really
+     needed.  If you need to have a single line join a double line graphics
+     character, just place them side by side.  They won't actually 'join'
+     as it would by using a double to single line character, but they will
+     line up closely.  I find it an acceptable loss to provide a 'true'
+     mouse cursor on the EGA/VGA.
+
+For a description of how to change fonts on the EGA/VGA adapters, I highly
+recommend the book by Richard Wilton, _Programmer's Guide to PC & PS/2
+Video Systems_.  An excellant book if you are doing any kind of video
+programming.  For a description of the mouse driver interface, I can
+recommend Logitech's Mouse Programmer's Toolkit, Microsoft Press's Mouse
+Reference Guide, and Ralf Brown's Interrupt List (updated periodically).
+I initially learned the interface to the mouse driver from an article in PC
+Magazine (I can't remember what issue), and I use Ralf Brown's Interrupt
+List for reference now.
+
+3. Variable and definition reference.
+-------------------------------------
+
+The following variables and defintions are included in MOU.H:
+
+MOUINFOREC              This is the definition for the structure returned
+                        by the functions MOUpreview() and MOUget().  It
+                        contains the following fields:
+                          word buttonstat:  bits in this field indicate
+                            what event occured.  See them below.
+                          int cx, cy: character coordinates of where this
+                            event occured.
+                          byte shiftshate:  the status of the shift keys at
+                            the time of the event.  See definitions below.
+
+MOUSEBUFFERSIZE         This is the size of the mouse buffer.  The buffer
+                        is where mouse events are held for the program
+                        until is retrieves them with MOUget().
+
+MOUSEMOVE,              These defines are for the field buttonstat in the
+  LEFTBPRESS            MOUINFOREC structure.  By checking the bits of
+  LEFTBRELEASE,         buttonstat, you can find out what event occured,
+  RIGHTBPRESS,          for example, "if (m.buttonstat & LEFTBPRESS)" will
+  RIGHTBRELEASE         be true if the event was caused by the press of the
+                        left mouse button.
+
+LEFTBDOWN,              These defines are used for the value returned by
+  RIGHTBDOWN            the function MOUbuttonstatus().  I.e.
+                        "if (MOUbuttonstatus() & LEFTBDOWN)" will be TRUE
+                        if the left mouse button is currently down.
+
+SHIFT_RIGHTSHIFT,       These defines are for the shiftstate field in the
+  SHIFT_LEFTSHIFT,      MOUINFOREC structure.  It allows you to check for
+  SHIFT_SHIFT,          such things as shift-clicks.  I.e.
+  SHIFT_CTRL,           "if (m.shiftstate & SHIFT_LEFTSHIFT)" will be TRUE
+  SHIFT_ALT,            if the left shift key was held down during the
+  SHIFT_SCROLLLOCK,     mouse event.  SHIFT_SHIFT is defined as both
+  SHIFT_NUMLOCK,        shift keys.
+  SHIFT_CAPSLOCK,
+  SHIFT_INS
+
+word mousehidden        This variable will be true (non-zero) if the mouse
+                        is currently hidden.  It is undefined if
+                        mouseinstalled is false.  Don't write to this
+                        variable, it's just provided for your reference.
+
+boolean mouseinstalled  This variable will be true (non-zero) if a mouse
+                        driver is installed and operating and the mouse
+                        routines are active and reading the mouse and
+                        drawing the cursor.  If it is false, the mouse
+                        driver routines will not operate, calling them will
+                        do nothing (but calling them is not harmful).
+
+volatile int mousex,    These variables hold the current location of the
+  mousey                mouse cursor.  They are updated by the mouse
+                        handler.  Note that their value may changed at
+                        _any_ time.  Don't depend on them being constant.
+                        If you need to reference them, I recommend
+                        declaring a couple of variables to hold their
+                        values (i.e. int x, y;  x = mousex; y = mousey;)
+                        and using those instead of mousex and mousey.  Only
+                        reference mousex and mousey when you need to update
+                        the position.
+
+
+4. Function reference.
+----------------------
+
+/* Initialize the mouse routines -- must be called. */
+void    FAST MOUinit(void);
+
+  This function initializes the mouse routines, checks for presense of the
+  mouse driver, DESQview and an EGA/VGA.  What it does is described above
+  in "How does it work?".
+
+/* Deinitialize the mouse routines -- must be called on shutdown.
+   Failure to call it will most likely result in a system crash if the mouse
+   is moved. */
+void    FAST MOUdeinit(void);
+
+  This function will deinitialize the mouse routines.  It will stop the
+  mouse driver from calling the handler, and erase the mouse cursor.  You
+  can call MOUinit() if you wish to use the mouse driver routines again.
+  You MUST call this function before you quit your program.  Failure to do
+  so will most likely cause your computer to crash next time the mouse is
+  moved.  If you don't call it, the mouse driver still calls the mouse
+  hander, even after the program has quit.
+
+/* Hide the mouse cursor */
+void    FAST MOUhide(void);
+
+  This hides the mouse cursor.  The mouse cursor must be hidden with this
+  function (or MOUconditionalhide() below) before doing any screen
+  updating.  This prevents overwritting the mouse cursor.  The prefered way
+  to hide the mouse is MOUconditionalhide().  But if you are clearing the
+  screen, or updating all of it at once, use this function.  This function
+  counts how many times it has been called, i.e. if you call it twice, you
+  have to call MOUshow() twice to get the cursor back on the screen.
+
+/* Hide the mouse cursor if it moves or is in a specific rectangular region
+   of the screen. */
+void    FAST MOUconditionalhide(int x1, int y1, int x2, int y2);
+
+  This function hides the mouse automatically if it is in, or is moved in,
+  the retangular region defined by this function.  If possible use this
+  function to hide the mouse, as if the mouse isn't near the area being
+  updated, it won't 'blink' like it would calling MOUhide().  The
+  coordinates are zero based and x1 must be <= x2 and y1 must be <= y2.
+  Call MOUshow() after you want the cursor to reappear (if it was hidden by
+  this function).
+
+/* Show the mouse cursor */
+void    FAST MOUshow(void);
+
+  This turns on the mouse cursor after a previous call to MOUhide() or
+  MOUconditionalhide().  This function may be called as many times as you
+  like, once the cursor is not hidden, any other calls will have no effect.
+
+/* return TRUE if there are events waiting in the buffer. */
+boolean FAST MOUcheck(void);
+
+  This function returns true (non-zero) if there are events in the buffer,
+  if not it returns false (zero).
+
+/* look at the next event in the buffer, but don't pull it out. */
+void    FAST MOUpreview(MOUINFOREC *mouinforec);
+
+  This function passes the next event to the MOUINFOREC passed to it.  It
+  does not remove the event from the buffer.  If there are no events in the
+  buffer, the MOUINFOREC returned will have the current mouse position in
+  the cx and cy fields of the MOUINFOREC, the shiftstate field set to the
+  current state of the shift keys, and the buttonstat field blank (zero, or
+  no events).
+
+/* get and remove next event from the buffer. */
+void    FAST MOUget(MOUINFOREC *mouinforec);
+
+  This function passes the next event to the MOUINFOREC passed to it.  It
+  will remove the event from the buffer.  If there are no events in the
+  buffer, the MOUINFOREC returned will have the current mouse position in
+  the cx and cy fields of the MOUINFOREC, the shiftstate field set to the
+  current state of the shift keys, and the buttonstat field blank (zero, or
+  no events).
+
+/* return the current status of the mouse buttons (see defines above). */
+word    FAST MOUbuttonstatus(void);
+
+  This will return the current status of the mouse buttons.  It can be
+  ANDed with LEFTBDOWN and RIGHTBDOWN to see if either button is currently
+  being held down.  This function could be used to detect dragging of the
+  mouse.
+
+5. The test program.
+--------------------
+
+Included with the routines is a small test program that will allow you to
+see the 'true' mouse cursor (if you have an EGA/VGA adapter).  Included is
+a makefile for NDMake and Turbo C.  If you don't have a makefile, you can
+compile it like this:
+
+  tcc -ml test.c mou.c
+
+or under MSC as:
+
+  cl /AL test.c mou.c
+
+Note: with Turbo C, you will require to have TASM in your path as the
+routines have inline assembler in them.  MASM isn't required for MSC (MSC
+has a built in assembler, though it's a bit dumb at times).
+
+It's a simple program that will tell you the current mouse position and the
+status of the mouse buttons.
+
+The mouse routines will work in ALL EGA/VGA text modes.  I've run it in
+80x25 and 80x50 mode and the 'true' cursor will be drawn in both those
+modes.  My VGA supports a 132x60 mode as well, and the 'true' mouse cursor
+works prefectly in that mode as well.
+
+The test program requires ANSI.SYS to be installed.
+
+
+6. Disclaimer and other stuff.
+------------------------------
+
+I orginally started working on these routines when I first saw the new
+version of Norton's Utilities (version 5.0).  I was impressed with the
+'true' mouse cursor it was drawing in text mode, and wanted to know if I
+could write a set of routines to do the same thing.
+
+In Jan. of '91, a discussion on the group comp.os.msdos.program about the
+way Norton does the 'true' mouse cursor arose.  I replied to a message by
+Brian K. W. Hook who indicated that he doubted Norton changed the font on
+the fly the implement a 'true' mouse cursor in text mode.  He stated he was
+'baffled' by the way that Norton did it.  I stated that Norton did do it by
+changing the font on the fly, and that I had written some routines to do it
+as well.
+
+Brian asked me for the routines, as well as a couple of other users, so I
+cleaned them up, made them independant of my text window library (I've
+written a library for text window routines that I use in my programs) and
+otherwise prepared to unleash them on unsuspecting Usenet victims. :)
+
+These routines also illustrate interfacing to mouse driver function 12,
+which seems to be a common question on comp.os.msdos.program (How to I do
+interface to the mouse driver?).
+
+I'll supply support for these routines as my time permits, and I can be
+reached by any of the following methods of communication:
+
+Email:  UUCP:            {uunet,ubc-cs}!van-bc!rsoft!mindlink!a563
+        Usenet:          a563@mindlink.UUCP
+                         zoid@threewave.wimsey.bc.ca
+        Internet/Bitnet: Zoid@cc.sfu.ca
+
+        a563@mindlink.UUCP is prefered, Zoid@cc.sfu.ca would be the next
+        one to try.
+
+Mail:   #801-9835 King George Hwy.
+        Surrey, BC  Canada
+        V3T 5H6
+
+Phone:  604-585-8844 or 604-439-7770
+
+I do hope you enjoy these routines, and have an 'edge' on the competition
+by having a flashy 'true' cursor on the EGA/VGA.  Wow!
+
+
+
+                                DISCLAIMER
+
+   Dave Kirsch makes no warranty of any kind, either express or implied,
+   including but not limited to implied warranties of merchantability
+   and fitness for a particular purpose, with respect to this software
+   and accompanying documentation.
+
+   IN NO EVENT SHALL DAVE KIRSCH BE LIABLE FOR ANY DAMAGES (INCLUDING
+   DAMAGES FOR LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF
+   BUSINESS INFORMATION, OR OTHER PECUNIARY LOSS) ARISING OUT OF THE
+   USE OF OR INABILITY TO USE THIS SOFTWARE, EVEN IF DAVE KIRSCH HAS BEEN
+   ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+   Programmers may incorporate any or all code into their programs,
+   giving proper credit within the source. Publication of the
+   source routines is permitted so long as proper credit is given
+   to Dave Kirsch.
+
+                 Copyright (C) 1990, 1991 by Dave Kirsch.
+
+

@@ -1,0 +1,380 @@
+$macro FC;
+  { Макрос построчного сравнения текстовых файлов }
+  Def_Str (Copyright := 'FC.mac, (с) Мунтьянов В.А., Ver.1.30, Пермь, 1992');
+  Def_Int (OldRefresh, I, Win1, Win2);
+  Def_Str (ReturnStr [2048], Str1 [2048], Str2 [2048]);
+  Def_Str (First [2048], Second [2048]);
+  Def_Int (LineOK);
+  Def_Int (Line1, Line2, Line1OK, Line2OK, UpperCase, NoSpaces, Substr, From, To);
+  Def_Int (OneLine, CompareOK, At_Eof1, At_Eof2);
+  Def_Int (CurrLine, MaxLines);
+  Def_Int (X1, Y1, X2, Y2);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+
+  call SetCaseStrings;
+  Make_Message ('FC, ver.1.30');
+  Working;
+
+  MaxLines := Parse_Int ('/L=', Caps (MParm_Str));
+  if (MaxLines = 0) then
+    MaxLines := 30;
+  end;
+
+  UpperCase := (Pos ('/U', Caps (MParm_Str)) <> 0);
+  NoSpaces := (Pos ('/I', Caps (MParm_Str)) <> 0);
+  OneLine := (Pos ('/1', MParm_Str) <> 0);
+
+  From := Parse_Int ('/F=', Caps (MParm_Str));
+  if (From = 0) then
+    From := 1;
+  end;
+  To := Parse_Int ('/T=', Caps (MParm_Str));
+  if (To = 0) then
+    To := 2048;
+  end;
+  if (From = 1) and (To = 2048) then
+    Substr := False;
+  else
+    Substr := True;
+    To := To - From + 1;
+  end;
+
+  Win1 := Global_Int ('!FCWin1');
+  if (Win1 = 0) then
+    Make_Message ('Окно 1 неизвестно. Запустите макрос FC^Win1 в нужном окне');
+    goto Quit;
+  end;
+  if Not (Switch_Win_Id (Win1)) then
+    Make_Message ('Окно 1 для сравнения файлов удалено');
+    goto Quit;
+  else
+    Goto_Col (1);
+    Block_Off;
+  end;
+
+  Win2 := Global_Int ('!FCWin2');
+  if (Win2 = 0) then
+    Make_Message ('Окно 2 неизвестно. Запустите макрос FC^Win2 в нужном окне');
+    goto Quit;
+  end;
+  if Not (Switch_Win_Id (Win2)) then
+    Make_Message ('Окно 2 для сравнения файлов удалено');
+    goto Quit;
+  else
+    Goto_Col (1);
+    Block_Off;
+  end;
+
+  if (Win1 = Win2) then
+    Make_Message ('Макрос не может сравнивать части файла в одном окне');
+    goto Quit;
+  end;
+
+  I := 1;
+  while True do
+    At_Eof2 := At_Eof;
+    call GetLine;
+    Str2 := ReturnStr;
+
+    Switch_Win_Id (Win1);
+
+    At_Eof1 := At_Eof;
+    call GetLine;
+    Str1 := ReturnStr;
+
+    if ((C_Line and 31) = 0) then
+      Put_Line_Num (C_Line);
+    end;
+
+    if (At_Eof1 <> At_Eof2) then
+      if (I = 1) then
+        goto ErrorPos;
+      else
+        goto SizeMismatch;
+      end;
+    elsif At_Eof1 then
+      Make_Message ('Файлы одинаковы');
+      goto Quit;
+    else
+      if (Str1 = Str2) then
+        Down;
+        Switch_Win_Id (Win2);
+        Down;
+        ++I;
+      else
+        if (I = 1) then
+          goto ErrorPos;
+        else
+          goto Difference;
+        end;
+      end;
+    end;
+  end; { while True }
+
+
+GetLine:
+  if Substr then
+    ReturnStr := Copy (Get_Line, From, To);
+  else
+    ReturnStr := Get_Line;
+  end;
+  if NoSpaces then
+    ReturnStr := Remove_Space (ReturnStr);
+  else
+    ReturnStr := Shorten_Str (ReturnStr);
+  end;
+  if UpperCase then
+    call UpperStr;
+  end;
+  ret; { GetLine }
+
+
+Difference: { Goto. Вход и выход в Win1 }
+  Make_Message ('Отличие');
+  call LineMemo;
+  CurrLine := 1;
+  CompareOK := False;
+  while Not (CompareOK) and (CurrLine <= MaxLines) do
+    call Comp1With2;
+    if Not (CompareOK) then
+      call Comp2With1;
+    end;
+    if Not (CompareOK) then
+      ++CurrLine;
+    end;
+  end;
+
+  if CompareOK then
+    goto MarkLines;
+  else
+    Switch_Win_Id (Win2);
+    Goto_Line (Line2);
+    RM ('VaUtil^CenterRow');
+    Switch_Win_Id (Win1);
+    Goto_Line (Line1);
+    RM ('VaUtil^CenterRow');
+    Make_Message ('Файлы разные на расстоянии более '+Str(MaxLines)+' строк');
+    goto Quit;
+  end; { Difference }
+
+
+LineMemo: { Запоминание позиции. Вход и выход в Win1 }
+  Line1 := C_Line;
+  Switch_Win_Id (Win2);
+  Line2 := C_Line;
+  Switch_Win_Id (Win1);
+  ret; { LineMemo }
+
+
+SizeMismatch: { Goto. Вход и выход в Win1 }
+  Make_Message ('Разные размеры файлов');
+  call LineMemo;
+  if At_Eof1 then
+    Line1OK := C_Line - 1;
+  else
+    Eof;
+    Line1OK := C_Line;
+  end;
+
+  Switch_Win_Id (Win2);
+  if At_Eof2 then
+    Line2OK := C_Line - 1;
+  else
+    Eof;
+    Line2OK := C_Line;
+  end;
+  goto MarkLines; { SizeMismatch }
+
+
+Comp1With2: { Call. Вход и выход в Win1 }
+  Goto_Line (Line1 + CurrLine);
+  call GetLine;
+  First := ReturnStr;
+  Down;
+  call GetLine;
+  Second := ReturnStr;
+  Switch_Win_Id (Win2);
+  Goto_Line (Line2);
+  call CompWith;
+  if CompareOK then
+    Line1OK := Line1 + CurrLine - 1;
+    Line2OK := LineOK;
+  end;
+  Switch_Win_Id (Win1);
+  ret; { Comp1With2 }
+
+
+Comp2With1: { Call. Вход и выход в Win1 }
+  Switch_Win_Id (Win2);
+  Goto_Line (Line2 + CurrLine);
+  call GetLine;
+  First := ReturnStr;
+  Down;
+  call GetLine;
+  Second := ReturnStr;
+  Switch_Win_Id (Win1);
+  Goto_Line (Line1);
+  --CurrLine;      { Последнюю строку уже сравнивали перед этим }
+  call CompWith;
+  ++CurrLine;
+  if CompareOK then
+    Line2OK := Line2 + CurrLine - 1;
+    Line1OK := LineOK;
+  end;
+  ret; { Comp2With1 }
+
+
+CompWith: { Сравнение строк с текущей (=0) до CurrLine с First и Second }
+  I := 0;
+  while Not (CompareOK) and (I <= CurrLine) do
+    call GetLine;
+    if (First = ReturnStr) then
+      if OneLine then
+        LineOK := C_Line - 1;
+        CompareOK := True;
+      else
+        Down;
+        call GetLine;
+        if (Second = ReturnStr) then
+          LineOK := C_Line - 2;
+          CompareOK := True;
+        else
+          ++I;
+        end;
+      end;
+    else
+      Down;
+      ++I;
+    end;
+  end;
+  ret; { CompWith }
+
+
+MarkLines: { Goto. Выход в Win1 }
+  Switch_Win_Id (Win2);
+  Goto_Line (Line2);
+  RM ('VaUtil^CenterRow');
+  if (Line2OK >= Line2) then
+    Block_Begin;
+    Goto_Line (Line2OK);
+    if At_Eof then
+      Eof;
+      Goto_Col (1);
+      RM ('VaUtil^CenterRow');
+    end;
+    Block_End;
+    Goto_Line (Line2);
+  end;
+  Switch_Win_Id (Win1);
+  Goto_Line (Line1);
+  RM ('VaUtil^CenterRow');
+  if (Line1OK >= Line1) then
+    Block_Begin;
+    Goto_Line (Line1OK);
+    if At_Eof then
+      Eof;
+      Goto_Col (1);
+      RM ('VaUtil^CenterRow');
+    end;
+    Block_End;
+    Goto_Line (Line1);
+  end;
+  goto Quit; { MarkLines }
+
+
+{░░░░░ Include file UppLow.inc ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  Файл UppLow.inc - Включаемый файл для перевода русских и латинских букв
+  в разные регистры.
+  Включает три подпрограммы: SetCaseStrings, UpperStr и LowerStr
+  В подпрограммы UpperStr и LowerStr передается и возвращается
+  локальная строка ReturnStr {[2048]}
+}
+
+SetCaseStrings:
+  Def_Str (_UpperStr [256], _LowerStr [256], _TempStr [2048]);
+  Def_Int (_CharNo, _MaxPos);
+
+  _UpperStr := Global_Str ('_UpperStr');
+  if (Svl (_UpperStr) = 0) then
+    _CharNo := 1;
+    while (_CharNo < 97)  do _UpperStr := _UpperStr + Char(_CharNo);      ++_CharNo; end;
+    while (_CharNo < 123) do _UpperStr := _UpperStr + Char(_CharNo - 32); ++_CharNo; end;
+    while (_CharNo < 160) do _UpperStr := _UpperStr + Char(_CharNo);      ++_CharNo; end;
+    while (_CharNo < 176) do _UpperStr := _UpperStr + Char(_CharNo - 32); ++_CharNo; end;
+    while (_CharNo < 224) do _UpperStr := _UpperStr + Char(_CharNo);      ++_CharNo; end;
+    while (_CharNo < 240) do _UpperStr := _UpperStr + Char(_CharNo - 80); ++_CharNo; end;
+    while (_CharNo < 255) do _UpperStr := _UpperStr + Char(_CharNo);      ++_CharNo; end;
+    Set_Global_Str ('_UpperStr', _UpperStr);
+  end;
+  _LowerStr := Global_Str ('_LowerStr');
+  if (Svl (_LowerStr) = 0) then
+    _CharNo := 1;
+    while (_CharNo < 65)  do _LowerStr := _LowerStr + Char(_CharNo);      ++_CharNo; end;
+    while (_CharNo < 91)  do _LowerStr := _LowerStr + Char(_CharNo + 32); ++_CharNo; end;
+    while (_CharNo < 128) do _LowerStr := _LowerStr + Char(_CharNo);      ++_CharNo; end;
+    while (_CharNo < 144) do _LowerStr := _LowerStr + Char(_CharNo + 32); ++_CharNo; end;
+    while (_CharNo < 160) do _LowerStr := _LowerStr + Char(_CharNo + 80); ++_CharNo; end;
+    while (_CharNo < 255) do _LowerStr := _LowerStr + Char(_CharNo);      ++_CharNo; end;
+    Set_Global_Str ('_LowerStr', _LowerStr);
+  end;
+  _UpperStr := Char (0) + _UpperStr + Char (255);
+  _LowerStr := Char (0) + _LowerStr + Char (255);
+  ret;
+
+UpperStr:
+  _TempStr := '';
+  _CharNo := 1;
+  _MaxPos := Svl (ReturnStr);
+  while (_CharNo <= _MaxPos) do
+    _TempStr := _TempStr + Str_Char(_UpperStr, Ascii(Str_Char(ReturnStr,_CharNo))+1);
+    ++_CharNo;
+  end;
+  ReturnStr := _TempStr;
+  ret;
+
+LowerStr:
+  _TempStr := '';
+  _CharNo := 1;
+  _MaxPos := Svl (ReturnStr);
+  while (_CharNo <= _MaxPos) do
+    _TempStr := _TempStr + Str_Char(_LowerStr, Ascii(Str_Char(ReturnStr,_CharNo))+1);
+    ++_CharNo;
+  end;
+  ReturnStr := _TempStr;
+  ret;
+{░░░░░ Include file UppLow.inc end ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░}
+
+
+ErrorPos: { Goto }
+  Make_Message ('Вы, наверное, ошиблись. Первые же строки не совпадают');
+
+Quit:
+  X1 := Win_X1;
+  Y1 := Win_Y1;
+  X2 := Win_X2;
+  Y2 := Win_Y2;
+  Switch_Win_Id (Win2);
+  if (X1 <> Win_X1) or (Y1 <> Win_Y1) or (X2 <> Win_X2) or (Y2 <> Win_Y2) then
+    Refresh := OldRefresh;
+    Redraw;
+    Refresh := False;
+  end;
+  Switch_Win_Id (Win1);
+  Refresh := OldRefresh;
+end_macro; { FC }
+
+
+$macro Win1 Dump;
+  Set_Global_Int ('!FCWin1', Window_Id);
+  Make_Message ('Метка окна 1 для сравнения файлов = ' + Str (Window_Id) +
+                '; номер = ' + Str (Cur_Window));
+end_macro;
+
+
+$macro Win2 Dump;
+  Set_Global_Int ('!FCWin2', Window_Id);
+  Make_Message ('Метка окна 2 для сравнения файлов = ' + Str (Window_Id) +
+                '; номер = ' + Str (Cur_Window));
+end_macro;

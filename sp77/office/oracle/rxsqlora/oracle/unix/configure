@@ -1,0 +1,224 @@
+#!/home/users/mhesslin/rexx-imc/rexx -x
+/* change the above to point to your rexx executable                  */
+/* For Regina, something like #!/usr/local/bin/rexx                   */
+/* For REXX/imc, something like #!/usr/local/bin/rexx -x              */
+/* For REXX/6000, something like #!/usr/local/bin/rx                  */
+includes.1 = 'rexxsaa.h'
+includes.2 = 'rexxsaa.h'
+includes.3 = 'rexxsaa.h, rexxtype.h'
+libs.1 = 'libregina.a'
+libs.2 = 'librexx.a'
+libs.3 = 'librexx.a'
+makefile.1 = 'Makefile'
+makefile.2 = 'Make'
+macros.1 = 'LL CC CEXTRA EEXTRA DYN_LINK SHL_TYPE DYN_LD ELIBS DYN_COMP',
+           'MISCDEFS DEBUG PROF OPTIMIZE COPT LINKOPT LIBS LDEXTRA'
+macros.2 = 'CC CCFLAG LDFLAG MORECCFLAGS LIBRARIES'
+int.1 = 'Regina'
+int.2 = 'REXX/imc'
+int.3 = 'REXX/6000'
+Say
+Say 'REXX/SQL can be built with Regina, REXX/imc or REXX/6000 depending on'
+Say 'the platform on which you are building REXX/SQL.'
+Say
+Say 'This configuration utility will create a Makefile based on the Oracle'
+Say 'supplied proc.mk and one of the following:'
+Say
+Say ' - the makefile used to build your Regina interpreter,'
+Say ' - the Make file used to build your REXX/imc interpreter, or'
+Say ' - hard-coded switches when using the REXX/6000 interpreter.'
+Say
+Say 'This configuration utility assumes that the proc.mk file resides in'
+Say '$ORACLE_HOME/proc/lib and is readble by the user.  This configuration'
+Say 'script will fail if $ORACLE_HOME is not set.'
+Say
+Say 'Before continuing, you also need to know the directory where the following'
+Say 'files reside:'
+Say
+Say 'for Regina:    ' includes.1 libs.1
+Say 'for REXX/imc:  ' includes.2 libs.2
+Say 'for REXX/6000: ' includes.3 libs.3
+Say
+oracle_home = Value('ORACLE_HOME',,'SYSTEM')
+If oracle_home = '' Then
+  Do
+    Say 'Configuration aborted; $ORACLE_HOME not set'
+    Exit 1
+    Say
+  End
+interpreter = ''
+Do 3
+   Say 'Enter the number corresponding to the REXX interpreter you are using'
+   Say
+   Say '1 - Regina'
+   Say '2 - REXX/imc'
+   Say '3 - REXX/6000'
+   Say
+   Parse Pull interpreter
+   Select
+     When interpreter = 1 Then Leave
+     When interpreter = 2 Then Leave
+     When interpreter = 3 Then Leave
+     Otherwise interpreter = ''
+   End
+End
+If interpreter = '' Then
+  Do
+    Say 'Configuration aborted after 3 attempts at setting REXX intepreter.'
+    Exit 1
+  End
+
+oracle_version = ''
+Do 3
+   Say 'Enter the version of Oracle you are using - 6.0, 7.0, 7.1 :[7.0]'
+   Parse Pull oracle_version
+   Select
+     When oracle_version = '6.0' Then 
+       Do
+         use_ocildlibs = 'YES'
+         Leave
+       End
+     When oracle_version = '7.0' Then 
+       Do
+         use_ocildlibs = 'YES'
+         Leave
+       End
+     When oracle_version = '7.1' Then 
+       Do
+         use_ocildlibs = 'NO'
+         Leave
+       End
+     Otherwise oracle_version = ''
+   End
+End
+If oracle_version = '' Then
+  Do
+    Say 'Configuration aborted after 3 attempts at setting Oracle version...'
+    Exit 1
+  End
+
+Say ''
+Say 'Enter the full path to the include files:' includes.interpreter
+Parse Pull includes_path .
+len = Length(includes_path)
+If Substr(includes_path,len,1) = '/' Then includes_path = Substr(includes_path,1,len-1)
+Say 'Enter the full path to the library files:' libs.interpreter
+Parse Pull libs_path
+len = Length(libs_path)
+If Substr(libs_path,len,1) = '/' Then libs_path = Substr(libs_path,1,len-1)
+If interpreter \= 3 Then
+  Do
+    Say 'Enter the full path to the file used to build your interpreter:' makefile.interpreter
+    Parse Pull makefile_path
+    len = Length(makefile_path)
+    If Substr(makefile_path,len,1) = '/' Then makefile_path = Substr(makefile_path,1,len-1)
+  End
+tempfile = 'Makefile'
+proc_file = oracle_home||'/proc/lib/proc.mk'
+Address System 'rm -f Makefile'
+Address System 'cp' proc_file 'Makefile'
+Say 'Building Makefile in current directory...'
+Call putline '#******************************************************************'
+Call putline '#  The following lines added for REXX/SQL using' int.interpreter 'interpreter'
+Call putline '#******************************************************************'
+If use_ocildlibs = 'NO' Then
+  Do
+    Call putline
+    Call putline 'OCILDLIBS=$(LIBOCIC) $(PROLDLIBS)'
+  End
+Call ParseMakefile
+Call SetBeforeMacros
+Select
+  When interpreter = 1 Then Call BuildRegina
+  When interpreter = 2 Then Call Buildimc 
+  When interpreter = 3 Then Call Build6000 
+End
+Call SetAfterMacros
+Exit 0
+
+BuildRegina: 
+Call putline ''
+Call putline 'LD = $(CC)'
+Call putline 'MYCCFLAGS = $(CCFLAGS) $(COPT)'
+Call putline 'MYLDFLAGS = $(LINKOPT) $(LDFLAGS)'
+Call putline 'MYLIBS = $(LIBS)'
+Call putline 'MYLDEXTRA = $(LDEXTRA)'
+Return
+
+Buildimc:
+Call putline ''
+Call putline 'LD = $(CC)'
+Call putline 'MYCCFLAGS = $(CCFLAGS) $(CCFLAG) $(MORECCFLAGS) $(PIC)'
+Call putline 'MYLDFLAGS = $(CCFLAG) $(LDFLAG) $(DEBUG) $(LDFLAGS)'
+Call putline 'MYLIBS = $(LIBRARIES)'
+Call putline 'MYLDEXTRA = echo'
+Return
+
+Build6000:
+Call putline ''
+Call putline 'LD = $(CC)'
+Call putline 'MYCCFLAGS = $(CCFLAGS) -DUSE_AIXREXX -D_XOPEN_SOURCE'
+Call putline 'MYLDFLAGS = $(LDFLAGS)'
+Call putline 'MYLIBS = '
+Call putline 'MYLDEXTRA = echo'
+Return
+
+putline: Procedure Expose tempfile
+Parse Arg line
+rc = Lineout(tempfile,line)
+Return
+
+SetBeforeMacros:
+Call putline ''
+Call putline 'SQLOBJS = rexxsql.o orasql.o hash.o'
+Call putline 'ORAOBJS = rexxora.o oraora.o hash.o'
+Call putline 'CCFLAGS = -DUNIX -I../../common -I'||includes_path '-c'
+Return
+
+SetAfterMacros:
+Call putline ''
+Call putline 'rexxsql: $(SQLOBJS)'
+Call putline '	$(LD) $(MYLDFLAGS) -o rexxsql $(SQLOBJS)' libs_path||'/'||libs.interpreter '$(MYLIBS) $(OCILDLIBS)'
+Call putline '	$(MYLDEXTRA) rexxsql'
+Call putline ''
+Call putline 'rexxora: $(ORAOBJS)'
+Call putline '	$(LD) $(MYLDFLAGS) -o rexxora $(ORAOBJS)' libs_path||'/'||libs.interpreter '$(MYLIBS) $(OCILDLIBS)'
+Call putline '	$(MYLDEXTRA) rexxora'
+Call putline ''
+Call putline 'hash.o: ../../common/hash.c ../../common/hash.h'
+Call putline '	$(CC) $(MYCCFLAGS) -ohash.o ../../common/hash.c'
+Call putline ''
+Call putline 'rexxsql.o: ../rexxsql.c ../oci.h ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -orexxsql.o ../rexxsql.c'
+Call putline 'rexxora.o: ../rexxsql.c ../oci.h ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -DORA_PREFIX -orexxora.o ../rexxsql.c'
+Call putline ''
+Call putline 'orasql.o: ../orasql.c ../oci.h ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -oorasql.o ../orasql.c'
+Call putline 'oraora.o: ../orasql.c ../oci.h ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -DORA_PREFIX -ooraora.o ../orasql.c'
+Return
+
+ParseMakefile:
+trace o
+makfile = makefile_path||'/'||makefile.interpreter
+maclist = macros.interpreter
+valid = 0
+Do While(Lines(makfile)>0)
+  line = Linein(makfile)
+  If interpreter = 2 Then
+    Do
+      If Pos('@EOF',line) \= 0 Then valid = 1
+    End
+  Else
+    valid = 1
+  Do i = 1 To Words(maclist)
+    If Substr(line,1,Length(Word(maclist,i))) = Word(maclist,i) & valid = 1 Then
+      Do
+        Call putline(line)
+        Leave
+      End
+  End
+End
+trace o
+Return

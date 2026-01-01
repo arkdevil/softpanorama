@@ -1,0 +1,94 @@
+Newsgroups: comp.lang.rexx
+Subject: Re: Setting STEM Variables from C.
+From: SASMITH@
+Date: 12 Sep 95 11:22:31 PDT
+
+In <434cs1$3ft@gazette.tandem.com>, kf5mg@computek.net (Jack Snodgrass) writes:
+>Someone posted an example of setting OS/2 REXX Stem variables from a
+>C routine. I can't find it. Can someone post that again or send me a
+>copy of it? Thanks.
+>
+
+Here is a generic routine that works for me:
+
+/* --------------------------------------------------------------------- */
+/* Function:  RxBuildStem                                                */
+/*                                                                       */
+/* Syntax:    arc = RxBuildStem(stemname,noStems)                        */
+/*                                                                       */
+/* Params:    stemname = the name of the stem variable to create         */
+/*            noStems  = the number of stems to initialize               */
+/*                       (stem.0 will be set accordingly)                */
+/*                                                                       */
+/* Return:    TRUE  = successful                                         */
+/*            FALSE = not successful                                     */
+/* --------------------------------------------------------------------- */
+
+ULONG RxBuildStem( CHAR *name, ULONG numargs, RXSTRING args[],
+               CHAR *queuename, RXSTRING *retstr ) {
+    char temp[50];
+    ULONG noStems, idx;
+    char stemname[50];
+    int  stemnameLen;
+    char varName[50], varValu[50];
+    int  varNameLen, varValuLen;
+
+
+    if ( (numargs != 2) ||
+          !RXVALIDSTRING( args[0] ) ||
+          !RXVALIDSTRING( args[1] ) ) {
+        /* set return value */
+        sprintf(retstr->strptr,"%d", FALSE);
+        retstr->strlength = strlen(retstr->strptr);
+        return( ROUTINE_INVALID );
+    }
+
+    if ( !Str2Num(args[1].strptr, &noStems, STR2NUM_DEC2ULONG) ) {
+        /* set return value */
+        sprintf(retstr->strptr,"%d", FALSE);
+        retstr->strlength = strlen(retstr->strptr);
+        return( ROUTINE_INVALID );
+    }
+
+    sprintf(stemname,"%s",args[0].strptr);
+    strupr(stemname);
+    stemnameLen = strlen(stemname);
+    if ( stemname[stemnameLen - 1] != '.' )
+        stemname[stemnameLen++] = '.';
+
+    for (idx = 0; idx < noStems; idx++) {
+        sprintf(varValu,"This is stem # %5lu", idx + 1);
+        varValuLen = strlen(varValu);
+        sprintf(varName,"%s%lu",stemname,idx+1);
+        varNameLen = strlen(varName);
+        if ( !MakeRexxVar(varName, varValu) ) {
+            /* set return value */
+            sprintf(retstr->strptr,"%d", FALSE);
+            retstr->strlength = strlen(retstr->strptr);
+            return ROUTINE_INVALID;
+        }
+    }
+    sprintf(varValu,"%lu",noStems);
+    sprintf(varName,"%s0",stemname);
+    if ( !MakeRexxVar(varName, varValu) ) {
+        /* set return value */
+        sprintf(retstr->strptr,"%d", FALSE);
+        retstr->strlength = strlen(retstr->strptr);
+        return ROUTINE_INVALID;
+    }
+    /* set return value */
+    sprintf(retstr->strptr,"%d", TRUE);
+    retstr->strlength = strlen(retstr->strptr);
+    return( ROUTINE_VALID );
+}
+
+
+
+====================================================
+Steve Smith
+BC Systems Corporation
+Victoria BC Canada
+Internet: sasmith@bcsc02.gov.bc.ca
+"The views expressed are mine and not those of my employer."
+
+

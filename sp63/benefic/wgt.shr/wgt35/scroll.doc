@@ -1,0 +1,328 @@
+	      WGT Multidirectional Scrolling Library
+		   Copyright 1993 Chris Egerter
+
+Multidirectional Scrolling: Introduction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Multidirectional scrolling is a complex task, and will be difficult
+to understand when you first use it. If something doesn't work,
+don't give up. There is probably a simple reason for it.
+This documentation does not tell you everything, such as
+how to use the commands together. Refer to the example programs
+for practical use of these commands.
+
+	Games which involve scrolling are usually impressive.
+They are usually hard to program as well. With WGT v3.5, scrolling
+is built in, and you do not need to know any of the technical details.
+	When scrolling is used, you need to make an area which will be
+scrolled around in the window. This area is called a map. A map is made
+of tiles. Tiles are simply pieces of graphics that can be placed together
+like a jigsaw puzzle, forming a much larger picture. Each tile is always
+a graphic image which is 16x16 pixels. These images are created with
+the WGT Sprite Creator and saved as sprite files. Future versions of WGT
+will probably allow you to change the size of the tiles.
+	A map maker is available, which will allow you to visually design
+a map or world for your game to use. This is where you get to fit
+the pieces of the puzzle together. A map can be a maximum of 320
+tiles wide, and 200 tiles high. You will probably never use a map
+that big, since it would take a while to design it. Most commercial
+games don't even come close to maps this size.
+The largest map is equal to 5120 pixels across, and 3200 pixels down.
+That would be equal to 256 full VGA screens!
+
+There are some numbers you should remeber when dealing with map and objects.
+Maps can be 320 by 200 tiles, and hold 200 tile types. 1000 Objects can on
+the map at once, and 1000 sprites can be held in a sprite file.
+
+
+	Objects are shown over the background while it scrolls. These are
+made from the sprite creator too. The objects will be your main character
+and all of the opponents which live in the world you've created.
+
+A simple program which loads in your tiles,map, and objects, scrolls
+the around the screen using the keyboard, would be under 5k for the
+source code!
+
+Tile type data simply assigns a number for each tile. You can set these
+numbers from the map maker. For example, if tiles 1-5 are solid walls,
+you can set their types to 1, meaning there is a obstacle in that spot.
+If tiles 6-30 are open spaces and the player can move through them, you
+can set their types to 0, meaning there is nothing at that spot.
+These are just suggestions. You can make many different tiles with
+different types, and design your program to react differently with each
+type of tile.
+	It will also help if you put all the solid tiles together
+so you can access them with an if statement.
+  eg. If ((tile>40) & (tile<70)) you_hit_a_wall();
+
+Planning ahead will save you some programming time. Once you draw the
+tiles with the sprite creator and design the map files, it will be hard
+to switch the tiles around. Think about this BEFORE you start drawing
+your tiles.
+
+
+Two different coordinate systems are used with the four way scrolling.
+They are:
+
+	Map coordinates: Block increments (16 pixels)
+			To convert a map coordinate to a world coordinate,
+			multiply by 16.
+			These are the same coordinates used in the World
+			Editor.
+
+	World coordinates: Pixel increments (1 pixel)
+			Divide by 16 to convert to map coordinates.
+			Used by scrollsprites (wobject).
+
+
+
+
+Available functions:
+
+-----------------------------------------------------------------------------
+wgtmap wloadmap(char *filename);
+
+    Loads a map previously created with the WGT World Editor.
+NOTE: You cannot load in more than one map at once. Future versions will
+allow this.
+
+Returns: NULL if map could not be loaded
+
+Example use:
+	 #include <wgt.h>
+	 #include <scroll.h>
+	 wgtmap mymap;
+
+	 void main(void)
+	 {
+	 mymap=wloadmap("gamemap.wmp");
+	 }
+
+Variables set:
+
+int mapwidth,mapheight:  Width and height of map (in blocks) 
+
+
+-----------------------------------------------------------------------------
+void wfreemap(wgtmap mymap);
+
+	Frees a map previously loaded with wloadmap.
+
+
+-----------------------------------------------------------------------------
+void winitscroll(int window_x_size,int window_y_size);
+
+	Initializes the scrolling window. Should be called after loading
+the map file.  The window size is defined by window_x_size (2 to 17) and
+window_y_size (2 to 10) ,which are the number of 16*16 blocks across and
+down the window.
+
+	eg.  winitscroll(17,10); will set a window 17 blocks in width,
+and 10 blocks in height. Therefore the actual width and height would
+be 272 by 160 (17*16 by 10*16).
+
+After calling this procedure, the following variables are set:
+
+int windowminx,windowminy: top left corner of window (always 0)
+int windowmaxx,windowmaxy: bottom right corner (width and height of window)
+block scroll1,scroll2:   two virtual screens needed for scrolling work (128K!)
+
+-----------------------------------------------------------------------------
+void wshowwindow(int posx,int posy ,wgtmap mymap);
+
+Begins scrolling at posx,posy as the top left corner of the window.
+Posx and Posy are the map coordinates used in the Map Maker.
+Use this at the beginning of you program, and when you need to 'warp'
+to another place on the map instantly.
+
+Variables set:
+int worldx,worldy;  World coordinates of upper left corner of window.
+		These are updated every time you scroll, for location
+		references.
+		Set to posx*16,posy*16 when wshowwindow is called.
+
+-----------------------------------------------------------------------------
+void installkbd(void);
+
+Install the keyboard interrupt.  This lets you control the keyboard
+precisely, and is able to track which keys are being held down at once.
+It can handle any number and any combination of keys.
+See the example files for demonstration of this procedure.
+
+Note: You cannot use ordinary keyboard routines when this is
+installed (getch(), scanf(), etc).
+
+
+
+-----------------------------------------------------------------------------
+void uninstallkbd(void);
+
+Removes the keyboard routine.
+
+
+
+-----------------------------------------------------------------------------
+void wscrollwindow(int x_speed,int y_speed, wgtmap mymap);
+
+Scrolls the window in the direction indicated by x_speed and y_speed.
+X_speed and y_speed must be no greater than 16.
+
+Must be called continuosly to update the display.
+
+
+
+-----------------------------------------------------------------------------
+int wgetworldblock(int posx,int posy,wgtmap mymap);
+
+Returns the number of the block at posx,posy. (world coordinates)
+Used mainly for collision detection with wobjects and walls.
+If you want to use the map coordinates, multiply them by 16.
+This command uses world coordinates to make it easier to check
+where a wobject is.
+
+
+-----------------------------------------------------------------------------
+void wputworldblock(int posx,int posy ,int blocknum,wgtmap mymap);
+
+Changes the block at posx,posy (world coordinates), to blocknum.
+Used for modifying the map, eg. Opening a door.
+
+
+
+-----------------------------------------------------------------------------
+void wcopyscroll(int x,int y);
+
+Copies the scrollwindow to the visual screen at x,y.
+You must use this to show the scrolling window after calling
+wscrollwindow.
+
+
+
+-----------------------------------------------------------------------------
+void wshowobjects();
+
+Shows all objects (up to 1000 possible) on the world.
+Call this between wscrollwindow, and wcopyscroll to draw the background on,
+draw the objects, and finally copy everything to the visual screen.
+
+typedef struct {
+	char on;
+	int x;
+	int y;
+	unsigned int num;
+	} scrollsprites;
+
+The scrollsprites structure used is:
+extern scrollsprites wobject[1001];
+
+int numsprites: tells the maximum sprite drawn
+int spritewidth[1001],spriteheight[1001]: width and height of all objects
+	(used for wshowobjects or your own needs)
+
+To make your game as fast as possible, you should make your own
+wshowobjects routine, and make the objects move when they are on the
+screen. Here is the code for the wshowobjects routine so you can
+modify it for speed:
+
+void wshowobjects(void)
+{
+int i;
+wsetscreen(scroll1);
+wclip(0,0,windowmaxx,windowmaxy);
+for (i=0; i<=numsprites; i++)
+ {
+ if ((wobject[i].on==1) &
+    (sprites[wobject[i].num] !=NULL))
+   {
+   if ((wobject[i].x<worldx+windowmaxx) &
+      (wobject[i].y<worldy+windowmaxy) &
+      (wobject[i].x+spritewidth[wobject[i].num]>worldx) &
+      (wobject[i].y+spriteheight[wobject[i].num]>worldy))
+      {
+      // insert your code for moving objects here!
+      wputblock(wobject[i].x-worldx,wobject[i].y-worldy,sprites[wobject[i].num],1);
+      }
+   }
+ }
+}
+
+
+
+
+-----------------------------------------------------------------------------
+void wendscroll(void);
+
+Closes the scrolling window and shuts down the scrolling.
+
+
+
+-----------------------------------------------------------------------------
+void wsavemap(char *filename,wgtmap mymap)
+
+Saves a WGT map file. Mainly used for saving a game while playing.
+Other variables needed for saving a game can be added to the end of
+this file after saving it.
+
+
+
+
+Multidirectional Scrolling: The Steps Needed for Success
+--------------------------------------------------------
+
+	Making a game with scrolling requires some planning
+before you jump right in and start programming. Through experience with
+using WGT, here are my suggestions for creating a successful game.
+
+1. Draw the tiles and objects first.  Tiles should be grouped together
+   for easier programming later. Types should be used with the map
+   maker, so you don't need to have an if statement for every type
+   of tile. Leave spaces between each group of tiles in case you
+   need to add more later.
+   DO NOT make a map file if your tiles are not organized well.
+   If you change the number of a tile, the map will change as well,
+   and there is no easy way of correcting it, besides of redrawing
+   each spot with the new number.
+
+   Objects should be drawn in sequence so you can use a simple
+   loop counter to animate through them. This is much easier than
+   skipping around in the sprite file to make an object animate.
+   As well, objects should be lined up correctly, so that when you
+   animate it, it will not have to move a few pixels to match
+   the previous object shown.
+
+2. Make a map file using the map maker. Set the tile types, and
+   leave the objects for now. Objects should be added after you have
+   programmed how the main character will interact with the map.
+   If you are using more than 1 map in a game, use a number in their
+   file extension. If you are using the same tiles for each map,
+   save the types from the original and load them back into the new map.
+   This will save you from typing in the types for every tile again.
+
+3. Now that you have the tiles,objects, and maps drawn, start
+   programming the basic routines which handles the main character's
+   interaction with the map background. This is where you need to
+   check where the character is, and decide if he/she is falling,
+   hitting a wall, or whatever your program needs.
+   Look at the example files for ideas on how to check where the
+   character is on the map.  You will need to use wgetworldblock
+   to find out what you are standing on.
+   Make the character move around on the map by running, jumping,
+   or other means of transportation. Allow the character to pick
+   up items, open doors, or shoot something.
+
+4. After you've got the character living happily within the map,
+   add in some bad guys by using the object placement within the map
+   maker. Placing them is one thing, making them react with the map
+   is another. You must make sure they can move around alright as
+   well, and not run through any walls or get stuck somewhere.
+   Only move the objects if they are on the screen. This will save
+   a lot of time since you don't need to check for walls around
+   them. When you get near them, they will start moving around
+   and be a threat.
+
+5. Ok. You should have the main character and the bad guys moving
+   around within the map.  Design the characters to react with
+   each other now, and detect collisions between them.
+
+6. Put on the final touches and send it to your friends!
+
+

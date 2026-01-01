@@ -1,0 +1,9 @@
+STAKMAN.FRM
+..\VBSTAK.TXT
+D:\WINDOWS\SYSTEM\VBSTAK.VBX
+C:\DEVTOOLS\VB\CONSTANT.TXT
+ProjWinSize=80,316,251,137
+ProjWinShow=2
+IconForm="StakMan"
+Title="stakman"
+ExeName="STAKMAN.EXE"

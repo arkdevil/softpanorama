@@ -1,0 +1,527 @@
+$Macro_File K_S_RPL;                   { Работа с буфером 12.02.90 16:59      }
+$macro K_S_R_mnu to <CNTR>;            { Вызов меню команд Операций с БУФЕРОМ }
+   Def_Int(jx,K_num,K_y,Y_m);
+         Make_Message('');
+         if (Global_Int('K_X_PLACE') = 0 ) then
+            Set_Global_Int('K_X_PLACE',WHEREX);
+            If (WHEREY = 0) then       { Бывает после CONDENSE SEARCH  ?      }
+               DOWN; UP;               { Попытаемся восстановить WHEREY       }
+            end;
+            Set_Global_Int('K_Y_PLACE',WHEREY);
+         end;
+         K_y := Global_Int('K_Y_PLACE');         { Номер строки с курсором    }
+         Y_m := 3;
+         If (Y_m+11 > K_y ) then       { Меню заслоняет строку                }
+            Y_m := K_y + 1;
+         end;
+         Set_Global_Str('K_TMP_STR','');         { Зачистить врем. переменную }
+ Macro_REPEAT:
+         jx := Global_Int('K_S_R_M_1') ;         { Номер пункта меню 1-й уров.}
+         K_num := 0;                   { Счет элементов верхнего меню         }
+         ++K_num ;
+         Set_Global_Str( 'TX_' + STR(K_num) ,'/H=FIXEDMENU/S=0/M=K_S_GET ');
+         Set_Global_Str('XTX_' + STR(K_num) ,'1-Set Буфер');
+         ++K_num ;
+         Set_Global_Str( 'TX_' + STR(K_num) ,'/H=FIXEDMENU/S=0/M=K_S_PUT ');
+         Set_Global_Str('XTX_' + STR(K_num) ,'2-Put буфер ');
+         ++K_num ;
+         Set_Global_Str( 'TX_' + STR(K_num) ,'/H=FIXEDMENU/S=1/M=S_REPL ');
+         Set_Global_Str('XTX_' + STR(K_num) ,STR(K_num) + '-Замена');
+
+         if (jx >  K_num) then         { проверка номера установки            }
+            jx := 1;
+         end;
+         if (jx <  K_num) then         { Если не ПОИСК, подсунуть в SUBMENU   }
+            PUSH_KEY(13,28);           { ENTER - чтобы "раскрыть" меню        }
+         end;
+         Return_Int := 1;
+         Return_Str := '2';            { Установочный номер для SUBMENU       }
+
+         Run_Macro('USERIN^TOPMENU /GCLR=1/M=XTX_/G=TX_/#=' + STR(K_num)
+         + '/S=' + STR(jx)
+         + '/B=0/BC=0/X=1/Y=' + STR(Y_m)
+         + '/L=────── ОПЕРАЦИИ ───── |177 K_S_R_mnu v.m. 12.02.90 16:59 ─ ');
+
+                                       { Желаем остаться в TOPMENU ?          }
+         If ( XPOS('All_REPEAT',Return_Str,1)) then        { Повторить меню   }
+            GoTo Macro_REPEAT;
+         end;
+         If ( Return_Int = 0) then     { Повторить меню после S_REPL          }
+            if (Global_Int('K_S_R_M_1') = K_num ) then     { Начинать с ЗАМЕНЫ}
+               Set_Global_Int('K_S_R_M_1',1);    { если вышли по ESC не надо  }
+            end;
+            GoTo Macro_REPEAT;
+         end;
+ Macro_Exit:
+         Set_Global_Str('K_TMP_STR','');         { Зачистить врем. переменную }
+
+         if (Global_Int('K_S_R_M_1') = K_num ) then        { Начинать с ЗАМЕНЫ}
+            Set_Global_Int('K_S_R_M_1',1);       { следующий сеанс не надо    }
+         end;
+         Set_Global_Int('K_X_PLACE',0);
+         Set_Global_Int('K_Y_PLACE',0);
+ end_macro;                            { of K_S_R_mnu                         }
+ { -------------------------------------------------------------------------- }
+$Macro K_S_GET    TRANS;               { Взять образ в буфер                  }
+                                       {                                      }
+   Def_Char(Ret_Char);                 {                                      }
+   Def_Str(Temp_Line,Temp_Line1,NAME);
+   DEF_INT(W_ident,W_number);
+   DEF_INT(jx,ix,K_num);
+   def_int(o_rfrsh,im);                { {R*}                                 }
+      o_rfrsh := REFRESH ;             { Запомнили режим вывода на экран      }
+      REFRESH := 0;                    { Заблокировать вывод на экран         }
+      im := INSERT_MODE;               { Запомнили режим вставки              }
+      WORKING;                         { повесить мигалку на экран            }
+      if (Global_Int('K_X_PLACE') = 0 ) then     { Вызваны не из меню         }
+         Ret_Char := 'B';              { Значит надо взять блок в буфер       }
+         GoTo START;                   { И обойти засветку меню               }
+      end;
+      Return_Str := '2';               {Установочный номер меню выбора K_S_box}
+      Set_Global_Int('K_S_R_M_1',1) ;  { Запомнили, что вызван GET-SET        }
+
+      Run_Macro('K_S_box /T=Занесение информации в буфер/N=1' + Mparm_Str);
+
+      Ret_Char := Return_Str;          { Ответ меню                           }
+      if (Return_Int < 1) then         { Была стрелка вправо(влево) или ESC   }
+         if (Return_Int < 0) then      { Был ESC                              }
+            Return_Int := 1;           { - Выйти совсем из TOPMENU-меню       }
+         end;
+         GoTo Macro_Exit;
+      end;
+      if (Ret_Char ='E') then          { Был EXIT                             }
+         Return_Int := 1;              { - Выйти совсем из TOPMENU-меню       }
+         GoTo Macro_Exit;
+      end;
+         {   . Что-то нажали на клавиатуре .   .   .   .   .   .              }
+ START:
+               { --------------===========================------------------- }
+   Return_Str := 'All_REPEAT';         { Вернуться в TOPMENU  при удаче, и    }
+   Set_Global_Int('K_S_R_M_1',2) ;     { Считаем, что надо будет вызвать PUT  }
+               { --------------===========================------------------- }
+   if (Ret_Char ='#') then             { Надо повторить высветку меню         }
+      Set_Global_Int('K_S_R_M_1',1) ;  { и обратно вызвать GET                }
+      GoTo Macro_Exit;
+   end;
+   if (Ret_Char = 'B') then            { Велено забрать блок                  }
+      if (BLOCK_STAT = 0) then
+            Make_Message('А блока нет ? в окне =' +File_Name );
+            BEEP;
+            GoTo Macro_Exit;
+      end;
+      Mark_Pos;                        { Отметить позицию курсора             }
+      ix := (Block_Stat = 3) AND (Block_Line1 = Block_Line2)  ;
+      GoTo_Line(Block_Line1);
+      Temp_Line := Get_Line;           { Взяли первую строку блока в память   }
+      If ((Block_Stat = 2) OR          { Колонный блок  или                   }
+         (ix > 0) ) then               { Поточный в одну строку = колонный    }
+         jx := Block_Col1;
+         ix := Block_Col2;
+      else
+         ix := SVL(Temp_Line);         { Длина строки                         }
+         If (Block_Stat =3) then
+            jx := Block_Col1;
+         else                          { Ищем первый не пробел                }
+            jx := 1;
+            While (( jx < ix ) AND
+               (XPOS(Str_Char(Temp_Line,jx),' |9|255',1) > 0 )
+               ) Do
+               ++jx;
+            end;
+         end;
+         While (( jx < ix ) AND        { Ищем не пробел с "хвоста"            }
+            (XPOS(Str_Char(Temp_Line,ix),' |9|255',1) > 0 )
+            ) Do
+            --ix;
+         end;
+      end;
+                                       { Выделение куска с jx по ix           }
+      Temp_Line := COPY(Temp_Line,jx,ix-jx+1);
+      Tabs_To_Spaces(Temp_Line);       { Заменить |255 и |9 на пробелы        }
+      GoTo_Mark;                       { Вернутся в отмеченную позицию        }
+      if (SVL(Temp_Line)  = 0) then
+         Make_Message('Блок/источник  пуст - Буфер не изменен');
+         BEEP;
+         Return_Str := 'All_REPEAT';   { Вернуться в TOPMENU + SUBMENU        }
+         Set_Global_Int('K_S_R_M_1',1) ;         { Считаем-нужен повторный GET}
+         GoTo Macro_Exit;
+      end;
+      GoTo INSERT;
+   end;
+   if (Ret_Char = 'F') then            { Велено забрать File_Name             }
+      Temp_Line  := File_Name;
+      GoTo INSERT;
+   end;
+   if (Ret_Char = 'C') then            { Велено забрать CONDENSE_SEARCH       }
+      NAME := 'CONDENSE_SEARCH';
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'S') then            { Велено забрать SEARCH                }
+      NAME := 'SEARCH_STR';
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'R') then            { Велено забрать REPLACE               }
+      NAME := 'REPLACE_STR';
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'M') then            { Велено забрать MAC_RUN               }
+      NAME := 'MAC_RUN';
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'T') then            { Велено забрать из временной          }
+      Temp_Line := Global_Str('K_TMP_STR');
+      Set_Global_Str('K_TMP_STR','');  { Зачистить врем. переменную           }
+      GoTo INSERT;
+   end;
+
+                                       { . Нажали что-то не то                }
+   GoTo Macro_Exit;
+
+ G_Name:                               { Занесение в буфер из Global_String   }
+   Temp_Line := Global_Str(NAME);
+
+ INSERT:                               { Занесение в буфер                    }
+   if (SVL(Temp_Line)  = 0) then
+      Make_Message('Блок/источник  пуст - Буфер не изменен');
+      BEEP;
+      Return_Str := 'All_REPEAT';      { Вернуться в TOPMENU + SUBMENU        }
+      Set_Global_Int('K_S_R_M_1',1) ;  { Считаем-нужен повторный GET          }
+      GoTo Macro_Exit;
+   end;
+   Set_Global_Str('K_TMP_STR','');     { Зачистить врем. переменную - т.к. SET}
+                                       { ДОБАВЛЕНИЕ в MEMORY_LIST стэк        }
+                                       { с проверкой на наличие дублей        }
+   W_Number := Cur_Window;             { Номер исходного окна                 }
+   Switch_Window(Window_Count);
+   Create_Window;                      { Создание "рабочего" окна             }
+   Goto_Col(1);
+   jx := Global_Int('K_S-R_BUF#');     { Количество элементов в MEMORY_LIST   }
+   K_num := 0;
+   while (K_num <= jx) Do              { Перекачка из списка с проверкой      }
+      ++K_num;                         { Счет элементов списка                }
+      Temp_Line1 := Global_Str('K_S-R_BUF' + STR(K_num));
+      if (( Temp_Line1  <> Temp_Line) AND
+          (SVL(Temp_Line1) > 0 )) then { А нет ли дубля ?                     }
+         Put_Line(Temp_Line1);
+         DOWN;
+      end;
+      Set_Global_Str('K_S-R_BUF' + STR(K_num) ,'');        { И зачистили      }
+   end;
+   Put_Line(Temp_Line);                { Вставили текущее значение            }
+   TOF;
+   if ( K_num >= 20) then              { Из стэка надо что-то выкидывать      }
+      DEL_LINE;
+   end;
+   K_num := 0;
+   while (AT_EOF = 0) Do               { Формирование нового MEMORY_LIST      }
+      ++K_num;                         { Счет элементов списка                }
+      Set_Global_Str('K_S-R_BUF' + STR(K_num) ,GET_LINE);  { И занесли        }
+      DOWN;
+   end;
+   Set_Global_Int('K_S-R_BUF#' , K_num );        { Кол-во в новом списке      }
+   Delete_Window;                      { Уничтожение "рабочего" окна          }
+   Switch_Window(W_Number);            { Вернуться в исходное окно            }
+   Set_Global_Int('K_S-R_BUF#' , K_num );
+   Make_Message('В буфере=|177' + Temp_Line + '|219');
+   Set_Global_Str('K_S-R_BUF',Temp_Line);        { Занесли образ в буфер      }
+ Macro_Exit:
+   INSERT_MODE := im;                  { Восстановили режим вставки           }
+   REFRESH := o_rfrsh;                 { Восстановить выдачу на экран         }
+   REDRAW;
+ End_Macro;                            { of K_S_GET                           }
+
+ { -------------------------------------------------------------------------- }
+$Macro K_S_PUT    TRANS;               { Достать из буфера                    }
+   Def_Char(Ret_Char);
+   Def_Str(Temp_Line,NAME);
+   Def_Int(K_num);
+   def_int(o_rfrsh,im);                { {R*}                                 }
+   DEF_Int(k_x,k_y,i);
+
+      if (Global_Int('K_X_PLACE') = 0 ) then     { Вызваны не из меню         }
+         Ret_Char := 'B';              { Значит надо выдать блок из буфера    }
+         GoTo START;                   { И обойти засветку меню               }
+      end;
+      k_x := Global_Int('K_X_PLACE');
+      k_y := Global_Int('K_Y_PLACE');
+      o_rfrsh := REFRESH ;             { Запомнили режим вывода на экран      }
+      REFRESH := 0;                    { Заблокировать вывод на экран         }
+      WORKING;                         { повесить мигалку на экран            }
+
+      if (K_Y > 23 ) then              { Показать место курсора               }
+          WRITE('|31',K_X,K_Y-1,RED+8,WHITE);
+      else
+          WRITE('|30',K_X,K_Y+1,RED+8,WHITE);
+      end;
+      if (LENGTH( Global_Str('K_S-R_BUF'))  = 0) then
+         PUSH_KEY(13,28);              { ENTER - чтобы "проппустить" меню     }
+      end;
+      Return_Str := '2';               {Установочный номер меню выбора K_S_box}
+      Set_Global_Int('K_S_R_M_1',2) ;  { Запомнили, что был вызван PUT        }
+
+      Run_Macro('K_S_box /T=ВЫВОД информации из буферa/N=2/'
+               + Mparm_Str);
+      Ret_Char := Return_Str;          { Ответ меню                           }
+
+      if (Return_Int < 1) then         { Была стрелка вправо(влево) или ESC   }
+         if (Return_Int < 0) then      { Был ESC                              }
+            Return_Int := 1;           { - Выйти совсем из TOPMENU-меню       }
+         end;
+         GoTo Macro_Exit;
+      end;
+      if (Ret_Char ='E') then          { Был EXIT                             }
+         Return_Int := 1;              { - Выйти совсем из TOPMENU-меню       }
+         GoTo Macro_Exit;
+      end;
+      if ((Ret_Char ='#')  OR          { Надо повторить высветку меню ,т.к.   }
+          (Ret_Char ='T')) then        { есть изменения в истории БУФЕРА      }
+         Return_Str := 'All_REPEAT';   { Вернуться в TOPMENU                  }
+         Set_Global_Int('K_S_R_M_1',2) ;         { и обратно вызвать PUT      }
+         GoTo Macro_Exit;
+      end;
+                            {   . Что-то нажали на клавиатуре .   .   .   .   .   .              }
+ START:
+               { --------------===========================------------------- }
+   Temp_Line := Global_Str('K_TMP_STR');
+   Set_Global_Str('K_TMP_STR','');     { Зачистить временную переменную       }
+   if (SVL(Temp_Line)= 0) then
+      Temp_Line := Global_Str('K_S-R_BUF');
+   end;
+   Set_Global_Int('K_S_R_M_1',1) ;     { Считаем - надо будет вызвать GET     }
+               { --------------===========================------------------- }
+   if (SVL(Temp_Line)= 0) then
+      Make_Message('Буфер пуст ' );
+      BEEP;
+      Return_Str := 'All_REPEAT';      { Вернуться в TOPMENU                  }
+      GoTo Macro_Exit;
+   end;
+
+   if (Ret_Char = 'B') then            { Велено занести блок                  }
+      PUSH_UNDO;
+      if (BLOCK_STAT <> 0) then
+         BLOCK_OFF;
+      end;
+      COL_BLOCK_BEGIN;
+      TEXT(Temp_Line);
+      Block_End;
+      POP_UNDO;
+      GoTo Macro_Exit;
+   end;
+   if (Ret_Char = 'F') then            { Велено занести File_Name             }
+      File_Name := Temp_Line ;
+      GoTo Macro_Exit;
+   end;
+   if (Ret_Char = 'C') then            { Велено занести CONDENSE_SEARCH       }
+      NAME := 'CONDENSE_SEARCH';
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'S') then            { Велено занести SEARCH                }
+      NAME := 'SEARCH_STR';
+      Return_Str := 'All_REPEAT';      { Вернуться в TOPMENU                  }
+      Set_Global_Int('K_S_R_M_1',1) ;  { Считаем, что надо будет вызвать GET  }
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'R') then            { Велено занести REPLACE               }
+      NAME := 'REPLACE_STR';
+      Return_Str := 'All_REPEAT';      { Вернуться в TOPMENU                  }
+      Set_Global_Int('K_S_R_M_1',1) ;  { Считаем, что надо будет вызвать GET  }
+      GoTo G_Name;
+   end;
+   if (Ret_Char = 'M') then            { Велено занести MAC_RUN               }
+      NAME := 'MAC_RUN';
+      GoTo G_Name;
+   end;
+                                       { . Нажали что-то не то                }
+   GoTo Macro_Exit;
+
+ G_Name:                               { Занесение из буфера в Global_String  }
+   Set_Global_Str(NAME,Temp_Line);
+   Make_Message('B ' + NAME + '=' + Temp_Line);
+ Macro_Exit:
+   REFRESH := o_rfrsh;                 { Восстановить выдачу на экран         }
+   REDRAW;
+ End_Macro;                            { of K_S_PUT                           }
+
+ { -------------------------------------------------------------------------- }
+$Macro K_S_box    TRANS;               { Meню выбора об"екта - БУФЕРА         }
+   Def_Str(Temp_Line,Mparm_Old);
+   Def_Str(Temp_End,Temp_Start);
+   Def_Char(Temp_Char);
+   Def_Int(jx,K_num);
+   Temp_End := '|219                                                 ';
+   jx := Parse_Int('/N=',MParm_Str);   { 1 - занесение , 2 - извлечение       }
+
+                    {----------  . Засвечиваем BOX- меню .------------------- }
+
+   Temp_Line := Global_Str('K_S-R_BUF');         { Значение буфера            }
+   Temp_Start := ' |177';              { для вывода -начало образа            }
+   if ((jx = 2) AND                    { Извлечение и что-то есть во времен.  }
+       (LENGTH(Global_Str('K_TMP_STR')) > 0) ) then
+                                       { Надо использовать временную          }
+      Temp_Line := Global_Str('K_TMP_STR');
+      Temp_Start := '|251|177';        { и пометить - использована временная  }
+   end;
+   K_num := 0;                         { Счет элементов верхнего меню         }
+   ++K_num ;
+   Temp_Line := COPY(Temp_Line + Temp_End,1,40);
+   if (Global_Int('K_S-R_BUF#')) then
+      Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=0/M=K_L_buf    /A=E');
+      Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1)
+      + ' ИСТОРИЯ=' + STR(Global_Int('K_S-R_BUF#'))
+      + Temp_Start + Temp_Line);
+   else
+      Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=E');
+      Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1)
+      + ' ВЫХОД =' + STR(Global_Int('K_S-R_BUF#'))
+      + Temp_Start + Temp_Line);
+   end;
+   Temp_Start := ' |177';              { для вывода -начало образа            }
+   if ((jx = 2) OR Block_Stat > 0) then
+      ++K_num ;                        { Cтрока с "БЛОК" имеет смысл          }
+      Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=B ');
+      if (jx = 2)  then
+         Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-БЛОК вставить');
+      else
+         Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-БЛОК взять');
+      end;
+   end;
+   ++K_num ;
+   Temp_Line := Global_Str('SEARCH_STR');
+   Temp_Line := COPY(Temp_Line + Temp_End,1,40);
+   Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=S  ');
+   Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-ПОИСК '
+                  + Temp_Start + Temp_Line);
+   ++K_num ;
+   Temp_Line := Global_Str('REPLACE_STR');
+   Temp_Line := COPY(Temp_Line + Temp_End,1,40);
+   Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=R  ');
+   Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-ЗАМЕНА'
+                  + Temp_Start + Temp_Line);
+   ++K_num ;
+   Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=F  ');
+   Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-ИМЯ ФАЙЛА =' + File_Name);
+   ++K_num ;
+   Temp_Line := Global_Str('MAC_RUN');
+   Temp_Line := COPY(Temp_Line + Temp_End,1,40);
+   Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=M  ');
+   Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-MACRO '
+                  + Temp_Start + Temp_Line);
+   ++K_num ;
+   Temp_Line := Global_Str('CONDENSE_SEARCH');
+   Temp_Line := COPY(Temp_Line + Temp_End,1,40);
+   Set_Global_Str('_K_S-R_A_'  + STR(K_num) ,'/S=3/M=K_S_blank_ /A=C  ');
+   Set_Global_Str('X_K_S-R_A_' + STR(K_num) ,STR(K_num-1) + '-СЖАТЫЙ'
+                  + Temp_Start + Temp_Line);
+
+   Run_Macro('USERIN^SUBMENU /A=0/GCLR=1/G=_K_S-R_A_/M=X_K_S-R_A_'
+            + '/#=' + STR(K_num) + '/S=' + Return_STR
+            + '/L=' + Parse_Str('/T=',Mparm_Str)
+            + '/X=' +
+            Parse_Str('/X=',Mparm_Str) + '/Y=' + Parse_Str('/Y=',Mparm_Str));
+
+ Macro_Exit:
+ End_Macro;                            { of K_S_box                           }
+
+ { -------------------------------------------------------------------------- }
+$Macro K_S_blank_ TRANS;               { Результат из  SUB-меню               }
+ Macro_Exit:                           { Просто выход                         }
+ Return_Str := Parse_Str('/A=',MParm_Str) ;      { Ответ меню                 }
+ End_Macro;                            { of K_S_blank_                        }
+ { -------------------------------------------------------------------------- }
+$macro K_L_BUF  TRANS ;                { Выдача списка буф. 09.02.90 16:09    }
+   def_STR(W,Temp_Line1,ENDSPACE );
+   DEF_INT(jx,K_num,W_number);
+   def_int(i,im);
+   def_int(o_rfrsh);                   { {R*}                                 }
+   o_rfrsh := refresh ;                { {R*}                                 }
+   REFRESH := 0;
+
+   ENDSPACE := '';
+   Jx := 0;
+   while (jx < 41) Do
+      ++jx;
+      ENDSPACE := ENDSPACE + '|176';   { Изображение пустоты - "сеточка"      }
+   end;
+                                       { Выгрузка из  MEMORY_LIST стэка       }
+   W_Number := Cur_Window;             { Номер исходного окна                 }
+   Switch_Window(Window_Count);
+   Create_Window;                      { Создание "рабочего" окна             }
+   Goto_Col(1);
+   jx := Global_Int('K_S-R_BUF#');     { Количество элементов в MEMORY_LIST   }
+   K_num := 0;
+   im := 0;
+   while (K_num < jx) Do               { Перекачка из списка с подсчетом длин }
+      ++K_num;                         { Счет элементов списка                }
+      Temp_Line1 := Global_Str('K_S-R_BUF' + STR(K_num));
+      i := SVL(Temp_Line1);            { Длина строки                         }
+      if im < i then
+         im := i;                      { Подсчет мах.размера в окне           }
+      end;
+      Put_Line(Temp_Line1);
+      Goto_Col(i+1);
+      TEXT(ENDSPACE);                  { Добавление "сетки" в конец строки    }
+      DOWN;
+   end;
+
+   i := SCREEN_WIDTH - ( im + 4 );     { Номер колонки "ИСТОРИИ" на Экране    }
+   if (i < 40) then                    { Дабы не очень заслонять вызвавшего   }
+      i := 40;
+   end;
+   if (i > 53) then                    { для того,чтобы вместить "NO CHOICES" }
+      i := 53;
+   end;
+
+   Make_Message(' Выбор - <ENTER> , 1 - Удалить , <ESC> - ВЫХОД без изменений');
+   Run_Macro('USERIN^DVMENU /B=1/K=1/P=K_S-R_BUF'
+            + '/Y=2/X=' + STR(i)
+            + '/W=' + STR(im+1)
+            + '/T= ПАМЯТЬ БУФЕРА '
+            + '/C=0/D=1/O=0/H=VARMENU'
+            + '/SK=1/NR=1'
+            + '/WIN=' + STR(CUR_WINDOW)
+            + '/WW=' + STR(im+1)
+            + '/SN='+ STR(jx)
+            + '/I=%');
+
+   if ((C_LINE <> jx)  OR              { Были удаления из списка              }
+       (jx = 1 )     ) then            { или могли быть - ПЕРЕСТРОИТЬ стэк    }
+      TOF; EOL;
+      K_num := 0;
+      while (SEARCH_BWD(ENDSPACE,1) = 1)  Do     { Ищем свою добавку - "сетку"}
+         REPLACE('');                  { Удалить хвостик                      }
+                                       { Формирование нового MEMORY_LIST      }
+         ++K_num;                      { Счет элементов списка                }
+         Set_Global_Str('K_S-R_BUF' + STR(K_num) ,GET_LINE);     { И занесли  }
+         DOWN; EOL;
+      end;
+
+      Set_Global_Int('K_S-R_BUF#' , K_num );     { Кол-во в новом списке-стэке}
+
+      while (K_num <= jx) Do           { Чистка хвоста списка после удаления  }
+         ++K_num;                      { Счет элементов конца списка          }
+         Set_Global_Str('K_S-R_BUF' + STR(K_num) ,'');     { И зачистили      }
+      end;
+   end;
+
+   Delete_Window;                      { Уничтожение "рабочего" окна          }
+   Switch_Window(W_Number);            { Вернуться в исходное окно            }
+   refresh := o_rfrsh;                 { {R*} Восстановить выдачу на экран    }
+   NEW_SCREEN;
+   if (Return_Int ) then               { Нажали ENTER                         }
+      Return_Str := STR_DEL(Return_Str,
+                    LENGTH(Return_Str) - SVL(ENDSPACE) + 1, SVL(ENDSPACE) );
+      Set_Global_Str('K_TMP_STR',Return_Str);    { Выбранная строка меню      }
+      Return_Str := 'T';               { И признак - обработать K_TMP_STR     }
+   else                                { Был <ESC>                            }
+      if (jx <> Global_Int('K_S-R_BUF#')) then   { Количество элементов       }
+         Return_Int := 1;              { в MEMORY_LIST изменилось             }
+         Return_Str := '#';            { Надо перевысветить заголовок         }
+      else
+         PUSH_KEY(00,80);              { ВНИЗ - чтобы "слезть" с этого выбора }
+      end;
+   end;
+
+ Macro_Exit:
+   Make_Message('');
+ end_macro;                            { K_L_BUF                              }
+ { -------------------------------------------------------------------------- }

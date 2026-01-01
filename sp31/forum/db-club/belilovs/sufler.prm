@@ -1,0 +1,667 @@
+PARAMETERS LEVIJX,LEVIJY,OKNO,OKNOSHIR,IMJFILE,IMJPOLE,NRECORD,VALPOLE,IMJINDEX,KRITER,SHABL,HEAD,BOOTS,COLOR123
+IF COLOR123=' ' .OR. LEN(COLOR123)=0
+   COLOR1 = 'n/bg'
+   COLOR2 = 'w/b'
+   COLOR3 = 'b/bg'
+   COLOR4 = COLOR3
+ELSE
+   color1 = &color123(1)
+   color2 = &color123(2)
+   color3 = &color123(3)
+   color4 = &color123(4)
+ENDIF
+LEVIJXR = 0
+NIZRAMKI = 0
+NIZOKNA = 0
+NTEKZAP = 0
+DLINA = 1
+POLE = ' '
+IMJMAS = ' '
+KOLPOL = 0
+KOLZAP = 0
+PRIZ = 0
+NRECP = 0
+DO sufinit
+DIMENSION IMENA(10)
+DIMENSION DLINPOL(10)
+DIMENSION TOCHN(10)
+DIMENSION OTSPOL(10)
+DIMENSION MSHABL(11)
+DO sufdlin
+KOLSTOLB = INT((OKNOSHIR+1)/(DLINA+1))
+IF KOLSTOLB=0
+   WAIT 'извините,  окнo узкое'
+   DO sufclose
+   RETURN
+ENDIF
+OKNOSHIR = (DLINA+1)*KOLSTOLB-1
+DO sufcappy
+KONSTR = OKNO+LEVIJX
+KRATN = OKNO*KOLSTOLB
+DIMENSION MAS(KRATN)
+DIMENSION MASNZAP(KRATN)
+IF IMJFILE<>'\\.'
+   IF KRITER<>' '
+      set filter to &kriter
+   ENDIF
+   GO TOP
+   DO WHILE KOLZAP<KRATN .AND. .NOT. EOF()
+      KOLZAP = KOLZAP+1
+      SKIP
+   ENDDO
+   IF KOLZAP=0
+      set color to &color4
+      @ 23,1 SAY 'Записи по данному критерию не найдены. Hажмите ENTER'
+      KOLZAP = INKEY(0)
+      DO sufclose
+      RETURN TO MASTER
+   ENDIF
+   GO TOP
+   NREC = RECNO()
+ELSE
+   NREC = 1
+ENDIF
+DO sufboots
+INDOKNA = 1
+NRECO = NREC
+DO WHILE .T.
+   IF IMJFILE<>'\\.'
+      OSTATOK = 0
+      GO NREC
+   ENDIF
+   set color to &color1
+   @ LEVIJX,LEVIJY CLEAR TO NIZOKNA-1,LEVIJY+OKNOSHIR-1
+   VIBOR = 1
+   NS = LEVIJX
+   LEVRAB = LEVIJY
+   DO WHILE VIBOR<=KRATN
+      IF IMJFILE='\\.'
+         VALPOLE = SPACE(DLINPOL(1))
+         im1 = &imjmas(nrec)
+         DO CASE
+         CASE (TYPEAHEAD('im1')='N')
+            valpole = str(&imjmas(nrec),dlinpol(1),tochn(1))
+         CASE (TYPEAHEAD('im1')='C')
+            if len(&imjmas(nrec)) < dlinpol(1)
+            valpole = stuff(valpole,1,len(&imjmas(nrec)),&imjmas(nrec))
+         ELSE
+            valpole = left(&imjmas(nrec),dlinpol(1))
+         ENDIF
+      CASE (TYPEAHEAD('im1')='D')
+         VALPOLE = LEFT(DTOC(IM1),DLINPOL(1))
+         IF LEN(VALPOLE)<DLINPOL(1)
+            VALPOLE = VALPOLE+SPACE(DLINPOL(1)-LEN(VALPOLE))
+         ENDIF
+      CASE (TYPEAHEAD('im1')='L')
+         IF IM1
+            VALPOLE = 'T'
+         ELSE
+            VALPOLE = 'F'
+         ENDIF
+         VALPOLE = VALPOLE+SPACE(DLINPOL(1)-1)
+      ENDCASE
+      POLE = STUFF(POLE,OTSPOL(1),DLINPOL(1),VALPOLE)
+   ELSE
+      INDPOL = 1
+      DO WHILE INDPOL<=KOLPOL
+         IM1 = IMENA(INDPOL)
+         DO CASE
+         CASE (TYPEAHEAD(IM1)='N')
+            valpole = str(&im1,dlinpol(indpol),tochn(indpol))
+         CASE (TYPEAHEAD(IM1)='C')
+            if len(&im1) < dlinpol(indpol)
+            VALPOLE = SPACE(DLINPOL(INDPOL))
+            valpole = stuff(valpole,1,len(&im1),&im1)
+         ELSE
+            valpole = left(&im1,dlinpol(indpol))
+         ENDIF
+      CASE (TYPEAHEAD(IM1)='D')
+         valpole = dtoc(&im1)
+      CASE (TYPEAHEAD(IM1)='L')
+         if &im1
+         VALPOLE = 'T'
+      ELSE
+         VALPOLE = 'F'
+      ENDIF
+   ENDCASE
+   POLE = STUFF(POLE,OTSPOL(INDPOL),DLINPOL(INDPOL),VALPOLE)
+   INDPOL = INDPOL+1
+ENDDO
+ENDIF
+IF ((VIBOR>1 .AND. MAS(VIBOR-1)<>POLE) .OR. VIBOR=1)
+   MAS(VIBOR) = POLE
+   MASNZAP(VIBOR) = NREC
+   IF (LEVRAB+DLINA)>(LEVIJY+OKNOSHIR)
+      LEVRAB = LEVIJY
+      NS = NS+1
+   ENDIF
+   @ NS,LEVRAB SAY POLE
+   LEVRAB = LEVRAB+DLINA+1
+   VIBOR = VIBOR+1
+ENDIF
+IF IMJFILE='\\.'
+   NREC = NREC+1
+   IF NREC>KOLZAP
+      EXIT
+   ENDIF
+ELSE
+   SKIP
+   IF (.NOT. EOF())
+      NREC = RECNO()
+   ELSE
+      EXIT
+   ENDIF
+ENDIF
+ENDDO
+KRATNRAB = VIBOR-1
+KODZAV = 0
+PRAY = LEVIJY+(KOLSTOLB*DLINA)+KOLSTOLB-1
+DO navigac WITH KRATNRAB,DLINA,LEVIJX,LEVIJY,NIZOKNA-1,PRAY,INDOKNA,KODZAV
+RC = 0
+IF IMJFILE<>'\\.'
+   DO sufcasef WITH RC
+ELSE
+   DO sufcasem WITH RC
+ENDIF
+IF RC=1
+   SET COLOR TO 
+   RESTORE SCREEN
+   RETURN
+ENDIF
+ENDDO
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   navigac                              *
+*                                                                           *
+*****************************************************************************
+PROCEDURE navigac
+PARAMETERS RAZMERN,DL,LEVX,LEVY,PRANX,PRANY,INDEXM,RC
+KSTOLB = INT((PRANY-LEVY+2)/(DL+1))
+X1 = INT((INDEXM-1)/KSTOLB)+LEVX
+Y1 = MOD(INDEXM,KSTOLB)
+IF Y1=0
+   Y1 = KSTOLB
+ENDIF
+Y1 = (Y1-1)*(DL+1)+LEVY
+DO WHILE .T.
+   IF INDEXM>RAZMERN
+      INDEXM = 1
+      X1 = LEVX
+      Y1 = LEVY
+   ENDIF
+   set color to &color2
+   STORE MAS(INDEXM) TO POLE
+   @ X1,Y1 SAY POLE
+   X2 = X1
+   Y2 = Y1
+   set color to &color1
+   I = INKEY(0)
+   DO CASE
+   CASE I=3
+      RC = -2
+      RETURN
+   CASE I=18
+      RC = -1
+      RETURN
+   CASE I=27
+      RC = 0
+      RETURN
+   CASE I=4
+      Y1 = Y1+DL+1
+      IF (Y1+DL)>PRANY
+         Y1 = LEVY
+      ENDIF
+   CASE I=19
+      Y1 = Y1-DL-1
+      IF Y1<LEVY
+         Y1 = LEVY+(DL+1)*(KSTOLB-1)
+      ENDIF
+   CASE I=5
+      X1 = X1-1
+      IF X1<LEVX .OR. COLOR1=COLOR2
+         RC = -3
+         RETURN
+      ENDIF
+   CASE I=24
+      X1 = X1+1
+      IF X1>PRANX .OR. COLOR1=COLOR2
+         RC = -4
+         RETURN
+      ENDIF
+   CASE I=13 .AND. COLOR1<>COLOR2
+      RC = INDEXM
+      RETURN
+   CASE I=31
+      RC = -5
+      RETURN
+   CASE I=30
+      RC = -6
+      RETURN
+   ENDCASE
+   STORE MAS(INDEXM) TO POLE
+   @ X2,Y2 SAY POLE
+   INDEXM = (X1-LEVX)*KSTOLB+INT((Y1-LEVY)/(DL+1))+1
+ENDDO
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufinit                              *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufinit
+SAVE SCREEN
+IF IMJFILE='\\.'
+   NSKOBA1 = AT('(',IMJFILE)
+   NSKOBA2 = AT(')',IMJFILE)
+   IF NSKOBA1<5 .OR. NSKOBA2<7 .OR. NSKOBA1>NSKOBA2
+      WAIT 'не указана размерность массива'
+      DO subclose
+      RETURN TO MASTER
+   ENDIF
+   IMJMAS = SUBSTR(IMJFILE,4,NSKOBA1-4)
+   KOLZAP = VAL(SUBSTR(IMJFILE,NSKOBA1+1,NSKOBA2-NSKOBA1-1))
+ELSE
+   IF (LEN(IMJFILE)>0 .AND. IMJFILE<>' ')
+      IF (LEN(IMJINDEX)>0 .AND. IMJINDEX<>' ')
+         use &imjfile index &imjindex
+      ELSE
+         use &imjfile
+      ENDIF
+   ELSE
+      NTEKZAP = RECNO()
+   ENDIF
+ENDIF
+IF LEVIJX=0
+   LEVIJX = 1
+ENDIF
+IF LEVIJY=0
+   LEVIJY = 1
+ENDIF
+IF LEVIJX+OKNO>24 .OR. LEVIJY+OKNOSHIR>80
+   WAIT 'извините, неправильно заданы координаты окна'
+   DO sufclose
+   RETURN TO MASTER
+ENDIF
+IF OKNO=0
+   OKNO = 24-LEVIJX
+ENDIF
+IF OKNOSHIR=0
+   OKNOSHIR = 79-LEVIJY
+ENDIF
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufclose                             *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufclose
+NRECORD = 0
+SET COLOR TO 
+VALPOLE = SPACE(DLINA)
+RESTORE SCREEN
+IF IMJFILE<>' '
+   USE
+ELSE
+   GO NTEKZAP
+ENDIF
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufdlin                              *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufdlin
+I = 1
+DO WHILE I<=10
+   IMENA(I) = ''
+   STORE 0 TO DLINPOL(I),TOCHN(I)
+   I = I+1
+ENDDO
+SUBTEXT = IMJPOLE
+KOLPOL = 1
+DO WHILE KOLPOL<=10
+   NBLANK = AT(' ',SUBTEXT)
+   IF NBLANK=0
+      NBLANK = LEN(SUBTEXT)+1
+   ENDIF
+   IF NBLANK>1
+      NCOLON = AT(':',SUBTEXT)
+      IF NCOLON>NBLANK .OR. NCOLON=0
+         NCOLON = NBLANK
+      ENDIF
+      NPOINT = AT('.',SUBTEXT)
+      IF NPOINT>NBLANK .OR. NPOINT=0
+         NPOINT = NCOLON
+      ENDIF
+      MINRAB = MIN(MIN(NBLANK,NCOLON),NPOINT)-1
+      IMENA(KOLPOL) = SUBSTR(SUBTEXT,1,MINRAB)
+      IF NCOLON<NBLANK
+         IF NPOINT<>NCOLON
+            DLINA = NPOINT-NCOLON
+         ELSE
+            DLINA = NBLANK-NCOLON
+         ENDIF
+         DLINPOL(KOLPOL) = VAL(SUBSTR(SUBTEXT,NCOLON+1,DLINA))
+         IF NPOINT<NBLANK .AND. NPOINT>NCOLON
+            TOCHN(KOLPOL) = VAL(SUBSTR(SUBTEXT,NPOINT+1,NBLANK-NPOINT))
+         ENDIF
+      ENDIF
+      IF IMJFILE='\\.'
+         SUBTEXT = IMENA(1)
+         IF IMENA(1)='N' .OR. IMENA(1)='n'
+            &subtext = 1    
+         ELSE
+            &subtext = ' '
+         ENDIF
+         EXIT
+      ENDIF
+      IF NBLANK>LEN(SUBTEXT)
+         EXIT
+      ENDIF
+      KOLPOL = KOLPOL+1
+      SUBTEXT = SUBSTR(SUBTEXT,NBLANK)
+   ELSE
+      IF LEN(SUBTEXT)>1
+         SUBTEXT = SUBSTR(SUBTEXT,2)
+      ELSE
+         KOLPOL = KOLPOL-1
+         EXIT
+      ENDIF
+   ENDIF
+ENDDO
+INDPOL = 1
+DO WHILE INDPOL<=10
+   MSHABL(INDPOL) = SPACE(0)
+   INDPOL = INDPOL+1
+ENDDO
+INDPOL = 1
+INDSHAB = 1
+DO WHILE (INDSHAB<=LEN(SHABL))
+   CHAR1 = SUBSTR(SHABL,INDSHAB,1)
+   IF CHAR1='\'
+      INDPOL = INDPOL+1
+      IF INDPOL>11
+         EXIT
+      ENDIF
+   ELSE
+      MSHABL(INDPOL) = MSHABL(INDPOL)+CHAR1
+   ENDIF
+   INDSHAB = INDSHAB+1
+ENDDO
+DO WHILE INDPOL<=KOLPOL
+   MSHABL(INDPOL+1) = MSHABL(INDPOL)
+   INDPOL = INDPOL+1
+ENDDO
+DLINA = LEN(MSHABL(1))
+OTSPOL(1) = DLINA+1
+INDPOL = 1
+DO WHILE INDPOL<=KOLPOL
+   IM1 = IMENA(INDPOL)
+   IF DLINPOL(INDPOL)=0
+      DO CASE
+      CASE (TYPEAHEAD(IM1)='C')
+         dlinpol(indpol) = len(&im1)          
+      CASE (TYPEAHEAD(IM1)='N')
+         DLINPOL(INDPOL) = 10
+         TOCHN(INDPOL) = 4
+      CASE (TYPEAHEAD(IM1)='D')
+         DLINPOL(INDPOL) = 8
+      CASE (TYPEAHEAD(IM1)='L')
+         DLINPOL(INDPOL) = 1
+      ENDCASE
+   ENDIF
+   DLINA = DLINA+DLINPOL(INDPOL)
+   INDPOL = INDPOL+1
+   DLINA = DLINA+LEN(MSHABL(INDPOL))
+   OTSPOL(INDPOL) = DLINA+1
+ENDDO
+STORE SPACE(DLINA) TO POLE,VALPOLE
+INDPOL = 1
+DO WHILE (INDPOL<=KOLPOL+1)
+   SH = MSHABL(INDPOL)
+   LENSH = LEN(SH)
+   POLE = STUFF(POLE,(OTSPOL(INDPOL)-LENSH),LENSH,SH)
+   INDPOL = INDPOL+1
+ENDDO
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufcappy                             *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufcappy
+LEVIJXR = LEVIJX
+IF (LEN(HEAD)>1)
+   set color to &color3
+   IF HEAD='\\.'
+      HEAD = SUBSTR(HEAD,4)
+      JJ = 0
+      do while jj < &head(1)
+      @ levijx,levijy clear to levijx+&head(1)-1,levijy+oknoshir
+      @ levijx,levijy say &head(jj+2)
+      JJ = JJ+1
+      LEVIJX = LEVIJX+1
+      OKNO = OKNO-1
+   ENDDO
+ELSE
+   @ LEVIJX,LEVIJY CLEAR TO LEVIJX,LEVIJY+OKNOSHIR
+   @ LEVIJX,LEVIJY SAY HEAD
+   LEVIJX = LEVIJX+1
+   OKNO = OKNO-1
+ENDIF
+ENDIF
+IF LEN(BOOTS)>1
+   IF BOOTS='\\.'
+      BOOTSR = SUBSTR(BOOTS,4)
+      okno = okno - &bootsr(1)
+   ELSE
+      OKNO = OKNO-1
+   ENDIF
+ENDIF
+IF OKNO<1
+   WAIT 'высота окна слишком мала'
+   DO sufclose
+   RETURN TO MASTER
+ENDIF
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufboots                             *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufboots
+NIZRAMKI = LEVIJX+INT((MIN(KOLZAP,KRATN)-1)/KOLSTOLB)+1
+NIZOKNA = NIZRAMKI
+IF LEN(BOOTS)>1
+   set color to &color4
+   IF BOOTS='\\.'
+      BOOTSR = SUBSTR(BOOTS,4)
+      @ nizokna,levijy clear to nizokna+&bootsr(1)-1,levijy+oknoshir
+      I = 0
+      do while i < &bootsr(1)
+      @ nizokna+i,levijy say &bootsr(i+2)
+      I = I+1
+   ENDDO
+   nizramki = nizokna + &bootsr(1)
+ELSE
+   @ NIZOKNA,LEVIJY CLEAR TO NIZOKNA,LEVIJY+OKNOSHIR
+   @ NIZOKNA,LEVIJY SAY BOOTS
+   NIZRAMKI = NIZOKNA+1
+ENDIF
+ENDIF
+set color to &color1
+@ LEVIJXR-1,LEVIJY-1 TO NIZRAMKI,LEVIJY+OKNOSHIR DOUBLE
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufcasef                             *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufcasef
+PARAMETERS KOD
+DO CASE
+CASE KODZAV=-2
+   IF PRIZ=1
+      GO TOP
+      NREC = RECNO()
+   ELSE
+      NRECO = NREC
+      GO NREC
+      DO WHILE .NOT. EOF() .AND. OSTATOK<KRATN
+         OSTATOK = OSTATOK+1
+         SKIP
+      ENDDO
+      OSTATOK = OSTATOK+1
+      IF EOF()
+         ? CHR(7)
+      ENDIF
+      IF OSTATOK<KRATN
+         NZ = 1
+         GO BOTTOM
+         DO WHILE NZ<KRATN .AND. NREC>1
+            NZ = NZ+1
+            IF .NOT. BOF()
+               SKIP -1
+               NREC = RECNO()
+            ENDIF
+         ENDDO
+      ENDIF
+   ENDIF
+CASE KODZAV=-1
+   NZ = 1
+   DO WHILE NZ<=(KRATN*2)
+      NZ = NZ+1
+      IF .NOT. BOF()
+         SKIP -1
+      ELSE
+         ? CHR(7)
+         EXIT
+      ENDIF
+   ENDDO
+   NREC = RECNO()
+CASE KODZAV=-3
+   NZ = 1-KOLSTOLB
+   DO WHILE NZ<=KRATN
+      NZ = NZ+1
+      IF .NOT. BOF()
+         SKIP -1
+      ENDIF
+   ENDDO
+   IF BOF()
+      ? CHR(7)
+   ENDIF
+   NREC = RECNO()
+CASE KODZAV=-4
+   IF PRIZ=1
+      GO TOP
+   ELSE
+      GO NREC
+      SKIP
+      IF EOF()
+         ? CHR(7)
+      ENDIF
+      GO NREC
+      I = KOLSTOLB
+      DO WHILE I<KRATN .AND. .NOT. BOF()
+         SKIP -1
+         I = I+1
+      ENDDO
+   ENDIF
+   NREC = RECNO()
+CASE KODZAV>0
+   IF INDOKNA>KRATN
+      INDOKNA = 1
+   ENDIF
+   STORE MAS(INDOKNA) TO VALPOLE
+   NRECORD = MASNZAP(INDOKNA)
+   IF (LEN(IMJFILE)>0 .AND. IMJFILE<>' ')
+      USE
+   ELSE
+      GO NTEKZAP
+   ENDIF
+   KOD = 1
+   RETURN
+CASE KODZAV=0
+   NRECORD = 0
+   VALPOLE = SPACE(DLINA)
+   IF (LEN(IMJFILE)>0 .AND. IMJFILE<>' ')
+      USE
+   ELSE
+      GO NTEKZAP
+   ENDIF
+   KOD = 1
+   RETURN
+CASE KODZAV=-5
+   GO TOP
+   NREC = RECNO()
+CASE KODZAV=-6
+   NZ = 1
+   GO BOTTOM
+   DO WHILE NZ<KRATN .AND. NREC>1
+      NZ = NZ+1
+      IF .NOT. BOF()
+         SKIP -1
+         NREC = RECNO()
+      ENDIF
+   ENDDO
+ENDCASE
+RETURN
+
+*****************************************************************************
+*                                                                           *
+*                          Procedure   sufcasem                             *
+*                                                                           *
+*****************************************************************************
+PROCEDURE sufcasem
+PARAMETERS KOD
+DO CASE
+CASE KODZAV=-2
+   IF PRIZ=1
+      NREC = 1
+   ENDIF
+CASE KODZAV=-1
+   NREC = NREC-2*KRATN
+CASE KODZAV=-3
+   NREC = NREC-KRATN-KOLSTOLB
+CASE KODZAV=-4
+   IF PRIZ=1
+      NREC = 1
+   ELSE
+      NREC = NREC-KRATN+KOLSTOLB
+   ENDIF
+CASE KODZAV>0
+   IF KODZAV>KRATN
+      KODZAV = 1
+   ENDIF
+   STORE MAS(INDOKNA) TO VALPOLE
+   NRECORD = MASNZAP(INDOKNA)
+   KOD = 1
+   RETURN
+CASE KODZAV=0
+   NRECORD = 0
+   VALPOLE = SPACE(DLINA)
+   KOD = 1
+   RETURN
+CASE KODZAV=-5
+   NREC = 1
+CASE KODZAV=-6
+   NREC = KOLZAP
+ENDCASE
+IF ((NREC+KRATN)>KOLZAP)
+   NREC = KOLZAP-KRATN+1
+   ? CHR(7)
+ENDIF
+IF NREC<1
+   NREC = 1
+   ? CHR(7)
+ENDIF
+RETURN
+

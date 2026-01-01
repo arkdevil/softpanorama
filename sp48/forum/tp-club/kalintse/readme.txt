@@ -1,0 +1,187 @@
+ ╔═════╗  ╔══════╗ ╔══╗  ╔══╗  ╒╤╕╒═╤═╕  ----------------------------------
+ ║     ╚╗ ║      ║ ║  ║ ╔╝  ║   ┴ ┴ ┴ ┴  ----------------------------------
+ ║ ╔══╗ ║ ║  ╔═══╝ ║  ╚═╝  ╔╝  --------------------------------------------
+ ║ ║  ║ ║ ║  ╚═╗   ║   ╔═══╝   -------∙∙∙∙∙∙∙∙---------------------∙-------
+ ║ ║  ║ ║ ║  ╔═╝   ║   ╚═══╗   -------∙----------------------------∙-------
+ ║ ╚══╝ ║ ║  ╚═══╗ ║  ╔═╗  ╚╗  -------∙∙∙∙∙∙∙∙--∙∙-∙∙--∙∙∙∙--∙-∙∙-∙∙∙-∙--∙-
+ ║     ╔╝ ║      ║ ║  ║ ╚╗  ║  --------------∙--∙-∙-∙----∙∙--∙∙----∙--∙∙∙∙-
+ ╚═════╝  ╚══════╝ ╚══╝  ╚══╝  --------------∙--∙-∙-∙--∙--∙--∙-----∙-----∙-
+ -------------------------------------∙∙∙∙∙∙∙∙--∙---∙--∙∙∙∙∙-∙-----∙∙--∙∙∙-
+ --------------------------------------------------------------------------
+ ╔═════════╗          ╔═══╗  ╔═╗  ╔══╗  ╔══╗              ╔═╗
+ ║ ╔═══════╝          ║ ╔═╝  ║ ║  ║  ║╔╗║  ║              ║ ║
+ ║ ╚═══════╗╔══════╗╔═╝ ╚═╗╔═╝ ╚═╗║  ╚╝╚╝  ║╔══════╗╔════╗║ ║ ╔═╗╔═════╗
+ ╚═══════╗ ║║ ╔══╗ ║╚═╗ ╔═╝╚═╗ ╔═╝║        ║║ ╔══╗ ║║ ╔══╝║ ╚═╝╔╝║ ════╣
+ ╔═══════╝ ║║ ╚══╝ ║  ║ ║    ║ ║  ║  ╔══╗  ║║ ╚══╝ ║║ ║   ║ ╔═╗╚╗╠════ ║
+ ╚═════════╝╚══════╝  ╚═╝    ╚═╝  ╚══╝  ╚══╝╚══════╝╚═╝   ╚═╝ ╚═╝╚═════╝
+
+***********************D*E*K**S*o*f*t*W*o*r*k*s******************************
+********************S*m*a*r*t*y**S*o*f*t*W*a*r*e*****************************
+
+        DVFMT PROGRAM BASED ON VFORMAT.PAS PUBLIC DOMAIN SOURCE CODE.
+                 ORIGINAL CODE FOR VFORMAT WAS NOT CHANGED.
+                  DVFMT IS A FREEWARE AND IT'S SOURCE CODE
+                  COULD BE GOT FROM AUTHOR WITHOUT ANY FEE.
+  (I HOPE I'LL DOWNLOAD IT TO JV DIALOGUE BBS WHEN I'LL GOT MY MODEM BACK)
+
+PLEASE, SEND BUG REPORTS ON ADDRESS BELOW:
+Dimon E. Kalintsew, Chkalowsk, Leninabadskaya oblast, 735737, UIS.
+Voice phone (377-71)594-97.
+
+Notes:
+
+1) DVFMT CANNOT accept command string.
+2) Some unusable computers may not work correctly with this program.
+3) Some Disk-Cache programs may not be compatible with this program.
+
+*****************************************************************************
+*****************************************************************************
+**********    Here is original text for vforead.me file  ********************
+*****************************************************************************
+*****************************************************************************
+
+              VFORMAT - Format Disks with higher Capacity
+                   and Protection from Boot-Viruses
+
+	 based on Christoph H. Hochstätter's FDFORMAT Ver. 1.20
+
+
+LICENSE
+-------
+
+This program is a public-domain product for private and educational use. You
+may freely copy and use it without any charge. You may feel free to send me
+some money anyway.
+
+This program must not be sold for profit. An adaequate fee may be requested
+for copying, shipping and handling when redistributing this program.
+
+
+COMMENTS AND PROBLEMS
+---------------------
+
+Comments, improvements, suggestions and problems may be sent to the Authors
+
+(of FDFORMAT):
+Christoph H. Hochstätter    E-Mail: BITNET:   HOCHSTAE@DMRHRZ11
+Carl-Strehl-Strasse 20              INTERNET: HOCHSTAE%DMRHRZ11@CUNYVM.CUNY.EDU
+D-3550 Marburg                      UUCP:     DMRHRZ11.BITNET!HOCHSTAE
+Germany
+
+(of VITAMIN-B Boot-Viruses Protection):
+Alexander V. Sessa
+Festivalnij per. 12, 54
+320130 Dniepropetrovsk
+USSR
+
+
+PROGRAM USAGE
+-------------
+
+VFORMAT formats Disks in many different MSDOS formats. It does the follwing
+things.
+
+1) Formatting of 720 kB Disks in an AT 1.2 MB drive
+2) significantly increasing the storage of your diskettes (e.g. Using 1.44 MB
+   on HD-5,"-Disks)
+
+If you want to format a 720 kB Disk in an AT-drive, then type
+
+          VFORMAT <drive>: T80 S9
+
+If you want to increase the storage of your disks, then type
+
+          VFORMAT <drive>: T41 S10          (for 360 kB-Drives)
+          VFORMAT <drive>: T82 S10          (for 720 kB-Drives)
+          VFORMAT <drive>: T82 S18          (for 1.2 MB-Drives)
+          VFORMAT <drive>: T82 S21          (for 1.44 MB-Drives)
+
+Always add a P at the end of the command, when using a PS/2 Computer.
+
+Some Computers cannot use Disks with higher capacity without the TSR
+800.COM installed. If so, simply type the Command 800 before using
+VFORMAT or a Disk with higher Capacity.
+
+The exact description of the VFORMAT Command Syntax is:
+
+          VFORMAT <drive>: [options]
+
+Options are:
+
+Tnn   : Format nn Tracks
+Snn   : Format nn Sectors per Track
+Hn    : Format n Heads
+P     : Special option for PS/2 Computers
+V     : Do not verify the diskette (and save 33% time)
+Gnnn  : Use a GAP-Length of nnn (*)
+Inn   : Use an interleave Factor of nn (*)
+Bnnn  : Use a BIOS-Disk-Descriptor Byte of nnn (not on XT) (*)
+Cn    : Use n sectors per Cluster (1 or 2) (*)
+Dnnn  : Use nnn Root Directory Entries (*)
+Fnn   : Shift sectors on adjacent tracks with a distance of nn sectors (*)
+
+Options with (*) are adjusted to the best value automatically. You may
+do some experimenting with it.
+
+- Reducing the GAP-Length may speed up the disk perfomance
+- Reducing the Root Directory Entries brings you additional storage
+
+
+The following table shows you, what Options are correct for specified formats:
+
+Options       Storage on Disk  Allowed in Disk-Drives
+------------  ---------------  -------------------------------
+T40 S9        360 kByte        360 kB, 720 kB, 1.2 MB, 1.44 MB
+T41 S10       410 kByte        360 kB, 720 kB, 1.2 MB, 1.44 MB
+T80 S9        720 kByte        720 kB, 1.2 MB, 1.44 MB
+T82 S10       820 kByte        720 kB, 1.2 MB, 1.44 MB
+T82 S15       1.2 MByte        1.2 MB, 1.44 MB
+T80 S18       1.44 MByte       1.2 MB(!), 1.44 MB
+T82 S18       1.46 MByte       1.2 MB, 1.44 MB
+T82 S21       1.76 MByte       1.44 MB
+
+IF YOUR VFORMATTED DISK SAID: " Virus sterilized. Cure BOOT? " -
+--------------------------------------------------------------
+
+it is detected BOOT VIRUS on your diskette -
+press any key (except "n") for curing diskette, or
+press "n" key for keeping virus for researching.
+
+You may identify virus by next boot-vaccine messages:
+
+Int08-XXX0:0887 - LIBERTY (file-boot virus)
+Int17-XXX0:0BF2
+Int1C-XXX0:0A44
+Int13-XXX0:07EF
+
+Int08-XXX0:01CE - JOSHI
+Int09-XXX0:010A
+Int13-XXX0:04FA
+
+Int08-XXX0:027B - DISK KILLER
+Int13-XXX0:028F
+
+Int09-XXX0:04D9 - DEN ZUK
+Int13-XXX0:0526
+
+Int09-XXX0:035D * FORM (Int09 hooked only on 18'th of mounth!)
+Int13-XXX0:0346
+
+Int1C-XXX0:051A * KEYDROP (Int1C hooked only after warm reboot!)
+Int13-XXX0:0592
+
+Int13-XXX0:7CD0 - BALL (Ping-Pong, Italian)
+
+Int13-XXX0:0276 - BRAIN/ASHAR
+
+Int13-XXX0:0095 - PRINT SCREEN (Abs-1)
+
+Int13-XXX0:0015 * STONED (Marijuana) and its variations
+
+Int13-XXX0:7D38 * LOVECHILD b3
+
+here XXX0 - is memory segment of virus.
+* - marked viruses infect hard disk before start of vaccined boot -
+use VITAMINB.EXE utility for hard disk protection!
+
+Have fun using this program.

@@ -1,0 +1,737 @@
+                       How to use the F-PROT package
+
+This document includes a description of every program in the package.
+Currently the list of files is as follows:
+
+Protection programs
+
+        F-DRIVER.SYS            Monitors against known viruses. This
+                                program will stop infected programs,
+                                before they are run.
+        F-OSCHK.EXE             A checksumming program for the three system
+                                files, the boot sector and the partition
+                                record. It will detect if the operating
+                                system has been attacked by a virus.
+        F-LOCK.EXE              Provides protection against unknown
+                                viruses and Trojans. It will try to
+                                detect any suspicious activity.
+
+Virus identification and removal programs
+
+        F-SYSCHK.EXE            Checks memory for infection by known viruses.
+                                It will only find viruses present in memory
+                                when it is run. 
+        F-FCHK.EXE              Searches for infected files and can remove
+                                the infections.
+        F-DISINF.EXE            Looks for boot sector infections and
+                                can remove them.
+
+Programs for self-checking
+
+        F-XLOCK.EXE             Adds code to executable files, so they
+                                will check (when run) if they have been
+                                infected. It will not prevent them from
+                                being infected, but will detect the
+                                virus, the first time they are run
+                                afterwards.
+        F-UNLOCK.EXE            Removes the code described above.
+        F-XCHK.EXE              Only allows programs modified in this way
+                                to be run. This provides full protection
+                                against all viruses, but can only rarely
+                                be used.
+        F-RUN.EXE               Used to run unmodified programs, when F-XCHK
+                                is active.
+
+Utilities
+
+        F-POPUP.EXE             Pop-Up window program, used by F-LOCK and
+                                F-DLOCK.
+        F-DLOCK.EXE             Protects the hard disk from writing or
+                                formatting.
+        F-EX.EXE                Removes the memory-resident programs in
+                                this package from memory.
+        F-DIR.EXE               Lists hidden or read-only files.
+        F-MMAP.EXE              Produces a detailed memory map
+        F-HIDE.EXE              Hides files.
+        F-UNHIDE.EXE            Unhides files.
+        F-BOOT.EXE              Shows the boot sector.
+        F-PBR.EXE               Shows the partition boot record.
+        F-NET.EXE               "Fix" for users of Novell networks.
+
+Other files
+
+        SIGN.TXT                Virus signature file
+        TROJAN.TXT              Trojan signature file
+
+
+                A short description of each program
+
+
+------------------------- F-DRIVER.SYS and F-NET.EXE----------------------------
+
+F-DRIVER.SYS is without doubt the most important program in the package.
+If you only use a single program from the whole package. it should be
+this one.  It will provide full protection against all the viruses listed in
+the documentation and is also able to stop some new variants of them.
+
+Since this program is implemented as a device driver, it is not loaded
+in the usual way, but rather by placing a command in the CONFIG.SYS file.
+
+                DEVICE=path name of F-DRIVER.SYS
+Example:
+                DEVICE=\F-PROT\F-DRIVER.SYS
+
+This program only occupies around 4500 bytes of memory.  It has two main
+functions.  At boot-up time, it will analyze the memory and interrupt
+vectors in order to determine if the computer has been infected with any
+boot sector virus.  If so, it will display a warning message and halt the
+computer, forcing a reboot from a "clean" diskette.  It must be noted that
+this program should also be effective against any new boot sector viruses. 
+However, on machines with some Network Boot ROMs, F-driver might warn of a
+(non-existing) infection, unless this feature is disabled.  To disable
+automatic check of memory on boot time, add a /NOBOOT flag.  Example:
+
+                DEVICE=\F-PROT\F-DRIVER.SYS  /NOBOOT
+
+F-DRIVER will also check each program run for infection by any of the
+program viruses it knows of, by searching for virus identification
+strings when a program is loaded.  As it recognizes almost all known viruses,
+this will provide a high degree of security.  If an attempt is made to run an
+infected program, F-DRIVER will display a warning message like
+
+        "This program is infected with the Cascade virus"
+
+and refuse to allow the program to be run.
+
+F-DRIVER.SYS should not interfere with the execution of any "healthy"
+program, but there are a few cases where F-DRIVER will not provide 
+protection.  If you are for example using a Novell network or PC-NFS, the
+network driver will take over the "execute" function, disabling the
+checking done by F-DRIVER.  In order to close this "hole", the F-NET.EXE
+program is provided.
+
+To determine if you need to use it, do the following:
+
+	1) Place a command in CONFIG.SYS to load F-DRIVER
+	2) Reboot the computer.
+	3) Run the program F-TEST.COM, both locally and over the network.
+	   It is NOT a virus, but should be stopped by F-DRIVER in the same
+	   way as known viruses.  You should get a message saying:
+
+			This program is Infected by the F-TEST virus.
+	   
+           If you do, don't panic - everything is as it should be.
+        4) If F-TEST.COM is not stopped by F-DRIVER, it will display a
+           message saying that F-DRIVER is not installed or not working.
+           If this happens, try running F-NET.EXE and then run F-TEST
+	   again.
+	5) If F-TEST is stopped after you run F-NET, you need to place
+	   a command in AUTOEXEC.BAT to run F-NET after you run the
+           network software.
+        6) If F-TEST is not stopped, after you run F-NET, please let me
+	   know.
+
+---------------------------------- F-OSCHK ---------------------------------- 
+
+F-OSCHK is a program that computes a checksum for the three operating
+system files.  The names of those files depend on the operating system
+used:
+
+        PC-DOS                    MS-DOS                   DR-DOS        
+
+        IBMBIO.COM                IO.SYS                   DRBIOS.COM
+        IBMDOS.COM                MSDOS.SYS                DRBDOS.COM
+        COMMAND.COM               COMMAND.COM              COMMAND.COM
+
+F-OSCHK can also handle some obscure variants of DOS, like ERSDOS and
+P16DOS.
+
+The first two files are normally hidden.  When F-OSCHK is run with no
+parameters it will look for those files.  
+
+Example:                F-OSCHK
+
+It assumes the first two files are in the root directory of the current
+drive, and that the COMSPEC environment variable contains the location of
+the COMMAND.COM program.  The program will then compute checksums for the
+three files and display the numbers.  It will also compute checksums for
+the boot sector and the partition record - a total of five numbers.
+
+When F-OSCHK is then run with these five numbers as arguments, it will
+compare them to the checksums of the programs.  You should first run
+F-OSCHK with no arguments and then place a command like
+
+                F-OSCHK 16199 29540 31529 42323 23945
+
+in your AUTOEXEC.BAT file.  Just use the numbers that are produced on your
+own computer instead of those shown here.  If you do not want the program
+to verify some of the checksums, you can simply replace them by the
+string "-----". Example:
+
+                F-OSCHK 16199 29540 31529 42323 -----
+
+This will tell F-OSCHK not to check the partition record - useful if
+it is constantly being changed.
+
+
+----------------------------- F-LOCK and F-POPUP ------------------------------
+
+F-LOCK provides protection against the attacks of unknown viruses and
+Trojans.  It will monitor all activity and take action in the following cases:
+
+        *       When an attempt is made to format a diskette.  It should
+                be almost impossible to format hard disks with F-PROT
+                installed.
+                
+        *       When an attempt is made to make a read-only executable
+                file read-write.
+
+        *       When an attempt is made to bypass the file system with
+                INT 13, INT 40 or INT 26 calls.
+
+        *       When an attempt is made to write to the boot sector.
+
+        *       When a program tries to delete or write to another
+                program.
+
+        *       When a program tries to perform a "rename" operation
+                where one of the arguments is .EXE or .COM.
+
+In those cases, a pop-up window will appear if F-POPUP is installed,
+otherwise the attempted operation will simply fail.  
+
+The window will contain a message, describing the attempted operation,
+followed by
+
+                       Allow it (Y/N) (G) ?
+
+Pressing the 'Y' (Yes) key will allow the attempted operation to continue,
+but 'N' (No) will cause it to fail.  Pressing the 'G' (Go) key will turn
+F-LOCK off while the current program is running.  You should use the 'G' key
+when running a program like FORMAT, otherwise you might have to press the
+'Y' key several times in a row.
+
+F-LOCK contains one additional feature, that is perhaps the most
+important one.  It is the ability to stop programs that try to write to
+the disk by jumping directly to the original BIOS routines.  F-LOCK can
+for example stop the "fourth method" used by Dr. Solomon in his TRYOUT
+program.  
+
+It is not necessary to use F-LOCK and F-POPUP, but they will provide
+additional protection against viruses and Trojans.  If you decide to use
+F-LOCK and F-POPUP, you should place the following commands in the
+AUTOEXEC.BAT file, as described in the INSTALL.TXT file.
+
+                        \F-PROT\F-LOCK
+                        \F-PROT\F-POPUP
+
+If you use a disk cache program, it is important that is is run before
+you run F-LOCK.
+
+F-LOCK may interfere with some legitimate programs:
+
+        Like many other memory resident programs it will not work 
+        with Microsoft Windows.
+
+        Some copy-protection methods will not work with F-LOCK installed.
+        For example, I am not able to run my copy of Tetris, unless I
+        remove F-LOCK from memory.
+
+        The pop-up window will only appear if the screen is in character
+        mode.  In bitmap mode, the program will stop, and wait for the
+        user to press 'Y', 'N' or 'G'.  Since nothing will be seen on the
+        screen, the computer will just appear to "hang".  If you spend
+        much time running programs that use bitmap mode, you probably
+        should not use F-LOCK.
+
+        The COMP program cannot be used to compare files with names
+        ending in .EXE, .COM or .SYS with F-LOCK installed.  Since this
+        is a pretty useless program anyhow, I suggest that you just
+        obtain a better file comparison utility.
+
+
+--------------------------------- F-SYSCHK.EXE ---------------------------------
+
+F-SYSCHK checks if the system is infected with any virus it knows.  If an
+infection is found, it will be reported, otherwise the following message
+will appear:
+
+                              No infection found
+
+The F-SYSCHK program scans the memory for any viral signatures.  This might
+take a few minutes on a very slow machine, so it is not recommended to
+place a command to run this program in the AUTOEXEC.BAT file.
+
+To run F-SYSCHK just give the command:
+
+                                   F-SYSCHK
+
+The computer will then be checked for infection by any of the viruses
+listed in BOOTVIR.TXT and FILVIR.TXT.  Note that F-SYSCHK uses the file
+SIGN.TXT, which must be present in the current directory or in the same
+directory as F-SYSCHK.EXE is located in.
+
+F-SYSCHK should be used to ensure that the computer is not infected with
+any known virus, before you run the programs F-FCHK and F-DISINF.  The
+program will report an infection if it finds the signature string of any
+of the viruses it knows anywhere in memory.
+
+Note that the program will only detect if a virus is present in memory
+when it is run - if an infected program is run later, it will have no
+effect.
+
+
+---------------------------------- F-FCHK.EXE ----------------------------------
+
+F-FCHK looks for any file infected with known program viruses.  It
+recognizes all viruses described in FILVIR.TXT.  It will also find most
+mutations of known viruses.  In addition, F-FCHK can also "cure" infected
+files in almost all cases.
+
+To use F-FCHK, the file SIGN.TXT must be present in the current directory
+or the same directory as F-FCHK.EXE.
+
+To run F-FCHK, simply give a command of the form "F-FCHK <path/file>".  The
+specified directory and all subdirectories will then be checked.  Normally
+only files with names ending in .COM, .EXE, .OVL, .OVR and .APP will be
+tested for infection.  If you add /ALL to the command, every file will be
+checked.  For example, the following command will check every file on drive C:
+
+                        F-FCHK C:\  /ALL
+
+Normally you should not waste time using the /ALL command, unless you
+know there are infected programs on the disk and you want to make sure
+that the virus is not hiding in some obscure overlay file somewhere.
+
+If you want a faster scanning method, use the "/QUICK" switch.
+
+If you are using a hard disk with multiple drives (C: D: E: etc) you need
+to give one command for each drive.
+
+It is of course also possible to check only a single file - example:
+
+                        F-FCHK A:\BIN\NEW_PROG.EXE
+
+F-FCHK will display the names of the files it checks for viruses.  When an
+infected file is found the infection will be reported.  The default is
+just to list the infection - not to ask if it should be removed, but by
+using the "/QUERY" switch, the program will ask:
+
+                          Disinfect ?
+
+when an infected file is found.  If you press 'Y', F-FCHK will attempt to
+remove the infection.
+
+Normally you would want to remove any viruses found, unless you want to
+obtain a "live" specimen, that is.  If you do not want to press 'Y'
+whenever an infected file is found, you can enter a command of the form:
+
+			F-FCHK  C:\  /AUTO
+
+/AUTO indicates automatic disinfection.
+
+If you only want a list of the files scanned and the result of the
+scanning, you can use a command of the form:
+
+			F-FCHK C:\ /LIST
+
+/LIST indicates a list of files, but no "Disinfect ?" prompt.
+
+If you want to delete all infected files, use the "/DELETE" switch.
+Infected files will then be overwritten several times, with different bit
+patterns, and then deleted.
+
+If F-FCHK can remove the virus it will display the message
+
+                            Cured...
+
+If the file is infected with multiple copies of the virus, the message
+may appear a number of times.
+
+It is, however, possible that F-FCHK will display the message
+
+                    Virus could not be removed.
+
+The most likely explanation for that is that you have a new variant of
+the virus - one that F-FCHK does not know of.  If this happens, and you
+are sure you have the latest version of the package, please send me the
+file in question, either on a diskette or via E-MAIL.
+
+Some viruses like the 405-virus cannot be removed, since an infection
+consists of overwriting the original program.  This will, of course,
+destroy it.  In those cases the only solution is to restore the infected
+file from a backup (you do keep good backups, or ....  ?)
+
+F-FCHK reports the number of files it checks.  This number may be
+incorrect when certain viruses (like Jerusalem) are being infected, as
+new files are created while disinfecting and both the new and old files
+might be counted.
+
+All files that might be infected will be checked for infection, however.
+
+A virus can be hidden in a program by infecting it, and then running a
+program like LZEXE, PKLITE, DIET, ICE or EXEPACK to create a program
+which will unpack itself in memory when executed.  A virus scanner will
+not be able to find the virus, unless it knows how to unpack the program.
+This ability has bot been added yet, but F-FCHK will display a warning
+message if it finds a packed file - indicating that the file could not
+be scanned for viruses.
+
+When F-FCHK has disinfected a file, it has usually been restored to the
+original state before infection.  In many cases the disinfected program will
+have 1-15 additional garbage bytes at the end.  Those bytes were added by
+the virus, in order to make the length of the program a multiple of 16
+bytes, before infection.  As the number of those bytes cannot be detected
+by F-FCHK, they cannot be removed.  Normally they will not have any
+effect, unless the program checks its currents length.  In those cases it
+will report an incorrect length after infection, and will have to be
+restored from a backup.
+
+In version 1.16 the file TROJAN.TXT was added.  It contains signatures
+for several Trojans and "joke" programs which are often found in large
+collections of viruses.  Those programs are not a serious threat in most
+cases, and will probably never be encountered by most users.  The only
+reason they are included is that those programs are often included when
+comparative reviews of anti-virus packages are done, and as some of my
+competitors detect them, I am practically forced to do so too.
+
+
+--------------------------------- F-DISINF.EXE ---------------------------------
+
+F-DISINF will check boot sectors on diskettes and hard disks.  If an
+infection is found, you will be asked if you want it removed.
+
+This program recognizes all the boot sector viruses mentioned in BOOTVIR.TXT
+It requires the SIGN.TXT file to be present in the current directory or
+the same directory as F-DISINF.EXE is located in.  To run the program, give a
+command of the form:
+
+                        F-DISINF <drive>
+Example:
+                        F-DISINF A:
+
+F-DISINF may report that a boot sector is...
+
+                 ...maybe infected with an unknown virus...
+
+This is quite normal in the case of game diskettes, which may contain
+just about anything in the boot sector.  However, if you get this message
+when examining a "normal" diskette, formatted using the FORMAT command,
+there may indeed be a virus on the diskette.
+
+F-DISINF requires that the computer is not currently infected when you
+run it, so you should either run F-SYSCHK or install F-DRIVER first.
+
+
+---------------------------------- F-XLOCK.EXE ---------------------------------
+
+F-XLOCK adds a short module to the end of other programs.  The purpose of
+this module is to perform a test, every time the program is run.  If the
+program has been infected with a virus, a message will appear:
+
+                "THIS PROGRAM HAS BEEN INFECTED!"
+
+and the computer will "freeze".  Should this happen, you must turn the
+computer off, reboot from a "clean" diskette and start disinfecting.
+
+You can lock multiple files at the same time, using a command like...
+
+                        F-XLOCK C:\BIN\*.*
+
+This will lock every .COM and .EXE file in the \BIN subdirectory.  Other
+files will not be touched.
+
+There are programs that cannot be locked.  .COM files shorter than three
+bytes or longer than 64700 bytes or so cannot be locked.  In a few rare
+cases it is not possible to lock .EXE files, because the add-on module
+would overwrite the space reserved for the stack or because the
+information about file length which is stored in the file header does not
+agree with the true length of the file.
+
+It is important to remember that adding this module to files will not
+prevent infection, but only provide immediate detection.
+
+If you lock every program on your computer in this way, you will catch
+most new program viruses that might somehow bypass the other programs in the
+package.  This method is not 100% foolproof, however.
+
+F-XLOCK should only be used on computers running DOS 3.0 or higher.  If
+you are using an older version of DOS, it is totally ineffective.
+
+--------------------------------- F-UNLOCK.EXE ---------------------------------
+
+It may be necessary to remove the code that F-XLOCK adds to other programs
+in certain cases.  A program might perform a similar check on itself and the
+code added by F-XLOCK would then look just like a virus infection.  
+
+To remove the code added by F-XLOCK, just give the command:
+
+                        F-UNLOCK <file>
+
+It is possible to remove thus code from multiple files with one command.
+Example:
+                        F-UNLOCK C:\BIN\*.*
+
+
+---------------------------------- F-XCHK.EXE ----------------------------------
+
+This program can be used in certain cases to provide almost 100% protection
+against all program viruses, even those who have not yet been written.
+
+However, this program can only rarely be used.  F-XCHK is a memory resident
+program that will check every program run for infections.  To use it, you
+must first check (using F-FCHK) that there are no programs currently
+infected.  Then use F-XLOCK to add the self-checking code to every .COM
+and .EXE file on the computer.
+
+Now, copy F-XCHK.EXE to the root directory on the drive you boot from and
+place the following command in AUTOEXEC.BAT:
+
+                              F-PROT\F-XCHK
+
+(assuming that the program is in the F-PROT subdirectory, as described in
+INSTALL.TXT).
+
+F-XCHK will now check every program you try to run, to see if it has been
+locked, using F-XLOCK and not corrupted.  If something seems wrong, F-XCHK
+will simply cause the attempt to fail.  If the program was indeed infected
+with a virus, it will not be able to do any harm, since the virus will
+never be activated.
+
+Of course, the F-XCHK program is not the ultimate solution to all virus
+problems.  It should only be used on computers with no software
+development and where new software is only rarely installed.  
+
+
+---------------------------------- F-RUN.EXE ----------------------------------
+
+There is one problem with F-XCHK - what if you have to run a program that
+cannot be locked by F-XLOCK ?
+
+F-RUN was designed to solve this problem.  You give the command
+
+                F-RUN <name of program you want to run> <parameters>
+Example:
+                F-RUN C:\PROGRAM.EXE 4 5 6
+
+This should have the same effect as giving the following command on a
+computer where F-XCHK is not active:
+
+                C:\PROGRAM 4 5 6
+
+The F-RUN program should only be used to execute programs that cannot be
+locked.
+                
+---------------------------------- F-DLOCK.EXE ---------------------------------
+
+This program will write-protect the hard disk.  Normally it is not at all
+useful to do so, but in some cases it might be.  For example you might
+want to do so if you are running a program you do not fully trust.  With
+F-DLOCK and F-POPUP installed, you will be alerted if the program makes
+any attempt to write to the hard disk.  
+
+To run this program, simply give the command:
+
+                                     F-DLOCK
+
+Every hard disk in your computer will then be write-protected until you
+remove the F-DLOCK program from memory.  It is possible to bypass this
+protection by directly manipulating the hardware, but no virus known
+today is that sophisticated.
+
+Do not install F-LOCK and F-DLOCK at the same time.
+
+
+----------------------------------- F-EX.EXE -----------------------------------
+
+When you need to remove the memory-resident programs in the F-PROT
+package, you have to use the F-EX program.  
+
+You cannot remove the memory resident programs if you have run another
+program later that also stays resident and hooks the same interrupts.
+The F-MMAP program can be used to see what programs are currently
+resident.
+
+If multiple programs are installed, they must generally be removed in
+reverse order, that is the program most recently added must be removed
+first.
+
+To use the F-EX program you give a command of the form:
+
+                        F-EX <name of program>
+Example:
+                        F-EX F-DLOCK
+
+
+----------------------------------- F-DIR.EXE ----------------------------------
+
+This program provides a very simple extension to the DIR command.  It will
+list all the programs on a specified drive that are marked as "read-only",
+"hidden" and/or "system".
+
+Example:
+                        F-DIR C:
+
+You can specify that you only want a list of hidden files, by adding /h,
+or you can obtain read-only files with /r.  The subcommand /s will list
+all files marked as "system".  The commands can be combined, example:
+
+                        F-DIR C: /h /s
+
+This will list all files that are marked as "hidden" or "system".
+
+
+---------------------------------- F-MMAP.EXE ----------------------------------
+
+F-MMAP displays a memory map, which looks something like this:
+
+ Address  Size  Blocks    Name                   Hooked vectors
+───────────────────────────────────────────────────────────────────────────────
+  0288   30048    -   IBMDOS/MSDOS       2A  2B  2C  2D  32  33  34  35  36  37
+                                         38  39  3A  3B  3C  3D  3E  3F
+  09DF      18    -   EMMXXXX0
+  09DF    3630    -   HPEMM38$           19
+  0AC3    1680    -   F-DRIVER
+  0B2C    1216    -   $ADVIDEO
+  0B78   23344    -   ANSI ?   + DOS     02  0E  1B  22  23  24  2E  70  74  76
+  112B    3536    2   COMMAND.COM
+  1212    8464    2   HPCACHE.COM        15  20  27  29  62  67
+  1426    1360    1   F-POPUP.EXE
+  147C    2752    1   F-LOCK.EXE         2F  40
+  1529    4752    2   KEYBIC_U.COM
+  1654    2640    2   DOSEDIT.COM
+  16FB    4752    2   FONTLOAD.COM
+  182A  105008    2   SK.COM             08  09  10  13  16  1C  21  25  26  28
+
+  9F00    4096        -------------  6F
+
+Base memory size: 651264 bytes (636K).
+
+Free base memory: 447424 bytes in 3 blocks.
+
+If the computer contains expanded memory, its allocation will also be
+shown.
+
+You can use this program to see what programs are currently active in
+memory.  It is actually not an anti-virus tool, but intended as a generally
+useful utility.
+
+The "Address" column shows the starting segment address of any programs
+found in memory.  The size of the program appears next, followed by the
+number of blocks it occupies.  The first part of the operating system and
+any installed device drivers (like F-DRIVER) do not use ordinary memory
+blocks, so a "-" appears in this column.  Programs usually occupy two blocks,
+one containing the program itself and the other containing the environment
+variables and the name of the program.  The name appears in the next
+column, and finally a list is displayed, containing the numbers of the
+interrupts (in hex) the program "owns".
+
+When using DOS 2.x the name of the program is not accessible, and a
+question mark will appear instead.  This is also the case when an "orphan"
+memory block is found - that is a memory block that does not contain a
+program and does not seem to belong to any program currently in use.
+Such blocks are rare, however.
+
+The line containing 
+
+  9F00    4096        -------------  6F
+
+needs an explanation. It means that there is a small memory block "at the
+top" that has been made "invisible" to DOS.  This may possibly indicate
+that the computer is infected with a virus, but there may also be other
+explanations.
+
+
+-------------------------- F-HIDE.EXE and F-UNHIDE.EXE -------------------------
+
+Strictly speaking these two programs are not anti-virus programs, but
+since they can be quite useful sometimes, I decided to include them in
+the package.  
+
+F-HIDE is used to hide a file or directory, so it will not appear when a
+DIR command is given.  To use F-HIDE, you give a command like:
+
+                        F-HIDE C:\HIDDEN\*.*
+
+The above example would hide all the files found in the \HIDDEN
+subdirectory.
+
+F-UNHIDE is used just like F-HIDE, the only difference is that it will
+make hidden files visible again.
+
+
+---------------------------------- F-BOOT.EXE ----------------------------------
+
+F-BOOT will display the boot sector, both in hex and character form.  This
+might be useful occasionally, provided you know how to interpret the
+output, which usually looks something like this:
+
+eb34 9049 424d 2020 332e 3300 0204 0100 0200 02e0 fef8    4 IBM  3.3
+4000 2000 0800 2000 0000 0000 0000 0000 0000 0000 0000   @
+0000 0012 0000 0000 0100 fa33 c08e d0bc 007c 1607 bb78              3     |   x
+0036 c537 1e56 1653 bf2b 7cb9 0b00 fcac 2680 3d00 7403    6 7 V S +|     & = t
+268a 05aa 8ac4 e2f1 061f 8947 02c7 072b 7cfb cd13 7267   &          G   +|   rg
+a010 7c98 f726 167c 0306 1c7c 0306 0e7c a33f 7ca3 377c     |  & |   |   | ?| 7|
+b820 00f7 2611 7c8b 1e0b 7c03 c348 f7f3 0106 377c bb00       & |   |  H    7|
+05a1 3f7c e89f 00b8 0102 e8b3 0072 198b fbb9 0b00 bed6     ?|         r
+7df3 a675 0d8d 7f20 bee1 7db9 0b00 f3a6 7418 be77 7de8   }  u      }     t  w}
+6a00 32e4 cd16 5e1f 8f04 8f44 02cd 19be c07d ebeb a11c   j 2   ^    D     }
+0533 d2f7 360b 7cfe c0a2 3c7c a137 7ca3 3d7c bb00 07a1    3  6 |   <| 7| =|
+377c e849 00a1 187c 2a06 3b7c 4038 063c 7c73 03a0 3c7c   7| I   |* ;|@8 <|s  <|
+50e8 4e00 5872 c628 063c 7c74 0c01 0637 7cf7 260b 7c03   P N Xr ( <|t   7| & |
+d8eb d08a 2e15 7c8a 16fd 7d8b 1e3d 7cea 0000 7000 ac0a       .  |   }  =|   p
+c074 22b4 0ebb 0700 cd10 ebf2 33d2 f736 187c fec2 8816    t"         3  6 |
+3b7c 33d2 f736 1a7c 8816 2a7c a339 7cc3 b402 8b16 397c   ;|3  6 |  *| 9|     9|
+b106 d2e6 0a36 3b7c 8bca 86e9 8a16 fd7d 8a36 2a7c cd13        6;|       } 6*|
+c30d 0a4e 6f6e 2d53 7973 7465 6d20 6469 736b 206f 7220      Non-System disk or
+6469 736b 2065 7272 6f72 0d0a 5265 706c 6163 6520 616e   disk error  Replace an
+6420 7374 7269 6b65 2061 6e79 206b 6579 2077 6865 6e20   d strike any key when
+7265 6164 790d 0a00 0d0a 4469 736b 2042 6f6f 7420 6661   ready     Disk Boot fa
+696c 7572 650d 0a00 4942 4d42 494f 2020 434f 4d49 424d   ilure   IBMBIO  COMIBM
+444f 5320 2043 4f4d 0000 0000 0000 0000 0000 0000 0000   DOS  COM
+0000 0080 55aa                                               U
+
+To run the program, you give a command of the form:
+
+                        F-BOOT <drive>
+Example:
+                        F-BOOT B:
+
+
+----------------------------------- F-PBR.EXE ----------------------------------
+
+F-PBR displays the partition boot record (PBR) of the first hard disk in
+your system.  One virus ("New Zealand") hides in this area.  To run the
+program you give the command
+
+                        F-PBR
+
+Then you will see the PBR, which should look something similar to this:
+
+fa33 c08e d0bc 007c 8bf4 5007 501f fbfc bf00 06b9 0001    3     |  P P
+f2a5 ea1d 0600 00be be07 b304 803c 8074 0e80 3c00 751c                < t  < u
+83c6 10fe cb75 efcd 188b 148b 4c02 8bee 83c6 10fe cb74        u      L        t
+1a80 3c00 74f4 be8b 06ac 3c00 740b 56bb 0700 b40e cd10     < t     < t V
+5eeb f0eb febf 0500 bb00 7cb8 0102 57cd 135f 730c 33c0   ^         |   W  _s 3
+cd13 4f75 edbe a306 ebd3 bec2 06bf fe7d 813d 55aa 75c7     Ou           } =U u
+8bf5 ea00 7c00 0049 6e76 616c 6964 2070 6172 7469 7469       |  Invalid partiti
+6f6e 2074 6162 6c65 0045 7272 6f72 206c 6f61 6469 6e67   on table Error loading
+206f 7065 7261 7469 6e67 2073 7973 7465 6d00 4d69 7373    operating system Miss
+696e 6720 6f70 6572 6174 696e 6720 7379 7374 656d 0000   ing operating system
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 8001 0100 0407 20fe 2000 0000 e0fe 0000
+0000 01ff 0507 e015 00ff 0000 0017 0200 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 55aa                                               U
+
+As with F-BOOT it requires a good knowledge of the computer to make use of
+the output.

@@ -1,0 +1,385 @@
+#
+# This script is a modification of my MINIHOST script, which
+# was/is rather crude. This version was modified by Mike
+# Nowostawsky (thanks) and is provided as is.
+#                                    Markus Schmidt, 4/94
+
+// set debug off = 0, on = 1
+debug 0
+#######################################################################
+#                                                                     #
+# README!                                                             #
+#                                                                     #
+#   This script is a small host.   				      #
+#   It takes incoming calls and lets the user change directory,       #
+#   show directories and send/receive files.                          #
+#                                                                     #
+#   Here are a few functions given to the remote caller in this       #
+#   script:                                                           #
+#      -Change-dir     (Should specify EXACT dir WITH path)           #
+#      -Dir            (Of CURRENT directory)                         #
+#      -UpLoad         (Set as Z-modem d/l)                           #
+#      -DownLoad       (Set as Z-modem u/l)                           #
+#      -Beep host      (Limited chat:see documentation inside script) #
+#      -Shell to os/2  (VERY powerful: use with caution)              #
+#      -Exit                                                          #
+#                                                                     #
+#    ORIGINALLY 'MINIHOST' (from Markus Schmidt):                     #
+#    This script has been modified to allow minimal functionality     #
+#      as a host. QUITE useful to hook into a home system from a      #
+#      remote location to view, u/l, d/l files. NOT a bonafide host.  #
+#      Feel free to modify to add more functionality/versatility.     #
+#                                                                     #
+#    THINGS TO CONSIDER/KNOW/KEEP IN MIND:                            #
+#      -code have been added to check for disconnects in unexpected   #
+#       areas, BUT they may still cause lockups depending on strange/ #
+#       various circumstances. Test with your h/w, as this will vary. #
+#      -read the comments in this script, as some areas must be       #
+#       customized to your system.                                    #
+#      -when 2400 baud modems log into this host script a 'garbage'   #
+#       character seems to get sent to the host side. Have not found  #
+#       how to get rid of it other than having the caller hit the     #
+#       BACKSPACE key (quite strange). This has to be done or the     #
+#       password will end up being incorrect (tags garbage char       #
+#       onto front of it).                                            #
+#      -script has been coded to use ANSI emulation, and ZMODEM       #
+#       transfer protocol (You can customize your emulation in the 2  #
+#       options files you create. d/l, u/l protocol can be customized #
+#       in this script: in the u/l d/l subroutines)                   #
+#                                                                     #
+#    GOOD LUCK!                                                       #
+#    (Mike Nowostawsky)                                               #
+#    BTW, I am simply a user of ZOC and have given this out as is.    #
+#    I take no responsibility for ANY problems that may occur as a    #
+#    result of it's use. If you find it useful, good!                 #
+#    Also, if you enhance this script and get it working better,      #
+#    by all means share it with the rest of us ZOC users <g>.         #
+#                                                                     #
+#######################################################################
+
+// *******************
+// ***** NOTE!!! *****
+// *******************
+// This SCRIPT will set the following options by loading 2 option files
+// one BEFORE modem connect (initially) and then one AFTER modem connect. 
+// The first option file is then reloaded again after disconnect to reset 
+// host mode's SEND ECHO, otherwise an infinite loop occurs.
+//
+// These option files should be created from the STANDARD option file 
+// and put in a particular directory on your system and THAT 
+// directory should be used in this script (i.e. modify ALL 'LOADOPTS' 
+// commands in this script accordingly).
+//
+// These are the settings that I changed using the STANDARD option file 
+// as a starting point and that worked best for MY SYSTEM (yours may vary): 
+//
+// **Before connect, HOSTBEF option file settings:
+//	- SERIAL:-38400 
+//               -RTS/CTS handshake (*ON* - check mark)
+// 	- TRANSFER:-ASCII Upload:-CR -> CR/LF (*ON* - check mark)
+//				 -char delay = 0 (faster u/l, d/l)
+//	- MODEM:-Dial prefix = ATDT
+//
+// **After connect, HOSTAFT option file settings:
+//	- SERIAL:-38400
+//		 -RTS/CTS handshake (*ON* - check mark)
+//	- TERMINAL:-Incoming CR to CR/LF (*ON* - check mark) 
+//		   -Local echo (half duplex) (*ON* - check mark) 
+//		   -Send echo (host mode) (*ON* - check mark)
+// 	- TRANSFER:-ASCII Upload:-CR -> CR/LF (*ON* - check mark)
+//				 -char delay = 0 (faster u/l, d/l)
+//	- MODEM:-Dial prefix = ATDT
+
+:start
+	
+// load initial "HOSTBEF" options file
+// Set modem to auto answer and script to exact mode
+    	loadopts "C:\zoc\options\hostbef"
+	delay 3					;//delay to let command complete
+
+	send "ATS0=1^M"		
+	delay 2		
+
+	exact 1
+
+// ENTRY 
+// * wait for connect 
+// * ask for password
+// * hangup if pw wrong
+
+	cls
+	send "Waiting for call..."
+
+:conwait
+	wait CONNECT		;// wait for connect
+	ifbrk goto conwait	
+	wait "^M"		;// the stuff after connect is the speed
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+           ifin goto endit
+
+// show welcome screen
+
+	send "^[[2J"		;// clear screen on remote/caller side
+
+	send "Press BACKSPACE key to start host..."
+	wait "^H"		;// wait for BACKSPACE to clear garbage character	
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+           ifin goto endit
+
+	timeout 60
+	send "^[[2J"		;// clear screen on remote/caller side
+	send "Welcome !! ^M^J^M^J"
+	send "Enter Password : "
+
+	waitline 
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+           ifin goto endit
+
+	seta pass "%lastline%"
+	lower pass
+	rtrim pass
+
+// set password to whatever you want
+	compa "%pass%" with "password"  
+	ifnequ	goto hack		;// sorry hacker
+
+// set initial 'current' directory to whatever you want
+	seta curdir "C:\upload."	
+
+// MENU
+:menu
+// load "HOSTAFT" options file, AFTER connect is made
+	loadopts "C:\zoc\options\hostaft"
+
+// * show menu
+// * call subroutine accordingly
+	timeout 600
+	seta choice " "
+	send "^M^J^M^J"
+	send "[%curdir%] Your Choice (c/d/ul/dl/b/s/x)?^M^J"
+	send "(Change-dir; Dir; UpLoad; DownLoad; Beep host; Shell to os/2; Exit) "
+	waitline
+	// forget it if WAITLINE timed out or if NO CARRIER occurred
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+
+// text cosmetics for user input
+	seta choice "%lastline%"
+	lower choice
+	ltrim choice
+	rtrim choice
+
+// change directory
+	compa "%choice%" with "c"
+	ifequ call chdir
+
+// show directory
+	compa "%choice%" with "d"
+	ifequ call showdir
+
+// receive file from remote station
+// (upload from remote point of view)
+	compa "%choice%" with "ul"
+	ifequ call upload
+
+// send file to remote station
+// (download from remote point of view)
+	compa "%choice%" with "dl"
+	ifequ call download
+
+// beep host
+	compa "%choice%" with "b"
+	ifequ call beepsys
+
+// shell to OS/2
+	compa "%choice%" with "s"
+	ifequ call shell
+
+// exit/hangup
+	compa "%choice%" with "x"
+	ifequ goto endit
+
+	goto menu
+
+:hack
+	send "^M^J^JSorry, no unauthorized personnel...Bye! ^M^J"
+	
+// ENDIT 
+// * hang up line
+// * do it all over
+:endit
+// load "HOSTBEF" options file, to disable SEND ECHO 
+//    (would cause infinite loop after disconnect)
+    	loadopts "C:\zoc\options\hostbef"
+	delay 2
+	hangup
+
+	goto start
+
+
+#####################################################################
+#   SUBROUTINES                                                     #  
+#####################################################################
+
+// CHANGE DIRECTORY
+// * get input from user and store directory
+// * append '.' to root directories (for sake of upload)
+:chdir
+	send "^M^J^JEnter directory: "
+	waitline
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+
+	seta curdir "%lastline%"
+	seta lastchar "%curdir%" -1 
+	compa "%lastchar%" with "\"
+	ifequ seta curdir "%curdir%."
+	return
+
+
+// SHOW DIRECTORY
+// * run directory command with output redirection
+// * show redirected output via ASCII upload
+// * delete redirection file
+:showdir
+	send "^J"
+	shell "dir %curdir% >shellout.tmp"
+	upload a "shellout.tmp" 
+	shell "del shellout.tmp"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+
+	return
+
+
+// RECEIVE FILE FROM REMOTE STATION
+// * no USER input required (it's an upload from their point of view)
+:upload
+	send "^M^J^JPlease start your Zmodem upload or press ^^X "
+	send "several times to abort. "
+	download z "%curdir%"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+
+	return
+
+
+// SEND FILE TO REMOTE STATION
+// * get a file name
+// * (it's a download from their point of view)
+:download
+	send "^M^J^JPlease enter the name of the file  "
+	send "you want to receive from the ^M^J"
+	send "%curdir% directory: "
+	wait "^M"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+
+	seta file "%lastline%"
+	ltrim file
+	rtrim file
+	compa "%file%" with ""
+	ifequ return
+	compa "%file%" with "dl"
+	ifequ return
+	upload z "%curdir%\\%file%"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+	return
+
+// beep host (limited chat)
+//
+// IF host is available and starts to type, the main menu will continue to appear 
+// between his messages (since cannot be sure host is available, have not cut
+// into menuing system). When remote caller types, host will be able to view. 
+// NOT REAL CHAT MODE, but conversation is possible (amidst reappearing menu).
+:beepsys
+	send "^M^J^JBeeping host...^M^J"
+	BEEP 3
+	DELAY 1
+	BEEP 2
+	DELAY 1
+	BEEP 3
+	send "(...if there's no answer in half a minute or so, I'm not around...)^M^J"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit
+
+	return
+
+// SHELL TO OS/2 (enter entire OS/2 command including paths)
+// (i.e. 'ERASE C:\TEMP\FILE.DOC')
+// This is quite powerful, as it allows you to run ANY OS/2 command remotely.
+// NO echoing back to remote, though, so the remote user can't see what's happening.
+// This allows anyone to remotely do ANYTHING on your system. Use with caution!
+:shell
+	send "^M^J^JPlease enter the command you want to process:  "
+	wait "^M"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit  
+
+	shell "%lastline%"
+
+// check for various dropped connections
+	ifbrk goto endit	
+ 	compa "%lastline%" with "+++"
+           ifin goto endit
+	compa "%lastline%" with "NO CARRIER"
+	   ifin goto endit  
+
+	return
+

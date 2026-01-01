@@ -1,0 +1,199 @@
+From: wpaul@ctr.columbia.edu (Bill Paul)
+Newsgroups: comp.os.386bsd.questions
+Subject: Re: FreeBSD 2.0 and NFS - big woes
+Date: 29 Nov 1994 17:29:06 GMT
+Organization: Columbia University Center for Telecommunications Research
+Message-ID: <3bfod2$q35@sol.ctr.columbia.edu>
+
+Daring to challenge the will of the almighty Leviam00se, Tasman Van Ommen
+(tas@minke.cc.utas.edu.au) had the courage to say:
+
+: Well I have sunk well over a day into installing FreeBSD 2.0R and I am
+: completely stumped.  At no stage either during installation or afterwards
+: have I been able to get NFS to mount disks from our suns.
+
+Ah, wink wink, nudge nudge: say no more!
+
+:  This was 
+: a particular pain during installation since I was intending to install
+: via NFS to reduce fragging of my disk.  Also, I have seen Jordan's
+: message about his built-in breakage of the NFS install and I tried his
+: fix without joy.
+
+That's because there's additional breakage that nobody's mentioned yet.
+
+:  I have now put up 2.0 at least 3 times and rebuilt
+: the kernel at least once.  Here are the specifics - please read on if
+: you think you can help....
+
+Oh, I know I can help. I had the same problems, but unlike you I thought
+to check my Sun's system log, and I was enlightened.
+
+: During install, I select NFS method and give the appropriate details
+: and get the message that the mount could not be performed.
+
+Okay, first of all, there's a bug in the 2.0-RELEASE install script
+that causes it to completely mung mount options, if you specify them.
+I happen to be the one that asked for the script to be modified so
+that mount options could be specified, but somebody apparently didn't
+test the script throughly after the feature was added. The problem is
+this:
+
+- The script actually uses the command 'mount_nfs,' instead of just
+  'mount' to mount NFS filesystems. There's a silly reason why this is
+  so: mount will actually try to invoke mount_nfs if it determines that
+  you're trying to mount and NFS filesystem, but it looks for mount_nfs
+  (and the other mount_* commands) in places like /sbin and /usr/sbin.
+  Well, when you're installing, there is no /sbin or /usr/sbin yet:
+  there's only /stand, so if you issue a 'mount server:/fs /mnt_point'
+  command during the install, mount will be unable to find the 'mount_nfs'
+  command and crap out. By explicitly specifying 'mount_nfs' instead,
+  you can avoid this problem, and this is what the install script does.
+  *BUT* mount and mount_nfs do not understand the same options!
+
+So, after I suggested that the script allow users to enter mount options,
+somebody (Hi Jordan!) said: "Oh, that's easy! I'll just have the script
+prompt the user for mount options, then insert the string '-o <mount_options>'
+into the mount command!" And then they happily dropped it onto the FTP
+site without testing it.
+
+Well the command in question is 'mount_nfs' rather than 'mount' (for the
+reason outlined above) and mount_nfs doesn't know what -o means, so it
+bombs. When doing the installation, you can type ALT-F2 to see the error
+messages.
+
+(Error messages are lovely things, BTW. I love them. Of course, I know
+how to interpret them, so I'm biased. It's amazing what you can do with
+just a handfull of brain cells. Wish I had some...)
+
+:  OK -
+: I dropped out with esc-esc and tried manually mounting but without
+: joy.  The mount looks like it works, but a `df' shows no effect.
+: Worse, the mount point becomes locked - I cannot look inside it or
+: at it without a permission denied message (even as root).
+
+Once you get yourself into this state, you can only unmount the
+filesystem by saying: umount server:/fs. Trying umount /mnt_point
+will have no effect.
+
+:  The only
+: way to get a hold of the mount point is to reboot.  If I try to
+: umount, I get a message somthing like blahblahblah/dir/dir does not
+: exist (where blahblahblah is the machine).  Interestingly I looked
+: on the remote machine and it believes that my local machine does
+: have something mounted (sorry I forgot the command - I had a local
+: sysadmin helping at the time).
+
+Any sysadmin who doesn't know how to properly diagnose something like
+this can't be all that helpful.
+
+The command is showmount -a, by the way.
+
+: Next step - I bring up the whole shebang with ftp and still it fails
+: to nfs mount.  I now notice that /etc/netstart has nfs_client and
+: nfs_server set to "NO" - this can't help, so I change it and reboot.
+: No change.  Next I notice JKH's admission that he broke /stand/instdist.sh
+: and I decided to completely go back to scratch and re-install..
+: I esc-esc'd from the install and made the suggested changes
+: (add nfs_path=$answer after the line ^for this to work~\n"; then continue; fi)
+: but this was no help.
+
+: OK - now I conclude that the kernel that is provided must be lacking nfs,
+: so up goes the whole srcdist and I rebuild - knowing for sure that nfs
+: is now in, and /etc/netstart is set up ok.  Still no nfs.
+
+: Suggestions please?!  BTW NFS did work on my 1.1.5.1R system, and I have
+: been scrupulous in checking things like correct IP's and exports.
+
+: Tas
+
+Your kernel configuration is irrelevant. Your network setup irrelevant.
+Correct IP addresses are irrelevant. Access rights are irrelevant. You
+will be assimla-- *THWACK*
+
+Sorry. Lost my head.
+
+Technically speaking, there's nothing wrong with your system at all.
+What's happened is that, for whatever the reason, somebody decided that
+FreeBSD (and possibly BSD4.4 in general, though I'm not 100% sure of that)
+should not send NFS requests over privileged ports by default. But Sun's
+NFS server implimentation (well, SunOS's implimentation at least -- I haven't
+tried Slowlaris yet) expects the opposite, and it get's cranky if you
+don't comply with its wishes.
+
+If you go to your Sun server and check the /var/adm/messages file, you should
+see errors like this:
+
+Nov 13 16:02:13 startide vmunix: NFS request from unprivileged port.
+Nov 13 16:02:13 startide vmunix: nfs_server: weak authentication, source IP address=128.59.64.56
+
+(128.59.64.56 is the FreeBSD 2.0 machine I have set up in my office and
+startide is a Sun SPARCstation IPX running SunOS 4.1.3.)
+
+SunOS allows the mount request to succeed, but denies everything else.
+So your FreeBSD box returns EACCES whenever you go near the NFS filesystems,
+and nothing works. The solution is to mount NFS filesystems with the
+'resvport' flag like this:
+
+# mount -o resvport server:/fs /mnt_point
+
+or
+
+# mount_nfs -P server:/fs /mnt_point
+
+(See the mount and mount_nfs man pages for details.)
+
+The latter command provides a workaround for the installation script
+breakage. In order to successfully install over NFS, you need to do
+the following:
+
+1) When prompted for server/filesystem to be mounted, type in the following:
+
+   -P server:/fs
+
+  That is to say, don't just enter the servname and filesystem by itself:
+  tack the -P option onto the beginning of it.
+
+  The script will drop the whole string into the mount_nfs command, and
+  things will then work correctly. In my case, I also had to specify
+  values for the NFS read/write block sizes, because I'm using a crufty
+  8-bit 3Com 3c503 ethernet adapter, so my command looked like this:
+
+  -P -r4096 -w4096 server:/fs
+
+  ****NOTE****
+  This is another BSD4.4-ism: the syntax for specifying block sizes has
+  changed. The old syntax used to look like this: rsize=4096, wsize=4096.
+  This no longer works in FreeBSD 2.0. More on that in a second.
+
+2) After you enter the mount options/server name as shown above, the script
+   will prompt you for mount options. Don't enter any: just hit 'Cancel'
+   to continue. If the phase of the moon is correct, the mount will
+   succeed, and if you've got all the distribution files properly organized,
+   you can complete the installation.
+
+If you need to add NFS filesystems to your /etc/fstab, you *must* include
+the correct mount options. If, for instance, you wanted to mount a
+filesystem called /bar from a server called foo onto a mount point called
+/bar, this is how you would specify it in /etc/fstab:
+
+foo:/bar	/bar	nfs	rw,resvport,-r4096,-w4096	0 0
+
+You may not need the -r4096, -w4096 options, but I'm including them to
+emphasize the change in syntax. This is how I have my FreeBSD 2.0 system
+set up and it works fine.
+
+Now, I grant you, this change in defaults is annoying, but don't condemn
+the OS for it. So long as you know what you're doing (*sigh*) this sort
+of thing should not be a major cause for concern. On the other hand, if
+you get really fed up with it, you could recompile mount_nfs so that it
+sets the NFSMNT_RESVPORT flag for you by default.
+
+Oh yeah, I almost forgot: bear in mind that this affects the automounter
+(amd) too. If you create any amd maps, be sure to include the resvport
+option in the defaults.
+
+--
+-Bill Paul
+wpaul@ctr.columbia.edu
+

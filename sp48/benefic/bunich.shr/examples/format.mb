@@ -1,0 +1,108 @@
+--
+-- Меню разметки дискет -- вызывается из меню NC или из пакета ДОС
+-- Copyright (c) 1992 L.G.Bunich, Russia, Moscow
+--
+  Cls;  Color black on white;  Cursor Off
+  A = DOS(Check LDE=A)
+  B = DOS(Check LDE=B)
+  if Not "%sub(1,1,"%B")" = "F"
+    D = "A";  goto Disk; endif;  -- если B: фантомный
+  Box 4,20 single at 7,29
+  N = 1;  put +0,31 red " Выберите диск: "
+Start:
+  Clr1 = "black on white";  Clr2 = "%Clr1"
+  Clr%N = "cyan+ on green"
+  put  9,33 %Clr1 " A: "  +0,+3 %Clr2 " B: "
+  D = Getch(/U/N/)
+
+  if "%D" = "ESC"  Cls white on black
+    goto Finish;  endif
+  if "%D" = "#77"  N = 3 - %N;  endif;  -- клавиша "направо"
+  if "%D" = "#75"  N = 3 - %N;  endif;  -- клавиша "налево"
+  if "%D" = "ENTER"  D = Sub(%N,1,"AB");  endif
+  if %StrPos("%D","AB") = 0 goto Start; endif
+
+Disk:
+  Box 6,40 double at 11,19
+  L=Cline(); L = %L + 1
+  put %L,23 red "На сколько Кб размечать диск %D%?";  L = %L + 2
+
+  if "%D" = "A" Тип = Sub(3,3,"%A");
+    else        Тип = Sub(3,3,"%B");  endif
+
+  if %Тип < 2           -- пятидюймовый дисковод
+
+    N = 4;  if %Тип = 0 then N = 2;  endif
+Menu5inch:
+    C1="black on white"
+    C2="%C1"; C3="%C1";  C4="%C1";  C5="%C1";  C6="%C1";
+    C%N = "yellow on red";
+    put %L,24 %C1 "180"  +0,+2 %C2 "360"   +0,+2 %C3 "720"
+    put +0,+2 %C4 "830"  +0,+2 %C5 "1200"  +0,+1 %C6 "1500"
+    C = Getch(/U/N/C/)
+
+    if "%C" = "ESC"  Cls white on black
+      goto Finish;  endif
+    if "%C" = "#77"  N = (%N # 6) + 1;  endif
+    if "%C" = "#75"  N = ((%N + 4) # 6) + 1;  endif
+
+    if "%C" = "ENTER"
+      Cls white on black
+      if "%N" = "1"
+        format A:/F:180/V:D180
+      endif
+      if "%N" = "2"
+        format A:/T:40/N:9/V:D360
+      endif
+      if "%N" = "3"
+        Vformat A: T80 S9  D48 V:D720 X1 Y2
+      endif
+      if "%N" = "4"
+        Vformat A: T82 S10 D48 V:D830 X1 Y2 P U
+      endif
+      if "%N" = "5"
+        Vformat A: V:D1200 P
+      endif
+      if "%N" = "6"
+        Vformat A: T82 S18 D80 V:D1500 X2 Y3 P
+      endif
+      goto Finish
+    endif
+    goto Menu5inch
+
+  else                  -- трехдюймовый дисковод
+
+    N = 4;  if %Тип = 2 then N = 2;  endif
+Menu3inch:
+    C1="black on white"
+    C2="%C1"; C3="%C1";  C4="%C1"
+    C%N = "yellow on red";
+    put %L,26 %C1 "720"  +0,+4 %C2 "830"  +0,+4 %C3 "1440"  +0,+3 %C4 "1700"
+    C = Getch(/U/N/)
+
+    if "%C" = "ESC"  Cls white on black
+      goto Finish;  endif
+    if "%C" = "#77"  N = (%N # 4) + 1;  endif
+    if "%C" = "#75"  N = ((%N + 2) # 4) + 1;  endif
+
+    if "%C" = "ENTER"
+      Cls white on black
+      if "%N" = "1"
+        Vformat B: T80 S9  D48 V:D720 X1 Y2
+      endif
+      if "%N" = "2"
+        Vformat B: T82 S10 D48 V:D830 X1 Y2 P
+      endif
+      if "%N" = "3"
+        format B:/v:D1440
+      endif
+      if "%N" = "4"
+        Vformat B: T82 S21 D80 V:D1700 X2 Y3 P
+      endif
+      goto Finish
+    endif
+    goto Menu3inch
+  endif
+
+Finish:
+  Cursor 6,7

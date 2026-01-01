@@ -1,0 +1,162 @@
+        TITLE   Hiscor
+CSEG    SEGMENT PUBLIC 'CODE'
+        ASSUME  CS:CSEG,DS:CSEG,ES:CSEG,SS:CSEG
+Off_Buf equ     Offset Buffer
+        ORG     100H
+START:
+        JMP     BEGIN
+FN      DB      'A:HISCORE.BIN',0
+Handle1 DW      0
+Handle2 DW      0
+Count   DW      10
+Src_Off DW      Off_Buf
+Dst_Off DW      Off_Buf+220
+MFlag   DB      0
+Flag    DB      0
+Mes	DB	10,13,'Слияние двух таблиц рекордов для Faces.'
+	DB	10,13,'Одна из них в текущем каталоге, другая на дискетте.'
+	DB	10,13,24H
+ErMes   DB      10,13,'Ошибка.',10,13,24H
+BEGIN:
+	MOV	DX, Offset Mes
+	MOV	AH, 9
+	INT	21H
+        MOV     DX, Offset FN
+        MOV     AX, 3D02H
+        INT     21H
+	if_	.C.
+        	JMP      ERRR
+	end_if
+        MOV     Handle1, AX
+        MOV     DX, Offset FN+2
+        MOV     AX, 3D02H
+        INT     21H
+	if_	.C.
+	        JMP      ERRR
+	end_if
+        MOV     Handle2, AX
+        MOV     BX, Handle1
+        MOV     DX, Off_Buf
+        MOV     CX, 220
+        MOV     AH, 3FH
+        INT     21H
+        if_     .C. | AX<>220
+                JMP    ERRR
+        end_if
+        MOV     BX, Handle2
+        MOV     DX, Off_Buf+220
+        MOV     CX, 220
+        MOV     AH, 3FH
+        INT     21H
+        if_     .C. | AX<>220
+                JMP    ERRR
+        end_if
+repeat
+        MOV     SI, Src_Off
+        MOV     BX, Dst_Off
+        MOV     Flag, 0
+	ADD	BX, 16
+        looping Count   pp
+                ADD SI, 16
+                CLD     \ LODSW \ MOV DX,AX \ LODSW
+                MOV BP, Word PTR [BX+2]
+                if_ AX < BP
+                        CALL     REPLACE
+                        exit
+                else_
+		    if_ AX = BP
+			MOV	BP, Word PTR [BX]
+                        if_  DX < BP
+                                CALL    REPLACE
+                                exit
+			else_
+				if_ DX = BP
+					INC	Flag
+                                        ADD     SI, 2
+                                        MOV     Src_Off, SI
+                                        DEC     CX
+                                        MOV     Count, CX
+					exit
+				end_if
+                        end_if
+		    end_if
+                end_if
+                ADD     SI, 2
+        endloop
+        ADD     Dst_Off, 22
+until   Flag<>0 & Count<>0
+if_ MFlag <> 0
+        MOV     BX, Handle1
+        XOR     CX, CX
+        XOR     DX, DX
+        MOV     AX, 4200H
+        INT     21H
+        JC      ERRR
+        MOV     BX, Handle2
+        XOR     CX, CX
+        XOR     DX, DX
+        MOV     AX, 4200H
+        INT     21H
+        JC      ERRR
+        MOV     BX, Handle1
+        MOV     DX, Off_Buf
+        MOV     CX, 220
+        MOV     AH, 40H
+        INT     21H
+        if_     .C. | AX<>220
+                JMP     Short ERRR
+        end_if
+        MOV     BX, Handle2
+        MOV     DX, Off_Buf
+        MOV     CX, 220
+        MOV     AH, 40H
+        INT     21H
+        if_     .C. | AX<>220
+                JMP     Short ERRR
+        end_if
+end_if
+        MOV     BX, Handle1
+        MOV     AH, 3EH
+        INT     21H
+        JC      ERRR
+        MOV     BX, Handle2
+        MOV     AH, 3EH
+        INT     21H
+        JC      ERRR
+        INT     20H
+;
+ERRR:
+        MOV     DX, Offset ErMes
+        MOV     AH, 9
+        INT     21H
+        INT     20H
+        ; ----------------------------------------------------
+REPLACE PROC    NEAR
+        ADD     SI, 2
+        MOV     Src_Off, SI
+        INC     Flag
+        INC     MFlag
+        DEC     CX
+        MOV     Count, CX
+        if_     CX<>0
+                MOV     SI, Off_Buf+22*8
+                MOV     DI, Off_Buf+22*9
+                looping Count   pp
+                        MOV     CX, 22
+                        REP     MOVSB
+                        SUB     SI, 44 \ SUB DI, 44
+                endloop
+        end_if
+        MOV     CX, 22
+        MOV     DI, Src_Off
+        SUB     DI, CX
+        MOV     SI, Dst_Off
+   REP  MOVSB
+        RET
+REPLACE ENDP
+        ;
+Buffer  LABEL   BYTE
+CSEG    ENDS
+        END     START
+
+

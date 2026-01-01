@@ -1,0 +1,796 @@
+From: tatosian@plough.enet.dec.com
+Newsgroups: comp.sys.intel
+Subject: Re: Parity Memory FAQ
+Date: Sun, 28 May 1995 21:59:58
+
+From: tatosian@plough.enet.dec.com (Dave Tatosian)
+Organization: Alpha Server Engineering
+
+In article <D9B8xL.7uB@world.std.com>,
+   gnewman@world.std.com (Gary Newman) wrote:
+>Dave Tatosian (tatosian@plough.enet.dec.com) wrote:
+>: Left unmentioned are a couple of points that I think are worth mentioning:
+>: - there's no parity checking on the L2 cache
+>
+>What do you think the error rate is on the cache SRAM?  Is this important?
+
+Typically, not really significant (small memory size). I just put that in so
+it doesn't go unmentioned that ECC or parity on the DRAMs doesn't cover the
+whole kaboodle...
+
+
+>: - now that most main memories are constructed using "X4" DRAMs, the actual
+>: distribution of errors manifested by a failed DRAM is something like this:
+>: single bit error 60%
+>: row failure      20%
+>: column failure   15%
+>: others (including "interactive" failures) 5%
+>
+>Do you have a reference on this?  (Where's this come from?)
+>Are you talking about hard or soft errors?
+
+This is an average across multiple datasets provided by actual DRAM vendors.
+Variations are quite minor (ie: the data is virtually identical for every
+DRAM
+vendor's wares).
+
+This doesn't include transient (soft) errors (which are rated almost
+universally at 200fits in a 16mbit DRAM today - but are rated at lifetime
+maximum operating frequency which is a rare state in a PC).
+
+>
+>: What this means, campers, is that fully 40% of the errors that a DRAM
+>: failure can cause involve multiple bits within the addressed word. Simple
+>: byte parity ain't gonna have a clue what happened in a minimum of 50% of
+>:
+>: those. So even with byte parity, 20% of all memory failures are gonna
+sneak
+>: by with little Keds on their feet. And of the 60% single bit errors, 1/9th
+>: of those will be caused by the parity bit itself.
+>
+>Simply wiring the four bits of each chip to separate bytes makes parity
+>work just fine here.  Are you saying that there's a reason that the SIMM
+>vendors don't or can't wire the bits that way?
+
+Yes, there's a good reason why they don't/can't wire the bits that way.
+Check the byte write enable geometry:  mainboards use 8 separate CAS signals
+(or 8 separate RAS signals, either will work, although I'd prefer using
+separate CAS signals) to select the bytes that want to be updated (WE would
+be common to all DRAMs in these cases). Only the bytes associated with the
+active gating signals (be it RAS<7:0> or CAS<7:0>) will actually take the
+updates.
+
+Unless your memory SIMMs are using "quad CAS" x4 DRAM parts (pricey little
+bastids that they are), you can't stick more than one CAS (and one RAS) on
+any
+given DRAM. Thus all 4 of the data bitlines on any given X4 DRAM have to be
+members of a single byte. With "quad CAS" x4 DRAM parts, each of the four
+bitlines is associated with a separate CAS pin - so with these parts, you
+could indeed distribute each of the 4 bits for a DRAM to a unique byte, which
+would make 1, 2, 3, or 4 bit errors visible to a parity checker.
+
+But nobody is using "quad-CAS parts" for the data storage (although I've seen
+"quad-CAS" parts used as the parity storage on 72-pin SIMMs - the goodness
+there is that it reduces parts count for parity DRAM from 4 to 1). Thus the
+idea of bit distribution went into the circular file...
+
+/dave
+
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<> Dave Tatosian           tatosian@plough.enet.dec.com <>
+<> Digital Equipment Corp.    Alpha Server Engineering  <>
+<>           "Read this and nobody gets hurt"           <>
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+---
+ * Origin: Global-Net <-> Internet Gateway (1000:1000/5.0)
+
+From ankh.iia.org!uunet!tcsi.tcs.com!agate!howland.reston.ans.net!gatech!psinntp!psinntp!psinntp!psinntp!nntp.hk.super.net!tst.hk.super.net!upurity!kahn Sat Jun  3 22:10:19 1995
+Path: ankh.iia.org!uunet!tcsi.tcs.com!agate!howland.reston.ans.net!gatech!psinntp!psinntp!psinntp!psinntp!nntp.hk.super.net!tst.hk.super.net!upurity!kahn
+From: kahn@romulus.rtp.dg.com
+Newsgroups: comp.sys.intel
+Subject: Re: Parity Memory FAQ
+Distribution: world
+Message-ID: <l9qmt57wl9qmt57w@iconet.hongkong.net>
+Date: Mon, 29 May 1995 09:51:24
+Organization: IcoNET (HONG KONG) <--> Internet gateway
+X-Mailer: MailGate 0.21+
+Lines: 49
+
+From: kahn@romulus.rtp.dg.com (Opher Kahn)
+Organization: Data General Corporation, Research Triangle Park, NC
+
+In article <3q2vhl$mav@miwok.nbn.com> hwittenb@linex.com (Howard Wittenberg)
+writes:
+>In article <3q0bv9$e7o@giga.bga.com>, rlindsay@bga.com says...
+>>
+>>Today I had the time to ask one of our engineers about parity on simm
+modules.
+>>His answer is it's almost complete waste, and the exception would be ECC on
+a
+>>server.  The reason is quite simple, parity on the simm can only detect a
+>single bit
+>>error, and chipsets since the origional XT already detect single bit errors
+>without
+>>needing parity in the system memory.  So with or without parity, your
+chances
+>>of the system board detecting a parity error before the memory could come
+into
+>>play is already 50/50.  Adding parity to the system memory only marginally
+>>increases the likelyhood of detection, does not insure detection.
+>
+>I don't understand how a chipset can detect a single bit error in memory
+>when all (8) bit combinations are valid and there is no parity bit to give
+>you a clue that a bit was added or dropped.  It seems to me that servers
+>that don't have memory parity checking are playing with fire.
+>
+>
+>Howard
+>
+
+Indeed.  8 bit memory can NOT support any parity checking.  The statement
+should be that a server should have ECC memory and not only parity, since
+parity will not detect  2 bits chaning in opposite directins.
+Furthermore, typical ECC can detect all 2 bit errors, a majority of 3 bit
+errors and lots of 4 bit errors.  It can also CORRECT a single bit error,
+so the system does not crash and is not affected in any way.
+
+A non server should have parity memory together with parity checking (yes,
+some MBs do not support CHECKING the parity bits, so having parity memory
+there is a waste.).  Unless you don't care about propagated data
+corruption (as in the spreadsheet example given here).  At least with
+parity you will crash, and will be able to recover an earlier backup from
+disk...
+
+
+
+---
+ * Origin: Global-Net <-> Internet Gateway (1000:1000/5.0)
+
+From ankh.iia.org!uunet!rose.uthscsa.edu!netnews.uthscsa.edu!geraldo.cc.utexas.edu!cs.utexas.edu!uwm.edu!lll-winken.llnl.gov!ames!onramp.arc.nasa.gov!george.arc.nasa.gov!lamaster Sat Jun  3 22:10:36 1995
+Path: ankh.iia.org!uunet!rose.uthscsa.edu!netnews.uthscsa.edu!geraldo.cc.utexas.edu!cs.utexas.edu!uwm.edu!lll-winken.llnl.gov!ames!onramp.arc.nasa.gov!george.arc.nasa.gov!lamaster
+From: lamaster@george.arc.nasa.gov (Hugh LaMaster)
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Subject: Re: Parity Memory FAQ
+Date: 1 Jun 1995 17:05:45 GMT
+Organization: NASA Ames Research Center
+Lines: 68
+Distribution: world
+Message-ID: <3qks19$g7j@onramp.arc.nasa.gov>
+References: <D90FEJ.to@world.std.com> <3pt6bm$31s@news.iastate.edu> <3ptgvg$p46@news.doit.wisc.edu> <3pvl1t$qiq@news.iastate.edu> <D93MnE.CAB@world.std.com> <3q0bv9$e7o@giga.bga.com> <3q2vhl$mav@miwok.nbn.com> <3q4d31$ih3@post.gsfc.nasa.gov> <sheldon.801510613@esoteric.agron.iastate.edu>
+NNTP-Posting-Host: george.arc.nasa.gov
+Xref: ankh.iia.org comp.sys.intel:34041 comp.sys.ibm.pc.hardware.systems:18671 alt.sys.pc-clone.micron:5051 alt.sys.pc-clone.zeos:2877 alt.sys.pc-clone.dell:4795 alt.sys.pc-clone.gateway2000:34371 comp.sys.ibm.pc.hardware.chips:28953
+
+In article <sheldon.801510613@esoteric.agron.iastate.edu>,
+sheldon@iastate.edu (Steve Sheldon) writes:
+
+|>  Let me throw out a question here.
+|>
+|>
+|>  Data is moved around all throughout the system.  Is Parity checking
+|> performed at every single part of the system?
+
+Excluding "Personal Systems", most systems at the "server"
+level up at least have parity on all data paths and registers.
+Some have ECC everywhere where data could be corrupted, and
+have parity+retry in other places where that works.
+
+|>  Just one example...
+|>
+|>  Do CPU's use parity checking to insure that numbers within their registers
+|> don't become corrupted?
+
+Most "non-personal" CPUs at least have parity on registers
+and data paths.
+
+Most CPUs do not check most arithmetic operations, because
+there is no fast, easy way to do this.  However, many/most
+"mainframe" and "fault-tolerant" CPUs do check ALU operations.
+In some cases, this means putting extra logic in at each stage,
+and this is definitely a small direct performance hit and a
+big indirect hit - by the time you are through, you may have
+30-70% more logic.  However, with careful design, this doesn't
+necessarily add a lot more components.
+
+See, for example, The IBM Journal of Research and Development,
+v. 36, N. 4, pp 531-816, July 1992.
+
+This is a complete issue on the System 390 architecture.
+The article on page 765 discusses the fault tolerant features
+of the ES/9000 Type 9021 processors.  This article will give
+the flavor for what is involved in providing this capability.
+BTW, whole books have been written on the subject.  Too bad
+that nobody in the PC world seems to care about these things
+at all.
+
+OTOH, most *supercomputers* don't do full ALU checking
+because the performance hit is too great.  And, probably,
+because it was never traditional in that marketplace.
+It is assumed that logic errors will be catastrophic
+and produce wild answers, and that good algorithms
+will correct or detect this.  However, in recent years
+there seems to be a trend towards faster but less robust
+algorithms, presumably because things don't break as often
+as they used to and people are forgetting that things don't
+always work.  "Garbage In, Gospel Out."
+
+|>  This seems to be a question of over-engineering.
+
+I dunno.  Suppose *your bank* went down completely for 24 hours
+to do a full file restore from backups, and then all transactions
+had to be done by hand for a week while they verified everything.
+Might be a little inconvenient, wouldn't it?  At that point, you
+would be shopping for another bank which spent a little more on
+a fault-tolerant system.
+
+
+--
+  Hugh LaMaster, M/S 233-9,     UUCP:      ames!lamaster
+  NASA Ames Research Center     Internet:  lamaster@ames.arc.nasa.gov
+  Moffett Field, CA 94035-1000  Or:        lamaster@george.arc.nasa.gov
+  Phone:  415/604-1056                     #include <std_disclaimer.h>
+
+From ankh.iia.org!uunet!rose.uthscsa.edu!netnews.uthscsa.edu!geraldo.cc.utexas.edu!cs.utexas.edu!uwm.edu!lll-winken.llnl.gov!ames!onramp.arc.nasa.gov!george.arc.nasa.gov!lamaster Sat Jun  3 22:11:39 1995
+Path: ankh.iia.org!uunet!rose.uthscsa.edu!netnews.uthscsa.edu!geraldo.cc.utexas.edu!cs.utexas.edu!uwm.edu!lll-winken.llnl.gov!ames!onramp.arc.nasa.gov!george.arc.nasa.gov!lamaster
+From: lamaster@george.arc.nasa.gov (Hugh LaMaster)
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Subject: Re: Parity Memory FAQ
+Date: 1 Jun 1995 17:05:45 GMT
+Organization: NASA Ames Research Center
+Lines: 68
+Distribution: world
+Message-ID: <3qks19$g7j@onramp.arc.nasa.gov>
+References: <D90FEJ.to@world.std.com> <3pt6bm$31s@news.iastate.edu> <3ptgvg$p46@news.doit.wisc.edu> <3pvl1t$qiq@news.iastate.edu> <D93MnE.CAB@world.std.com> <3q0bv9$e7o@giga.bga.com> <3q2vhl$mav@miwok.nbn.com> <3q4d31$ih3@post.gsfc.nasa.gov> <sheldon.801510613@esoteric.agron.iastate.edu>
+NNTP-Posting-Host: george.arc.nasa.gov
+Xref: ankh.iia.org comp.sys.intel:34041 comp.sys.ibm.pc.hardware.systems:18671 alt.sys.pc-clone.micron:5051 alt.sys.pc-clone.zeos:2877 alt.sys.pc-clone.dell:4795 alt.sys.pc-clone.gateway2000:34371 comp.sys.ibm.pc.hardware.chips:28953
+
+In article <sheldon.801510613@esoteric.agron.iastate.edu>,
+sheldon@iastate.edu (Steve Sheldon) writes:
+
+|>  Let me throw out a question here.
+|>
+|>
+|>  Data is moved around all throughout the system.  Is Parity checking
+|> performed at every single part of the system?
+
+Excluding "Personal Systems", most systems at the "server"
+level up at least have parity on all data paths and registers.
+Some have ECC everywhere where data could be corrupted, and
+have parity+retry in other places where that works.
+
+|>  Just one example...
+|>
+|>  Do CPU's use parity checking to insure that numbers within their registers
+|> don't become corrupted?
+
+Most "non-personal" CPUs at least have parity on registers
+and data paths.
+
+Most CPUs do not check most arithmetic operations, because
+there is no fast, easy way to do this.  However, many/most
+"mainframe" and "fault-tolerant" CPUs do check ALU operations.
+In some cases, this means putting extra logic in at each stage,
+and this is definitely a small direct performance hit and a
+big indirect hit - by the time you are through, you may have
+30-70% more logic.  However, with careful design, this doesn't
+necessarily add a lot more components.
+
+See, for example, The IBM Journal of Research and Development,
+v. 36, N. 4, pp 531-816, July 1992.
+
+This is a complete issue on the System 390 architecture.
+The article on page 765 discusses the fault tolerant features
+of the ES/9000 Type 9021 processors.  This article will give
+the flavor for what is involved in providing this capability.
+BTW, whole books have been written on the subject.  Too bad
+that nobody in the PC world seems to care about these things
+at all.
+
+OTOH, most *supercomputers* don't do full ALU checking
+because the performance hit is too great.  And, probably,
+because it was never traditional in that marketplace.
+It is assumed that logic errors will be catastrophic
+and produce wild answers, and that good algorithms
+will correct or detect this.  However, in recent years
+there seems to be a trend towards faster but less robust
+algorithms, presumably because things don't break as often
+as they used to and people are forgetting that things don't
+always work.  "Garbage In, Gospel Out."
+
+|>  This seems to be a question of over-engineering.
+
+I dunno.  Suppose *your bank* went down completely for 24 hours
+to do a full file restore from backups, and then all transactions
+had to be done by hand for a week while they verified everything.
+Might be a little inconvenient, wouldn't it?  At that point, you
+would be shopping for another bank which spent a little more on
+a fault-tolerant system.
+
+
+--
+  Hugh LaMaster, M/S 233-9,     UUCP:      ames!lamaster
+  NASA Ames Research Center     Internet:  lamaster@ames.arc.nasa.gov
+  Moffett Field, CA 94035-1000  Or:        lamaster@george.arc.nasa.gov
+  Phone:  415/604-1056                     #include <std_disclaimer.h>
+
+From ankh.iia.org!uunet!news.mathworks.com!gatech!sdd.hp.com!hplabs!unix.sri.com!news.Stanford.EDU!morrow.stanford.edu!hpp.Stanford.EDU!tfsdssa Sat Jun  3 22:12:06 1995
+Path: ankh.iia.org!uunet!news.mathworks.com!gatech!sdd.hp.com!hplabs!unix.sri.com!news.Stanford.EDU!morrow.stanford.edu!hpp.Stanford.EDU!tfsdssa
+From: tfsdssa@hpp.Stanford.EDU (Teknowledge)
+Newsgroups: comp.sys.intel
+Subject: Re: Parity Memory FAQ
+Date: 1 Jun 1995 19:34:50 GMT
+Organization: Teknowledge
+Lines: 21
+Message-ID: <3ql4oq$ac1@morrow.stanford.edu>
+References: <3qbkce$s32@peavax.eng.pko.dec.com> <D9DG67.EJt@world.std.com> <3qgi4j$9cf@peavax.eng.pko.dec.com>
+NNTP-Posting-Host: hpp.stanford.edu
+
+>Yikes! I would *love* to be able to use your data when calculating product
+>reliability data for my designs. That .0001 FIT is completely out of whack
+>with the SER data we get directly from the pacrim dram manufacturers - which
+>is, again, almost universally around 200 fits (yes, failures per device in a
+>billion years) for 16Mbit devices - at maximum operating frequency...
+
+That .0001 number is probably FITs *per bit*, which sounds about right.
+In the last ten or so years, DRAM reliability has improved 10,000 times.
+
+Intel has a white paper which makes a pretty convincing case against
+the need for parity memory with current technology DRAM.  Using Micron
+4 Meg memory SIMMs as an example (119 FIT @ 15us ==> 442 FIT @ 1us)
+they calculate that a 16Mb system would have a near worst case MTBF
+(soft errors) of 21 system years, or about 88 "business hours" years.
+
+And PCs can't do anything intelligent about parity errors.  Typically
+they just report the error and lock up.  Forget about saving any of
+your work or having the system complete any file writes in progress.
+
+Terry Barnes
+tbarnes@teknowledge.com
+
+From ankh.iia.org!uunet!EU.net!howland.reston.ans.net!swrinde!gatech!bloom-beacon.mit.edu!world!gnewman Sat Jun  3 22:12:39 1995
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.chips
+Path: ankh.iia.org!uunet!EU.net!howland.reston.ans.net!swrinde!gatech!bloom-beacon.mit.edu!world!gnewman
+From: gnewman@world.std.com (Gary Newman)
+Subject: Re: Parity Memory FAQ
+Message-ID: <D9IMAB.ICp@world.std.com>
+Followup-To: comp.sys.intel,comp.sys.ibm.pc.hardware.chips
+Organization: XMX Corporation, Bedford, MA
+X-Newsreader: TIN [version 1.2 PL2]
+References: <D90FEJ.to@world.std.com> <3pt6bm$31s@news.iastate.edu> <3ptgvg$p46@news.doit.wisc.edu> <3pvl1t$qiq@news.iastate.edu> <D93MnE.CAB@world.std.com> <3q7d65$9bu@news.icon.net> <3q9cvo$9s4@peavax.eng.pko.dec.com> <D9B8xL.7uB@world.std.com> <3qbkce$s32@peavax.eng.pko.dec.com> <D9DG67.EJt@world.std.com> <3qgi4j$9cf@peavax.eng.pko.dec.com>
+Date: Thu, 1 Jun 1995 22:25:23 GMT
+Lines: 33
+Xref: ankh.iia.org comp.sys.intel:34036 comp.sys.ibm.pc.hardware.chips:28946
+
+Dave Tatosian (tatosian@plough.enet.dec.com) wrote:
+: In article <D9DG67.EJt@world.std.com>,
+:    gnewman@world.std.com (Gary Newman) wrote:
+: >200fits?  Data sheets I've seen show 0.0001 FIT for current crop DRAM.
+: >(they define a FIT as a failure in 10^9 years).
+
+: Yikes! I would *love* to be able to use your data when calculating product
+: reliability data for my designs. That .0001 FIT is completely out of whack
+: with the SER data we get directly from the pacrim dram manufacturers - which
+: is, again, almost universally around 200 fits (yes, failures per device in a
+: billion years) for 16Mbit devices - at maximum operating frequency...
+
+I've only seen FIT per bit data, and it looks like you are only
+looking at the FIT per part data.  Even so, the data published in
+Micron Tech Note 04-15 for historical SER is that the 4Mbit DRAM is
+0.0002 to 0.0004 FIT/bit (840-1,680 FIT per chip) and that the 16Mbit
+DRAM chips are in the range 0.00015 to 0.00025 FIT/bit.
+On the other hand, they spec their 16Mbit DRAM (I guess not industry
+average by their thinking) at 209 FIT per chip which is 0.0000125
+FIT/bit and is in line with what you quote.
+HOWEVER, that is not at maximum operating frequency.  That is at
+minimum refresh frequency only.
+
+: Hard error rates are closer to 20 fits, fwiw, so SER happens an order of
+: magnitude more often than hard errors...
+
+They why are you preoccupied with the hard errors (your previous post)
+when customers will have problems 10x more often with soft errors?
+--
+Gary Newman                             gnewman@xmx.com
+XMX Corp.                               voice: (508) 670-8444
+46 Manning Road                         Fax:   (508) 670-8448
+Billerica, MA 01821
+
+From ankh.iia.org!uunet!portal.austin.ibm.com!bocanews.bocaraton.ibm.com!newsjunkie.ans.net!howland.reston.ans.net!nntp.crl.com!decwrl!pa.dec.com!depot.mro.dec.com!mrnews.mro.dec.com!te175 Sat Jun  3 22:13:18 1995
+Path: ankh.iia.org!uunet!portal.austin.ibm.com!bocanews.bocaraton.ibm.com!newsjunkie.ans.net!howland.reston.ans.net!nntp.crl.com!decwrl!pa.dec.com!depot.mro.dec.com!mrnews.mro.dec.com!te175
+From: tatosian@plough.enet.dec.com (Dave Tatosian)
+Newsgroups: comp.sys.intel
+Subject: Re: Parity Memory FAQ
+Date: 2 Jun 1995 05:22:07 GMT
+Organization: DEC/Alpha Server Engineering
+Lines: 94
+Message-ID: <3qm75v$6lv@mrnews.mro.dec.com>
+References: <D90FEJ.to@world.std.com> <3q95mv$1ku@gladstone.uoregon.edu> <D9EELK.3Mt@Cadence.COM>
+NNTP-Posting-Host: te175.pko.dec.com
+X-Newsreader: News Xpress Version 1.0 Beta #3
+
+In article <D9EELK.3Mt@Cadence.COM>, joao@cadence.com (Joao Geada) wrote:
+>This whole discussion seems to be missing/bypassing some basic facts:
+>
+>Bit errors occur due to the interaction of background radiation
+>(including cosmic rays) and the charges flowing/stored in a circuit.
+>By and large, you cannot shield a system from this.
+>
+>Parity checking (checking single bit errors) is primarily of
+>importance in DRAM because the probability of getting a bit error is
+>     1) directly proportional to transitor density.
+>        DRAM have the highest transitor density of all the chips
+>        commonly found on a PC
+>
+>     2) inversely proportional to the amount of charge used to store a bit
+>        Again DRAM have the lowest charge requirement to flip a single
+>        bit, with higher capacity DRAMs using less charge to store a single
+> bit than lower capacity DRAMs.
+>
+>NOTE: CPU registers, static rams & cache memories use a TOTALLY
+>different circuit architecture to store information, requiring 4+
+>transitors to store a single bit, as opposed to 1 transitor per bit in
+>DRAM. This different architecture drastically reduces the odds of bit
+>errors occurring.
+>
+>Due to the above factors, DRAMs are, of all computer components, the
+>most susceptible to bit errors. Parity errors are relatively uncommon,
+>and double bit errors (2 bit flips in the same word) are extremely
+>unlikely (ie: don't happen unless you put your machine in orbit or
+>inside a nuclear power plant).
+>
+>The expected error rate is directly proportional to memory size, so
+>doubling the DRAM in your machine will double the odds of getting a
+>bit error. Modern DRAM construction DOES NOT give any protection from
+>these errors (in fact, as mentioned above, higher densities & reduced
+>charges increase the error rate)
+>
+>Whether you are concerned with the consequences of these errors or
+>not, what you do if you detected them, etc are debatable. Whether to
+>get parity checked memory or not depends on the importance of your
+>work and/or the data you use/produce. Standard risk/benefit analysis.
+>Do not, however, assume that these errors do not happen or that
+>current technology has made these errors irrelevant.
+>
+>Joao
+
+From a strictly technological view, this was well said, and other than a
+couple of nits I agree completely.
+
+- In speaking of the probability of single bit errors verse multi-bit errors,
+I presume you're thrust is toward soft errors, and you're quite correct that
+the odds of a multi-bit soft error at a single address is astronomically low.
+If the discussion were about hard errors, the likelihood of a multi-bit error
+at the same address is only ~3 times less likely than a hard single cell
+failure, as this takes in row and column logic defects as well as breakdowns
+of the charge array devices.
+
+- The susceptibility of DRAMs to alpha particle hits is primarily not due to
+the transistor density, it's due to the *wiring* density and unbelievably low
+currents present on the bitlines when a cell is "read", as an alpha particle
+can carry enough energy to swamp out the data from the storage array to the
+sense amp gates (cell storage capacity is measured in femtofarads). For the
+most part, the cells themselves contribute a very small part of the total SER.
+
+This is why Soft Error Rates are hooked to the actual operating frequency of
+the DRAM: the more frequent that meaningful data is on the bit lines from the
+charge array, the larger the probability of an alpha particle hit disrupting
+the data read from the storage cells. Ie: if you wrote the entire DRAM with
+data and then read it once a day later, the probability of an SER occuring
+would be extremely low compared to reading the same data at maximum frequency.
+
+-Soft Error Rates PER UNIT OF CAPACITY have been declining for years, so the
+statement that higher densities has increased the susceptibility to SER is
+incorrect. In fact we use essentially the same SER/device for 16Mbit DRAMs
+that we used for 1Mbit parts 10 years ago. DRAM manufacturers have come up
+with coatings and better package materials to help reduce the problem of alpha
+particle hits. (A bit of history: 12-15 years ago, the packaging material used
+for DRAMs was the primary source of the alpha particles that were bombarding
+the DRAMs!)
+
+But again, other than these minor points, the body of your entry is right on
+the money. I must restate, however, my belief that it's not engineering that
+leaves the desktop market exposed to undetected memory errors - it's the
+marketing and financial people that set the requirements to compete. I guess
+this means that, in the final analysis, the real cause is the marketplace and
+their willingness to throw robustness of design overboard so as to push the
+price/performance metric lower and lower...
+
+/dave (We have met the enemy, and it is us!)
+
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<> Dave Tatosian           tatosian@plough.enet.dec.com <>
+<> Digital Equipment Corp.    Alpha Server Engineering  <>
+<>           "Read this and nobody gets hurt"           <>
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+From ankh.iia.org!uunet!rose.uthscsa.edu!netnews.uthscsa.edu!geraldo.cc.utexas.edu!cs.utexas.edu!news.sprintlink.net!dg-rtp!romulus!kahn Sat Jun  3 22:13:41 1995
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Path: ankh.iia.org!uunet!rose.uthscsa.edu!netnews.uthscsa.edu!geraldo.cc.utexas.edu!cs.utexas.edu!news.sprintlink.net!dg-rtp!romulus!kahn
+From: kahn@romulus.rtp.dg.com (Opher Kahn)
+Subject: Re: Parity Memory FAQ
+Message-ID: <1995Jun2.173143.6760@dg-rtp.dg.com>
+Sender: usenet@dg-rtp.dg.com (Usenet Administration)
+Date: Fri, 2 Jun 95 17:31:43 GMT
+References: <D90FEJ.to@world.std.com> <3q95mv$1ku@gladstone.uoregon.edu> <D9EELK.3Mt@Cadence.COM>
+Organization: Data General Corporation, Research Triangle Park, NC
+Lines: 52
+Xref: ankh.iia.org comp.sys.intel:34116 comp.sys.ibm.pc.hardware.systems:18706 alt.sys.pc-clone.micron:5077 alt.sys.pc-clone.zeos:2881 alt.sys.pc-clone.dell:4811 alt.sys.pc-clone.gateway2000:34442 comp.sys.ibm.pc.hardware.chips:29017
+
+In article <D9EELK.3Mt@Cadence.COM> joao@cadence.com (Joao Geada) writes:
+>This whole discussion seems to be missing/bypassing some basic facts:
+>
+>Bit errors occur due to the interaction of background radiation
+>(including cosmic rays) and the charges flowing/stored in a circuit.
+>By and large, you cannot shield a system from this.
+>
+
+>Due to the above factors, DRAMs are, of all computer components, the
+>most susceptible to bit errors. Parity errors are relatively uncommon,
+>and double bit errors (2 bit flips in the same word) are extremely
+>unlikely (ie: don't happen unless you put your machine in orbit or
+>inside a nuclear power plant).
+>
+
+I agree with most of what is said here.  However, two things to take into
+mind:
+
+1.  A radiation particle does not stop in the 1 DRAM cell.  If it travels
+on to another cell in the same byte, you can get a double bit error. (i.e.
+it does not necessarily require two separate particle hits in the same
+word).  This is still very rare as pointed out.  (This statement depends
+of course on the DRAM architecture - if you use x1 chips, it would be
+close to impossible, but in a x4 structure adjacent cells can belong to
+the same byte/word).
+
+2.  You only refer to the 'true soft errors' due to radiation.  A good
+number of errors occur due to simple HW problems - circuit noise, timing
+problems, power fluctuations, static electricity, bad solder joints,
+defective DRAMs etc.  You are much more likely to get a double bit error
+from one of these problems than from radiation.  These problems are
+typically discounted as HW problems AND NOT COUNTED IN AS PART OF THE
+SINGLE BIT/DOUBLE BIT STATISTICS.  However, from the user's point of view
+he/she does not care WHY the problem happened, but just that it did.  So
+we should consider these as well.
+
+3.  I agree that the problem is proportional to memory size, and that
+generally extends to the HW related problems as well - more memory, more
+noise, more solder joints, etc, etc, etc.  Thats why all REAL servers have
+ECC memory, which lets them ride out single bit errors without any
+down-time (we sell servers, and a good percentage of them have 1-2 *Gig* of
+memory, so the memory error issue is VERY significant).
+
+--
+..---------------------------------------------------------------------.
+|    Opher D. Kahn                              kahn@dg-rtp.dg.com    |
+|    Unix Software Development                  919-248-6133          |
+|    Data General Corp., RTP NC                                       |
+`---------------------------------------------------------------------'
+
+
+
+
+From ankh.iia.org!uunet!salliemae!europa.chnt.gtegsc.com!cantaloupe.srv.cs.cmu.edu!das-news2.harvard.edu!fas-news.harvard.edu!newspump.wustl.edu!news.ecn.bgu.edu!vixen.cso.uiuc.edu!howland.reston.ans.net!nntp.crl.com!pacbell.com!nntp-hub2.barrnet.net!news.Stanford.EDU!morrow.stanford.edu!hpp.Stanford.EDU!tfsdssa Sat Jun  3 22:14:17 1995
+Path: ankh.iia.org!uunet!salliemae!europa.chnt.gtegsc.com!cantaloupe.srv.cs.cmu.edu!das-news2.harvard.edu!fas-news.harvard.edu!newspump.wustl.edu!news.ecn.bgu.edu!vixen.cso.uiuc.edu!howland.reston.ans.net!nntp.crl.com!pacbell.com!nntp-hub2.barrnet.net!news.Stanford.EDU!morrow.stanford.edu!hpp.Stanford.EDU!tfsdssa
+From: tfsdssa@hpp.Stanford.EDU (Terry A Barnes)
+Newsgroups: comp.sys.intel
+Subject: Re: Parity Memory FAQ
+Date: 2 Jun 1995 21:26:51 GMT
+Organization: Teknowledge
+Lines: 27
+Message-ID: <3qnvmr$dne@morrow.stanford.edu>
+References: <3qgi4j$9cf@peavax.eng.pko.dec.com> <3ql4oq$ac1@morrow.stanford.edu> <D9In07.1q0@world.std.com>
+NNTP-Posting-Host: hpp.stanford.edu
+
+>: Intel has a white paper which makes a pretty convincing case against
+>: the need for parity memory with current technology DRAM.  Using Micron
+>: 4 Meg memory SIMMs as an example (119 FIT @ 15us ==> 442 FIT @ 1us)
+>: they calculate that a 16Mb system would have a near worst case MTBF
+>: (soft errors) of 21 system years, or about 88 "business hours" years.
+>
+>Something is wrong here.  Even at 0.0001 FIT/bit that's 420 FIT/chip
+>and that is at 15us.  Was/is 4Mbit DRAM that good? Micron sez the
+>4Mbit was more like 0.0002 to 0.0004 FIT/bit.
+
+I don't have the paper in front of me, but I believe the 4Mb *SIMM* was
+512Kx8.  The FIT I mentioned above is thus for a 512K DRAM, not a 4M
+DRAM.  That works out to about .00023 FIT/bit.
+
+By the way, I quoted the wrong case.  The 21 system year case was for
+an 8Mb system, the 16Mb system was something like 16 years.
+
+>Where is this Intel white paper available from?  Any reference number
+>for how to find it?
+
+I think its now available via fax-back.  Call 1-800-628-2283 and get
+document 7546.  Document 7545 has a bit about Triton and EDO memory,
+another "hot" topic...
+
+Terry Barnes
+tbarnes@teknowledge.com
+
+
+From ankh.iia.org!uunet!uchinews!vixen.cso.uiuc.edu!uwm.edu!newsspool.doit.wisc.edu!news.doit.wisc.edu!news Sat Jun  3 22:15:34 1995
+Path: ankh.iia.org!uunet!uchinews!vixen.cso.uiuc.edu!uwm.edu!newsspool.doit.wisc.edu!news.doit.wisc.edu!news
+From: "Ken Kriesel, Physical Sciences Lab, UW-Madison" <kkriesel@facstaff.wisc.edu>
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Subject: Re: Parity Memory FAQ
+Date: 3 Jun 1995 01:54:50 GMT
+Organization: University of Wisconsin, Madison
+Lines: 86
+Message-ID: <3qofda$a7q@news.doit.wisc.edu>
+References: <D90FEJ.to@world.std.com> <3q95mv$1ku@gladstone.uoregon.edu> <D9EELK.3Mt@Cadence.COM> <1995Jun2.173143.6760@dg-rtp.dg.com>
+NNTP-Posting-Host: f180-122.net.wisc.edu
+Xref: ankh.iia.org comp.sys.intel:34175 comp.sys.ibm.pc.hardware.systems:18733 alt.sys.pc-clone.micron:5090 alt.sys.pc-clone.zeos:2884 alt.sys.pc-clone.dell:4818 alt.sys.pc-clone.gateway2000:34475 comp.sys.ibm.pc.hardware.chips:29053
+
+kahn@romulus.rtp.dg.com (Opher Kahn) wrote:
+>
+> In article <D9EELK.3Mt@Cadence.COM> joao@cadence.com (Joao Geada) writes:
+> >This whole discussion seems to be missing/bypassing some basic facts:
+> >
+> >Bit errors occur due to the interaction of background radiation
+> >(including cosmic rays) and the charges flowing/stored in a circuit.
+> >By and large, you cannot shield a system from this.
+>
+> >Due to the above factors, DRAMs are, of all computer components, the
+> >most susceptible to bit errors. Parity errors are relatively uncommon,
+> >and double bit errors (2 bit flips in the same word) are extremely
+> >unlikely (ie: don't happen unless you put your machine in orbit or
+> >inside a nuclear power plant).
+
+I don't think we're guaranteed that it's almost always single particles.
+
+Aren't we talking about the side effects of cosmic rays here?
+They have enough energy to drill through the entire atmosphere, through
+the roof of the building, perhaps a few floors above the computer,
+the case of the computer, and periodically spew out particles from
+interactions as they do this.  All manner of particles are generated
+because the cosmic ray has far more energy than it takes to create
+known subatomic particles, much less knock a piece off an existing
+atom.  The cosmic ray travels in a roughly vertical path (I think).
+If so, it likely will drill through the whole SIMM stack of a system
+with a tower case (like a lot of Gateways).  The particles
+it creates likely have a forward (downward) trajectory too.
+And some of them can be pretty energetic themselves.
+I know some physicists who use telescopes to look for the particle
+showers created in the upper atmosphere by cosmic rays.
+
+Then again, if I'm wrong, that's lucky for us computer users.
+>
+> I agree with most of what is said here.  However, two things to take into
+> mind:
+>
+> 1.  A radiation particle does not stop in the 1 DRAM cell.  If it travels
+> on to another cell in the same byte, you can get a double bit error. (i.e.
+> it does not necessarily require two separate particle hits in the same
+> word).  This is still very rare as pointed out.  (This statement depends
+> of course on the DRAM architecture - if you use x1 chips, it would be
+> close to impossible, but in a x4 structure adjacent cells can belong to
+> the same byte/word).
+>
+> 2.  You only refer to the 'true soft errors' due to radiation.  A good
+> number of errors occur due to simple HW problems - circuit noise, timing
+> problems, power fluctuations, static electricity, bad solder joints,
+> defective DRAMs etc.  You are much more likely to get a double bit error
+> from one of these problems than from radiation.  These problems are
+> typically discounted as HW problems AND NOT COUNTED IN AS PART OF THE
+> SINGLE BIT/DOUBLE BIT STATISTICS.  However, from the user's point of view
+> he/she does not care WHY the problem happened, but just that it did.  So
+> we should consider these as well.
+
+A very good point, there are many causes, an error has occurred and
+the programs make no distinction as to why a bit's wrong.
+
+Actually it's better if the error is in this class because something
+can be done about it.
+
+> 3.  I agree that the problem is proportional to memory size, and that
+> generally extends to the HW related problems as well - more memory, more
+> noise, more solder joints, etc, etc, etc.  Thats why all REAL servers have
+> ECC memory, which lets them ride out single bit errors without any
+> down-time (we sell servers, and a good percentage of them have 1-2 *Gig* of
+> memory, so the memory error issue is VERY significant).
+>
+
+So most of these error sources favor fewer, higher density SIMMS
+using smaller memory cells.  Anyone have information where the
+error rate optimum lies currently?  I see the price optimum sits at
+4Mx36 (16MB) now.
+
+Ken
+kkriesel@facstaff.wisc.edu
+
+
+
+
+
+
+
+
+
+
+
+From ankh.iia.org!uunet!world!gnewman Sat Jun  3 22:16:10 1995
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Path: ankh.iia.org!uunet!world!gnewman
+From: gnewman@world.std.com (Gary Newman)
+Subject: Re: Parity Memory FAQ
+Message-ID: <D9LoF2.5G1@world.std.com>
+Followup-To: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Organization: XMX Corporation, Bedford, MA
+X-Newsreader: TIN [version 1.2 PL2]
+References: <D90FEJ.to@world.std.com> <3q95mv$1ku@gladstone.uoregon.edu> <D9EELK.3Mt@Cadence.COM> <1995Jun2.173143.6760@dg-rtp.dg.com>
+Date: Sat, 3 Jun 1995 14:04:14 GMT
+Lines: 36
+Xref: ankh.iia.org comp.sys.intel:34198 comp.sys.ibm.pc.hardware.systems:18739 alt.sys.pc-clone.micron:5097 alt.sys.pc-clone.zeos:2886 alt.sys.pc-clone.dell:4826 alt.sys.pc-clone.gateway2000:34497 comp.sys.ibm.pc.hardware.chips:29085
+
+In article <D9EELK.3Mt@Cadence.COM> joao@cadence.com (Joao Geada) writes:
+>This whole discussion seems to be missing/bypassing some basic facts:
+>Bit errors occur due to the interaction of background radiation
+>(including cosmic rays) and the charges flowing/stored in a circuit.
+>By and large, you cannot shield a system from this.
+
+The DRAM errors are caused by alpha particles, very unlikely by cosmic
+radiation.  The alpha particle is energetic, but only due to it's mass
+(it is a helium particle with no electrons).  It is easily stopped by
+even a sheet of paper.  The alpha particles causing DRAM errors are
+created by the fillers in the DRAM's own plastic packaging and are
+generally unavoidable at some level.  There is no need to shield a
+system from alpha particles since they are created inside the DRAM
+chip and, if created outside the package, wouldn't make it through the
+package to the die anyway.
+
+Cosmic rays are not known to be significant error producers of soft
+errors relative to alpha particles.
+
+Opher Kahn (kahn@romulus.rtp.dg.com) wrote:
+: 1.  A radiation particle does not stop in the 1 DRAM cell.  If it travels
+: on to another cell in the same byte, you can get a double bit error. (i.e.
+: it does not necessarily require two separate particle hits in the same
+: word).  This is still very rare as pointed out.  (This statement depends
+: of course on the DRAM architecture - if you use x1 chips, it would be
+: close to impossible, but in a x4 structure adjacent cells can belong to
+: the same byte/word).
+
+The alpha particle won't do this.  The cosmic ray is orders of
+magnitude less likely to make a soft error at all anyway so we can
+ignore it's effects.
+--
+Gary Newman                             gnewman@xmx.com
+XMX Corp.                               voice: (508) 670-8444
+46 Manning Road                         Fax:   (508) 670-8448
+Billerica, MA 01821
+
+From ankh.iia.org!uunet!news.consultix.com!news.kei.com!bloom-beacon.mit.edu!world!gnewman Sat Jun  3 22:16:28 1995
+Newsgroups: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Path: ankh.iia.org!uunet!news.consultix.com!news.kei.com!bloom-beacon.mit.edu!world!gnewman
+From: gnewman@world.std.com (Gary Newman)
+Subject: Re: Parity Memory FAQ
+Message-ID: <D9LonL.766@world.std.com>
+Followup-To: comp.sys.intel,comp.sys.ibm.pc.hardware.systems,alt.sys.pc-clone.micron,alt.sys.pc-clone.zeos,alt.sys.pc-clone.dell,alt.sys.pc-clone.gateway2000,comp.sys.ibm.pc.hardware.chips
+Organization: XMX Corporation, Bedford, MA
+X-Newsreader: TIN [version 1.2 PL2]
+References: <D90FEJ.to@world.std.com> <3q95mv$1ku@gladstone.uoregon.edu> <D9EELK.3Mt@Cadence.COM> <1995Jun2.173143.6760@dg-rtp.dg.com> <3qofda$a7q@news.doit.wisc.edu>
+Date: Sat, 3 Jun 1995 14:09:20 GMT
+Lines: 19
+Xref: ankh.iia.org comp.sys.intel:34199 comp.sys.ibm.pc.hardware.systems:18740 alt.sys.pc-clone.micron:5098 alt.sys.pc-clone.zeos:2887 alt.sys.pc-clone.dell:4827 alt.sys.pc-clone.gateway2000:34498 comp.sys.ibm.pc.hardware.chips:29087
+
+Ken Kriesel, Physical Sciences Lab, UW-Madison (kkriesel@facstaff.wisc.edu) wrote:
+: kahn@romulus.rtp.dg.com (Opher Kahn) wrote:
+: > >Due to the above factors, DRAMs are, of all computer components, the
+: > >most susceptible to bit errors. Parity errors are relatively uncommon,
+: > >and double bit errors (2 bit flips in the same word) are extremely
+: > >unlikely (ie: don't happen unless you put your machine in orbit or
+: > >inside a nuclear power plant).
+
+: I don't think we're guaranteed that it's almost always single particles.
+
+True.  The alpha particles are randomly created through radioactive decay
+of packaging material.  Their statistics are "poisson" so the likelyhood
+of having two particles at nearly the same time is much much smaller
+than one particle.
+--
+Gary Newman                             gnewman@xmx.com
+XMX Corp.                               voice: (508) 670-8444
+46 Manning Road                         Fax:   (508) 670-8448
+Billerica, MA 01821
+

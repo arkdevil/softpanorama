@@ -1,0 +1,509 @@
+
+AWK                                                                    AWK
+
+
+NAME
+
+        awk - pattern scanning and processing language
+
+
+SYNOPSIS
+
+        awk [-ffile] [-Fstr] [-t] [-l] [program] [var=text] [file] ...
+
+
+DESCRIPTION
+
+Awk scans each input file for lines that match any of a set of patterns 
+specified in the program.  With each pattern in the program there can be an 
+associated action that will be performed when a line of a file matches the 
+pattern.
+
+The AWK program may be specified as a file with the -f option as:
+
+        -ffilename.ext
+        -f filename.ext
+
+in which case the AWK program is read from the named file.  If the file does 
+not exist then an error message will be printed. 
+
+The AWK program may also be specified as a single argument as:
+
+        filename.ext
+        filename[.awk]
+
+or as a valid AWK program:
+
+        { for (i in ARGV) printf ("%d: %s\n", i, ARGV[i]) }
+
+AWK will first try to open the first argument as a file, it it can't open a 
+file, it then adds the extension ".awk" and tries again to open a file, 
+finally AWK will attempt to read the argument directly as an AWK program. 
+
+If the filename is a minus sign (-) then the AWK program is read from the 
+standard input.  The program may then be terminated with either a ctrl-Z or
+a period (.) on a line by itself.  The second method is useful for entering 
+an AWK program followed by the data for the program.  If no program file is 
+specified then the program is read from standard input.
+
+If the -f option is selected the full path/name/extension must be specified.  
+If only the filename is specified AWK will first attempt to open the named 
+file, then the file with the extension ".AWK", finally AWK will attempt to 
+parse the parameter as a program.  Multiple -f options may be used to get
+the program source from many files.
+
+Files are read in order, the file name '-' means standard input.  Each line 
+is matched against the pattern portion of every pattern-action statement; 
+the associated action is performed for each matched pattern.
+
+If a file name has the form variable=value, program variables may be changed 
+before a file is read.  The assignment takes place when the argument would be 
+treated as the next file to read.   Any assignments before the first file
+take place before the first BEGIN block is executed.  An assignment after 
+the last file will occur before any END block unless an exit was performed.
+
+        awk "{ print code, NR, $$0 }" code=10 file1 code=75 file2
+
+If no files are specified the input is read from standard input.
+
+An input line is made up of fields separated by the field separator FS.  
+The fields are denoted by $1, $2 ...; $0 denotes the entire line:
+
+        $0 = "now is the time"
+
+        $1 = "now"      $2 = "is"
+        $3 = "the"      $4 = "time"
+
+with the default FS (white space).  If the field separator is set to comma (,)
+with "-F," on the command line then the fields might be:
+
+        $0 = "a, b,c,, ,"
+
+        $1 = "a"        $2 = " b"       $3 = "c"
+        $4 = ""         $5 = " "        $6 = ""
+
+A pattern-action statement has the form:
+
+        pattern { action }
+
+A missing { action } has the same effect as { print $0 }, a missing pattern 
+always matches. 
+
+Pattern-Actions are separated by semicolons or newlines.  A statement may be 
+continued on the next line by putting a backslash (\) at the end of the line. 
+
+        { words += NF }; END { print words }
+
+A pattern is a test that is performed on each input line.  If the pattern 
+matches the input line then the corresponding action is performed.
+
+Patterns come in several forms:
+
+Form            Example         Meaning
+
+BEGIN           BEGIN {N=1}     initialize N before input is read
+END             END {print N}   print N after all input is read
+function        function x(y)   define a function called x
+text match      /stop/          line contains the string "stop"
+expression      $1 == 3         first field is the number 3
+compound        /x/ && NF > 2   more that two fields and contain "x"
+range           NR==10,NR==20   records ten through twenty inclusive
+
+BEGIN and END patterns are special patterns that match before any files are 
+read and after all files have been read respectivly.  There may be multiple 
+occurances of these patterns and the associated actions are executed in the 
+order that they occur.  
+
+If there is only a series of BEGIN blocks in the awk program and no other 
+pattern/action blocks except function declarations then no input files are 
+read.  If only END blocks are defined then all the files are read and NR will 
+be set to the number of records in all the files.
+
+        BEGIN { page = 5 }
+
+A function pattern is never matched and serves to declare a user defined 
+function.  You can declare a function with more parameters than are 
+passed as arguments so that the extra parameters can act as local 
+variables.  
+
+        function show(a, i) { for (i in a) print a[i] }
+
+A regular expression by itself is matched against the input record ($0). That 
+is "/abc/" is equivalent to "$0 ~ /abc/". 
+
+Any expression will match if it evaluates to != 0 or !="".  Also any logical 
+combination of expressions and regular expressions may be used as a pattern.
+
+        FILENAME != oldname && FILENAME != "skip"
+
+The last special pattern is two patterns separated by a comma.  This pattern 
+specifies a range of records that match the pattern.  The pattern starts to 
+match when the first pattern matches and stops matching when the second 
+pattern matches.  If they both match on the same input record then only that 
+record will match the pattern.
+
+        /AUTHOR/,/NOTES/
+
+An action is a sequence of statements that are performed when a pattern 
+matches.  
+
+A statement can be one of the following: 
+
+        { STATEMENT_LIST }
+        EXPRESSION
+        print EXPRESSION-LIST
+        printf FORMAT, EXPRESSION_LIST
+        if ( EXPRESSION ) STATEMENT [ else STATEMENT ]
+        for ( VARIABLE in ARRAY ) STATEMENT
+        for ( EXPRESSION; EXPRESSION; EXPRESSION) STATEMENT
+        while ( EXPRESSION ) STATEMENT
+        do STATEMENT while ( EXPRESSION )
+        break
+        continue
+        next
+        delete ARRAY[SUBSCRIPT]
+        exit [ EXPRESSION ]
+        return [EXPRESSION ]
+
+A STATEMENT_LIST is a list of statements separated by newlines or semicolons.
+As with pattern-actions statements may be extended over more than one line 
+with backslash (\). 
+        {
+            print "value:", i, \
+                  "number:", j
+            i = i + $3; j++
+        }
+
+Expressions take on string or numeric values depending on the operators.
+There is only one string operator, concatenation, indicated by adjacent 
+expressions.  The following are the operators in order of increasing 
+precedence:
+
+Operation           Operator      Example     Meaning
+
+assignment          = *= /= %=    x += 2      two is added to x
+                    += -= ^=
+conditional         ?:            x?y:z       if x then y else z
+logical OR          ||            x||y        if (x) 1 else if (y) 1 else 0
+logical AND         &&            x&&y        if (x) if (y) 1 else 0 else 0
+array membership    in            x in y      if (exists(y[x])) 1 else 0
+matching            ~ !~          $1~/x/      if ($1 contains x) 1 else 0
+relational          == != >       x==y        if (x equals y) 1 else 0
+                    <= >= <
+concatenation                     "x" "y"     a new string "xy"
+add, subtract       +  -          x+y         sum of x and y
+mul, div, mod       * / %         x*y         product of x and y
+unary plus minus    + -           -x          negative of x
+logical not         !             !x          if (x is 0 or null) 1 else 0
+exponentiation      ^             x^y         x to the yth power
+inc, dec            ++ --         x++         x then add 1 to x
+field               $             $3          the 3rd field
+grouping            ()            ($1)++      increment the 1st field
+
+Variables may be scalars, array elements (denoted x[i]) or fields (denoted 
+$expression).  Variable names begin with a letter or underscore and may 
+contain any number of letters, digits, or underscores.
+
+Variables are initialized to both zero and the null string.  Fields and the 
+command line arguments will be both string and numeric if they can be 
+completely represented as numbers.  The range for numbers is 1E-306..1E306.
+
+Array subscripts may be any string.  Multi dimensional arrays are simulated in 
+AWK by concatenating the individual indexes with the subscript separator 
+between them.  So array[1,1] is equivalent to array[1 SUBSEP 1].   Individual
+array elements may be removed with the delete statement, and the whole array
+erased with an assignment to the bare variable.
+
+        delete a[i]             # delete one element
+        a = ""                  # delete all elements
+
+Simply referencing an array element will cause it to be created and 
+initialized.  To avoid creating unwanted elements use the in operator.
+
+        if (i in a) print a[i]  # print one element (if it exists)
+        for (i in a) print a[i] # print all elements (that exist)
+
+Comparison will be numeric if both operands are numeric otherwise a string 
+comparison will be made.  Operands will be coerced to strings if necessary.  
+Uninitialized variables will compare as numeric if the other operand is 
+numeric or uninitialized.  Eg. 2 > "10" and 2 < 10.
+
+There are a number of built in variables they are:
+
+Variable        Meaning                                         Default
+
+ARGC            number of command line arguments                   -
+ARGV            array of command line arguments                    -
+FILENAME        name of current input file                         -
+FNR             record number in current file                      -
+FS              controls the input field separator                " "
+NF              number of fields in current record                 -
+NR              number of records read so far                      -
+OFMT            output format for records                        "%.6g"
+OFS             output field separator                            " "
+ORS             output record separator                           "\n"
+RLENGTH         length of string matched by match function         -
+RS              controls input record separator                   "\n"
+RSTART          start of string match by match function            -
+SUBSEP          subscript separator                              "\034"
+
+
+ARGC and ARGV are the count and values of the command line arguments. ARGV[0] 
+is the full path/name of AWK.EXE, and the rest are all the command line 
+arguments except the "-F", "-f" and program arguments which are used by AWK.
+
+The field separator is a string that is interpreted as a regular expression.
+A single space has a special meaning and is changed to /[ \t]+/, any leading 
+spaces or tabs are removed.  A BEGIN action may be used to set the separator 
+or it may be set by using the -F command line option. 
+
+        BEGIN { FS = "," }      sets FS to a single comma
+        "-F[ ]"                 sets FS to a single space
+
+The record separator is a string that is either a newline or the null string.
+If the record separator RS is set to the null string then multi line records 
+may be read.  In this case the record separator is an empty line. Setting RS 
+to "\n" will restore the default behavior.
+
+There are a number of built in functions:
+
+Function            Value returned
+
+atan2(y, x)         arctangent of y/x           in the range -pi to pi
+cos(x)              cosine of x                 x in radians
+exp(x)              exponentiation of x         (e ^ x)
+gsub(r, s)          number of substitutions     substitute s for all r in $0
+gsub(r, s, t)       number of substitutions     substitute s for all r in t     
+index(s)            position of s in $0         0 if not in $0
+index(s, t)         position of t in s          0 if not in s
+int(x)              integer part of x
+length(s)           number of characters in s
+log(x)              natural log of x
+match(s, r)         position of r in s or 0     sets RSTART and RLENGTH
+rand()              random number               0 <= rand < 1
+sin(x)              sine of x                   x in radians
+split(s, a)         number of fields            split s into a on FS 
+split(s, a, fs)     number of fields            split s into a on fs
+sprintf(f, e, ...)  formatted string
+sqrt(x)             square root of x
+sub(r, s)           number of substitutions     substitute s for one r in $0
+sub(r, s, t)        number of substitutions     substitute s for one r in t
+substr(s, p)        substring of s from p to end
+substr(s, p, n)     substring of s from p of length n
+system(s)           exit status                 execute command s
+
+The numeric procedure srand(x) sets a new seed for the random number 
+generator.  srand() sets the seed from the system time.
+
+The regular expression arguments of sub, gsub, and match may be either regular 
+expressions delimited by slashes or any expression.  The expression is coerced 
+to a string and the resulting string is converted into a regular expression.  
+This coersion and conversion occurs every time the procedure is called so the 
+regular expression form will always be faster. 
+
+The print and printf statements come in several forms:
+
+Form                            Meaning
+
+print                           print $0 on standard output
+print expression, ...           prints expressions separated by OFS
+print(expression, ...)  
+printf format, expression, ...
+printf(format, expression, ...)
+print >"file"                   print $0 on file "file"
+print >>"file"                  append $0 to file "file"
+printf(format, ...) >"file"
+printf(format, ...) >>"file"
+
+close("file")                   close the file "file"
+
+The print statement prints its arguments on the standard output, or the 
+specified file, separated by the current output field separator, and 
+terminated by the output record separator.  The printf statement formats its 
+expression-list according to the format.  The file is only opened once unless 
+it is closed between executions of the print statement.  A file than is open 
+for output must be closed if it is to be used for input.  The "file" argument 
+may any expression that evaluates to a DOS file name. 
+
+There is one function that is used for input.  It has several forms
+
+Form                            Meaning
+
+getline                         read the next record into $0
+getline s                       read the next record into s
+getline <"file"                 read a record from file "file" into $0
+getline s <"file"               read a record from file "file" into s
+
+getline returns -1 if there is an error (such as non existent file), 0 on 
+end of file and 1 otherwise.  The pipe form mentioned in the book is not 
+implemented in this version.
+
+The for ( i in a ) statement assigns to i the indexes of a for all elements 
+in a.  The while (), do while (), and for (;;) statement is as in C as are 
+break and continue. 
+
+The next statements stops processing the pattern action statements and reads 
+in the next record.  An exit will cause the END actions to be performed or if 
+encountered in an END action will cause termination of the program.  The 
+optional expression is returned as the exit status unless overridden by a 
+further exit statement in an END action. 
+
+The return statement may be used only in function declarations.  It may have 
+an option value to return as the value of the function.  The value of a 
+function defaults to zero/null (0/""). 
+
+REGULAR EXPRESSIONS
+
+A \ followed by a single character matches that character.
+
+The ^ matches the beginning of the string.
+
+The $ matches the end of the string.
+
+A . matches any character.
+
+A single character with no special meaning matches that character.
+
+A string enclosed in brackets [] matches any single character in that string.  
+Ranges of ASCII character codes may be abbreviated as 'a-z0-9'.  A left 
+bracket ] may occur only as the first character of the string.  A literal - 
+must be placed where it can't be mistaken as a range indicator. If the first 
+character is the caret ^ then any character not in the string will match. 
+
+A regular expression followed by * matches a sequence of 0 or more
+matches of the regular expression.
+
+A regular expression followed by + matches a sequence of 1 or more
+matches of the regular expression.
+
+A regular expression followed by ? matches a sequence of 0 or 1
+matches of the regular expression.
+
+Two adjacent (concatenated) regular expressions match a match of the first 
+followed by a match of the second. 
+
+Two regular expressions separated by | match either a match for the
+first or a match for the second.
+
+A regular expression enclosed in parentheses matches a match for the
+regular expression.
+
+The order of precedence of operators at the same parenthesis level is 
+[] then *+? then concatenation then |.
+
+
+PRINTF FORMAT
+
+Any character except % and \ is printed as that character.
+
+A \ followed by up to three octal digits is the ASCII character
+represented by that number.
+
+A \ followed by n, t, r, b, f, v, or p is newline, tab, return, backspace, 
+form feed, vertical tab, or escape. 
+
+%[-][number][.number][l][c|d|E|e|F|f|G|g|o|s|X|x|%] prints an expression:
+
+The optional leading - means left justified in the field
+The optional first number is the field width
+The optional . and second number is the precision
+The optional l denotes a long expression
+The final character denotes the form of the expression
+
+        c character
+        d decimal
+        e exponential floating point
+        f fixed, or exponential floating point
+        g decimal, fixed, or exponential floating point
+        o octal
+        s string
+        x hexadecimal 
+
+An upper case E, F, or G denotes use of upper case E in exponential format.
+An upper case X denotest hexadecimal in upper case.
+Two percent characters (%%) will print as one.
+
+A format will match the regular expression:
+
+        /[^%]*(%(%|(-?([0-9]+)?(\.[0-9]+)?l?[cdEeFfGgosXx]))[^%]*)*/
+
+EXAMPLES
+
+Print lines longer than 72 characters (missing action is print):
+
+        length($0) > 72
+
+Print first two fields in opposite order (missing pattern is always match):
+
+        { print $2, $1 }
+
+Add up first column, print sum and average:
+
+                { s = s + $1 }
+        END     { print "sum is", s, "average is", s/NR }
+
+Print fields in reverse order:
+
+        { for (i = NF; i > 0; --i ) print $i }
+
+Print all lines between start/stop pairs:
+
+        /start/,/stop/
+
+Print all lines whose first field is different from previous one:
+
+        $1 != prev { print; prev = $1 }
+
+Convert date from MM/DD/YY to metric (YYMMDD):
+
+        { n = split(date, a, "/"); date = a[3] a[1] a[2] }
+
+Copy a C program and insert include files:
+
+        $1 == "#include" && $2 ~ /^"/ {
+                include = $2;
+                gsub(/"/, "", include);
+                while ((getline <include) > 0) print
+                next
+        }
+        { print }
+
+AUTHOR
+
+        Rob Duff,  Vancouver,  B.C.,  V5N 1Y9
+        BBS: (604)877-7752  Fido: 1:153/713.0
+
+DATE
+
+        08-Feb-90
+
+SEE ALSO
+
+M. E. Lesk and E. Schmidt,
+        LEX - Lexical Analyser Generator
+
+A. V Aho, B. W Kernighan, P. J. Weinberger,
+        Awk - a pattern scanning and processing language
+
+A. V Aho, B. W Kernighan, P. J. Weinberger,
+        The AWK Programming Language 
+        Addison-Wesley 1988   ISBN 0-201-07981-X
+
+
+NOTES
+
+There are no explicit conversions between numbers and strings.  To force an 
+expression to b treated as a number add 0 to it; to force it to be a string 
+concatenate "" to it.  Array indices are strings and may have the same 
+numerical value but will index different values (eg "01" vs "1").
+
+LIMITS
+
+        stack depth is 500
+        number of files is 10
+        largest string is 4000
+        input line size is 2000
+        number of variables is 100
+        function call depth is 100
+        highest field number is 100
+

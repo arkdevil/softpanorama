@@ -1,0 +1,232 @@
+============================ DIETAPI.DOC ===============================
+************************************************************************
+               DIET APPLICATION INTERFACE version 1.43e
+               copyright(c) 11/22/1991 by Teddy Matsumoto
+************************************************************************
+
+ **Application Interface of DIET.EXE**
+
+ The following interrupts are designed to be used by application 
+ software authors to make easy controls over the status of DIET.EXE.
+ Ealier Versions of DIET.EXE used to check its TSR status from the 
+ key words in MCB with certain offsets. This method is no more available
+ since from this version on, DIET.EXE may stay as a program as well 
+ as a device driver. 
+ I tried to device a routine to control DIET.EXE using simple DOS calls. 
+ I present the details of the available service calls in the following
+ for those who writes shells and other applications for DIET.EXE.
+ DIET.EXE uses these interrupts to control its TSR part.
+ 
+ **INTERRUPT of DOS used **
+
+ INT 21h, AH=37h AL=D0h--DFh are used for the controls of TSR part of DIET.
+ Here is the original description of INT 21h AH=37h from the documents
+ 'Interrupt List Release 90.4 compiled by Ralf Brown,ralf@cs.cmu.edu.
+
+---------------------------------------------
+ INT 21 - DOS 2+ internal - GET SWITCHAR
+	AX = 3700h
+ Return: AL = FFh unsupported subfunction
+	DL = current switch character
+ Notes:	documented in some OEM versions of some releases of DOS
+	supported by OS/2 compatibility box
+ SeeAlso: AX=3701h
+ ---------------------------------------------
+ INT 21 - DOS 2+ internal - SET SWITCHAR
+	AX = 3701h
+	DL = new switch character
+ Return: AL = FFh unsupported subfunction
+ Notes:	documented in some OEM versions of some releases of DOS
+	supported by OS/2 compatibility box
+ SeeAlso: AX=3700h
+ ---------------------------------------------
+ INT 21 - DOS 2.x and 4.0 only internal - AVAILDEV
+	AH = 37h
+	AL = subfunction
+	   02h read device availability (as set by AL=03h)
+		Return: DL = device availability (always FFh under DOS 4.0)
+	   03h set device availability, where:
+		DL = 00h means \DEV\ must preceed device names
+		DL <> 00h means \DEV\ need not preceed device names
+ Return: AL = FFh if invalid subfunction
+ Notes:	all versions of DOS from 2.00 allow \DEV\ to be prepended to device
+	  names without generating an error even if the directory \DEV does
+	  not actually exist (other paths generate an error if they do not
+	  exist).
+	although DOS 4.0 accepts these calls, they have no effect
+ ---------------------------------------------
+ The description above makes me convince that there is no other TSR
+ program which makes use of this interrupt. I use this interrupt for
+ API to make easier controls over the functions of DIET,EXE.
+ To assure the safety further, I always set the BX register with ID
+ BX = 899Dh ('DI'+'ET').
+
+ **Available Functions **
+    AX=37D0h        check TSR diet.exe
+    AX=37D1h        get segment where diet.exe stays resident
+    AX=37D2h        read TSR control flags.
+    AX=37D3h        set TSR control flags. 
+    AX=37D4h        read TSR options.
+    AX=37D5h        set TSR options.
+    AX=37D6h        read temporary directory names.
+    AX=37D7h        set temporary directory.
+    AX=37D8-37DBh   reseerved for future use by DIET.exe 
+    AX=37DCh        set address of external procedure.
+    AX=37DDh        release external procedure.
+    AX=37DEh        read EMS status.
+    AX=37DFh        remove TSR part from memory.
+
+
+** HOW to USE API of DIET.EXE **
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ These calls can be used only after establishing that the Resident Part of
+ DIET.EXE is in fact present, by making the call with AX=37D0h.
+
+ ** Example.Disable TSR DIET.EXE temporarily for copying:
+
+    AX=37D0h check if DIET.EXE is present as TSR program.
+    AX=37D2h read TSR control flags and preserve on stacks.
+    AX=37D3h disable TSR function of DIET.EXE 
+    Copy files if necessary 
+    AX=37D3h reset TSR control flags to the original state.
+
+
+ ** DIET API specifications **
+    All of the values in the resiters are preserved except those in
+    Return values.
+-----------------------------------------------------------------------------
+ ** Get DIET status**
+  int 21h  AH = 37h  BX = 899Dh ('DI'+'ET')
+           AL = D0h
+  Return:  AX = 0  CX = 899Dh  DX = version ID 
+                DIET.EXE is present as TSR program.
+           AL = -1
+                DIET.EXE is not present as TSR.
+                AL = -1 is a default return value of DOS 2+ to 4.0.
+-----------------------------------------------------------------------------
+**Read Segment Address of TSR DIET.EXE 
+  int 21h  AH = 37h  BX = 899Dh ('DI'+'ET')
+           AL = D1h
+  Return:  AX = 0
+           CX = code segment of TSR part of DIET.EXE.
+           DX = memory block segment of TSR DIET.EXE.
+           DX = 0 if device=DIET.EXE in config.sys.
+-----------------------------------------------------------------------------
+** Read control flags of TSR DIET.EXE
+  int 21h  AH = 37h  BX=899Dh ('DI'+'ET')
+           AL = D2h
+  Return:  AX = 0
+           DL = 0 DIET.EXE is active
+                else diable
+           DH = Skip flag. 
+    Note:  Skip flags takes non-zero value while TSR is active.
+-----------------------------------------------------------------------------
+ ** Set TSR control flags
+  INT 21h  AH = 37h  BX=899Dh ('DI'+'ET')
+           AL = D3h
+           DL = TSR control flag ; 
+              = 0    : active
+              = else : disable
+           DH = 0 :    Skipflag
+  Return:  AX=0
+------------------------------------------------------------------------------
+ **Read TSR otpitons
+  int 21h  AH = 37h  BX = 899Dh ('DI'+'ET')
+           AL = D4h
+  Return:  AX = 0
+           DX = TSR options;
+                bit 1: automated compression of DIETed file  option -p
+                bit 2: automated compression of created file option -w
+                bit 3: Supress DIET message                  option -m
+                bit 4: Display Origianl File size            option -s
+                bit 5-16: reserved
+-----------------------------------------------------------------------------
+ ** Set TSR options
+  INT 21h  AX = 37h  BX=899Dh ('DI'+'ET')
+           AL = D5h
+           DX = TSR otpions
+                bit 1: automated compression of DIETed file  option -p
+                bit 2: automated compression of created file option -w
+                bit 3: Supress DIET message                  option -m
+                bit 4: Display Origianl File size            option -s
+                bit 5-16: must be 0, reserved
+  Return:  AX = 0
+-----------------------------------------------------------------------------
+ ** Read Temproary directory name.
+  INT 21h  AX = 37h  BX=899Dh ('DI'+'ET')
+           AL = D6h
+  Return:  AX = 0
+           DS:DX = Temporary directory name.
+    Note:  DS:DX   NULL indicates the current directory.
+-----------------------------------------------------------------------------
+ ** Set temporary directory.
+  int 21h  AH = 37h  BX = 899Dh ('DI'+'ET')
+           AL = D7h
+           DS:DX = Temporary Directory Name.
+  Return:  AX = 0
+    Note:  Set temporary directory. The PATH name must begin with the
+           DRIVE name and must end with '\', the length of the name
+           must be within 61 letters ending with 0. 'NULL' specification
+           set the default, CURRENT directory.
+------------------------------------------------------------------------------
+ **Set address of an external procedure
+  INT 21h  AH = 37h  BX = 899Dh ('DI'+'ET')
+           AL = DCh 
+           DS:DX = Address of external procedure.
+  Return:  AX = 0
+    Note:  Set address of the external procedure.
+           Resident part calls external procedure at the beginning of
+           decompression and on exiting compression by failure. Informations
+           are stacked with pointers:
+
+        SP+0,3      return address.
+        SP+4,5      class;upon start  : file handle of DIETed file.
+                          upon failure: -1 file creation error
+                                        -2 fail to create by shortage of space
+                                        -3 fail to create by other reason
+        SP+6,9      Pointer to the compressed filename.
+        SP+10,13    Pointer to the decompressed,or temporary filename 
+ 
+        With these informations, you may write a program such as a small
+        popup window reporting the process of decompressing and link with
+        this call.
+
+        Do preserve ES,DS,BP,SI,DI resiters when you use this call.
+        Expanded Memory is opened through a window in this call. Consequently,
+        you must reset logical to physical memory mapping to the saved 
+        state and issue RETurn from procedure Far, lest you should hang up 
+        the system.
+
+ -----------------------------------------------------------------------------
+ ** Release external procedure.
+  INT 21h  AH = 37h  BX=899Dh ('DI'+'ET')
+           AL = DDh
+  Return:  nothing
+  Note: Release external procedure linked by AH=37h, AL=DCh
+ -----------------------------------------------------------------------------
+ ** Read Status in Expanded Memory
+  INT 21h  AH =37h  BX=899Dh ('DI'+'ET')
+           AL = DEh
+  Return:  AX = 0
+           CX = 0: Expanded Memory not used.
+                1: Expanded Memory used as work area
+                2: Expanded Memory used for codes and as work area.
+           DX = EMM handle when Expanded Memory is used.
+    Note:  read the status of DIET.EXE in EMS.
+ ------------------------------------------------------------------------------
+ ** Remove TSR part from memory **
+  int 21h  AX = 37h  BX = 899Dh ('DI'+'ET')
+           AL = DFh
+  Return:  AX = 00h  success in removal.
+           AX = FFh  failure in removal.
+    Note:  Remove TSR DIET.EXE, do not forget to check if TSR is resident.
+           Expanded Memory Areas stay as they are.
+
+
+ ** Finally **
+ I have no plan to change the functions of those calls described above.
+ though I may add functions to the reserved values of AL.
+ Please test these APplication Interfaces if you are to design 
+ shells or help programs for DIET.EXE. 
+
+ ========================= end of DIETAPI.DOC ===========================

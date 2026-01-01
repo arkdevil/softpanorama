@@ -1,0 +1,397 @@
+*****  Computer Select, March 1994  : Articles *****
+
+Journal:    C Users Journal  Jan 1994 v12 n1 p55(6)
+COPYRIGHT R & D Publications Inc. 1994
+-------------------------------------------------------------------------
+Title:     Porting Microsoft's foundation class library to UNIX.
+Author:    Wingo, Scot
+           Lu, Louis
+
+
+Abstract:  An exercise in porting Microsoft Corp's Foundation Class
+           Library (MFC), a 16-bit based C++ library, to a 32-bit UNIX
+           workstation indicates that a program's portability is
+           increased by using C++, but not without a number of problems.
+           MFC source code is available with Visual C++ and can be used
+           as the starting point for porting MFC to UNIX. Source codes
+           files must be converted from MS-DOS to UNIX format and macros
+           need to be defined before starting the compilers. Portability
+           problems occur due to differing compilers and integer sizes.
+           One specific 16/32-bit portability problem occurs in the MFC
+           message mapping mechanism. Another problem that occurs between
+           16-bit and 32-bit systems is in structure packing. Various
+           issues regarding byte ordering and differing operating
+           systems' memory schemes are also a problem. MFC can be
+           successfully run on UNIX after fixing approximately 100
+           portability problems.
+-------------------------------------------------------------------------
+Full Text:
+
+Introduction
+
+Many programmers believe that by using C++ with its strong type checking
+they can achieve the multi-platform programmer's nirvana: 100% portable
+code. We tested this theory by porting a large 16-bit based C++ library,
+Microsoft Foundation Class Library (MFC), to 32-bit UNIX workstations. We
+found that while using C++ definitely increases your program's
+portability, it still is not the portability silver bullet. This article
+highlights some common portability problems and shows examples of them in
+the context of MFC.
+
+Microsoft recently released the second release of MFC with their Visual
+C++ development environment. MFC provides the user with the best of both
+worlds, a set of basic data type classes and an application framework.
+The basis classes provide support for collections, exceptions, file I/O,
+strings, and run-time class information. MFC's application framework is
+built upon the Windows API and implements several advanced application
+features such as:
+
+* toolbars * status bars * Multiple Document Interface (MDI) * Most
+Recently Used (MRU) -- a list of recently used files in a menu maintained
+for you * message mapping -- allows you to easily map messages to member
+functions * splitter windows -- similar to those used in Excel and Word *
+print preview/printing Microsoft provides MFC source code with the Visual
+C++ product as a reference. We used this code as the starting point for
+porting the MFC to UNIX. By making MFC available on UNIX, we hope to
+improve the quality of applications and facilitate the creation of
+feature rich applications on UNIX. Moreover, with MFC on both Windows and
+UNIX, multi-platform developers can support applications on both
+platforms with a single set of source code.
+
+Getting Started
+
+After copying the MFC source files to the UNIX workstation, we dirst had
+to convert the files from DOS format to UNIX format. (DOS files have both
+carriage returns and line feeds. UNIX files have only linefeeds.) Most
+workstations have utilities, such as dos2unix, for performing the
+conversion. Next, we created a quick and dirtyy makefile that compiles
+all of the source files nad stuffs them into a library.
+
+Before firing up the compiler, we investigated which macros should be
+defined. The first macro, NO[underscore]VBX[underscore]CONTROLS, excludes
+the MFC support for Visual Basic (VBX) controls. Since there is no
+concept of Visual Basic controls or the underlying library on UNIX, we
+defined this macro. Microsoft was kind enough to also include a PORTABLE
+macro which, when defined, turns off sections of inline Intel x86
+assembly code and turns to C++ equivalents. For the initial compilation,
+we also decided to turn to the [underscore]DEBUG macro, which turns off
+most inlining and turns on tons of useful assertions. After defining
+these macros, we kicked off the first compile.
+
+The first portability problems were due to subtle differences in the
+various compilers we used. Most UNIX C++ compilers are based on the AT&T
+cfront implementation. Each hardware vendor typically licenses the cfront
+compiler and adds the platforrm specific components needed to support
+their hardware. We ported MFC to Sun SPARCstation and HP 9000/700
+workstations. The two compilers used in this port were the SPARCworks C++
+3.0.1 and HP's C++ version 3.0.2. Both compilers are based on version 3.2
+of cfront. Visual C++ used Microsoft's C 8.0 compiler, which claims
+cfront compliance but is not based directly on that implementation.
+
+The biggest compiler difference was where the [underscore]DEBUG version
+of MFC tracks memory allocation by overloading operator new. The debug
+version of new is overloaded to take filename and line number
+information. Listing 1 shows the relevant code.
+
+When [underscore]EBUG is defined, a new expression should be preprocessed
+to:
+
+new ==> DEBUG[underscore]NEW DEBUG[underscore]NEW ==> new([underscore
+]FILE[underscore],[underscore]LINE[underscore]) CObject *obj = new (
+"nested.C" , 30 ) CObject;
+
+This macro expansion may appear recursive, but it is not. Microsoft C and
+Sun C++ 3.0 expand these macros correctly, but HP C++ 3.0 does not. The
+HP preprocessor fails with the following error message:
+
+nested.C: 30: Overflowed replacement buffer.
+
+The HP C++ preprocessor does not follow the macro expansion rules defined
+in The Annotated C++ Reference Manual. In this manual, the C++ ANSI base
+document, section 16.3.3 "Rescanning and Further Replacement" states: "If
+the name of the macro being replaced is found during this scan or during
+subsequent rescanning, it is not replaced." Hopefully, with the
+publication of an ANSI C++ standard, differences like these will no
+longer be an issue.
+
+To fix the problem, we just disabled the debug version of new on HP
+workstations by adding:
+
+#ifndef HPUX #define new DEBUG[underscore]NEW [endif
+
+Integer Size Issues
+
+Since inteers in the Windows environment are 16 bits wide, C programmers
+often fall into the common mistake of assuming that other 16-bit data
+types are always the same size as an integer. This is not the case in
+32-bit environments. See Listing 2for an example of a 16/32-bit problem
+waiting to happen. Porting the code in Listing 2 to UNIX would cause
+problems if the value of nOne was ever greater than 65,535, because it
+would suddely become too large to fit into wTwo (which is only 16 bits
+wide). The wTwo variable would wrap and start back at 0.
+
+C++'s strong type checking will never allow code like this to survive, so
+16/32-bit issues are not usually a common C++ problem. We did find one
+significant 16/32-bit portability problem in the MFC message mapping
+mechanism. To better understand the problem, let's look at how Microsoft
+has implemented Message Mapping in MFC.
+
+In Windows SDK programming, programs usually handle messages in a window
+procedure, or WinProc. MFC's Message Mapping provides a facility that
+allows you to ap a windows message to a C++ class method. This paradigm
+is a natural for object-oriented programming because it lets you think of
+each message handler as being responsible for handling the communication
+between your object and the application framework. Some frameworks use
+virtual functions for message handling, but this results is very large
+vtables and poor performance. Borland's Object Windows Library (OWL) uses
+a "dynamic dispatch table" which is implemented through a new C++ syntax.
+The drawback of this approach is that it requires extensions to the C++
+language, and thus is not portable. MFC implements message mapping
+through a set of macros that create a message-mapping table inside each
+class. Here's an example of how to declare a simple message map:
+
+BEGIN[underscore]MESSAGE[underscore]MAP() ON[underscore]WM[underscore
+]LBUTTONDOWN() ON[underscore]WM[underscore]LBUTTONUP()
+
+ON[underscore]WM[underscore]MOUSEMOUSE() ON[underscore]COMMAND(ID
+[underscore]FILE[underscore]PRINT, CView::OnFilePreint) ON[underscore
+]COMMAND(ID[underscore]FILE[underscore]PRINT[underscore]PREVIEW,
+CView::OnFilePrintPreview) END[underscore]MESSAGE[underscore]MAP()
+
+Each entry can use a default mapping such as ON[underscore]WM[underscore
+]LBUTTONDOWN, which assumes that you would like to map WM[underscore
+]LBUTTONWDOWN ON the OnLButtonDown member function. You can also specify
+the mapping with the more generic ON[underscore]MESSAGE(message,
+function) macro.
+
+Each entry in the table has the following four elements:
+
+UINT nMessage UINT nID UINT nSig AFX[underscore]PMSG pfn were nMessage is
+the message identifier (such as "WM[underscore]PAINT, WM[underscore
+]MOUSEMOVE"), nID is the identifier for the recipient of the messae, nSig
+is the signature alias (more on this later), and pfn is a pointer to the
+mthod for handling the specified message.
+
+The beauty of this message-mapping scheme is that it is very fast (based
+on a integer lookup) and fairly portable. The portability problem comes
+from the way the MFC must store the member function pointers in the
+table. To avoid complete chaos, each table entry uses the nSig field to
+store the return value and argument types of each message handling
+method. For example, if you have a message handler defined as:
+
+void MessageHandler (WPARAM wParam, LAPARAM 1Param); the nSig value for
+this function would be AfxSig[underscore]vwl. All possible types of
+declarations ae enumerated in a MFC header file. This scheme allows the
+message mapping to sneak around C++'s strong type-checking, while still
+providing a level of type checking. When a message comes in, MFC uses the
+nSig value to match the message fields to the fields of the function. The
+only problem with this scheme is that if a function is defined as:
+
+void MessageHandler(WPRAM wParwam, CPoint cpoint);
+
+the nSig value is also AFXSig[underscore]vwl. Since the cpoint is treated
+like a long, the CPoint constructor will not be called, and if any
+conversion other than copying needs to happen it will be skipped.
+
+To fix this problem, we added some new values to the signature
+enumeration, such as AfxSig[underscore]vwp, which will ensure that the
+CPoint constructor is called and any conversions are made. The lesson to
+be learned here is that if you circumvent C++'s strong type-checking, you
+will pay a penalty in portability.
+
+Alignment and Byte Order
+
+Another common 16/32-bit problem is structure packing. On 16-bit systems,
+compilers pack structures based on 16-bit boundaries. On 32-bit systems,
+the compilers often use 32-bit boundaries (they waste a byte here and
+there to ensure that the elements of a structure are aligned properly).
+The end result is that the size sizeof operator will return different
+results in 16-and 32-bit environments. Structure packing can cause the
+most problems if you read structures to and from binary files. MFC does
+not write structures to file, but does not prevent the programmer from
+doing so. It is more portable to avoid writing structures to file and
+stick with the basic datatypes when writing binary files.
+
+The other common portability problem between Windows and UNIX is byte
+swapping. Some UNIX workstations such as the Sun SPARCstation, have Big
+Endian (versus Intel's Little Endian) byte ordering. This means, among
+other things, that the programmer cannot make assumptions about the order
+of the bytes within the fields of a structure. C++ does not protect the
+programmer from these problems, and we encountered a significant number
+of byte-swapping problems in MFC. See Listing 3 for a byte-swapping
+problem in the constructor of the MFC class CPoint.
+
+This code makes the fatal mistake of assuming that data in the DWORD
+dwPoint will be ordered exactly the same as the tagPoint structure. To
+fix the problem, we modified the CPoint constructor to use Microsoft's
+portable HIMORD and LOWORD macros (these live in windows.h) to
+deconstruct a DWORD properly. Here's the portable version of
+CPoint::CPoint(DWORD):
+
+CPoint::CPoint(DWORD dwPoint) { x = LOWORD(dwPoint); y= HIWORD(dwPoint);
+}
+
+The MFC CPoint and CSize classes contained substantial byte ordering
+problems that we discovered by reviewing the source and scanning for
+typecasts on the left side of expressions.
+
+Most RISC based systems can only write words to memory on 16-bit
+boundaries. If programs do not follow this rule, a core dump is created
+with a bus error. The MFC object serialization was a source of unaligned
+write problems, as shown in Listing 4. This assumes that the m[underscore
+]lpBufCur can be written without consideration of its alignment in
+memory. This code caused an immediate bus error on both of the target
+platforms.
+
+The safest way to avoid these problems is to use the memcpy function,
+which will handle memory alignment for you when necessary. Listing 5
+shows the more portable version of Listing 4.
+
+Operating System Differences
+
+The UNIX systems used here have a flat 32-bit memory scheme, versus DOS's
+segmented memory. MFC has some dependencies on the DOS segmented memory.
+A typical example is:
+
+#define [underscore]AFX[underscore]FP[underscore]OFF(thing)
+(*((UINT*)&(thing)))
+
+#define [underscore]AFX[underscore]FP[underscore]SEG(1p)
+(*((UINT*)&(lp)+1))
+
+These macros obtain the segment and offset of a pointer. Needless to say,
+they do not work under UNIX. We replaced each instance of this macro with
+more portable code on a case-by-case basis.
+
+File system differences are another example of operating-system
+portability problems. The UNIX file system allows file names to be 250
+characters long, and separates directory names with a / instead of a
+[unkeyable] character. DOS file names are usually in the format:
+
+drive[underscore]letter:[unkeyable]path[unkeyable]file[underscore
+]name.EXT
+
+where file[underscore]name is limited to eight characters. The MFC File
+I/O routines contained many problems in this area. So too did the code
+for serialization and MRU. MFC uses serialization to provide object
+persistence in binary files. All object serialization is built on the
+basic types such as WORD, DWORD, float, int, etc. Since MFC defines the
+serialization for these low-level types already, developers are isolated
+from many of the portability problems associated with binary file I/O. In
+the future, we consider re-writing the basic type serialization code to
+be able to read files written on either Little or Big Endian machines. To
+do this, we will always assume that data should be written in one byte
+ordering. If a machine doesn't use that byte ordering, the serialization
+will automatically change to re-order data going into and out of binary
+files via serialization.
+
+It Works!
+
+After fixing the mentioned portability problems, we were able to get some
+MFC samples up and running on UNIX, as shown in Figure 1. The porting
+effort took two people approzimately two months to examine all of the
+library and eliminate the portability problems. In total there were over
+100 portability problems that had to be fixed.
+
+About six months after our port of the 16-bit MFC to UNIX, Microsoft
+released the Windows NT version of MFC. We dissected it to see what
+portability improvements Microsoft had made in their port from the 16-bit
+Windows environmment to the 32-bit Windows environment. The biggest
+improvements, as expected, were in the areas of 16/32-bit and memory
+model portability. Microsoft fixed all of the examples mentioned earlier
+in this article, with the exception of some byte swapping problems,
+because NT only runs on Little Endian processors. Porting this version of
+MFC to UNIX will take much less time and effort.
+
+Porting the 16-bit MFC to UNIX was a challenging exercise in finding and
+fixing portability problems. Felloe C++ programmers should take these
+experiences to heart and write code that avoids these portability
+pitfalls. With the multitude of platforms and operating environments
+available, you never know on which platform your code will be running.
+
+Bibliography
+
+[1] Microsoft Corp. Microsoft Visual C++ Class Library Reference
+
+[2] Microsoft Corp. Microsoft Visual C++ Class Library Users' Guide
+
+[3] Margaret A. Ellis, Bjarne Stroustrup, The Annotated C++ Reference
+Manual, Addison-Wesley, [1990].
+
+Listing 1 MFC overloading of new for debugging
+
+#include <stdlib.h> // MFC style debug new defines.
+
+class CObject { public: #ifdef[underscore]DEBUG // for file name/line
+number tracking using DEBUG[underscore]NEW void* operator new(size
+[underscore]t nSize char * lpszFileName, int nLine); #endif };
+
+#ifdef[underscore]DEBUG // Memory tracking allocation #define DEBUG
+[underscore]NEW new([underscore]FILE, [underscore]LINE[underscore]) #else
+// NonDebug version that assume everything is OK #define DEBUG[underscore
+]NEW new #endif
+
+#ifdef[underscore]DEBUG #define new DEBUG[underscore]NEW #endif
+
+main() { CObject *obj = new CObject; } // End of File
+
+Listing 2 A 16/32-bit portability pitfall
+
+typedef unsigned short WORD;
+
+int function() {
+
+WORD wOne; int nTwo; ... wTwo = (WORD)nOne; ... } // End of File
+
+Listing 3 illustrates byte-swapping problem
+
+struct tagPOINT {
+
+short x; short y; };
+
+class CPoint : tagPOINT { ... CPoint::CPoint(DWORD); ... };
+
+CPoint::CPoint(DWORD dwPoint); {
+
+*(DWORD *)this = dwPoint; } // End of File
+
+Listing 4 Code that may create memory aligment problems
+
+Class CArchive {
+
+... BYTE * m[underscore]lpBufCur; BYTE * m[underscore]lpBufMax; ... };
+
+AFX[underscore]INLINE CArchive& CArchive::operator<<(DWORD dw) {
+
+if (m[underscore]lpBufCur + sizeof(DWORD) > m[underscore]lpBufMax)
+Flush(); *(DWORD FAR*)m[underscore]ipBufCur = dw; m[underscore]ipBufCur
++= sizeof(DWORD); return *this; }
+
+// End of File
+
+Listing 5 Fixes potential memory alignment problems in Listing 4
+
+AFX[underscore]INLINE CArchive& Carchive::operator<<(DWORD dw) {
+
+if (m[underscore]lpBufCur + sizeof(DWORD) > m[underscore]lpBufMax)
+Flush():
+
+memcpy(m[underscore]lpBufCur,&dw,sizeof(DWORD));
+
+m[underscore]lpBufCur += sizeof(DWORD); }
+
+// End of File
+-------------------------------------------------------------------------
+Type:      Tutorial
+Product:   Microsoft Foundation Class Library C++ 2.0 (Application
+           development software)
+Topic:     Program Libraries
+           UNIX
+           C Programming Language
+           Software Migration
+           Source Code
+           Tutorial
+
+
+Record#:   15 012 436
+                              *** End ***

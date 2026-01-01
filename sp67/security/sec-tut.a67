@@ -1,0 +1,865 @@
+Journal:    UNIX Review  March 1992 v10 n3 p38(10)
+* Full Text COPYRIGHT Miller Freeman Publications 1992.
+-------------------------------------------------------------------------
+Title:     Security on UNIX systems: how to build security into your open
+           systems and measure its effectiveness. (includes related
+           articles on the National Computer Security Center and its
+           security level designations, typical security features, and an
+           example of a covert channel) (Tutorial)
+Author:    Bunch, Steve
+
+
+Abstract:  Traditionally, UNIX systems have been used in environments
+           where users have implicit trust in their co-workers and, as a
+           result, UNIX security has been only fair.  With the migration
+           of UNIX into more vulnerable environments, steps have been
+           taken to improve the security, or trustedness, of UNIX
+           systems.  Both the National Institute of Standards (NIST) and
+           the National Computer Security Center (NCSC) are involved in
+           the development and evaluation of security of computer
+           systems.  The NCSC publishes the Orange Book, a compilation of
+           security requirements aimed at government computer systems but
+           also applicable in large part to commercial open systems.  The
+           NIST is currently at work on a set of specifications that
+           combines those in the Orange Book and specifications
+           established in Europe.  Vendors may or may not choose to
+           formally evaluate systems according to NIST or NCSC
+           guidelines.  Often there is a trade-off between the level of
+           trustedness and the number of available features on a system;
+           it is up to the customer to decide whether features or
+           security is to be given priority in a purchase decision.
+
+-------------------------------------------------------------------------
+Full Text:
+
+The security of UNIX systems has traditionally been considered only
+fairly good-and only if they are well-administered.  As UNIX systems are
+used in more commercial contexts, the need to rely on system security is
+growing.  UNIX systems are being used to hold information that is as
+valuable as the contents of bank vaults, but how do we know if the
+systems are worthy of that level of trust? When is "pretty good" not good
+enough? What is better? How do you tell how good it is?
+
+This article is an overview of the base security technology being
+incorporated into commercial UNIX systems.  It is meant to help you
+understand the technology better, so you can cut through the marketing
+hype and ask vendors questions that will get you the answers you need for
+your application.
+
+I use the words "secure/security" and "secure system" interchangably with
+"trusted/trustedness" and "trusted system." The preferred terminology in
+many environments, especially where the word "security" appears to
+promise too much, is "trusted." No distinction is intended here.
+
+Computer security technology.  Most computer users think computer
+security makes it harder to get their jobs done.  That is often going to
+be true, generally because of potentially harmful security weaknesses in
+the way people are accustomed to working.  In a bank, the vault
+combination is not given to every cashier, but in a computer
+installation, many employees usually have access to the computer.  With
+the quality of protection provided by most computer systems today, giving
+most employees access is like giving them the keys to the vault (along
+with a key to the front door so they can come in on weekends).  Users
+have to accept the fact that adopting security technology will require a
+change in the way they do things.
+
+The UNIX system was designed to be used in environments where users don't
+think they have any real secrets from each other and trust their
+co-workers implicitly.  Computer security is based on the premise that
+either or both of those assumptions could be false.  Most uses of UNIX
+systems in commercial environments would be considered dangerous if the
+system did not provide good protection against malicious insiders, since
+such insiders are by far the biggest threat to any business.
+
+The threats.  One job of a computer system is to guard data from specific
+kinds of threats.  In a cooperative environment, people often assume the
+only threat is carelessness.  The security features tend to protect you
+from mistakes, such as deleting an important system file.  However, in
+most environments, the severe threats come from misplaced trust: people
+who have legitimate access but abuse their access privileges.  Outsiders
+who can casually or maliciously access your computers and its data also
+pose a threat.  Often an outsider gains access via user carelessness:
+telling the "repairman" who calls on the telephone everything they type
+when they log in (including the password) so that an imaginary problem
+can be "diagnosed." The defense a system must provide varies with the
+specific threat.  Some threats are easy to defend against; some are not.
+Some must by necessity be handled administratively rather than with
+system software.
+
+Some typical threats include:
+
+* Reading a password "hidden" on a cheat sheet in the top desk drawer
+
+* Lending someone your login
+
+* Reading data over someone's shoulder
+
+* Changing or accessing data left unprotected on a system
+
+* Changing data the user is authorized to change, but should not
+
+* Using a terminal left logged in overnight or at lunch to access data
+
+* Stealing floppy disks with back-up data on them
+
+Overly permissive default protections on newly created files
+
+* Incorrect administration of user information or system protections.
+
+Defense vs.  Commercial Usage.  In the past, computer security was mainly
+of interest to the Department of Defense, which has highly sensitive
+information to protect.  In recent years, privacy and other legislation
+has forced other government agencies to worry much more about security
+than they used to.  Banks and other commercial computer users are also
+being forced to worry about computer security as they pass around large
+amounts of money, stocks, and options, with paper trails that are
+sluggish by comparison.  The formerly esoteric realm of computer security
+is coming into the mainstream.
+
+Historically, government and commercial organizations have implemented
+the absolute legal minimum computer security controls.  The
+implementation of stricter controls costs more than the potential losses.
+ This cost/benefit ratio is now moving in the direction of stricter
+security.
+
+Secrets vs.  Data Integrity.  Two distinct aspects of accessing
+computer-stored information are reading it and writing (or modifying) it.
+ Denying users access to some information-keeping secrets-is different
+from preventing them from creating new information.  The difference
+between these types of access resembles the difference between the way a
+security agency feels about the names of its informants in a foreign
+government and the way a banker feels about the bank account balances
+stored in computer systems.  Protecting information from disclosure has
+historically been extremely important to the defense community, which has
+secrets to protect but does not as often depend on the integrity of any
+individual copy of that information.  Integrity has been more important
+to the commercial world, which manages money and other valuables using
+computers that contain the master version of the information but does not
+need to protect that information from disclosure as strongly (since
+little true harm typically would come from it).  Of course, both types of
+users care about both kinds of protection, and in a computerized world
+with increasingly strong information-protection laws, both types of
+security are important.
+
+Features and Assurances.  The distinction between features and assurances
+is useful in understanding trusted systems.  A feature is a visible
+security facility in the system that users must be aware of, such as
+protection mechanisms on files or passwords when they log in (see
+sidebar).  Assurances are mechanisms and activities that make it possible
+to trust the system security features to operate correctly.  These may or
+may not be visible to users.
+
+To make a system as trustworthy as possible, vendors usually build and
+run exhaustive security test suites that test all the security features
+of the system.  They might write formally proven security models; they
+might perform penetration testing in which experts attempt to break into
+the system; they might keep track of the person who originated each
+individual line of code in the system-just in case the programmer turns
+out to be careless or malicious. The goal of these techniques and
+specific (usually not user-oriented) security features is to uncover
+security flaws before the system reaches users and to discover and
+prevent security failures after it reaches the field.  Such assurances
+increase users' confidence that the system and its security features are
+implemented correctly and will work as intended.  In the Orange Book, the
+NCSC (discussed later) has explained the minimum level of assurance it
+requires from a system at various security levels.
+
+This feature/assurance distinction is important to understand.  Features
+can be provided to perform some security-related function, but in a
+system full of serious bugs, such features may provide no protection
+whatsoever.  Similarly, a system with many assurances may be highly
+secure when used according to its designers' intent, but if the system
+does not provide the right features for its end use, people may find the
+system hard to use and circumvent the protection features.  The
+engineering of a trusted computer system is not just the inclusion of
+some new system calls and commands.  It requires carefully analyzing a
+customer's needs and designing features that satisfy those needs,
+combined with the appropriate assurances to meet the intended use of the
+system.
+
+NIST and the NCSC.  Two U.S.  government agencies are heavily involved in
+the specification and evaluation of the security of computer systems.
+The National Institute for Science and Technology (NIST) is responsible
+for computer security in the private sector.  The National Computer
+Security Center (NCSC), a part of the National Security Agency (NSA), has
+responsibility for evaluating the security potential of systems that
+might be sold to the U.S.  government.
+
+The NCSC has published a guide commonly known as the Orange Book (because
+of its orange cover)-its actual name is the "Trusted Computer System
+Evaluation Criteria" or TCSEC.  In the Orange Book, levels of trustedness
+are defined, ranging from a low of D to a high of Al (see sidebar).  D is
+essentially no security protection (for example, an IBM PC).  The
+somewhat esoteric B3 and Al ratings require that the system be designed
+from the beginning to be evaluated at those levels.  The Orange Book was
+originally written to satisfy the security needs of the U.S.  government,
+not commercial users.  For example, it has few specific requirements for
+integrity features.  It also uses a security model based on hierarchical
+and nonhierarchical classification of the sensitivity of information
+(based on the DOD classification system: Top Secret, Secret, and so on),
+which does not exactly match what most companies use as a model.
+
+However, the majority of the Orange Book requirements do apply to
+commercial use.  The UNIX system itself provides many additional
+important features, and system vendors who want to sell Unix-based
+systems in the commercial marketplace have been striving to provide
+features over and above the minimum mandated for the target evaluation
+level.  The result is that even though the Orange Book is being used
+beyond its original intent, it is proving to be a solid framework on
+which to build commercial systems.  It also provides a framework for
+evaluating many areas of functionality and assurance that all trusted
+systems share.  Perhaps its most valuable role has been to serve as a
+common yardstick against which different systems can be measured.
+
+To increase the level of security offered by U.S.  computer vendors, the
+U.S. government several years ago mandated that all computer systems
+bought by the federal government must be evaluated at least at the C2
+level by 1992.  This policy may not be applied absolutely in 1992, but
+many vendors are still striving to have C2 level systems in that
+timeframe.
+
+Security standards.  Most western governments, and several organizations
+within the U.S.  government besides the NCSC and NIST, have produced
+their own security documents.  These documents variously include or
+reference the Orange Book, offer similar information in a different form,
+or offer alternate security requirements based on different assumptions
+or end applications.  Few, if any, genuine incompatibilities exist in
+these different requirements, but the union of all the sets of
+requirements is a very large set.
+
+NIST is currently working on a unified standard that addresses the
+primary European requirements, the Orange Book requirements, and
+commercial requirements.  A question that has not really been answered
+adequately is whether all the security features and requirements
+discussed in these standards meet real-world needs.  Since systems
+implementing them are just beginning to appear, we are entering a period
+of discovery in which we will be getting the answer.  Early results
+indicate that some kinks may need to be worked out.
+
+Computer vendors implementing security functionality in their systems are
+generally using common interfaces in an attempt to satisfy the existing
+specifications they feel are necessary for their markets as well as their
+nongovernment customers who need better security.  Unfortunately,
+different vendors have, in some cases, targeted different customers for
+security-enhanced systems, and they have often invented different
+interfaces to satisfy these and their commercial needs.
+
+Application writers and users would clearly like to see common interfaces
+among vendors, and similar if not identical concepts being presented by
+the system and its documentation.  The industry needs interface standards
+to reduce this interface divergence and to create an environment in which
+independent software vendors  (ISVs) can produce applications that use
+security features and are portable among different vendors' systems with
+minimal effort.  No security-interface standards have been established,
+although there have been several working papers and many proposals.  This
+situation will be changing over the next few years as standards are
+completed and implemented.
+
+Several efforts to create standards for UNIX security features are
+underway.  The first was the /usr/group Subcommittee on Security, formed
+in 1986.  This group eventually passed the baton to the POSIX P1003.6
+group, which is currently proposing a security extension to POSIX.
+Unlike the P1003.1 group, which was able to adopt pre-existing
+technology, P1003.6 was forced to invent new functionality.  It has taken
+a number of years to reach this stage, but the P1003.6 draft standard is
+now out for balloting.  However, since it is operating so close to the
+leading edge of technology, resolution and formal adoption is likely to
+take a while.  Because of the rapid commercial deployment of security
+features, the P1003.6 committee may be able to adopt more de facto
+practice in the future, more like P1003.1 operated, rather than inventing
+so much.
+
+Although X/Open produced a position paper on auditing that was adopted as
+a starting point by P1003.6, it has not recently been active in security.
+ It is now returning to this area, however.
+
+As previously mentioned, NIST is addressing security technology in a set
+of unified security requirements, but this is not an interface definition
+and is not available yet.
+
+Porting bases for security technology.  The most important influences in
+the security area are likely to be de facto standards in the form of
+porting bases.  Several technology vendors have been selling security
+functionality add-on kits in the past, and most of the large vendors have
+had security efforts of their own in progress for many years.  However,
+most UNIX system vendors today have aligned with OSF or USL as the base
+for their ongoing UNIX system technology and source base.  USL's System V
+Release 4.1 Extended Security (ES) and OSF's OSF/1 system will be major
+porting bases for building UNIX systems for the next few years.  Both of
+these systems include security features.  The 4.1ES system is being
+formally evaluated by the NCSC against its B2 requirements on an AT&T
+reference platform.  Vendors using this porting base will need to perform
+an evaluation on their own platform.
+
+The OSF/I system is targeted at the B1 security level, although OSF
+itself is not performing an NCSC evaluation on a reference implementation
+of OSF/L.  OSF's member companies, often in conjunction with the supplier
+of the OSF/I security technology to OSF, are performing such evaluations
+on their own products.  The same technology has also been licensed by
+several vendors to incorporate into non-OSF/1, nonSvr4.1ES-based systems.
+ For the purposes of this discussion, such systems will generally have
+the same properties as we describe here for OSF/1.
+
+USL's source base has the more stringent assurance requirements of the B2
+goal, and the actual porting base is being evaluated by the NCSC at that
+level.  These factors give USL's source base an advantage from the
+security standpoint.  However, by porting either USL's or OSF's source
+base, a system vendor obtains a reasonable set of security features and
+an idea of the level to which the system could be evaluated.  Both of
+these systems can be configured to provide C2- or B-level feature sets,
+allowing vendors to tailor their own products (based on these source
+bases) to different customer requirements.  Note that the use of common
+porting bases by a large number of system vendors has a subtle catch.
+While the vendors will all benefit from the efforts of the source-base
+suppliers to remove security flaws from the system, the vendors will all
+suffer from any flaws that escape into the source base.  A set of
+well-known security bugs in BSD-based UNIX systems was exploited by the
+infamous Internet Worm that a few years ago infected many systems from
+several vendors.  Source-base providers have a serious responsibility to
+promptly inform their customers (the system vendors) of security flaws
+and to provide fixes.  They must try to keep those flaws closely held
+until vendors have had an adequate chance to propagate fixes to their
+field installations, but this is not always possible.
+
+Later in the 1990s, the effects of de jure standards will be felt by all
+vendors and source-base providers.  Both OSF and USL have agreed to
+become compliant with the POSIX 1003.6 standard when it is finalized, and
+both are doing everything they can to anticipate it.  While the details
+of implementation and interface in the P1003.6 standard differ from these
+systems, the concepts are compatible.  Source-level interface
+compatibility with P1003.6 will provide a level of functionality
+sufficient to implement many security-aware applications.
+
+Application porting and ISV issues.  Will all these security features
+break existing programs? Probably not as often as you might fear, but
+there may be big differences in what users can conveniently do.
+Nonprivileged programs that do not make unwarranted assumptions will
+seldom break because of security mechanisms-unless the user tries to do
+something that is illegal on a system with higher security.
+
+On the other hand, some security mechanisms are meant to prevent
+information propagation that people take for granted.  While the programs
+may work, they may become less useful.  For example, the mail feature of
+an office-automation program may send mail just fine, but recipients
+might have to log into the system at the same security level as the
+sender or they would never find out that mail has arrived.  If they
+cannot log in at that level, they may never get the mail.  Programs may
+encounter new error situations, but generally the error codes for
+failures caused by these new features are compatible with old ones.
+
+Some programs must perform operations that have become privileged on more
+secure systems, however, which can lead to fairly glaring problems.  For
+example, an office-automation package that is accustomed to being able to
+write directly into a printer spool directory may find itself unable to
+do so and may no longer print.  A program that temporarily assumes the
+identity of the super-user to abort an operation will abruptly lose that
+capability.  Such programs must be recoded to work in ways consistent
+with a higher degree of protection.  They are failing for a reason,
+generally because their implementation has a security flaw.  ISVs and
+users who write privileged software will have to make changes to work
+within the new security framework of trusted systems.  Most applications
+that previously worked without special privileges will continue to work
+on a trusted system, possibly with some new security-imposed
+restrictions, as previously noted.
+
+Some security features, particularly Mandatory Access Controls (MAC) (see
+sidebar), will be a force-fit into some environments and applications.
+For example, a database package cannot be adapted simply to deal
+correctly with sensitivity levels, which may make their use unwieldy for
+so cations.  Or, the administrative roles implemented in the system may
+cut across department boundaries.  Many companies do not categorize the
+sensitivity of their information at all, and many that do ("company
+proprietary," "internal use only") have a fairly large error margin.
+("Sure, I know it says 'company private,' but he's a good customer.  Go
+ahead and give him a copy.").  The computer's enforcement of these
+security policies will be absolute, but people aren't used to such
+strictness.  Either the pre-existing practice must change to match the
+features, or the features must adapt to meet the practice.  Feedback to
+vendors when this sort of situation occurs is critical to develop
+efficient security features and company security policies.
+
+ISVS and users who want to take advantage of new vendor-provided security
+features must learn new concepts.  These concepts will generally be
+portable from vendor to vendor, but the interfaces offered by vendors
+cluster into a small number of sets depending on the source of the
+vendors' security technology.  All interfaces will be migrating to future
+standards like P1003.6 as they develop.
+
+To protect their investment in security additions, ISVS and programmers
+should write their programs using abstracted primitives and interfaces of
+their own definition, then write a software layer to translate that to
+the vendor-provided set of interfaces.  Later, when porting the software
+to a different system, only the small interface layer need be rewritten.
+The bulk of the application can remain unchanged.  Programmers should
+study the features of several vendors' systems before deciding what
+common subset of functionality they should use in their applications.
+Programmers should target their applications to work with a specific
+feature set that corresponds roughly to the Orange Book levels (probably
+the lowest usable one), since most vendors are making it possible for end
+users to configure their system to different levels.  Assuming all
+vendors will provide functionality similar to that provided in the
+P1003.6 draft, for example, is reasonably safe.
+
+NCSC levels and evaluation.  The NCSC is currently performing evaluations
+of all higher-security systems (B2 and above) and will likely continue to
+do so. However, although the NCSC is also performing all evaluations at
+lower levels, it is likely that this responsibility eventually will pass
+to NIST.  NIST's proposed approach is that the system evaluation for
+certification to be done via the National Voluntary Laboratory
+Accreditation Program, in which the actual evaluation is performed by an
+accredited laboratory (as is now done for POSIX certification).
+Evaluations at the C2 and BI levels are significantly less stringent and
+thorough than at the B2 level.  C2 and B1 evaluations also have simpler
+requirements for maintaining the rating of the system as it evolves
+(essentially, the vendors evaluate the security relevance of their
+changes).  As a result, most systems on the market with security
+enhancements will be at these levels.  The levels above B2 are currently
+the realm of security professionals, and we'll ignore them here.
+
+A particular vendor will decide-generally dictated by its customer base
+and market-whether to formally evaluate a system (either with the NCSC or
+NIST) as compliant with formal security requirements.  This choice is
+based on the vendor's customers' knowledge about security, what firm
+security requirements are written into typical bids the vendor responds
+to, and whether the vendor perceives an adequate return on investment in
+security measures.
+
+What level is enough? It's hard sometimes to decide what level of system
+is needed for a given commercial environment.  The NCSC has a published
+guideline to help decide for the government environment, but it is not
+applicable in commercial applications.  There are two issues: feature
+content and confidence level in the quality of the system implementation
+(related to the assurances used in its production).  A system claiming
+"B3 features" or "B1 features" is saying nothing whatsoever about the
+level at which the system can be evaluated, just that it has all the
+features required at that level.  Similarly, a system might have all the
+feature content mandated for an Al system, but be completely insecure
+because of bugs.  Both facets matter.
+
+The weakest link in security of most commercial UNIX systems will be the
+users and system administration, so features that help users and
+administrators avoid mistakes are potentially the most valuable.  Also
+valuable are features that help keep honest people honest by improving
+the chances that if they aren't, they'll be caught (and letting them know
+the feature is in use).  By these criteria, the most critical security
+features (auditing, good password checking, system integrity,
+documentation) are present at the C2 level; this is, therefore, the
+minimum working feature set. The "trusted path" to the system and the
+tighter control over system integrity, privilege, and system
+administration required at the B2 level are extremely useful in a
+commercial setting.
+
+Access-Control Lists, an access-control mechanism that probably best
+matches the way companies control information today, first becomes a
+mandatory feature at the B3 level.  The most visible feature added at the
+B levels, Mandatory Access Control modeled on the controls used for DOD
+classified information, is not as directly applicable as ACLs to
+implementing existing security practices in most commercial environments.
+ Further, it is much less convenient in daily use.  However, because of
+its power, it will be desirable in some situations despite its
+disadvantages.  ACLs tend to be a better model for commercial usage
+because commercial users generally want to protect information by
+establishing the list of people who can see or change it.  However, in
+the DOD world where MAC originated, information has inherent properties
+that determine what its sensitivity is, and individuals have related
+properties that determine what they can or cannot see.  Most vendors
+supply features beyond the minimum set required for a target evaluation
+level, since they want their system to be attractive to a wide variety of
+users.  For example, many commercial systems will include all the above
+features, even in a system targeted for the B1 level of trust.
+
+The issue that really matters is the true difficulty of violating the
+system's security.  The most important sources of confidence in a
+system's trustability are good design, the smallest possible number of
+features and interfaces, good specifications, good documentation, and
+good testing.  A well-thought-out system is less likely to have subtle
+flaws.  A system that is small can be more completely analyzed and will
+have fewer feature cross-product interactions that could have security
+repurcussions.  A well-documented system is much easier to understand and
+less likely to be compromised through accidental misuse.  A system whose
+security features have been exhaustively tested, perhaps by experts
+attempting to penetrate them, is less likely to contain errors that can
+be exploited by a nonexpert.
+
+A system whose security has been examined by an outside body like the
+NCSC will tend to be more completely examined.  The NCSC evaluation
+criteria reflect how thoroughly all such aspects of the system must be
+inspected to achieve a given level, with the higher levels corresponding
+to stronger requirements.  Therefore, a successful evaluation on the NCSC
+scale is a good way for a nonexpert to judge.  Higher levels correspond
+to more careful examination of each element that makes the system more
+likely to withstand attack.  Given that few vendors have evaluated
+systems today.  this is admittedly not a good enough answer, but it will
+improve with time.
+
+Some system vendors will have done a much better job than necessary for a
+given rating and in fact have systems more worthy of trust than formally
+evaluated systems of higher ratings.  However, vendors with the security
+expertise to achieve this quality are rare.  Today, buyers may need to
+learn enough about the vendor and the process the vendor used to produce
+its system so they can judge the likelihood of the system to correctly
+implement its security features.  Since many potential purchasers of
+trusted systems need to learn about security anyway, this evaluation
+could be made into an excellent education opportunity.
+
+Later 1990s software technology.  The technology of building secure
+systems has not changed
+
+In much in the last ten years.  The leading edge of the technology is
+advancing, the number of "worked examples" has increased, and the
+folklore available to system designers has become more extensive, but in
+the trenches the work that's done to secure a system has not undergone
+any revolutions.  The number of practitioners outside the DOD has risen,
+however, so more people are beginning to be aware of trusted system
+technology.  The most important progress in security technology in recent
+years is its wider availability on commercial systems.
+
+Practical experience and theory show that the most important things that
+can be done to improve the security of UNIX systems are to reduce the
+size of the part of the system that must be highly privileged, and to
+implement the system on top of a well-structured starting point.  These
+concepts are related, and they coincide with two of the major goals that
+have generated so much interest in micro-kernels in recent years.
+
+Considerable effort is being put into micro-kernels like the Mach
+operating system, created at CarnegieMellon University with DOD funding,
+and the Chorus system, built with private funding by Chorus Systems in
+France.  Micro-kernels are a promising way to reduce the size of the
+privileged part of the operating system and hence simplify the job of
+providing a higher level of trust.  But a lot of research has yet to be
+performed before highly trustable systems based on this approach to
+security technology are available commercially.  The basic technology
+being employed, a security kernel, is around 15 years old.
+
+It will not be another 15 years before products come out.  Commercial
+time-sharing systems based on micro-kernels will become available in the
+1992-1993 timeframe, but general-purpose time-sharing UNIX systems that
+exploit the modularity and size of an underlying micro-kernel to achieve
+higher than B1 ratings will be several years behind that.  Research
+prototypes will appear sooner, but they will not be ready for prime time
+yet.
+
+Technology advances and security.  As previously mentioned, software
+technology for securing operating systems has not changed markedly in the
+last few years.  However, in those same years, hardware has been leaping
+ahead in speed and capacity.  This has had some effects on the overall
+security of systems.  As hardware gets faster, systems become more
+susceptible to certain kinds of security problems.
+
+For example, covert channels become more insidious and hard to fix.  A
+covert channel is an information leak that uses side effects to transfer
+information rather than normal data transfer channels.  The speed of such
+channels, when based on a physical device like a disk or the CPU, scales
+at least linearly with the speed of the device being used.  Similar and
+difficult-to-solve problems are introduced by shared-memory
+multiprocessors.  This area is ripe for research and discovery.
+
+If all the dead bodies of failed secure UNIX projects are any indication,
+securing the UNIX system is a hard problem.  Given that all UNIX systems
+must have some degree of security in the future, this is actually a
+worrisome point.  The high-jump bar is being raised, and an increasing
+share of the time spent in any UNIX system is spent doing activities
+required for security.  This isn't necessarily bad, however, as many of
+those activities raise the overall quality of the product.
+
+Some of the extra effort that goes into a secure UNIX system will go into
+supporting and building the additional security features.  However, the
+majority of the needed features will be made available from the porting
+bases.  An area of added value that vendors can address will be features
+required for specific commercial uses, such features needed for niche
+markets.
+
+Assurances.  It can take a lot of effort to give customers enough
+confidence in the protection provided by a system that they are willing
+to bet the company on it.  Vendors can undertake many engineering
+activities during their development activity to help provide that
+assurance:
+
+* Careful configuration control.  Careful configuration control is
+straightforward to accomplish and a really good idea, anyway.
+
+* Penetration testing.  Penetration testing, that is, attempts by experts
+to defeat the system security features, is not especially hard and can be
+reasonably effective.  It can be time-consuming, and true experts at
+cracking systems are rare.  Since it is not an exhaustive procedure, not
+much real confidence should be expected from this unless it has gone on
+for a long period of time with no successes.
+
+* Security testing.  Security testing is detailed testing of all
+functionality with respect to a tightly written interface specification,
+including trying all error and illegal cases.  It can be exhaustive and
+exhausting, but it is very important.
+
+* Informal security policies.  A clear statement of the security policy
+the system is to uphold is a crucial starting point for the
+implementation or installation of a secure system.  When a secure system
+is being built, an informal statement of the intended operation of the
+security mechanisms of the system is a powerful way to communicate to
+developers, documentors, and users what the goal of the system is and how
+it is to accomplish that goal.  Such policies should be among the first
+things written when the development or adoption of a secure system is
+contemplated.
+
+Formal security policies.  Formal security policies help clarify exactly
+what the system is supposed to do.  Like a good requirements
+specification, this kind of documentation is useful for everything from
+writing user documentation to making penetration tests.
+
+Proofs of correctness.  Proofs of correctness of specifications are
+feasible today but are expensive and not often used.  Proofs of
+correctness of code are beginning to work for some special cases.  This
+is perhaps the ultimate goal in any system: to be able to mathematically
+prove that the system does what it's supposed to.  This is an active
+research area.
+
+The previously mentioned examples were listed roughly in increasing order
+of difficulty.  In this short list, every item represents an activity
+that raises the overall quality of the system being built, independent of
+security.
+
+In the process of doing the above, vendors are forced to control their
+product better and will necessarily find and eliminate bugs (not all of
+which will be security bugs).  One pragmatic problem with this is that
+customers demand visible features, and vendors tend to use up their
+resources trying to supply them.  Efforts that do not deliver new
+features are often not financially justifiable.  Vendors must balance the
+need for features with the desire to provide a product that is truly
+trustable.
+
+Many of the NCSC's assurance requirements are really directed at making
+sure vendors use a good development methodology, do adequate testing,
+control their product, and use the best available technology for building
+their programs.  If the NCSC guidelines did not force vendors to do these
+things, vendors often would not do them.
+
+It is a vendor's decision whether to spend development resources on
+features or on achieving higher levels of trust.  It is a customer's
+decision whether to buy a system that offers features at the cost of
+trust, or vice versa.
+
+The 1990s will see an increase in the degree of security that systems
+must offer, and a large number of UNIX systems with security features
+will become commercially available.  This is being driven by the
+requirements of customers.  As UNIX systems move into wider commercial
+and government usage, customer requirements for features and higher
+levels of trust will become more stringent.
+
+The feature set needed by commercial users in performing their functions
+will not be a perfect match for some of the security features vendors are
+now implementing.  The biggest challenge for vendors and users for the
+next few years will be to develop better models of commercial security
+and to invent and implement features that directly implement those
+models.
+
+Until now, vendors and agencies like the NCSC have been in control of the
+definition and implementation processes because they have had the job and
+the expertise to do so.  After the current generation of systems reaches
+the field and commercial users have a chance to try it out, they may
+develop a better idea of what they really need, and they will have
+developed the expertise to communicate those needs back to vendors.
+
+Steve Bunch is the chief scientist at the Motorola Computer Group's
+Urbana Design Center in Urbana, Ill.  Motorola's Urbana Design Center is
+responsible for UNIX SVR4 for the Computer Group.  Bunch has been
+involved in security since 1976, was involved in the first Ncsc-certified
+UNIX system (Gould's UTX/325), and was one of the instigators of the
+joint Usl-Motorola-umdahl project that produced UNIX SVR4.1 ES.  He may
+be contacted at srb@aurbana.mcd.mot.com.
+
+A Covert  Channel Example
+
+Here's a simplified example of two cooperating processes, which shouldn't
+be able to communicate, exploiting a covert channel.  (The hard Problems
+you'll encounter in making t s work well are glossed over or ignored.)
+
+Assume a system is running two processes, A and B. A is forbidden by the
+MAC rules to send information to B using any of the system's normal data
+transfer methods, although they can both read system files at a lower
+security level than either.  A and B will collude to send data using the
+"time of last read" property of a low-security file they can both read.
+
+A and B initialize by opening the shared file and start their activity at
+a pre-arranged time.
+
+A sends a 1 to B by reading from the file at some time within a given
+one-second interval.  This updates the time of last read to that second.
+A sends a 0 to B by not reading the file in a particular second.
+
+B monitors the time of last read of the file by checking its status once
+each second.  If the file has been read during that second, then the time
+stamp will so indicate, and a 1 has been detected.  If not, a 0 has been
+detected.
+
+This simple example transfers data at the rate of one bit per second.  It
+seems slow, but at that rate, a significant memo can be leaked from A to
+B in a few hours.  Depending on the memo, that might be a serious
+security problem.  This channel actually works and is capable of much
+faster operation on many UNIX systems.  This may be the best-known covert
+channel in the UNIX system, and specific provision was made in the POSIX
+1003.1 standard to permit it to be dramatically slowed by vendors without
+violating the standard.  Better-secured UNIX systems have slowed the
+channel substantially, and the best-secured ones will announce or log, as
+it is happening, that this channel is being exploited.
+
+NCSC And its Levels
+
+The National Computer Security Center (NCSC) was established in 1982.
+its charter includes the responsibility to establish and maintain
+...technical standards and criteria for the security evaluation of
+trusted computer systems that can be incorporated readily into the
+Department of Defense component life-cycle process .....  As part of this
+charter, the NCSC produced a document known as the "Department of Defense
+Trusted Computer System Evaluation Criteria" (TCSEC).  This document,
+also known as the Orange Book because of the color of its cover, defines
+a series of four major divisions of protection (D, C, B, A) each with
+certain security-relevant characteristics.  These four divisions are
+further subdivided into more precise levels of trustworthiness.  The
+chart below summarizes the defined levels and their key properties.
+
+The NCSC also publishes a series of technical guides that give guidance
+on specific topics such as vendor information, configuration management,
+trusted facilities management, auditing, and so on.  This set of guides
+is collectively known as the "Rainbow Series." The NCSC can be contacted
+at: National Computer Security Center, ATTN: C11, 9800 Savage Rd., Ft.
+George G. Meade, MD 20755-6000,
+
+The table below lists the Ncsc-defined levels in decreasing order of
+trustworthiness and securityrelated feature content.  The table shows the
+name of the level and the key features added when going up to that level
+from the lower ones.  Note that each level contains all features from the
+lower levels.  The Orange Book contains many details describing the level
+of testing, design documentation, formality of security policy, covert
+channel analysis and bandwidth, and so on, required at each level.  This
+chart concentrates on those features that are highly visible to the end
+user.  The detail is visible indirectly, in the level of trust the user
+can place in the system.
+
+The NCSC maintains an Evaluated Products List, which describes the
+products that have been evaluated by the Center to satisfy the
+requirements at a specific level and offers additional summaries of
+in-progress evaluations.  The NCSC can be contacted for further
+information.  To date, Unix-based systems have been evaluated at levels
+from C2 to 62.  Commercial security-enhanced products, like the IBM
+mainframe application Top Secret, have typically been evaluated at the C2
+level.  Some specialized systems have been evaluated as high as the Al
+level.  The C1 level has not proven interesting in practice for most
+applications and is not really used for general-purpose systems.  Since
+potential buyers who ask for specific levels typically specify at least
+C2, this is not surprising.
+
+Typical Security Features
+
+The following list describes the major security features described in the
+Orange Book and present in trusted systems at various levels of trust.
+Most features below are present to a greater or lesser degree in all
+current security-enhanced UNIX systems.
+
+Identification and Authentication  (I&A).  This part of the system checks
+your password when you log in, perhaps ages that password so you must
+change it as often as your administrator thinks you should, and so on.
+Some I&A systems can be easily extended by end users to include
+additional devices such as magnetic card readers.
+
+Auditing.  The auditing function makes an indelible record of the
+security-relevant events that occur on a system.  This includes users
+logging in and out, accessing data files, printing documents, changing a
+password, and so on.  Auditing is probably the single most important
+feature for commercial use of the UNIX system.  it's a feature that keeps
+honest people honest (because it records their actions and makes it
+likely that they'll be caught) and helps catch dishonest ones.  The basic
+functions of auditing are fairly common among implementations, but
+considerable difference exists in the details.  Audit trail analysis
+tools, overhead cost to system performance, and audit file size are key
+areas where differences arise.
+
+Discretionary Access Controls (DAC).  DAC is access controls that an
+owner can place on a file, such as, 1 owner can read and write, others
+can only read." In UNIX, the well-known mode bits or file-protect bits on
+a file serve this function.  A much more powerful and useful feature for
+commercial use, Access Control Lists or ACLS, has been borrowed from the
+Multics system.  (In fact, the UNIX file-access mode concept is a
+simplified version of Multics' ACLs, so this amounts to a return to
+UNIX'S roots.) ACLs permit specifying the access permitted to each member
+of an almost arbitrarily long list of individual users, not just to
+owner, group, and others.  For example, Joe, the owner of the payroll
+file, could state that he has read-write permissions on the file; all
+other members of the payroll department and two specific people in the
+personnel department have read-only permission; everyone else has no
+access.  Such an access control list can be summarized as:
+
+Access        ACL Entry
+
+rw            joe.payroll
+
+r             pete.personnel
+
+r             fran.personnel
+
+r             *.payroll
+
+-             *.*
+
+As implemented in most UNIX systems, an ACL can be attached to any file
+or directory (and most other objects with mode bits).
+
+Trusted Path.  The Trusted Path feature provides a reserved keyboard
+sequence (or in some cases, turning off or unplugging the terminal) that
+is always intercepted by the system, and always puts users into a
+conversation with the system.  With this feature, users can walk up to a
+terminal, enter the reserved sequence, and be absolutely sure they won't
+be spoofed into typing a password by a program left running on the
+terminal.
+
+Administrative Least Privilege.  This general area of functionality
+contains several concepts and admits to many implementations.  The basic
+problem is that the UNIX system's super-user is simply too powerful for
+safety.  So, some systems implement less-privileged administrative roles.
+ A user operating in such a role has just enough privilege to perform
+some administrative task and no more.  For example, a system might define
+a printer administrator, with privileges to delete any job from any print
+queue, reconfigure printers, move jobs from one print queue to another,
+and so on.  Unlike the super-user, someone acting in the role of printer
+administrator would not be able to read another person's mail or modify
+system files unrelated to printing.
+
+Mandatory Access Controls  MAG).  Mandatory access control mechanisms are
+controls that assign a sensitivity level to all information in a system
+and assign a clearance level to all users.  The term mandatory refers to
+the fact that the protection on a given piece of information is not
+solely under the control of the owner of the information but is enforced
+absolutely by the system as additional restrictions above and beyond the
+user's DAC rules.  The levels can be hierarchical (in a strict
+lower-to-higher order in which someone cleared for a level is cleared for
+anything lower) , non-hierarchical, or a combination.  MAC is a feature
+mandated by the Orange Book at the B and A levels.  The actual mechanisms
+are modeled after the DOD classified information model, but they have
+applicability in non-classified environments.  This mechanism has two
+goals: users can only see information at levels for which they are
+cleared, and users cannot give information to someone who is not cleared
+to see it.
+
+The MAC mechanism operates at all times, on all accesses to all data
+objects in the system, and may deny access that other mechanisms (such as
+DAC) would otherwise permit.  This can reduce mistakes.  For example, a
+commercial system could be set up to operate with four strictly
+hierarchical classification levels, called, say, "Executive
+Only".."Management," "Employees," and "Public." The mandatory access
+control mechanism would make it necessary for an executive who had
+created a memo with the classification "Executive Only" to take a
+specific action to downgrade the file before someone with a lower
+clearance could access it.  This might be used, for example, to help
+protect intermediate drafts of a memo from being read by accident.
+
+
+-------------------------------------------------------------------------
+Type:      tutorial
+Topic:     UNIX
+           Data Security
+           Networks
+           Standards
+           Open Systems
+           Tutorial
+
+
+Record#:   11 936 668.
+                              *** End ***

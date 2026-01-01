@@ -1,0 +1,75 @@
+Newsgroups: comp.os.os2.programmer.misc
+From: A.D.TOOM@BIONIC.zerberus.de (Adrianus den Toom)
+Subject: Re: Multithreaded communication program, comments please!
+Date: Sun, 15 Oct 1995 09:55:00 +0100
+
+From: A.D.TOOM@BIONIC.ZER, Date: 15.10.95
+Conc: Multithreaded communication program, comments please!
+
+Hi tkeller,
+you wrote:
+
+t> I have managed to write a PM program which, on a separate
+t> thread, checks for data via DosDevIOCtl, function 68, followed
+t> by DosRead.
+
+t> [read DataBlocks hereafter composed to products, eg. blocks
+    referring of a specific Type of data]
+
+t> I need to do many things, potentially, with each product.  Some
+t> may need to be printed (parallel), some exported out another
+t> serial port and some require "post-processing".  I may even
+t> have a need to fax this data at some point.
+
+t> I see the great potential for
+t> OS/2 to handle this complex program cleanly but my options seem
+t> almost too many to sort through.
+
+well, I think there is annother option :-)).
+
+t> What I don't want to do is handle this sequentially.  Meaning,
+t> after each data chunk arrives, I don't want to
+t> first wite it to disk, then write it to a port, then add it to
+t> a memory structure (need whole product for post-processing)
+t> then well, you get the picture.
+
+t> One idea is for each thread to own a queue.
+
+hmm, I'd first consider you spawn your 'products' to blocks of
+data that are clearly defined which tasks have to be performed
+on them.
+
+t> The only thing stopping me from trying this is the question,
+t> should I need to make x number of copies of the same data?  Is
+t> there a way for all threads to use one queue?
+
+I wouldn't use a queue for the data itself, only use it for
+controlling flow and processing of data.
+
+Instead I'd allocate some shared memory for the specified block
+of data.
+
+Pointer to this memoryblock is given into a processing queue of those
+threads that apply for it, and a 'block usage variable', gets initia-
+lized with the number of threads that have to process this data chunk.
+Any thread that has processed the data (in)succsessful will return a
+message, indicating it does not longer need the data to be hold, maybe
+passing a 'processing status' to enable exceptional processing for those
+blocks that have been processed insuccsessful.
+This will enable the spawning thread to release the memory blocks after
+all processing threads have done their work on it...
+
+This way you don't need to have multiple copies of data and it would
+also enable you to process blocks in blocks with some additional work
+on block usage control...
+
+Just my two cents, there might be easier approaches, but I'm working
+on such a design for a high speed processing of data blocks whose
+processing is quite time-critical...
+
+cu/2-> echo me,  Arie <--
+
+  ## FRENCH PRODUCTS?                 I won't buy any until sept. 97
+  ## Annother atomic test    ->       add a year!
+## CrossPoint v3.1 R ##
+

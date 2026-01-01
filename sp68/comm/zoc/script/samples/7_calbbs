@@ -1,0 +1,200 @@
+    #  This is a non-functional skeleton for creating an autologin 
+    #  script. However you might not need it, since simple autologins 
+    #  can be achieved without script programming using the autologin 
+    #  feature of the phone book.
+
+	#  Scenario:
+	#    Let's assume Zaphod Beeblebrox uses the Megadodo bbs on Ursa 
+	#    Minor Beta to download new messages and upload the replys that 
+	# 	 he wrote offline. 
+	#    This script calls the bbs and eventually tries again until it
+	#    gets a CONNECT. Then it goes to the main menu where it downloads
+	#    a new mail packet and, if available, uploads Zaphod's replys.
+
+
+
+	#  Prevent users from accidently dialling long distance to Ursa Minor Beta
+	request "Are you sure you want to make a call across the universe?" "No" "No"
+	goto finish
+
+
+    #  To test your own script, change the next line to 'debug 1'
+	debug 0
+
+
+    #  Set a few values (999 is the prefix for inter galactical calls :-)
+    setn  waittime 10            ;# time between dials
+    setn  maxtry   42            ;# max number of trys
+    seta  phone    "999-9283748742893478" ;# phone number to call
+    seta  bbs      "Megadodo BBS"         ;# bbs name to log in calling.log
+
+
+    #  Init the modem (and fail if no OK received within 5 seconds)
+    timeout 5
+    send "ATZ"
+    wait "OK"
+    ifbrk goto fail    
+
+    #   Reset counter, clear screen
+    setn counter 1
+    cls
+
+
+    #   MAIN LOOP
+    #
+
+:loop0
+    #  Dial and see what happens
+	#  (if the number contains a ^I (TAB) the following text is used
+	#  in the CALLING.LOG instead of logging just the phone number)
+    dial "%phone%^I%bbs%"
+
+    #  Set timeout to 90sec. and wait for a line of text to come
+    timeout 90
+:loop1
+    waitline
+
+    #  if something arrived save incoming line to variable 
+    #  (lastline might change duringprocessing)
+    ifnbrk seta last "%lastline%"
+
+    #  else
+    #  if WAITLINE timed out, set our variable to TIMEOUT
+    ifbrk  seta last "TIMEOUT"
+
+    #  Set text compare to non exact matching (that is CONNECT=CONNECT 1200)
+    exact    0
+
+    #  compare to for CONNECT or CARRIER and if equal, log in
+    compa    "%last%" WITH CONNECT
+    ifequ    goto login    
+
+    compa    "%last%" WITH CARRIER
+    ifequ    goto login    
+
+
+    #  Try again for BUSY, NO CARRIER
+    compa    "%last%" WITH BUSY
+    ifequ    goto SomeMore    
+
+    compa    "%last%" WITH "NO CARRIER"
+    ifequ    goto SomeMore    
+
+
+    #  for TIMEOUT hang up
+    compa    "%last%" WITH "NO CARRIER"
+    ifequ    hangup
+
+
+    #   Ignore anything else (Zyxels say 'RINGING' or V42 say 'PROCOL xxx')
+    #  and wait for something we know
+    goto loop1
+
+    #  Increment counter and eventually try again
+    #
+:SomeMore
+    #  ... wait and see if we ...
+    delay    %waittime%
+
+    #  ... want to try again?
+    inc     counter
+    compn    %counter% with %maxtry%
+    iflow    goto loop0
+    ifequ    goto loop0
+
+    #   No success after %maxtry% tries
+    goto    fail
+
+
+
+    ##################
+    #  LOGIN        #
+    ##################
+
+:login
+    #  Make a bit noise
+    beep 3
+    writeln "^M^J^J^MConnection established!!"
+    timeout 30
+
+    #  log in
+    wait  "Name"
+    send  "Zaphod Beeblebroox^m"
+    wait  "Password"
+    send  "heart of gold^m"
+
+
+    #  care for the stuff they use to make script programming 
+    #  a bit harder (respond will be active whenever
+    #  the script processes a DELAY, WAIT or WAITLINE)
+    respond "your birth date" "11/11/11^m"
+    respond "press <enter> to continue" "^m"
+
+    #  Wait for the main menu, go to the mail area and
+    #  request to download a mail packet
+    timeout 60
+    wait "your choice"
+    send "m^M"
+
+    wait "your choice"
+    send "d^M"
+
+    wait "file transfer protocol"
+    send "z^M"
+
+    wait "are you sure"
+    send "y^M"
+
+
+    #  We could use the download command, but it's easier just to 
+    #  let autodownload jump in during a WAIT. So wait for the
+	#  'download finished' message and let autodownload care for
+	#  the rest 
+    
+    timeout 600          ;#   download could take a long time
+    wait "finished"
+
+    wait "your choice"
+
+
+    #  For upload, try to find out if an reply file exists
+    #  by opening it for reading.
+	openfile "hitchh.rep" "r"
+	compa "%lastline%" with "##OK##"
+	ifnequ goto logout
+	closefile 
+
+    send "u^M"
+
+    wait "file transfer protocol"
+    send "z^M"
+
+    wait "are you sure"
+    send "y^M"
+
+	# maybe you'd have to disable the auto-transfer for this
+	upload z "hitchh.rep"
+
+    timeout 600          ;#   upload could take a long time
+    wait "finished"
+
+	#  after up/download go to the main menu and log out
+:logout
+   	#  main menu (send ESC)
+    send "^["
+
+   	#  log out 
+    wait "your choice"
+    send "L"
+
+
+    ##################
+    #  THE END       #
+    ##################
+:finish
+    exit
+
+:fail
+    writeln "ERROR"
+    exit
+

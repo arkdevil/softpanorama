@@ -1,0 +1,97 @@
+Newsgroups: comp.lang.rexx
+From: giguere@csg.uwaterloo.ca (Eric Giguere)
+Subject: Re: Regular expression parsing in Rexx
+Message-ID: <Czon05.1u1@watserv2.uwaterloo.ca>
+Organization: University of Waterloo
+Date: Tue, 22 Nov 1994 18:50:29 GMT
+
+Someone should get the regexp package that is available for C and
+package it up as an external function library for REXX.  If you want
+hints on how to package things as a function library, get the file
+ftp:rexx.uwaterloo.ca/pub/os2/vxrexx/vxtech01.zip.
+
+Eric
+
+From ankh.iia.org!ralph.vnet.net!news.sprintlink.net!howland.reston.ans.net!swrinde!pipex!uknet!comlab.ox.ac.uk!imc Sun Nov 27 21:20:59 1994
+Newsgroups: comp.lang.rexx
+Path: ankh.iia.org!ralph.vnet.net!news.sprintlink.net!howland.reston.ans.net!swrinde!pipex!uknet!comlab.ox.ac.uk!imc
+From: imc@comlab.ox.ac.uk (Ian Collier)
+Subject: Re: Regular expression parsing in Rexx
+Message-ID: <5730.imc@uk.ac.ox.prg>
+X-Local-Date: Wednesday, 23th November 1994 at 1:51pm GMT
+Originator: imc@msc5.comlab
+Organization: Oxford University Computing Laboratory
+References: <3ao98d$68cm@usenetp1.news.prodigy.com>
+Date: Wed, 23 Nov 1994 13:52:03 GMT
+Lines: 69
+
+In article <3ao98d$68cm@usenetp1.news.prodigy.com>, HRRD66A@prodigy.com (BERNIE SCHNEIDER ) wrote:
+
+>I haven't seen such a function, but in my opinion, regular expression 
+>matching should be added to the REXX language as part of the PARSE 
+>statement. Anyone think this will (or should) ever happen?
+
+It has always been (and still is) one of those things that I would do if I
+ever had any spare time...
+
+Initially I would package it as a function library because it can be added
+(usually without recompiling the interpreter) with a minimum of fuss and is
+not so intrusive on the language syntax.
+
+We have discussed making it part of the PARSE syntax in the past (I'm sure
+these discussions are buried somewhere in the archives on ftp.pvv.unit.no),
+but there was some opposition from people not native to Unix who see this
+as a kind of "magic incantation" which is alien to the philosophy of REXX.
+It has also been raised at the "extensions" meetings of X3J18, but I think
+it was rejected.
+
+My proposal for the syntax was an adaptation of a suggestion by Anders.
+Here is an example...
+
+     parse var x a *"[0-9]" +0 number *"[^0-9]"
+or
+     regexp="([+-]?[0-9]+\.?[0-9]*([Ee][+-]?[0-9]+)?)"
+     parse var x before *(regexp) after
+
+We have a small problem regarding how to collect strings that were slurped
+up by a regular expression.  One idea is that you should place one variable
+name for each pair of parentheses after the regular expression and they will
+be assigned the values of $1, $2, etc. (using perl conventions).  For example,
+
+     parse value "the number -26.3e6 is contained in this string" with,
+           left *(regexp) number exp right
+
+would assign:
+
+     left   == "the number "                   /* before the regexp */
+     number == "-26.3e6"                       /* outer set of parentheses */
+     exp    == "e6"                            /* inner set of parentheses */
+     right  == " is contained in this string"  /* after the regexp. */
+
+Unfortunately, this can make weird errors if you miscount the number of sets
+of parentheses since there is no syntactic boundary between the variables
+that are to be assigned the values of $1, $2, etc. and the variables that
+are there to collect the rest of the string.
+
+This example also demonstrates the conflict of interests between power
+and readability.  I know the above regular expression for matching a
+floating-point number works because I have tested it in perl (although it
+requires at least one digit before the optional decimal point).  However,
+newcomers to regular expressions might well say that it's an abominable mess
+that doesn't deserve to be made an official part of REXX syntax.
+Unfortunately, I believe that
+
+ (a) regular expressions are too powerful to be ignored by the REXX
+     community, and if REXX is to be a useful tool for text processing
+     they must be added, and
+ (b) it is not possible to water down the syntax of a regular expression
+     without ruining it.
+
+It looks like regular expressions are destined to remain as outsiders,
+bolted on by means of an external function package.
+
+Ian Collier - Departmental Lecturer (and perpetual postgrad student) -
+imc@comlab.ox.ac.uk - Oxford University Computing Laboratory, Wolfson
+Building, Parks Road, Oxford OX1 3QD - WWW Home Page (including REXX
+section): http://www.comlab.ox.ac.uk/oucl/users/ian.collier/index.html
+

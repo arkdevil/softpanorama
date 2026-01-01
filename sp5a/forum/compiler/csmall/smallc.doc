@@ -1,0 +1,980 @@
+ 
+ 
+ 
+I.  INTRODUCTION
+ 
+    Welcome to Small-c:PC.  Small-c:PC is a compiler that runs
+under PC-DOS on the IBM Personal Computer (PC).  The source input
+to the compiler is written in small-c, a subset of the C
+programming language.  The compiler outputs symbolic assembly
+language code that can be assembled on the PC using the ASM or
+MASM assembler programs available from IBM.
+ 
+    The reference manual for C is THE C PROGRAMMING LANGUAGE book
+published by Prentice-Hall and authored by Brian W.  Kernighan
+and Dennis M.  Ritchie.  The original compiler for Small-c was
+written by Ron Cain as a personal project (see Dr.  Dobb's
+Journal, #45, Volume V, Number 5 for a description of small-c).
+A CP/M version of the compiler for the Intel 8080 is being
+distributed by The Code Works, 5266 Hollister, Suite 224, Santa
+Barbara, California 93111 (805) 683-1585.
+ 
+    After using the CP/M version of the compiler, we decided to
+port it over to the IBM PC (so we could take some of our small-c
+programs over with us).  The conversion effort was guided by a
+desire to not alter the personality of the original small-c
+compiler.  The objective was to minimize the effort required to
+convert existing small-c programs to the Small-c:PC environment.
+We think we have been successful since our small-c programs have
+been converted to the PC with few problems using Small-c:PC.
+ 
+    The compiler was converted by first deciding what the output
+should look like and then modifying it to generate code for the
+Intel 8088 instead of the 8080.  In parallel, the run time
+library was rewritten in 8088 assembly language to operate under
+PC-DOS.  If you have The Code Works run time library for CP/M and
+are interested in the differences between CP/M and PC-DOS, you
+might take the time to compare our library with theirs.
+ 
+    Most of the compiler conversion problems centered around
+ASM's need for memory.	The goal was to produce a tool that could
+be used on a 64KB PC with two 160KB drives.  Since ASM cannot
+deal with large programs in a 64 KB configuration, the small-c
+compiler was modified to produce code that could be assembled
+separately and then put together using LINK.  The original
+small-c compiler produces one large output file.  Small-c:PC can
+produce multiple output files (one for each input file).  These
+files can be assembled separately using ASM and then LINKed
+together.  This can significantly reduce program development
+time, however, since only the modified file need be recompiled in
+the event of source code changes.  It can then be assembled and
+linked with existing object files.
+ 
+    If you have more than 64KB, ASM can assemble larger files.
+With sufficient memory, you can work with larger small-c program
+ 
+
+ 
+			   - 2 -
+ 
+ 
+files.	The memory requirement for using Small-c:PC, however, is
+imposed by ASM, not by the Small-c:PC compiler.  Small-c:PC will
+compile large programs quite nicely in 64KB.
+ 
+    If you examine your distribution copy of the compiler, named
+CPCN.C, you will notice that the source code is marked so that it
+can be broken into many smaller files.	The makers are small-c
+comment statements written as:
+ 
+		       /* ### cpcn-xx */
+ 
+    Each of these comment statements marks the start of a
+separate file.	We marked it this way so that users with only
+64KB can modify the compiler if they choose to do so.  It will be
+necessary, however, to insert the proper external declarations
+into each file.  For those of you with more memory, it is a
+simple matter to generate a new version of the compiler after
+making any source editing changes.
+ 
+    We have also distributed the source code for FORMAT, a text
+processor described in the book SOFTWARE TOOLS by Brian W.
+Kernighan and P.J.  Plauger and published by Addison-Wesley.
+This program is written in small-c.  This manual was produced
+using it.  The file FORMAT.DOC contains a brief description of
+the FORMAT program and how to use it.
+ 
+    As a final note before we get into the operational details of
+the compiler you should be aware of the fact that it may contain
+bugs.  We have tested it quite a bit, but you know how those
+little rascals can hide.  So beware, one may sneak up and bite
+you (usually in the wee hours at the worst time).  If you find
+any of these critters, please write us and describe the problem.
+We have priced Small-c:PC to recover our development cost only.
+Please don't call us to discuss problems over the phone.
+ 
+
+ 
+ 
+			   - 3 -
+ 
+ 
+II.  OPERATING Small-c:PC
+ 
+    The compiler is initiated by entering CPC in response to the
+PC-DOS command prompt A>.  The compiler clears the screen, greets
+you and asks two questions.  The possible answers are contained
+in parenthesis following each question.  The capitalized response
+in the default taken if you press the ENTER key.  The first
+question asked is:
+ 
+		 Should I pause after an error (y,N)?
+ 
+    Answering Y to this question causes the compiler to pause
+after displaying an error.  This will give you an opportunity to
+continue the compilation or not.  Moreover, in the event of a lot
+of screen activity during a compilation this insures that you
+won't miss an error message.  The N response causes the compiler
+to continue automatically after displaying an error.
+ 
+The second question asked is:
+ 
+	Do you want the Small-c:PC-text to appear (y,N)?
+ 
+    Answering Y to this question causes the compiler to write the
+input source code into the output file(s) as comment statements.
+each small-c statement appears with a semicolon as the first
+character (to make it a comment to ASM) followed by the assembly
+language code generated by the compiler for that statement.  This
+interleaving of source code and generated code is very useful in
+learning how the compiler implements various small-c statements.
+Choosing this option causes the output files to be larger,
+however.  Answering N will cause the compiler to not write the
+small-c source to the output file.
+ 
+    The two previous questions are followed by requests for input
+and output filenames.  There are no default extensions supplied
+by the compiler.  Each input file generates a separate output
+file.
+ 
+    You can break a large small-c program into separate smaller
+files and feed these to the compiler.  Hopefully ASM will be able
+to swallow the resultant output files without running out of
+memory.  Again, if you have more than 64KB, ASM should be able to
+process a large output file.  In this case you will not be forced
+to divide a large small-c program into multiple files.
+ 
+The next request by the compiler is?
+ 
+			     Input filename?
+ 
+    The small-c source code is contained in the file you name in
+response to this question.  There is no default extension supplied
+ 
+
+ 
+			   - 4 -
+ 
+ 
+by the compiler.
+ 
+    A single function definition cannot be spread out across
+multiple input files.  This is because the compiler assumes the
+output file corresponding to each input file will be separately
+assembled.  It writes extra assembly language statements into
+each output file to support this.  A function spread across two
+input files may not assemble correctly.  Also, due to the way the
+compiler handles externals, it is possible that a function name
+could be multiply defined and the compiler not detect it.  This
+can happen if the separate definitions occur in different input
+files.	In this circumstance, the error will be detected by LINK.
+ 
+    The runtime library (CPCLIB.ASM) is not input to the compiler
+as in other incarnations of small-c.  Instead, it is input to
+LINK as just another object file.  LINK will bind all of the
+object inputs together to produce an execute (.EXE) file.
+ 
+    If your response to the input filename request is the ENTER
+key or a space (as the first character), the compiler terminates
+and returns control to PC-DOS.	This is the way the compiler is
+normally ended.
+ 
+Following the input filename request is the question:
+ 
+			Output filename?
+ 
+    The assembly language generated by the compiler for the
+previous input file is written into the named file.  Normally
+this file will have the extension .ASM (not supplied
+automatically by the compiler) since it will be input to the
+assembler.  If you press ENTER instead of providing a file name,
+the compiler will direct its output to the display.  You might
+try this initially to get a feel for the code the compiler
+generates.
+ 
+    Let's consider the interactions to compile a sample program.
+Suppose the program is broken into two files names "SAMPLE-1.C"
+and "SAMPLE-2.C".  You should first format a PC-DOS data disk and
+copy over to it the following files.
+ 
+CPC.EXE 	[from the Small-c:PC distribution disk]
+CPCLIB.OBJ			  "
+SAMPLE-1.C			  "
+SAMPLE-2.C			  "
+ 
+We assume the following files are on your system disk which is in
+drive A.
+ 
+ASM.EXE 	[from your IBM supplied macro assembler disk]
+LINK.EXE	[from your IBM supplied PC-DOS disk]
+ 
+
+ 
+			   - 5 -
+ 
+ 
+Note:  You could use MASM instead of ASM.
+ 
+Get started by entering the following (the disk you made is in
+drive B) and drive B is the logged in disk.
+ 
+B>CPC					  [invoke the compiler]
+ 
+* * *  Small-C:PC  V1.1  * * *	 [first line of a clear screen]
+ 
+By Ron Cain, Modified by CAPROCK SYSTEMS for the IBM PC
+ 
+ 
+Distributed by:  CAPROCK SYSTEMS, INC>
+		 P.O. Box 13814
+		 Arlington, Texas 76013
+ 
+PC-DOS Version N:  June, 1982
+ 
+ 
+Should I pause after an error (y,N)>?  Y	  [You don't want
+						  to miss any]
+ 
+Do you want the Small-c:PC-text to appear (y,N)?  N	 [no]
+ 
+Input filename?  SAMPLE-1.C
+ 
+Output filename?  SAMPLE-1.ASM
+====== main ()			[you know when it starts on a new
+====== plc()			function]
+ 
+There were 0 errors in compilation.
+ 
+Input filename?  SAMPLE-2.C	[the program is stored in two
+				separate files]
+ 
+Output filename?  SAMPLE-2.ASM
+====== getname()
+ 
+There were 0 errors in compilation.
+ 
+Input filename?  [press ENTER]
+ 
+ 
+ 
+    Notice that the two input files could have been processed in
+separate executions of the compiler.  SAMPLE-2.C contains the
+necessary external data declarations to inform the compiler about
+referenced data allocated elsewhere.
+ 
+     The output files are assembled next.
+ 
+
+ 
+ 
+			   - 6 -
+ 
+ 
+B>A:ASM SAMPLE-1,,NUL:,NUL:
+B>A:ASM SAMPLE-2,,NUL:,NUL:
+ 
+    Next, we want to produce an execute file.  You do this by
+executing LINK.  Our example assumes LINK inputs as required by
+PC-DOS Version 1.1.  If you have Version 2.0 your LINK inputs
+will be slightly different, but the results should be the same.
+The order of the object file names supplied to LINK is
+immaterial.
+ 
+B>A:LINK SAMPLE-1+SAMPLE-2+CPCLIB,SAMPLE,NUL:,NUL:
+ 
+They you are ready to execute the small-c program.  This is
+accomplished by typing the .EXE file name.
+ 
+B>SAMPLE SAMPLE-1.ASM
+ 
+The SAMPLE program provided on the distribution disk types a text
+file onto the display.	It obtains the file name to operate on
+from the command line.
+ 
+ 
+ERROR REPORTING
+ 
+ 
+When the compiler detects an error in the small-c program, it
+displays a message on the screen.  An example would be:
+ 
+Line 20, main + 0: missing open paren
+main)
+     ^
+ 
+ 
+    The error occurred on the 20-th line in the input file.  The
+function being compiled was "main".  The error occurred 0 lines
+into the function.  the error detected was a "missing open
+paren".  The hat character (^) shows where the compiler was at
+character-wise when it detected the error.  The compiler
+continues automatically if you answered N to the first question
+asked by the compiler (see example above).  If you answered Y to
+this questions, you will see the following message displayed.
+ 
+		    Continue (Y,n,g)  ?
+ 
+Pressing Y (or just ENTER) causes the compiler to continue
+processing the source input.  If you type N, the compiler
+displays the message
+ 
+		   Compilation aborted.
+ 
+and returns to PC-DOS.	If you answer G, the compiler continues
+ 
+
+ 
+			   - 7 -
+ 
+ 
+processing the source input, but will no longer pause after an
+error.
+ 
+    Pressing CTRL+BREAK at any time will abort the compiler and
+return you to PC-DOS.  If the compiler is terminated by
+CTRL+BREAK, no input or output files are closed.
+ 
+
+ 
+ 
+			   - 8 -
+ 
+ 
+III.  USING THE LIBRARY FUNCTIONS
+ 
+    All of the modules whose entry point names began with CC are
+used to support the compiler generated code.  As a user, you will
+probably never use these routines directly.  The functions that
+start with QZ are user callable.  They can be divided into PC-DOS
+interface routines and system interfact routines.  The PC-DOS
+interfact routines generally provide I/O through the operating
+system.  The disk I/O functions buffer only one 512 byte sector
+at a time (each open file has its own sector buffer space,
+however).  This combined with the fact that the transfer width
+between a small-c program and the disk routines is only one byte
+causes file I/O to be somewhat slow.  Also, the library routines
+support only ASCII files.  Certain characters are given special
+meanings.  AS a result, you can not manipulate binary files with
+small-c programs.  These file types include .OBJ, .EXE and .COM
+files.
+ 
+
+ 
+ 
+			   - 9 -
+ 
+ 
+THE PC-DOS INTERFACE LIBRARY ROUTINES
+ 
+ 
+    The following presents examples to illustrate the PC-DOS
+interface routines.  The small-c declarations are simply
+illustrations of what can be done.  There are myriad ways to
+accomplish the same coding example.  The PC-DOS function numbers
+mentioned in the descriptions are given in decimal.
+ 
+		   int c;
+		   char buffer[81];
+		   char *name,*mode;
+		   int *ptr;
+		   int ax,ah,dx;
+		   char *string;
+ 
+ 
+1.  Read a character from the keyboard.
+ 
+			   c = getchar();
+ 
+    Reads a character from the keyboard using PC-DOS function 1.
+The character read is echoed back to the display.  Extended ASCII
+codes will require two calls to this function.	A second call is
+indicated if the returned character is null.  If the character
+input is a carriage return, a line feed is also echoed back to
+the display.  If the character is CTRL-Z, a -1 is returned
+instead.
+ 
+2.  Write a character to the display.
+ 
+			   c = putchar(c);
+ 
+    The character in the low order byte of c is written to the
+display using PC-DOS function 2.  Refer to appendix G of the
+BASIC manual to determine the effect of each possible character
+code.  If the character passed is a carriage return, a line feed
+is also sent to the display.  This function returns the character
+passed to it.
+ 
+3.  Read a line from the keyboard.
+ 
+			    gets(buffer);
+ 
+    Reads one line of characters into the character array buffer
+using PC-DOS function 10 for buffered keyboard input.  Editing of
+the buffer during character entry is supported by PC-DOS (see
+chapter 1 of the DOS manual).  A null character is placed at the
+end of the line (replaces the usual carriage return at the end of
+the line).  Note:  the buffer is assumed to be at least 80 bytes
+in length.
+ 
+
+ 
+			   - 10 -
+ 
+ 
+4.  Print a line on the display.
+ 
+			    puts(buffer);
+ 
+    Each character of the buffer is written to the display using
+PC-DOS function 2 (display character).	Refer to appendix G of
+the BASIC manual to see how the character codes are interpreted.
+Characters are sent to the display until a null character is
+encountered.  The null character is not sent to the display.  No
+carriage return or line feed is automatically sent to the
+display.
+ 
+5.  Open a disk file for processing.
+ 
+			    ptr = fopen(name,mode);
+ 
+    The named file is opened for processing using DOS function
+15.  The name is parsed using DOS function 41 before the open
+call.  The mode determines how the file is opened.  An "r" or "R"
+opens it for input and "w" or "W" opens it for output.	Notice
+that mode is a pointer to a string.  The string contains the
+character indicating the desired mode.	No error checks are made.
+The pointer returned is an offset into the library data segment
+of an I/O structure.  The structure consists of the FCB followed
+by the sector buffer (see CPCLIB data segment).  This pointer
+must be passed to functions getc, putc and fclose described
+below.	If the open fails, a zero is returned to ptr.  The open
+can fail for a variety of reasons.  No more than four files may
+be open at one time.  So lack of an available I/O structure can
+cause failure.	The filename supplied could be in error or not
+exist.	It could be that the mode indicated is not one of the
+four possible characters indicated above.  Programming note:  to
+test if a file exists before opening it for output, first open it
+for input.  If this open is successful the file exists.
+ 
+6.  Close a disk file.
+ 
+			    fclose(ptr);
+ 
+    The file described by the I/O structure indicated by ptr is
+closed to further processing.  Any unwritten characters in the
+sector buffer are written to disk first.  No error check is made
+on the value in ptr.  The function returns a zero if the close
+fails.	It returns a non-zero value if the close is successful.
+Note that files are not automatically closed when the program
+exits.
+ 
+7.  Read the next character from an opened disk file.
+ 
+			    c = getc(ptr);
+
+ 
+ 
+ 
+			   - 11 -
+ 
+ 
+    The next unread character is returned.  The ptr is the I/O
+structure offset returned by fopen.  The file is assumed to be a
+text file.  When a carriage return is read, the character that
+immediately follows the carriage return is presumed to be a line
+feed and is discarded automatically.  (No check is made to verify
+that it was a line feed).  When a CTRL-Z or a physical
+end-of-file is detected, a -1 is returned.  A read error also
+returns a -1.
+ 
+8.  Write a character to an opened disk file.
+ 
+			    c = putc(c,ptr);
+ 
+    The character is buffered into the sector buffer indicated by
+the ptr (see fopen).  If the character is a carriage return, a
+line feed is automatically buffered.  A physical disk write
+occurs when the sector buffer is filled.  This function returns
+the argument character if no error occurs.  A -1 is returned if
+an error occurs.
+ 
+9.  Call to PC-DOS.
+ 
+			    ax = pcdos(ah,dx);
+ 
+    This function calls PC-DOS.  The low order byte of the first
+argument is placed into the AH register.  The second argument is
+placed into the DX register.  PC-DOS returns a value in the AX
+register.  This value is stored into the variable ax as
+indicated.
+ 
+    This function is useful for supporting I/O to the printer or
+communications device.	The following function sends the passed
+character to the printer.
+ 
+		  listchar(c)
+		   char c;
+		  {
+		   pcdos(5,c);
+		   return (c);
+		  }
+ 
+ 
+
+ 
+ 
+ 
+			   - 12 -
+ 
+ 
+THE SYSTEM INTERFACE LIBRARY ROUTINES
+ 
+ 
+    Like those used above, the following additional declarations
+are made to illustrate usage of the system interface library
+routines.  These routines generally provide access to the
+hardware on the PC or to special software elements of the system.
+ 
+		   int port,ah,al,bh,bl,ch,cl,dh,dl;
+		   char string[256];
+		   int val;
+ 
+    Some of the declared names refer to 808x registers.  When the
+name of an 8-bit register appears as an argument in the examples
+below, the low order byte of the value passed is copied into the
+808x register with the same name to execute the function
+indicated.  If a 16-bit register is designated, the full 16-bit
+argument is loaded into the 808x register with the same name.
+ 
+1.  Send a byte to a physical output port.
+ 
+			    out808x(port,al);
+ 
+    The low order byte of the second argument is sent to the
+hardware port address indicated by the first argument.	No value
+is returned.  Refer to the PC Technical Reference Manual for a
+description of the physical I/O ports on the PC.
+ 
+2.  Input a byte from a physical input port.
+ 
+			    val = in808x(port);
+ 
+    An IN instruction is executed using the hardware port address
+provided by the argument.  The byte read is sign extended and
+returned as a 16-bit value.  Refer to the PC Technical Reference
+Manual for a description of the physical I/O ports on the PC.
+ 
+3.  Display control through the PC rom BIOS.
+ 
+		     int10(ah,al,bh,bl,ch,cl,dh,dl);
+ 
+    PC-DOS does not support complete display capabilities as
+provided on the PC.  This function allows the small-c programmer
+control over the display as supported by the rom BIOS routines.
+The PC Technical Reference Manual contains a description in the
+rom listings of the required parameter values.	Certain functions
+may not require all of the argument registers.	A dummy argument
+must be provided, however, since the library routine expects all
+of the indicated arguments (it is not function sensitive).
+ 
+4.  Control and I/O through the asynchronous port.
+ 
+
+ 
+ 
+			   - 13 -
+ 
+ 
+			ax = int14(ah,al,dx);
+ 
+    Support of the async adapter through PC-DOS is not complete
+(especially on status information).  This function allows the
+small-c programmer greater control over the comm port.	Again,
+the ROM listings in the PC Technical Reference Manual contain a
+complete description of the parameters for this function.
+ 
+5.  Sound the bell.
+ 
+			     bell();
+ 
+    This function simply calls PC-DOS to display the bell
+character code.
+ 
+6.  Clear the display buffer (and hence the display screen).
+ 
+			    clrscreen();
+ 
+    This is essentially a clear screen function as provided on
+many dumb terminals.  This function illustrates how the PC
+programmer may manipulate the display memory directly to manage
+the display.
+ 
+7.  Copy code segment prefix into a small-c data array.
+ 
+			  copyprefix(string);
+ 
+    The program prefix as described in the DOS manual contains
+information that may be useful to the small-c programmer.  For an
+example, study the sample program provided on the distribution
+disk.  This function copies all 256 bytes of the prefix into
+string.  Using appropriate offsets (or subscripts), the contents
+of the prefix area can be examined.
+ 
+8.  Exit to PC-DOS.
+ 
+			      exit();
+ 
+    This is the function to use in exiting a small-c program at a
+point other than a normal return from the main() function.  The
+exit function assumes that the DS and SS registers are unchanged
+from their contents at program entry.
+ 
+
+ 
+ 
+			   - 14 -
+ 
+ 
+IV.  ASSEMBLY LANGUAGE INTERFACE
+ 
+    Some remaining portions of this manual are reproduced from
+the user manual for the small-c compiler distributed by The Code
+Works.	Interfacing to assembly language is accomplished in two
+ways.  As the library routines demonstrate, you can simply code a
+module in the code segment CSEG, assemble it and LINK will
+resolve the call if the function name is made PUBLIC.  You can
+build your own assembly language library to LINK with small-c
+programs that you write.
+ 
+    The compiler also supports a language construct that permits
+in-line assembly language code to be directly inserted into the
+generated output file.	This language construct is the
+#asm...#endasm statements.  Like all preprocessor commands, #asm
+and #endasm must be entered in lower case.  Since it is
+considered by the compiler to be a single statement, it may
+appear any where a statement is needed.  For example,
+ 
+		  while(...) #asm...#endasm
+ 
+		  or
+ 
+		  if(...) #asm...#endasm else ...
+ 
+    Due to the workings of the preprocessor (which must be
+suppressed by this construct), the pseudo-op #asm must be the
+last item before the carriage return on the end of the line
+(since the text between #asm and the carriage return is thrown
+away).	The parser is free-format (outside of these exceptions).
+So the expected format is as follows:
+ 
+		if (...) #asm		 [nothing following #asm]
+			...
+			...
+			#endasm
+		else statement;
+ 
+A semicolon is not required after the #endasm.
+ 
+    Assembly language code within the #asm...#endasm context can
+access all global variables and functions by name.  It is up to
+the programmer to know the data type of a variable (i.e.  whether
+to access a byte or a word).  Global variables should be accessed
+relative to the stack segment as opposed to the data segment.  To
+store the AX register into the variable named intvar, code
+ 
+			    MOV SS:QZINTVAR,AX
+ 
+    All global variables and function names have a 'QZ' prefix
+added by the compiler.	This is illustrated above.  As another
+ 
+
+ 
+ 
+			   - 15 -
+ 
+ 
+illustration, to call putchar() in an assembler routine, code
+CALL QZPUTCHAR.  Since the library is not assembled with the
+generated code, it is necessary to tell the assembler that a
+library name is external.  Insert the statement
+ 
+			EXTRN	  QZPUTCHAR:NEAR
+ 
+in your assembly language code.  If putchar() is called by the
+small-c code containing your assembler code, then you do not need
+to insert the EXTRN statement.	The compiler will generate one
+for the reference in the small-c code.	A similar situation
+exists for global data items.  For instance, if intvar is not
+defined (or referenced) by containing small-c code, it will be
+necessary to code
+ 
+			EXTRN QZINTVAR:NEAR
+ 
+For other illustrations of this, refer to the generated code for
+the sample program on the distribution disk to see how the
+compiler handles similar references.
+ 
+    External assembly language routines invoked by function calls
+from the small-c code have access to all registers.  However, the
+DS and SS (and naturally CS) must be preserved across the
+assembly language code.  All other registers can be altered
+without restoration.  The calling program removes arguments from
+the stack upon return.	The function should not prune the stack
+itself.
+ 
+
+ 
+ 
+ 
+ 
+			   - 16 -
+ 
+ 
+RUN TIME CODE STRUCTURE AND SEGMENT USAGE
+ 
+ 
+    The compiler generates three segments as a result of
+processing the user's small-c program.	Executable code is placed
+in segment CSEG with a class 'code'.  Data items are stored in
+the segment STACK with the class 'stack'.  No information is
+stored in generated segment DUMMY.  It is produced to avoid a
+LINK error message.  The run time library makes use of a data
+segment DATASEG also in the class 'code'.  The LINK program
+combines all output files with specified libraries to produce the
+executable module.  This module, when loaded into memory, has the
+segments in class 'code' first followed by the stack segment
+whose class is 'stack'.  The entry point is CCGO in the run time
+library.  Routine CCGO loads the stack segment register and sets
+the stack pointer SP to the highest possible value.  It pushes
+information necessary to return to DOS onto the stack, then calls
+the user's main() function.  The exit() routine is entered either
+by a call from the user program or upon a return from main().
+The function exit() cleans the stack off up to the information
+placed there by CCGO.  It then does a long return to DOS.
+ 
+    During execution, the stack is used extensively.  Function
+arguments are placed onto the stack in their textual order (left
+to right).  This is illustrated below by the code generated for
+the following statement.
+ 
+		  function(x,y,z,());
+ 
+		  MOV	  BX,SS:QZX
+		  PUSH	  BX
+		  MOV	  BX,SS:QZY
+		  PUSH	  BX
+		  CALL	  QZZ
+		  PUSH	  BX
+		  CALL	  QZFUNCTION
+		  POP	  CX
+		  POP	  CX
+		  POP	  CX
+ 
+Notice that the compiler generated code to clean up the stack.
+ 
+Local variables are allocated onto the stack.  The current value
+of SP thus becomes their address.  For example, inside a
+function, the statement:
+ 
+			     int k;
+ 
+generates the code PUSH CX to occupy two bytes on the stack.
+References to the value k use the current value of SP.	If
+another value is defined, such as:
+ 
+
+ 
+			   - 17 -
+ 
+ 
+			  char array[3];
+ 
+the compiler would generate
+ 
+		DEC	SP
+		PUSH	CX
+ 
+to reserve three bytes on the stack.  The offset of array is the
+current value of SP.  So array[0] is at SP+0, array[1] at SP+1,
+array[2] at SP+2, and k would now be at SP+3.  Thus, assembly
+language code in the statement #asm...#endasm cannot access local
+variables by name.  They can be accessed by knowing how many
+intervening bytes have been allocated between the declaration of
+the variable and its use.  It is worth noting that local
+declarations use only as much stack space as required, including
+an odd number of bytes.  However, function arguments always
+consist of two bytes apiece.  If a function argument is of type
+char (one byte), the it is sign extended to obtain a 2 byte value
+to push onto the stack.
+ 
+
+ 
+ 
+			   - 18 -
+ 
+ 
+Appendix A:  Small-c:PC COMPILER SPECIFICATION
+ 
+The compiler supports the following.
+ 
+1.  Data type declarations can be:
+ 
+		 char			 8-bits
+		 int			 16-bits
+		 extern char		 external 8-bits
+		 extern int		 external 16-bits
+		 extern 		 external 16-bits
+ 
+A pointer to either of these types is declared by placing an
+asterisk "*" before the pointer name.  A pointer is a 16-bit
+stack offset.
+ 
+2.  Arrays must be single dimension (vector) structures of type
+char or int.
+ 
+3.  Expressions:
+	 unary operators:
+		 "-"	 minus
+		 "*"	 indirection
+		 "&"	 address of scalar
+		 "++"	 increment, either prefix or postfix
+		 "--"	 decrement, either prefix or postfix
+ 
+	 binary operators:
+		 "+"	 addition
+		 "-"	 subtraction
+		 "*"	 multiplication
+		 "/"	 division
+		 "%"	 mod, i.e. remainder from division
+		 "|"	 inclusive or
+		 "^"	 exclusive or
+		 "&"	 logical and
+		 "=="	 test for equality
+		 "!="	 test for inequality
+		 "<"	 test for less than
+		 "<="	 test for less or equal
+		 ">"	 test for greater than
+		 ">="	 test for greater or equal
+		 "<<"	 arithmetic shift left
+		 ">>"	 arithmetic shift right
+		 "="	 assignment
+ 
+	  primaries:
+		 array[expression]
+		 function(arg1,...,argn)
+		 constants:
+			 decimal number
+ 
+
+ 
+			   - 19 -
+ 
+ 
+			 quoted string ("sample")
+			 primed string ('a' or '10')
+		 local variable (or pointer)
+		 global (static) variable (or pointer)
+ 
+4.  Program control:
+ 
+		 if(expression) statement;
+		 if(expression) statement;
+			 else statement;
+		 while (expression) statement;
+		 break;
+		 continue;
+		 return;
+		 return expression;
+		 ; (null statement)
+		 compound statement:
+		 {statement1; statement2;...;statementn;}
+ 
+5.  Pointers
+ 
+		 local and static pointers can contain the
+address of "char" or "int" data items.
+ 
+6.  Compiler commands:
+ 
+	 #define name string
+		 (preprocessor will replace name by string
+throughout the program text)
+	 #include filename
+		  (Input is suspended from the input filename and
+text is read from the file named in the include statement.  When
+end-of-file is detected, input is resumed from the input
+filename.  A separate output file is not created for the #include
+file.  Its output is directed to the currently open output file.)
+	 #asm
+		  (see section IV for description)
+ 
+7.  Miscellaneous notes:
+ 
+Expression evaluation maintains the same hierarchy as standard C.
+ 
+Function calls are defined as any primary followed by an open
+parenthesis.  Legal forms include:
+ 
+		  variable();
+		  array[expression]();
+		  constant();
+		  function() ();
+ 
+NOTE:  the various function call forms are not supported in
+standard C.
+ 
+
+ 
+ 
+			   - 20 -
+ 
+ 
+Pointer arithmetic takes into account the data type the pointer
+was declared for (e.g. ptr++ will increment by 2 if declared
+"int *ptr;").
+ 
+Pointers are compared as unsigned 16-bit values.
+ 
+The generated code is pure.  Data is separated from executable
+code.
+ 
+The generated code is reentrant.  Since local variables are
+allocated on the stack, each new invocation of a function
+generates a new copy of local variables.
+ 
+
+ 
+ 
+			   - 21 -
+ 
+ 
+Appendix B:  COMPILER RESTRICTIONS AND LIMITATIONS
+ 
+The compiler does not support:
+ 
+1.  Structures and unions
+ 
+2.  Multi-dimensional arrays
+ 
+3.  Floating point data
+ 
+4.  Long integers
+ 
+5.  Functions that return anything but "int" values
+ 
+6.  Unary operators "!", "~", "sizeof", casts
+ 
+7.  The operators "&&", "||", "?:", and ","
+ 
+8.  Assignment operators:
+ 
+	 +=, -=, *=, /=, %=, >>=, <<=, &=, ^=,
+ 
+asts
+ 
+7.  The operators "&&", "||", "?:", and ","
+ 
+8.  Assignment operators:
+ 
+	 +=, -=, *=, /=, %
+

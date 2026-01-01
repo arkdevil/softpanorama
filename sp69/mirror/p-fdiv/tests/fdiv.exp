@@ -1,0 +1,251 @@
+From news.ucdavis.edu!library.ucla.edu!galaxy.ucr.edu!ihnp4.ucsd.edu!swrinde!hookup!olivea!news.hal.COM!decwrl!amd!netcomsv!vitsemi!coe Tue Nov 22 10:52:39 1994
+Newsgroups: comp.sys.intel
+Path: news.ucdavis.edu!library.ucla.edu!galaxy.ucr.edu!ihnp4.ucsd.edu!swrinde!hookup!olivea!news.hal.COM!decwrl!amd!netcomsv!vitsemi!coe
+From: coe@vitsemi.com (Tim Coe)
+Subject: Re: Glaring FDIV bug in Pentium
+Message-ID: <1994Nov15.003221.24550@vitsemi.com>
+Sender: coe@vitsemi.com (Tim Coe)
+Organization: Vitesse Semiconductor
+Date: Tue, 15 Nov 94 00:32:21 GMT
+Lines: 239
+
+On a Packard Bell P90 PC I performed the following
+calculation using Microsoft Windows Desk Calculator:
+
+(4195835 / 3145727) * 4195835 = 4195579
+
+This represents an error of 256 or one part in ~16000.
+
+ak@ananke.s.bawue.de (Andreas Kaiser) writes
+>Usually, the division is correct (what did you expect?). Just a few
+>operands are divided wrong. My results (P90) with ~25.000.000.000
+>random arguments (within 1..2^46), with even results divided by two
+>until odd, to assure unique mantissa patterns (the binary exponent
+>doesn't care, of course).
+>
+>          3221224323
+>         12884897291
+>        206158356633
+>        824633702441
+>       1443107810341
+>       6597069619549
+>       9895574626641
+>      13194134824767
+>      13194134826115
+>      13194134827143
+>      13194134827457
+>      13194138356107
+>      13194139238995
+>      26388269649885
+>      26388269650425
+>      26388269651561
+>      26388276711601
+>      26388276712811
+>      52776539295213
+>      52776539301125
+>      52776539301653
+>      52776539307823
+>      52776553426399
+>
+>      Gruss, Andreas
+>      
+>--------------------
+>-- Andreas Kaiser -- internet: ak@ananke.s.bawue.de
+>-------------------- fidonet:  2:246/8506.9
+
+Analysis of these numbers reveals that all but 2 of them are of
+the form:
+
+3*(2^(K+30)) - 1149*(2^(K-(2*J))) - delta*(2^(K-(2*J)))
+
+where J and K are integers greater than or equal to 0,
+and delta is a real number that has varying ranges depending
+on J but can generally be considered to be between 0 and 1.
+
+The 2*J terms in the above equation leads to the conclusion
+that the Pentium divider is an iterative divider that computes
+2 bits of quotient per cycle.  (This is in agreemnent with
+the quoted 39 cycles per extended long division from the
+Pentium data book.  The technical name for this type of
+divider is radix 4)
+
+The extremely low probability of error (1 in 10^10) implies
+that the remainder is being held in carry save format.  (Carry
+save format is where a number is represented as the sum of
+two numbers.  This format allows next remainder calculation
+to occur without propagating carries.  The reason that carry
+save format is implied by the error probability is that
+it is very difficult but not impossible to build up long
+coincident sequences of ones in both the sum word and the
+carry word.)
+
+I assumed the digit set was -2, -1, 0, 1, and 2.  (Having
+5 possible digits in a radix 4 divider allows a necessarry
+margin for error in next digit selection.  When doing long
+division by hand the radix 10 and 10 possible digits allow
+no margin for error.)
+
+Taking the above into consideration I wrote the tentative
+model of Pentium divide hardware included below so that I
+might watch what bit patterns developed in the remainder.
+After running the numbers that were known to fail and numbers
+near them that appeared not to fail I determined the
+conditions for failure listed at the end of the program.
+
+The program accurately explains all but 2 of the published
+errors and accurately predicted the error listed at the
+beginning of the article.
+
+The following two errors probably have a highly related
+explanation, the details of which I may or may not delve
+into at a future date.
+1443107810341
+9895574626641
+
+I would like to thank Dr. Nicely for providing this window
+into the Pentium architecture.
+
+-Tim Coe     coe@vitsemi.com
+
+An example run of the program (using the first reported
+error):
+
+---Enter mantissas with first digit between 8 and f.
+---Enter dividend mantissa in hex: 8 <return>
+---Enter divisor  mantissa in hex: bfffffb829 <return>
+---1111000000000000000000000001000111110101101111111111111111111100
+---0000000000000000000000000000000000000000000000000000000000000100
+---11110000000000000000000000010001 iteration number 1
+---.
+---.
+---.
+---0001111111111001001011110100110000010111010000000000000000000000
+---1101101111111111111110110110010010010000000000000000000000000000
+---11111011111110010010101010110000 iteration number 13
+---
+---0011111111100100101011110100110000010111010000000000000000000000
+---1101111111111111111110110110010010010000000000000000000000000000
+---00011111111001001010101010110000 iteration number 14
+---
+---error on iteration number 15
+---error in the amount of one part in 2^28
+
+#include <stdio.h>
+
+main()
+{
+unsigned r0, r1, r2, r3, r4, r5, r6;
+unsigned t0, t1, t2, t3, cycle, f, first, notlastminus1;
+char line[30], *linepoint;
+
+r0 = 0x0bffffc0;
+r1 = 0;
+r2 = 0x0800bf60;
+r3 = 0;
+printf("Enter mantissas with first digit between 8 and f.\n");
+printf("Enter dividend mantissa in hex: ");
+scanf("%s", line);
+linepoint = line;
+while (*linepoint != '\0') linepoint++;
+while (linepoint < line + 15) *linepoint++ = '0';
+*(line+15) = '\0';
+sscanf(line+7, "%x", &r3);
+*(line+7) = '\0';
+sscanf(line, "%x", &r2);
+printf("Enter divisor  mantissa in hex: ");
+scanf("%s", line);
+linepoint = line;
+while (*linepoint != '\0') linepoint++;
+while (linepoint < line + 15) *linepoint++ = '0';
+*(line+15) = '\0';
+sscanf(line+7, "%x", &r1);
+*(line+7) = '\0';
+sscanf(line, "%x", &r0);
+r4 = 0;
+r5 = 0;
+cycle = 1;
+first = 1;
+notlastminus1 = 1;
+while (notlastminus1) {
+  if (first) {
+    t0 = r2 ^ ~r0;
+    t1 = r3 ^ ~r1;
+    t2 = r2 & ~r0;
+    t3 = r3 & ~r1;
+    r2 = (t0 << 2) | (t1 >> 30);
+    r3 = t1 << 2;
+    r4 = (t2 << 3) | (t3 >> 29);
+    r5 = (t3 << 3) | 4;
+    first = 0;
+    }
+  else {
+    t0 = r0 ^ r2 ^ r4;
+    t1 = r1 ^ r3 ^ r5;
+    t2 = (r0 & r2) | (r0 & r4) | (r2 & r4);
+    t3 = (r1 & r3) | (r1 & r5) | (r3 & r5);
+    r2 = (t0 << 2) | (t1 >> 30);
+    r3 = t1 << 2;
+    r4 = (t2 << 3) | (t3 >> 29);
+    r5 = t3 << 3;
+    }
+
+  t0 = r2;
+  f = 32;
+  while (f--) {
+    if (t0 & (1 << 31)) putchar('1');
+    else putchar('0');
+    t0 = t0 << 1;
+    }
+  t0 = r3;
+  f = 32;
+  while (f--) {
+    if (t0 & (1 << 31)) putchar('1');
+    else putchar('0');
+    t0 = t0 << 1;
+    }
+  putchar('\n');
+  t0 = r4;
+  f = 32;
+  while (f--) {
+    if (t0 & (1 << 31)) putchar('1');
+    else putchar('0');
+    t0 = t0 << 1;
+    }
+  t0 = r5;
+  f = 32;
+  while (f--) {
+    if (t0 & (1 << 31)) putchar('1');
+    else putchar('0');
+    t0 = t0 << 1;
+    }
+  putchar('\n');
+  t0 = r2 + r4;
+  f = 32;
+  while (f--) {
+    if (t0 & (1 << 31)) putchar('1');
+    else putchar('0');
+    t0 = t0 << 1;
+    }
+  printf(" iteration number %d\n", cycle++);
+  putchar('\n');
+
+/*  Numbers on one edge of the failure range  */
+/*  fall out of the failure range due to the  */
+/*  selection of 0 as next digit the cycle    */
+/*  before the prospective failure.           */
+  t0 = 255 & ((r2 >> 24) + (r4 >> 24));
+  if ((t0 < 239) || (t0 > 250)) notlastminus1 = 0;
+
+  }
+/*  Numbers on the other edge of the failure  */
+/*  range fall out of the failure range due   */
+/*  to a lack of ones in both the sum and     */
+/*  carry word on bit 11 in my bit numbering  */
+if ((t0 == 30) && (((r2 >> 21) & 7) == 7) && (((r4 >> 21) & 7) == 7)) {
+  printf("error on iteration number %d\n", cycle);
+  printf("error in the amount of one part in 2^%d\n", 2*(cycle-1));
+  }
+else printf("end and most likely no error\n");
+}
+
+

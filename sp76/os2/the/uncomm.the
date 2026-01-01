@@ -1,0 +1,109 @@
+/*
+$Header: C:\THE\RCS\uncomm.the 1.4 1993/09/01 16:27:20 MH Interim MH $
+*/
+/***********************************************************************/
+/* Description: REXX macro to uncomment lines.                         */
+/* Syntax:      uncomm [target]                                        */
+/* Notes:       This macro will uncomment lines based on the file      */
+/*              type or file name as per below:                        */
+/*               .c       - /* */                                      */
+/*               .h       - /* */                                      */
+/*               .rex     - /* */                                      */
+/*               .rexx    - /* */                                      */
+/*               .pas     - (* *)                                      */
+/*               .asm     - ;                                          */
+/*               makefile - #                                          */
+/*               Makefile - #                                          */
+/*              Full XEDIT/KEDIT/THE targets are supported.            */
+/***********************************************************************/
+trace o
+arg1 = Arg(1)
+noargs = Arg()
+If noargs = 0 Then arg1 = '1'               /* no args - assume 1 line */
+forward = 1                  /* assume direction is forward by defualt */
+'EXTRACT /LINE/TOF/EOF/SIZE/STAY/FTYPE/FNAME/'    /* get various stuff */
+current_line = line.1                   /* save current line for later */
+If tof.1 = 'ON' Then 'N'       /* if on 'top of file' move down 1 line */
+If eof.1 = 'ON' Then 'U'    /* if on 'bottom of file' move down 1 line */
+nolines = valid_target(arg1)               /* validate supplied target */
+If nolines = 0 Then Do            /* invalid target or target no found */
+   'CMSG uncomm' arg1                             /* redisplay command */
+   'EMSG Invalid target specified:' arg1           /* say its an error */
+   ':'||current_line                           /* restore current line */
+   Exit                                              /* go back to THE */
+End
+If nolines = 'ALL' Then Do                         /* if target is ALL */
+   ':1'                                              /* move to line 1 */
+   nolines = size.1                  /* nolines to act on - whole file */
+End
+If nolines < 0 Then Do                /* if target before current line */
+   forward = 0                    /* indicate direction to be backward */
+   nolines = nolines * -1                     /* make nolines positive */
+End
+totlines = 0                             /* reset changed line counter */
+Select
+  When ftype.1 = 'c' Then Do
+                     first_comment = '/*'
+                     last_comment = '*/'
+                     End
+  When ftype.1 = 'h' Then Do
+                     first_comment = '/*'
+                     last_comment = '*/'
+                     End
+  When ftype.1 = 'rex' Then Do
+                     first_comment = '/*'
+                     last_comment = '*/'
+                     End
+  When ftype.1 = 'rexx' Then Do
+                     first_comment = '/*'
+                     last_comment = '*/'
+                     End
+  When ftype.1 = 'pas' Then Do
+                     first_comment = '(*'
+                     last_comment = '*)'
+                     End
+  When ftype.1 = 'asm' Then Do
+                     first_comment = ';'
+                     last_comment = ''
+                     End
+  When ftype.1 = 'asm' Then Do
+                     first_comment = 'rem '
+                     last_comment = ''
+                     End
+  When fname.1 = 'makefile' Then Do
+                     first_comment = '#'
+                     last_comment = ''
+                     End
+  When fname.1 = 'Makefile' Then Do
+                     first_comment = '#'
+                     last_comment = ''
+                     End
+  Otherwise Do
+                     first_comment = '/*'
+                     last_comment = '*/'
+                     End
+End
+Do nolines
+   start = 0; end = 0
+   'EXTRACT/CURLINE/'
+   linelength = Length(curline.3)
+   If linelength == 0 Then                       /* ignore blank lines */
+      Iterate
+   len1 = Length(first_comment)
+   len2 = Length(last_comment)
+   If Substr(curline.3,1,len1) = first_comment Then start = 1
+   newlength = linelength - len2 + 1
+   If Substr(curline.3,newlength,len2) = last_comment Then end = 1
+   If start = 1 & end = 1 Then Do
+      newlength = linelength - (len1 + len2)
+      newline = Substr(curline.3,len1+1,newlength)
+      'REPLACE' newline
+      totlines = totlines + 1
+   End
+   If forward = 1 Then 'N'
+   Else 'U'
+   If rc \= 0 Then Leave
+End
+'EMSG' totlines 'lines uncommented'
+If stay.1 = 'ON' Then ':'||current_line
+Return

@@ -1,0 +1,80 @@
+From: waraich@biostat.wisc.edu (Saad M. Waraich)
+Newsgroups: comp.os.386bsd.bugs
+Subject: Re: FreeBSD-2.0R and 3C509
+Date: 26 Nov 1994 04:53:15 GMT
+Organization: Department of Biostatistics, University of Wisconsin-Madison
+Message-ID: <3b6evr$b2h@news.doit.wisc.edu>
+
+
+In article <CzuuKJ.9o3@murdoch.acc.Virginia.EDU>, mms7r@ascus.micr.Virginia.EDU (M. Mitchell Smith) writes:
+|> My 3Com 3C509 ethernet card is not working under FreeBSD-2.0 RELEASE.
+|> The hardware works correctly under DOS on the same machine.
+|> The card worked under FreeBSD-1.1 (before I clobbered it with 2.0R :-)
+|> using:
+|> 	ifconfig ep0 ... aui
+|> 
+|> The card will work under NetBSD-1.0 with
+|> 
+|> 	ifconfig ep0 ... link0 link1
+|> 
+|> The card is recognized by the ep0 driver at bootup with FreeBSD-2.0R
+|> but pings get a `host down' error.  Could it be failing to detect the
+|> correct physical connector?  The `aui' option is now a `bad value'
+|> from ifconfig.  I tried all combinations of `linkX' options without
+|> success (and a quick look at if_ep.c showed that the `link' options are
+|> probably ifdef'd to NetBSD anyway).  I'm probably doing something silly.
+|> Help!
+|> 							-- Mitch
+|> -- 
+|> M. Mitchell Smith			mms7r@Virginia.EDU
+|> Department of Microbiology		(804) 924-2669
+|> University of Virginia
+|> Charlottesville, VA 22908
+
+
+
+You are not doing anything wrong. The driver is broken. There are a couple of 
+minor differences in the 1.1.5 driver and this one. For one thing the option 
+"aui" (or was it "altphys") is gone and has been replaced by link0, link1 and 
+link2.
+
+The FreeBSD ep driver only cares for link0 option. 
+
+'ifconfig ..... -link0' (the default) is supposed to activate the 10base2 port and
+'ifconfig ..... link0'  is supposed to select BOTH the 10base5 and 10baseT 
+ports (how ????).
+
+
+You might have some luck if you configured your card to use the BNC (10base5) 
+connector and used the 'link0' option.
+
+Otherwise replace the code where the connector selection is made with the
+following code.
+
+
+
+        GO_WINDOW(4);
+        outw(BASE + EP_W4_MEDIA_TYPE, DISABLE_UTP);
+        GO_WINDOW(1);
+        if (!(ifp->if_flags & IFF_LINK0) && (sc->ep_connectors & BNC)) {
+                outw(BASE + EP_COMMAND, START_TRANSCEIVER);
+                DELAY(1000);
+        }
+        if (ifp->if_flags & IFF_LINK0) {
+                outw(BASE + EP_COMMAND, STOP_TRANSCEIVER);
+                DELAY(1000);
+                if((ifp->if_flags & IFF_LINK1) && (sc->ep_connectors & UTP)) {
+                        GO_WINDOW(4);
+                        outw(BASE + EP_W4_MEDIA_TYPE, ENABLE_UTP);
+                        GO_WINDOW(1);
+                }
+        }
+
+
+This piece of code is from the NetBSD 1.0 ep driver and was written by 
+Herb Peyerl.
+
+I hope this helps.
+-- 
+					Saad
+

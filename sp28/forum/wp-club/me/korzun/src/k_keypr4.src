@@ -1,0 +1,528 @@
+$macro_file K_KEYPR4;
+ {--------------------------------------------------------------------------- } 
+$macro K_KEYPR4 FROM EDIT;             { Вывод в файл "дополнит." назначений  }
+                                       { ME - ALT:CTRL+A-Z;0-9 |31/01/90 11:14}
+                                       {Ввод из KEYMAP.ME, вывод в KEYMAP_4.TXT}
+   DEF_CHAR(CHAR);
+   SET_GLOBAL_STR('k_ident','K_KEYPR4');
+
+   DEF_STR(STR1,STR2);
+   DEF_INT(I1,I2,i3);
+   MAKE_MESSage(' "K_KEYPR4" - вывод Ctrl/Alt назначений ключей'+
+                ',любая клавиша - останов' );
+   ERASE_WINDOW;                       { Зачистить текущеее окно              }
+   REFRESH := 0;                       {Заблокировать вывод на экран(редактир)}
+   MESSAGES := 0;                      { --""-- ВЫДАЧУ стандартных сообщений  }
+   WORKING;                            { повесить мигалку на экран            }
+                                       {Загрузить исходный файл +переименовать}
+   STR1 := 'KEYMAP.ME';                { Имя файла ключей для обработки       }
+   STR2 := ME_PATH;                    { Путь к файлам ME                     }
+   IF (FILE_EXISTS(STR2+STR1)) THEN
+      LOAD_FILE(STR2+STR1);
+   ELSE
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPR4" -нет файла '+STR2+STR1);
+      GOTO END;
+   END;
+   FILE_NAME := 'K_KEYPR4.TXT';        { Имя для записи результата(в тек.огл) }
+   I2 := 0;                            { Признак - не прерывались             }
+   I3 := 0;
+   TOF;
+   INSERT_MODE := TRUE;
+   I1 := AT_EOF;
+   WHILE I1 = 0 DO;
+      I3  := I3 + 1 ;
+      STR1 := COPY(GET_LINE,20,53);    { забрать нужный кусок в память   *    }
+      CALL CHKSYS;
+                                       { Проверим,не наше ли сочетание        }
+      IF POS(CAPS(CHAR),'0123456789ABCDEFGHIJKLMNOPQRSTUXYWZ') > 0 THEN
+         GOTO_COL(1);                  { В начало строки                      }
+         CR;                           { Отрезать анализируемую строку        }
+         UP;                           { Подняться к пустой строке            }
+         TEXT(COPY(STR1,1,38));        { Вставим первый кусочек           *   }
+         DOWN;
+      END;
+                                       { Обработка второй половины исх.строки }
+      STR1 := COPY(STR1,1,25) + COPY(STR1,42,14);{ *                          }
+      CHAR := ' ';
+      CALL CHKSYS;
+                                       { Проверим,не наше ли сочетание        }
+      IF POS(CAPS(CHAR),'0123456789ABCDEFGHIJKLMNOPQRSTUXYWZ') > 0 THEN
+         PUT_LINE(STR1);               { Заменим на вырезку                   }
+         DOWN;                         { Переход к следующей                  }
+      ELSE
+         DEL_LINE;                     { Удалить исходную                     }
+      END;
+      I1 := AT_EOF;
+      IF CHECK_KEY THEN
+         I1 := 1;                      { Признак - закончить                  }
+         I2 := 1;                      { Признак - прервано                   }
+         GOTO END;
+      END;
+   END;                                { Kонец цикла просмотра файла          }
+
+   REFRESH := 1;                       { разблокировыть вывод на экран        }
+   MESSAGES := 1;                      { --""-- ВЫДАЧУ стандартных сообщений  }
+   NEW_SCREEN;                         { Перевыдать экран                     }
+   IF I2 = 1 THEN                      { Признак - прервано                   }
+      BEEP;
+      MAKE_MESSage(' "K_KEYPR4" - прервано');
+      GOTO END;
+   END;
+   MAKE_MESSage(' "K_KEYPR4" - файл создан успешно, сортировка результата');
+
+   SAVE_FILE;                          { Сохранение файла результата          }
+
+ {  {****************** Сортировка выходного файла ************************  }
+   WORKING;                            { повесить мигалку на экран            }
+   SHELL_TO_DOS('SORT >'+FILE_NAME+' <'+FILE_NAME+' /+26 ',true);
+   IF ERROR_LEVEL <> 0 THEN
+      SET_GLOBAL_STR('K_MESSAGE','SHELL SORT');
+      GOTO ERROR;
+   END;
+   MAKE_MESSage(' "K_KEYPR4" DOS - сортировка закончена');
+   LOAD_FILE(FILE_NAME);
+   IF ERROR_LEVEL <> 0 THEN
+      SET_GLOBAL_STR('K_MESSAGE','LOAD '+FILE_NAME);
+      GOTO ERROR;
+   END;
+ }
+   MAKE_MESSage(' "K_KEYPR4" - сортировка ');
+   Run_macro('TEXT^TEXTSORT /C=26/L=0');         { C 26 COL до конца поля     }
+   WORKING;                            { повесить мигалку на экран            }
+   REFRESH := 0;                       { Заблокировать вывод на экран после TS}
+   {****************** построение двух колонок в выходном файле  *********  }
+
+   MAKE_MESSage(' "K_KEYPR4" - формирование вывода в две колонки');
+   WORKING;                            { повесить мигалку на экран            }
+   TOF;
+   I1 := AT_EOF;
+   STR2 := COPY(GET_LINE,26,4);        { Для анализа смены Сtrl /Alt          }
+   WHILE I1 = 0 DO;
+      DOWN;
+      I1 := AT_EOF;
+      IF STR2 <> COPY(GET_LINE,26,4) THEN
+         I1 := 2;                      { Признак - смена произошла            }
+      END;
+   END;                                { Kонец цикла просмотра файла          }
+
+   IF I1 <> 2 THEN                     { Делать то оказывается нечего         }
+      GOTO END;
+   END;
+
+   MAKE_MESSage(' "K_KEYPR4" -  вывода в две колонки');
+
+                                       { Пометить блок со сменой Ctrl / Alt   }
+   I1 := C_LINE - 1;                   { ДЛИНА блока N 1                      }
+   GOTO_COL(1);
+   COL_BLOCK_BEGIN;
+   GOTO_COL(36);
+   EOF;
+   BLOCK_END;
+   I2 := BLOCK_LINE2 - BLOCK_LINE1 + 1;{ Длина блока 2                        }
+
+   TOF;                                { Переместить блок в 38 колонку        }
+   GOTO_COL(41);
+   MOVE_BLOCK;
+   BLOCK_OFF;
+                                       { Удалить пустой хвост                 }
+   IF I1 > I2 THEN
+      GOTO_LINE(I1+1);
+   ELSE
+      GOTO_LINE(I2+1);
+   END;
+   BLOCK_BEGIN;
+   EOF;
+   BLOCK_END;
+   DELETE_BLOCK;
+
+   TOF;
+   NEW_SCREEN;
+   TEXT('           СПИСОК Alt / Ctrl кодов редактирования  ');CR;
+   TEXT('           --------------------------------------  ');CR;
+   SAVE_FILE;                          { Сохранение файла результата          }
+
+   SET_GLOBAL_STR('K_MESSAGE',' Работа окончена ');
+
+   GOTO END;                           { Конец работы программы               }
+ { ---------------- Подпрограмма проверки ALT / CTRL    --------------- }
+  CHKSYS:
+      CHAR := ' ';
+      IF (COPY(STR1,1,1) = '?') THEN
+          RET;
+      END;
+      IF (CAPS(COPY(STR1,27,4)) = '<ALT') AND
+         (COPY(STR1,32,1) = '>') THEN
+         CHAR := copy(STR1,31,1);
+      ELSE
+         IF (CAPS(COPY(STR1,27,5)) = '<CTRL') AND
+            (COPY(STR1,33,1) = '>') THEN
+            CHAR := copy(STR1,31,1);
+         END;
+      END;
+      RET;
+ { ---------------- Конец   подпрограммы CHKSYS - MACRO  --------------- }
+
+ { ---------------- Подпрограмма обработки ошибки MACRO --------------- }
+ ERROR:
+ SET_GLOBAL_STR('K_MESSAGE',GLOBAL_STR('K_MESSAGE') +
+                           ' ERROR_LEVEL=' + STR(ERROR_LEVEL));
+ RUN_MACRO('K_MESSAG');
+ ERROR_LEVEL := 0;
+ GOTO END;
+ { ---------------- Конец   обработки   ошибки   MACRO  --------------- }
+
+ END:
+ END_MACRO;                            { of K_KEYPR4                          }
+
+ {--------------------------------------------------------------------------- } 
+$MACRO K_KEYPRA FROM EDIT;             { Вывод в файл активных назначений     }
+                                       { ключей ME - ALT:CTRL A-Z; 0-9        }
+                                       {Ввод из KEYMAP.ME,вывод в K_KEYPRA.TXT}
+   DEF_CHAR(CHAR);
+   SET_GLOBAL_STR('K_IDENT','K_KEYPRA');
+
+   DEF_STR(STR1,STR2);
+   DEF_INT(I1,I2,I3);
+   DEF_INT(N1,N2,NM);                  { Для поиска N колонок                 }
+   MAKE_MESSAGE(' "K_KEYPRA" - вывод дополнительных назначений ключей'+
+                ',любая клавиша - останов' );
+   ERASE_WINDOW;                       { Зачистить текущеее окно              }
+   REFRESH := 0;                       {Заблокировать вывод на экран(редактир)}
+   MESSAGES := 0;                      { --""-- ВЫДАЧУ стандартных сообщений  }
+   WORKING;                            { повесить мигалку на экран            }
+                                       {Загрузить исходный файл и переименовать}
+   STR1 := 'KEYMAP.ME';                { Имя файла ключей для обработки       }
+   STR2 := ME_PATH;                    { Путь к файлам ME                     }
+   IF (FILE_EXISTS(STR2+STR1)) THEN
+      LOAD_FILE(STR2+STR1);
+   ELSE
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPRA" -нет файла '+STR2+STR1);
+      GOTO END;
+   END;
+   FILE_NAME := 'K_KEYPRA.TXT';        { Имя для записи результата(в тек.огл) }
+   WORKING;                            { повесить мигалку на экран            }
+   I2 := 0;                            { Признак - не прерывались             }
+   I3 := 0;
+   EOF;
+   IF (C_LINE < 2) THEN                { Файла нет                            }
+      REFRESH := 1;                    { разблокировыть вывод на экран        }
+      MESSAGES := 1;                   { --""-- ВЫДАЧУ стандартных сообщений  }
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPRA" - файл KEYMAP.ME - пуст/не найден' );
+      GOTO END;
+   END;
+   TOF;
+   INSERT_MODE := TRUE;
+   I1 := AT_EOF;
+   WHILE I1 = 0 DO;
+      I3  := I3 + 1 ;
+      STR1 := COPY(GET_LINE,20,53);    { забрать нужный кусок в память   *    }
+      CALL CHKSYS;
+                                       { Проверим,не наше ли сочетание        }
+      IF POS(CAPS(CHAR),'0123456789ABCDEFGHIJKLMNOPQRSTUXYWZ') > 0 THEN
+         GOTO_COL(1);                  { В начало строки                      }
+         CR;                           { Отрезать анализируемую строку        }
+         UP;                           { Подняться к пустой строке            }
+         TEXT(COPY(STR1,1,40));        { Вставим первый кусочек           *   }
+         DOWN;
+      END;
+                                       { Обработка второй половины исх.строки }
+      STR1 := COPY(STR1,1,25) + COPY(STR1,42,14);{ *                          }
+      CHAR := ' ';
+      CALL CHKSYS;
+                                       { Проверим,не наше ли сочетание        }
+      IF POS(CAPS(CHAR),'0123456789ABCDEFGHIJKLMNOPQRSTUXYWZ') > 0 THEN
+         PUT_LINE(STR1);               { Заменим на вырезку                   }
+         DOWN;                         { Переход к следующей                  }
+      ELSE
+         DEL_LINE;                     { Удалить исходную                     }
+      END;
+      I1 := AT_EOF;
+      IF CHECK_KEY THEN
+         I1 := 1;                      { Признак - закончить                  }
+         I2 := 1;                      { Признак - прервано                   }
+         GOTO END;
+      END;
+   END;                                { Kонец цикла просмотра файла          }
+
+   IF I2 = 1 THEN                      { Признак - прервано                   }
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPRA" - прервано');
+      GOTO END;
+   END;
+   MAKE_MESSAGE(' "K_KEYPRA" - файл создан успешно, сортировка результата');
+
+   SAVE_FILE;                          {Сохранение файла результата - промежут}
+   LOAD_FILE(FILE_NAME);               { И загрузка его (для срезки хвостов)  }
+
+ {************** Сортировка полученного файла (ключ - с 26 позиции) ***  }
+   MAKE_MESSage(' "K_KEYPRA" - сортировка ');
+   Run_macro('TEXT^TEXTSORT /C=26/L=0');         { C 26 COL до конца поля     }
+   WORKING;                            { повесить мигалку на экран            }
+   REFRESH := 0;                       { Заблокировать вывод на экран после TS}
+ {***************** Построение двух колонок в выходном файле  *********  }
+   BLOCK_OFF;
+   MAKE_MESSAGE(' "K_KEYPRA" - формирование вывода в две колонки');
+   WORKING;                            { повесить мигалку на экран            }
+   TOF;
+   I1 := AT_EOF;
+   N1 := 0;
+   NM := POS('<', GET_LINE);           { Позиция начала кода <....            }
+   STR2 := COPY(GET_LINE,NM,4);        { Для анализа смены СTRL /ALT          }
+   WHILE I1 = 0 DO;                    { Проход по первой половине файла      }
+      EOL;
+      IF (C_COL > N1 ) THEN            { Поиск мах. колонки справа            }
+         N1 := C_COL;                  { значение N мах. колонки справа 1/2   } {                                      }
+      END;
+      DOWN;
+      I1 := AT_EOF;
+      IF STR2 <> COPY(GET_LINE,NM,4) THEN
+         I1 := 2;                      { Признак - смена произошла            }
+      END;
+   END;                                { Kонец цикла просмотра 1/2 файла      }
+
+   IF I1 <> 2 THEN                     { Делать то оказывается нечего         }
+      GOTO END;
+   END;
+   I1 := C_LINE - 1;                   { ДЛИНА блока N 1                      }
+
+   MAKE_MESSAGE(' "K_KEYPRA" -  вывода в две колонки');
+   N2 := 0;
+   WHILE AT_EOF = 0 DO;                { Проход по второй половине файла      }
+      EOL;
+      IF (C_COL > N2 ) THEN            { Поиск мах. колонки справа  2-й 1/2   }
+         N2 := C_COL;
+      END;
+      DOWN;
+   END;                                { Kонец цикла просмотра файла          }
+
+                                       { Пометить блок со сменой CTRL / ALT   }
+   GOTO_LINE(I1+1);
+   GOTO_COL(1);
+   COL_BLOCK_BEGIN;
+   EOF;
+   GOTO_COL(N2);                       { Ширина 2-й половины                  }
+   BLOCK_END;
+   I2 := BLOCK_LINE2 - BLOCK_LINE1 + 1;{ Длина блока 2                        }
+
+   TOF;                                { Переместить блок в N1+2 колонку      }
+   GOTO_COL(N1+2);
+   MOVE_BLOCK;
+   BLOCK_OFF;
+                                       { Удалить пустой хвост                 }
+   IF I1 > I2 THEN
+      GOTO_LINE(I1+1);
+   ELSE
+      GOTO_LINE(I2+1);
+   END;
+   BLOCK_BEGIN;
+   EOF;
+   BLOCK_END;
+   DELETE_BLOCK;
+
+   TOF;
+   NEW_SCREEN;
+   TEXT('           полный  СПИСОК  кодов редактирования  ');CR;
+   TEXT('           ------------------------------------  ');CR;
+   SAVE_FILE;                          { Сохранение файла результата          }
+
+   SET_GLOBAL_STR('K_MESSAGE',' Работа окончена ');
+
+   GOTO END;                           { Конец работы программы               }
+
+ { ---------------- Подпрограмма отбора строк для вывода -------------- }
+  CHKSYS:
+      CHAR := ' ';
+      IF (COPY(STR1,1,1) = '?') THEN   { Эту не будем анализировать           }
+          RET;
+      END;
+      IF (CAPS(COPY(STR1,27,1)) = '<') THEN      { А  эта - наша              }
+         CHAR := 'A';
+      END;
+      RET;
+ { --------------- Конец   подпрограммы CHKSYS - MACRO  --------------- }
+
+ END:
+   REFRESH := 1;                       { разблокировыть вывод на экран        }
+   MESSAGES := 1;                      { --""-- ВЫДАЧУ стандартных сообщений  }
+   NEW_SCREEN;                         { Перевыдать экран                     }
+ END_MACRO;                            { OF K_KEYPRA                          }
+
+ {--------------------------------------------------------------------------- } 
+$MACRO K_KEYPRK FROM EDIT;             { Вывод в файл "моих" . назначений     }
+                                       { ключей ME - т.е. со "*" в имени      }
+                                       {Ввод из KEYMAP.ME,вывод в K_KEYPRK.TXT}
+   DEF_CHAR(CHAR);
+   SET_GLOBAL_STR('K_IDENT','K_KEYPRK');
+
+   DEF_STR(STR1,STR2);
+   DEF_INT(I1,I2,I3);
+   DEF_INT(N1,N2,NM);                  { Для поиска N колонок                 }
+   MAKE_MESSAGE(' "K_KEYPRK" - вывод дополнительных назначений ключей'+
+                ',любая клавиша - останов' );
+   ERASE_WINDOW;                       { Зачистить текущеее окно              }
+   REFRESH := 0;                       {Заблокировать вывод на экран(редактир)}
+   MESSAGES := 0;                      { --""-- ВЫДАЧУ стандартных сообщений  }
+   WORKING;                            { повесить мигалку на экран            }
+                                       {Загрузить исходный файл и переименовать}
+   STR1 := 'KEYMAP.ME';                { Имя файла ключей для обработки       }
+   STR2 := ME_PATH;                    { Путь к файлам ME                     }
+   IF (FILE_EXISTS(STR2+STR1)) THEN
+      LOAD_FILE(STR2+STR1);
+   ELSE
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPRK" -нет файла '+STR2+STR1);
+      GOTO END;
+   END;
+   FILE_NAME := 'K_KEYPRK.TXT';        { Имя для записи результата(в тек.огл) }
+   WORKING;                            { повесить мигалку на экран            }
+   I2 := 0;                            { Признак - не прерывались             }
+   I3 := 0;
+   EOF;
+   IF (C_LINE < 2) THEN                { Файла нет                            }
+      REFRESH := 1;                    { разблокировыть вывод на экран        }
+      MESSAGES := 1;                   { --""-- ВЫДАЧУ стандартных сообщений  }
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPRK" - файл KEYMAP.ME - пуст/не найден' );
+      GOTO END;
+   END;
+   TOF;
+   INSERT_MODE := TRUE;
+   I1 := AT_EOF;
+   WHILE I1 = 0 DO;
+      I3  := I3 + 1 ;
+      STR1 := COPY(GET_LINE,20,53);    { забрать нужный кусок в память   *    }
+      CALL CHKSYS;
+                                       { Проверим,не наше ли сочетание        }
+      IF POS(CAPS(CHAR),'0123456789ABCDEFGHIJKLMNOPQRSTUXYWZ') > 0 THEN
+         GOTO_COL(1);                  { В начало строки                      }
+         CR;                           { Отрезать анализируемую строку        }
+         UP;                           { Подняться к пустой строке            }
+         TEXT(COPY(STR1,1,40));        { Вставим первый кусочек           *   }
+         DOWN;
+      END;
+                                       { Обработка второй половины исх.строки }
+      STR1 := COPY(STR1,1,25) + COPY(STR1,42,14);{ *                          }
+      CHAR := ' ';
+      CALL CHKSYS;
+                                       { Проверим,не наше ли сочетание        }
+      IF POS(CAPS(CHAR),'0123456789ABCDEFGHIJKLMNOPQRSTUXYWZ') > 0 THEN
+         PUT_LINE(STR1);               { Заменим на вырезку                   }
+         DOWN;                         { Переход к следующей                  }
+      ELSE
+         DEL_LINE;                     { Удалить исходную                     }
+      END;
+      I1 := AT_EOF;
+      IF CHECK_KEY THEN
+         I1 := 1;                      { Признак - закончить                  }
+         I2 := 1;                      { Признак - прервано                   }
+         GOTO END;
+      END;
+   END;                                { Kонец цикла просмотра файла          }
+
+   IF I2 = 1 THEN                      { Признак - прервано                   }
+      BEEP;
+      MAKE_MESSAGE(' "K_KEYPRK" - прервано');
+      GOTO END;
+   END;
+   MAKE_MESSAGE(' "K_KEYPRK" - файл создан успешно, сортировка результата');
+
+   SAVE_FILE;                          {Сохранение файла результата - промежут}
+   LOAD_FILE(FILE_NAME);               { И загрузка его (для срезки хвостов)  }
+
+ {************** Сортировка полученного файла (ключ - с 26 позиции) ***  }
+   MAKE_MESSage(' "K_KEYPRK" - сортировка ');
+   Run_macro('TEXT^TEXTSORT /C=26/L=0');         { C 26 COL до конца поля     }
+   WORKING;                            { повесить мигалку на экран            }
+   REFRESH := 0;                       { Заблокировать вывод на экран после TS}
+ {***************** Построение двух колонок в выходном файле  *********  }
+   BLOCK_OFF;
+   MAKE_MESSAGE(' "K_KEYPRK" - формирование вывода в две колонки');
+   WORKING;                            { повесить мигалку на экран            }
+   TOF;
+   I1 := AT_EOF;
+   N1 := 0;
+   NM := POS('<', GET_LINE);           { Позиция начала кода <....            }
+   STR2 := COPY(GET_LINE,NM,4);        { Для анализа смены СTRL /ALT          }
+   WHILE I1 = 0 DO;                    { Проход по первой половине файла      }
+      EOL;
+      IF (C_COL > N1 ) THEN            { Поиск мах. колонки справа            }
+         N1 := C_COL;                  { значение N мах. колонки справа 1/2   } {                                      }
+      END;
+      DOWN;
+      I1 := AT_EOF;
+      IF STR2 <> COPY(GET_LINE,NM,4) THEN
+         I1 := 2;                      { Признак - смена произошла            }
+      END;
+   END;                                { Kонец цикла просмотра 1/2 файла      }
+
+   IF I1 <> 2 THEN                     { Делать то оказывается нечего         }
+      GOTO END;
+   END;
+   I1 := C_LINE - 1;                   { ДЛИНА блока N 1                      }
+
+   MAKE_MESSAGE(' "K_KEYPRK" -  вывода в две колонки');
+   N2 := 0;
+   WHILE AT_EOF = 0 DO;                { Проход по второй половине файла      }
+      EOL;
+      IF (C_COL > N2 ) THEN            { Поиск мах. колонки справа  2-й 1/2   }
+         N2 := C_COL;
+      END;
+      DOWN;
+   END;                                { Kонец цикла просмотра файла          }
+
+                                       { Пометить блок со сменой CTRL / ALT   }
+   GOTO_LINE(I1+1);
+   GOTO_COL(1);
+   COL_BLOCK_BEGIN;
+   EOF;
+   GOTO_COL(N2);                       { Ширина 2-й половины                  }
+   BLOCK_END;
+   I2 := BLOCK_LINE2 - BLOCK_LINE1 + 1;{ Длина блока 2                        }
+
+   TOF;                                { Переместить блок в N1+2 колонку      }
+   GOTO_COL(N1+2);
+   MOVE_BLOCK;
+   BLOCK_OFF;
+                                       { Удалить пустой хвост                 }
+   IF I1 > I2 THEN
+      GOTO_LINE(I1+1);
+   ELSE
+      GOTO_LINE(I2+1);
+   END;
+   BLOCK_BEGIN;
+   EOF;
+   BLOCK_END;
+   DELETE_BLOCK;
+
+   TOF;
+   NEW_SCREEN;
+   TEXT('            СПИСОК "моих" кодов редактирования   ');CR;
+   TEXT('           ------------------------------------  ');CR;
+   SAVE_FILE;                          { Сохранение файла результата          }
+
+   SET_GLOBAL_STR('K_MESSAGE',' Работа окончена ');
+
+   GOTO END;                           { Конец работы программы               }
+
+ { ---------------- Подпрограмма отбора строк для вывода -------------- }
+  CHKSYS:
+      CHAR := ' ';
+      IF (COPY(STR1,1,1) = '?') THEN   { Эту не будем анализировать           }
+          RET;
+      END;
+      IF (CAPS(COPY(STR1,27,1)) = '<') AND       { А  эта - активна -есть код }
+         (COPY(STR1,1,1) = '*') THEN   { и моя личная - нужна                 }
+         CHAR := 'A';
+      END;
+      RET;
+ { --------------- Конец   подпрограммы CHKSYS - MACRO  --------------- }
+
+ END:
+   REFRESH := 1;                       { разблокировыть вывод на экран        }
+   MESSAGES := 1;                      { --""-- ВЫДАЧУ стандартных сообщений  }
+   NEW_SCREEN;                         { Перевыдать экран                     }
+ END_MACRO;                            { OF K_KEYPRK                          }
+ {--------------------------------------------------------------------------- } 

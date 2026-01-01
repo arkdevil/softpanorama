@@ -1,0 +1,608 @@
+
+                       The AWK Programming Language
+                         Users Manual and Tutorial
+
+        This document is an introduction to the use of AWK for manipulating 
+text and the textual representation of numbers.  This mouthful means that you 
+can use AWK to manipulate words and numbers. 
+
+1.  Basic Concepts
+
+1.1 AWK Programs
+
+        AWK programs consist of a series of PATTERNS and ACTIONS.  Patterns 
+are boolean (logical) expressions that are evaluated and if they are true 
+(non-zero number or non-null string) then the associated Action is performed.  
+Actions are program fragments in a "C" like language. 
+
+        The Pattern-Action statements comprising an AWK program are evaluated 
+in turn for each input RECORD.  That is, a Record is read and the Patterns in 
+the program are evaluated in order, for each Pattern that succeeds, an Action 
+is performed.  For example:
+
+    NR == 5 { print }
+
+is a simple program that prints the fifth line of a file.  NR is a built-in 
+variable that is equal to the number of records AWK has read so far.  The 
+double equal sign is the equality comparison operator from C.
+
+        As you can see from the above example, a Pattern is a naked expression 
+and an Action is a compound statement or list of program statements enclosed 
+in braces ({}).
+
+        You may omit the Action in a Pattern/Action statement in which case 
+the default action is { print }.  You may, on the other hand omit the Pattern 
+which defaults to true, so that the Action is always taken.  Finally if you 
+omit both the Pattern and the Action you have a blank line, which is ignored. 
+   
+1.2 Fields and Records
+
+        To AWK all data are divided into FIELDS and RECORDS.  The definition 
+of a field is any string of characters separated by the Field Separator or FS 
+for short.  Similarly a record is any string of characters separated by the 
+Record Separator or RS.
+
+        In the simplest form a Field is a string of characters surrounded by 
+white space (blanks or tabs,) and a Record is a line of text.  You can make 
+the Field Separator as complex as you like by providing your own REGULAR 
+EXPRESSION for the FS.  The Record Separator is limited to the null string "" 
+or a newline "\n".  The null string means that a blank line separates a multi-
+line record, and the newline means that each line is a record.
+
+        You can refer to the Fields in the current Record with the dollar ($) 
+operator:
+
+    $3 < 10 { print NR, $0 }
+
+here $0 denotes the entire Record, and $3 is the third field.  If the tenth 
+line of the input file was:
+
+    Rob Duff 7
+
+the output generated for this record by the one line program would be:
+
+    10 Rob Duff 7
+
+since the third field (7) is less than 10 the record number (10), followed by a 
+space (the Output Field Separator OFS), followed by the whole record ($0).
+
+1.3  Regular Expressions
+
+        You may wonder why something like NR == 5 would be called a Pattern, 
+well, the name comes from pattern matching with Regular Expressions.  A Regular 
+Expression is a formula for matching strings.  The simplest is straight 
+matching a string of characters within a line: 
+
+    /with/
+
+will match a Record that contains the substring "with" at any point.  A more 
+complex Regular Expression is Alternation (one string or another):
+
+    /with|line/
+
+which is equivalent to
+
+    /with/ || /line/
+
+which will match any Record that has "with" or has "line" as a substring.  A 
+somewhat less simple concept is the CLASS or set of characters:
+
+    /[0-9]/
+
+will match any digit and
+
+    /[a-zA-Z]/
+
+will match any upper or lower case letter.  A special Class is the period (.) 
+which will match any character. 
+
+        Next we come to the repetition operators there are three of them, one 
+for zero or more occurances of a pattern, the asterisk (*), another for one or 
+more, the plus sign (+), and finally the one for zero or one occurances of a 
+pattern, the question mark (?).  For example the pattern:
+
+    /[0-9]+/
+
+will match one or more digits or in other words it will recognize numbers.
+
+        As you can see a Regular Expression is delimited by slashes (/) in the 
+same fashion as a string is delimited by quotes ("). 
+
+        You can use a Regular Expression in a pattern all by itself or in a 
+logical expression:
+
+    /line/ { print "line", NR}
+    NR > 5 && /with/ { print NR, $0 }
+
+or you can use the match operator tilde (~) when you want to match anything 
+other than the Current Record ($0):
+
+    $2 ~ /ff/ { print $2,$3 }
+
+        Finally if you want to find out if a string does not match a pattern 
+you use the not-match (!~) operator.
+
+1.4  Expressions
+
+        Expressions in AWK are something that C programmers will be 
+comfortable with immediatly and those familiar with other languages could pick 
+up quickly.  You may be either disappointed or relieved by the restrictions on 
+expressions in AWK.  You cannot for instance get the address of anything, and 
+arrays are one-dimensional (multi-dimensions are simulated).  Most of the 
+power of the C language is available for expressions.
+
+        Perhaps the most familiar expressions are those involving arithmetic 
+and assignment:
+
+    a = b + c * 2           # a becomes b plus c times 2
+
+A less familar kind of expression involves comparison and boolean operators:
+
+    a > b && c == 1         # a is greater than b and c equals 1
+
+You have already encountered the Field operator ($) and the pattern matching 
+operator (~):
+
+    $1 ~ /[0-9]/            # field #1 contains a digit
+
+The one operation that has no operator is string concatenation:
+
+    name = name ".DAT"      # add file extension to name
+
+Doubtless the least familiar to non C programmers is the conditional 
+assignment and the increment/decrement operators.
+
+    x = (a > b) ? a-- : b-- # x becomes the greater of a and b then
+                            # decrement the greater of a or b
+
+        Beware of the traps that some of these operators can let you fall 
+into.  The assignment operator can be used anywhere so if you use it instead 
+of the equality operator you will not get what you expect:
+
+    a == 3                  # gives 1 if a is 3, otherwise 0
+    a = 3                   # gives 3 always and sets a to 3
+
+So even the assignment expression has a value that can be used within a larger 
+expression: 
+
+    b = (a = 5) + 2         # b becomes 7 and a becomes 5
+
+        The comparison operators will do either a string comparison or a 
+numeric comparison depending on the arguments to the operation.
+
+        If both left and right expressions are numeric then a numeric compare 
+is done otherwise a string compare is performed.  To force AWK to perform the 
+kind of comparison you want either you must ensure that both expressions are 
+numeric or one of them is string.  In the simplest case this can be done by 
+adding a zero to make it numeric or concatenating a null string to make it a 
+string. 
+
+    3 < "10"                # false -- string compare
+    3 < 10                  # true -- numeric compare
+
+        Fields, command line assignments, ARGV and the arrays created by the 
+split function have the special property of (possibly) being both a number and 
+a string.  If the field can be fully represented as a number by AWK then the 
+field will have the combined type and any variable that has been assigned the 
+value of one of these fields will have the combined type.  If both sides of a 
+comparison are combined type or one side is a number and the other is this 
+combined type then a numeric comparison is done. 
+
+1.5  Variables
+
+        Variables spring into existance out of the ylem by being mentioned.  
+They can have either a numeric or string type.  The type of a variable is 
+determined by the type of the expression that is assigned to them: 
+
+    a = x + 0               # a is a number
+    a = x ""                # a is a string
+
+        Before any value is assigned to a variable it's type is indeterminate, 
+that is it is both a string and a number (this is important when doing 
+comparisons and for printing).  An uninitialized variable will compare equal 
+to the null string ("") and to zero (0).  It will print as the null string. 
+
+    print (x, x=="", x==0)
+
+will print:
+
+     1 1
+
+1.6  Arrays
+
+        Any variable can also be an array.  In AWK arrays are one-dimensional 
+but multi-dimensions are simulated by a BUILTIN VARIABLE called SUBSEP and 
+separating the subscripts with commas:
+
+    a[1,2,3]
+
+is equivalent to:
+
+    a[1 SUBSEP 2 SUBSEP 3]
+
+where the default value for SUBSEP is ascii ^Z (SUB).
+
+        Arrays are indexed by strings so that the elements
+
+    a["1"]
+
+and
+
+    a["01"]
+
+are not the same, and also the elements
+
+    a["1"]
+
+and 
+
+    a[1]
+
+may or may not be the same depending on the Output Format (OFMT).
+
+        Since arrays are indexed by strings there must be a way of stepping 
+through the array using strings.  The way we do it is with a special form of 
+the for loop:
+
+    for (index in array) print index, array
+
+will step through the array (in lexical order) printing each index and the 
+associated array element.  You can still access arrays using numbers if they 
+have been put into the array using numbers, since the string representation 
+for the indeces will be the same (unless you change OFMT) between creating the 
+array and using it.
+
+        One departure from most programming languages that this kind of array 
+provides is fractional indices for array elements.  You can for instance have 
+an array element indexed by any number:
+
+    a[3.14159] = "pi"
+
+        Once you have finished with an array element you may remove it using 
+the delete statement or assigning every element out of existance.
+
+    delete a[pi]
+    a = ""
+
+        Finally there is a test for array membership that you must use if you 
+don't want extra array elements since the very mention of an array element 
+will cause it to spring into existance.  You must use: 
+
+    if (i in a) ...
+
+because by using:
+
+    if (a[i] == "") ...
+
+you will create all kinds of unwanted array elements that consist of 
+uninitialized variables. 
+
+1.7  Built In Variables
+
+        There are a number of variables that AWK defines so that you can 
+get information, control certain aspects of AWK and in two cases get extra 
+information about a function.
+
+        Two variables give information about the command line, ARGC and ARGV. 
+ARGC is the number of arguments except the options and program that AWK itself 
+uses and ARGV is an array containing the value of the command line arguments 
+with ARGV[0] being AWK's name and ARGV[1] to ARGV[ARGC-1] the rest of the 
+command line arguments. 
+
+        Information about the file being read in is contained in FILENAME, and 
+FNR which contains the number of records read from the current file.  Neither 
+of these variables have any valid meaning during a BEGIN or END action. 
+
+        The variables that describe the current input record are NR the number 
+of records read so far, and NF the number of fields in the current record.  NF 
+will change anytime you assign the value of $0 or any field after $NF.  Any 
+fields between $NF and $n where n > NF will be set to the null string ("").
+
+        Output is controlled by the Output Record Separator (ORS), the output 
+Field Separator (OFS), and the Output Format (OFMT).  If you print some items 
+such as:
+
+    print 1.20, "test", 001
+
+the each comma will be replaced by the OFS (default blank) and the ORS will be 
+printed at the end.  The numbers will be printed according to the OFMT 
+(default %.6g) so: 
+
+    1.2 test 1
+
+will be the result of the print statement.
+
+        Input is controlled by the Record Separator (RS) and the Field 
+Separator (FS).  If the RS is the null string ("") then the input record is 
+delimited by a blank line.  If it is a string consisting of the newline ("\n") 
+then each line will be a record.  The FS has more versitility, it can be any 
+Regular Expression so you have full control over the parsing of fields. 
+
+        The pseudo multi-dimensional array Subscript Separator (SUBSEP) is 
+described in the section on arrays.
+
+        Finally the variables RLENGTH and RSTART are set by the match function 
+to be the length of the string matched and the index of the first character 
+matched respectivly.
+
+1.8  Control Structures
+
+        AWK has three basic control structures for alternation, iteration, and 
+repetition.  They are respectivly the if statement, the while statement, and 
+the for statement. 
+
+        The if statement allows two mutually exclusive paths of program 
+execution:
+
+    if (a > b) print "yes"; else print "no"
+
+either of the paths may be a null statement, and if the second statement is 
+omitted then the else keyword may also be omitted:
+
+    if (command == "print") print
+
+        The while statement comes in two flavours, test first, and test last.  
+The test last sort is know as the do-while statement.
+
+    do i = a[i]; while (a[i] != 0)
+
+And the test first as the wile statement.
+
+    while (a[i] != 0) i = a[i]
+
+Both of these will continue to loop as long as the expression in parentheses 
+evaluates to true (non zero or non null).
+
+        The for statement is a generalized loop generator in that any three 
+expressions can be used to control it.  Most often a familiar combination of 
+initialization, testing and modification is done:
+
+    for (i = 0; i < ARGC; i++) print ARGV[i]
+
+although the three expressions are not limited to this style of loop.  Indeed 
+any of the expressions may be omitted, the middle (test) expression will be 
+true if it is missing.  The for loop above is equivalent to: 
+
+    i = 0; while (i < ARGC) { print ARGV[i]; i++ }
+
+as you can see the first expression is evaluated before the loop, the second 
+is tested before the statement is executed and the third is evaluated after 
+the statement.
+
+        The while, do-while, and for statements have two special statements 
+that can be used inside them to control the flow in extraordinary ways.  First 
+the break statement can be used to jump out of the loop entirely and second, 
+the continue statement is used to jump past the rest of the statements (in a 
+COMPOUND STATEMENT) and start another loop (at the third expression in the 
+case of the for loop). 
+
+    for (i = 1; i < NF; i++) {
+        if ($i < 10) continue           # skip if < 10
+        if ($i > 20) break              # stop if > 20
+        x += $i                         # accumulate values
+    }
+
+        Finally there are two statements that control the AWK program 
+globally.  They are the next and exit statements.  They function similarly to 
+the continue and break statements for loops.  The next statement will cause 
+the AWK program to stop in it's tracks and start with the next record.  The 
+exit statement will cause the AWK program to stop processing input records and 
+start the END actions (if any) or to stop altogether if the exit statement is 
+in an END action.
+
+        There is an optional numeric argument to the exit statement that is 
+returned as the ERRORLEVEL of the program. 
+
+1.9  Statements
+
+        There are four kinds of statements in AWK.  There are expressions, 
+flow-control, printing and compound statements.
+
+        Expressions can be assignments or expressions with side effects.  For 
+instance: 
+
+    a = a + 1
+
+and
+
+    a++
+
+Expression with neither assignments nor side effects may be used as statements 
+but why bother?
+
+        Flow control statements were outlined in section 1.8. 
+
+        Compound statements are groups of statements delimited by braces that 
+may be used anywhere single statements are used (as in the flow control 
+statements). 
+
+    for (i = 0; i < 4; i++) { sum = sum + a[i]; print i, a[i] }
+
+        Statements may be separated by semi-colons (;) or by the end-of-line.  
+If you want to extend a statement across more than one line you break the line 
+with a backslash (\).  You may break a statement without a backslash after a 
+comma, left brace, &&, ||, do, else and the right parenthesis in an if or for 
+statement.
+
+    if (a > b ||
+        c < d)
+    {
+        print ("silly",
+               "program"); print a,b,c,d
+    }
+
+        A comment beginning with the octothorp (#) may be put at the end of 
+any line (including a blank line.)
+
+    # print current record
+    print                   # printing current record ($0)
+                            # current record printed
+
+2.   Advanced Concepts
+
+2.1  Functions
+
+        AWK allows you to write your own functions.  Two keywords are provided 
+for this purpose.  They are function and return, for definition and value 
+respectivly.  You declare a function with a special pattern action pair.
+
+    function factorial(a) { return (a <= 1) ? 1 : factorial(a-1) * a }
+
+You invoke the function as normal, there must be no space between the function 
+name and the left parenthesis.  Any extra argument that you provide are 
+evaluated and discarded, and any parameters that you do not provide arguments 
+for become uninitialized local variables. 
+
+    function print_array(a, i) { for (i in a) print i, a[i] }
+    { telephone[$1] = $2 }          # collect name/telno
+    END {
+        print_array(telephone)      # print name and telno
+    }
+    .
+    harry_rag (111)555-1212
+
+        When you are using recursive functions like factorial, you should be 
+aware that there is a limit on the level of recursion that you can do because 
+of the size of the evaluation stack. 
+
+3.   Anatomy of an AWK program
+
+3.1  The Problem
+
+        (MS|PC)DOS normally prints the dates of files in a directory in the 
+form MM-DD-YY.  The problem is to convert that to the form DD-Mmm-YY where Mmm 
+is the first three letters of each month. 
+
+3.2  The Data
+
+ Volume in drive C is R_DUFF     
+ Directory of  C:\AWK
+
+.            <DIR>     11-16-88   1:53p
+..           <DIR>     11-16-88   1:53p
+AWK             23721  11-16-88   2:15p
+AWK      C      14945   1-24-89   9:20p
+AWK      DOC    15791   2-19-89   5:09p
+AWK      EXE   118361   2-19-89   3:18p
+AWK      H       5380  11-13-88   1:58p
+AWK      MAN    19552  11-20-88  12:15p
+AWK      OBJ    10132   1-24-89   9:20p
+        9 File(s)   7235584 bytes free
+
+        Here there are two kinds of records with dates and four without dates.  
+The two with dates are 4 and 5 fields long, and the ones without dates are 6, 
+3 and 5 fields long.  Since we only want to modify the fields that have dates 
+in them we have to differentiate between the two types of size 5 records.
+
+3.2  The Program
+
+        We have a BEGIN section, followed by a function declaration, followed 
+by three pattern/action statements. 
+
+# dir - list directory with date interpretation
+BEGIN {
+    split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", month, " ");
+}
+
+        The BEGIN section creates the month interpretation array.
+
+function date(i) {
+    if ($i ~ /[0-9]+-[0-9]+-[0-9]+/) {
+        n = split($i, mdy, "-")
+        mdy[1] = month[int(mdy[1])]
+        $i = sprintf("%2d-%3s-%02d", mdy[2], mdy[1], mdy[3])
+        return 1
+    }
+    return 0
+}
+
+        The date function checks with a regular expression for a valid date in 
+a particular field.  The regular expression matches 1 or more digits ([0-9]+) 
+followed by a dash (-), followed by 1 or more digits (again) followed by 
+another dash, finally ending with 1 or more digits.  This is the three numbers 
+separated by digits that MSDOS uses for dates. 
+
+        If the date is valid then the field is split into sub-fields at the 
+dashes by the split function.  This will give an array (mdy) with three 
+elements corresponding to the three numbers in the date.  The month sub field 
+is replaced by the three character name from the month array by coercing the 
+month number to numeric (to remove leading zeros) and using this as an index 
+into the array generated in the BEGIN action.  The sub-fields are then 
+reassembled into the format that we want using sprintf.  The day first 
+(mdy[2]) followed by the month name (mdy[1]), followed by the year (mdy[3]), 
+all separated by dashes.  This string is assigned to the field that we just 
+took apart.  Finally a success code is returned (1).
+
+        If the date is not valid then only the failure code is returned and no 
+substitution is performed.
+
+NF == 5 {
+    if (date(4))
+        $0 = sprintf("%-9s%-3s%9s%11s%8s", $1,$2,$3,$4,$5)
+}
+
+        This pattern check for those records that have 5 fields in them. They 
+are of two types:
+
+    AWK      MAN    19552  11-20-88  12:15p
+
+and
+
+    9 File(s)   7235584 bytes free
+
+only the first type is one that we have a date to change in.  We therefore 
+check field number 4 for a date and if it is one then we change the record to 
+use the fields in the correct format for our new date.  If we didn't use 
+sprintf and assign a new value to $0 then all of the fields would be separated 
+by a blank (ORS) instead of nicely lined up.
+
+NF == 4 {
+    date(3)
+    if ($2 ~ /<DIR>/)
+        $0 = sprintf("%-9s%9s%14s%8s", $1,$2,$3,$4)
+    else
+        $0 = sprintf("%-9s%12s%11s%8s", $1,$2,$3,$4)
+}
+
+        This pattern check for those records that have 4 fields in them. They 
+are of two types:
+
+    AWK             23721  11-16-88   2:15p
+
+and
+
+    ..           <DIR>     11-16-88   1:53p
+
+they both have dates in them at the same field but we want to format them 
+differently.  You will notice that the file size and the <DIR> indication do 
+not line up so we must format them separatly.  Hence we use our date function 
+to fix up the third field and then format one way if the second field matches 
+with the <DIR> indicator and format another way if it doesn't.
+
+{ print }
+
+        Finally we get to print every record, some modified by the preceding 
+actions and some in their origional form.
+
+3.3  The Output
+
+ Volume in drive C is R_DUFF     
+ Directory of  C:\SRC\AWK
+
+.            <DIR>     16-Nov-88   1:53a
+..           <DIR>     16-Nov-88   1:53a
+AWK             23721  16-Nov-88   2:15a
+AWK      C      14945  24-Jan-89   9:20p
+AWK      DOC    15791  19-Feb-89   5:09p
+AWK      EXE   118361  19-Feb-89   3:18p
+AWK      H       5380  13-Nov-88   1:58p
+AWK      MAN    19552  20-Nov-88  12:15p
+AWK      OBJ    10132  24-Jan-89   9:20p
+        9 File(s)   7235584 bytes free
+
+3.4  Conclusion
+
+        The result ends looking much the same as the input but with a more 
+readable date.  We thus have created an AWK program that can be used to pretty 
+up directories.
+

@@ -1,0 +1,148 @@
+#
+# libkb -- a free, advanced and portable low-level keyboard library
+# Copyright (C) 1995, 1996 Markus Franz Xaver Johannes Oberhumer
+# For conditions of distribution and use, see copyright notice in kb.h 
+#
+
+#
+# Makefile for djgpp v2 using GNU Make 3.73
+# type 'make -f makefile.dj2'
+#
+
+
+ifeq ($(strip $(shell_@)),)
+shell_@=$(subst /,\\,$@)
+endif
+
+
+# /***********************************************************************
+# // directories
+# ************************************************************************/
+
+SRCDIR = include;src;samples
+
+vpath %.c     $(SRCDIR)
+vpath %.cc    $(SRCDIR)
+vpath %.cpp   $(SRCDIR)
+vpath %.h     $(SRCDIR)
+vpath %.hh    $(SRCDIR)
+vpath %.pl    $(SRCDIR)
+
+
+# /***********************************************************************
+# // settings
+# ************************************************************************/
+
+ifeq ($(target),)
+  target=djgpp2
+endif
+
+O = .o#		# object extension
+A = .a#		# library extension
+ifeq ($(target),djgpp1)
+E = .out#	# executable extension
+else
+E = .exe#	# executable extension
+endif
+
+ifeq ($(target),emx)
+LIBKB = kb$(A)			# name of the library
+else
+LIBKB = libkb$(A)		# name of the library
+endif
+
+CC = gcc
+# optimize, all warnings
+# there are some rumors that '-fomit-frame-pointer' causes problems 
+# in a Windows DOS box, so I don't use it here
+CFLAGS = -O2 -Wall -W -Iinclude -Isrc
+## CFLAGS += -DKB_DEBUG=4 
+LDFLAGS = -s
+
+
+# /***********************************************************************
+# // compiler targets
+# ************************************************************************/
+
+# djgpp v2 
+ifeq ($(target),djgpp2)
+  TUBE_LDLIBS += -lemu
+endif
+
+# djgpp v2 + MikMod
+ifeq ($(target),djgpp2_mik)
+  CFLAGS += -DUSE_MIKMOD
+  TUBE_LDLIBS += -lmik -lemu
+endif
+
+# djgpp v2 + sb_lib
+ifeq ($(target),djgpp2_sb)
+  CFLAGS += -DUSE_SB_LIB
+  TUBE_LDLIBS += -lsb -lemu
+endif
+
+# djgpp v2 + Allegro + MikMod
+ifeq ($(target),djgpp2_allegro)
+  CFLAGS += -DUSE_ALLEGRO
+  CFLAGS += -DUSE_MIKMOD
+  TUBE_LDLIBS += -lalleg -lmik -lemu
+endif
+
+# djgpp v1
+ifeq ($(target),djgpp1)
+  LDLIBS += -lpc
+  TUBE_LDLIBS += -lm
+  LD_SPECIAL = coff2exe $@
+endif
+
+# emx
+ifeq ($(target),emx)
+  KBTST_LDLIBS += -lvideo -lm
+  LD_SPECIAL = emxbind -aq $@ -acim
+endif
+
+
+# /***********************************************************************
+# // 
+# ************************************************************************/
+
+default: all
+
+include makefile.inc
+
+
+all: $(LIBKB) kbtst$(E) simple$(E) keycodes$(E) tube$(E) sigalrm$(E)
+
+kbtst$(E): kbtst$(O) $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) $(KBTST_LDLIBS) -o $@
+	$(LD_SPECIAL)
+
+simple$(E): simple$(O) $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	$(LD_SPECIAL)
+
+sigalrm$(E): sigalrm$(O) $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	$(LD_SPECIAL)
+
+keycodes$(E): keycodes$(O) $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	$(LD_SPECIAL)
+
+tube$(E): tube$(O) $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) $(TUBE_LDLIBS) -o $@
+	$(LD_SPECIAL)
+
+$(LIBKB): $(OBJS)
+	+del $(LIBKB)
+	ar -rcs $(LIBKB) $^
+
+
+# other rules
+
+_kbname.hh: mkkbname.pl kb.h
+	perl -w $^ > $(shell_@)
+
+mktables$E: mktables$O
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+

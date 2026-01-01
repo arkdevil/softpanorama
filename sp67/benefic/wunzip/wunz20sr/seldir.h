@@ -1,0 +1,1 @@
+#define IDM_SAVE_AS_DEFAULT 101

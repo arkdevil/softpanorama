@@ -1,0 +1,160 @@
+Newsgroups: comp.sys.intel
+From: tege@adder.cygnus.com (Torbjorn Granlund)
+Subject: FDIV bug getting worse
+Organization: Cygnus Support, Mt View
+Message-ID: <TEGE.94Nov30175202@adder.cygnus.com>
+Date: Thu, 1 Dec 1994 01:52:01 GMT
+
+Compile the random floating point number generator program below, and run it
+on your Pentium.  This is the output I get during the first fraction of a
+second:
+
+0.5615234375000283 / 0.7499999990686614 gives error of 2.1e-10 (test #9632)
+*** New failing bit pattern: 10111111
+*** New record error: 0.0000000002073205
+0.5624995231628418 / 0.562499999992724 gives error of 5.9e-16 (test #25338)
+*** New failing bit pattern: 10001111
+0.5156249999420196 / 0.5624999999854481 gives error of 4.3e-08 (test #32871)
+*** New record error: 0.0000000433488326
+0.5156249999713508 / 0.5624999999999999 gives error of 1.1e-08 (test #33496)
+0.5156249967403674 / 0.5624999997670557 gives error of 6.9e-07 (test #38369)
+*** New record error: 0.0000006935813254
+0.996094226837144 / 0.7499999999999999 gives error of 1.8e-12 (test #45087)
+0.6249995231628309 / 0.7499999999999999 gives error of 2.9e-12 (test #57208)
+0.5624995233956723 / 0.7499999999999999 gives error of 1.3e-14 (test #155408)
+0.5000000596045324 / 0.5624999999999999 gives error of 1.1e-11 (test #222377)
+0.5000000002311252 / 0.7499999993005986 gives error of 2.3e-10 (test #225283)
+0.5156245232210493 / 0.7499999999999999 gives error of 1.4e-14 (test #237154)
+0.5156249991268841 / 0.562499999992724 gives error of 1.7e-07 (test #269570)
+0.5156249962747097 / 0.5624999999998009 gives error of 6.9e-07 (test #345138)
+*** New record error: 0.0000006935813260
+0.5156245233956723 / 0.7499999999999999 gives error of 1.4e-14 (test #438095)
+  .
+  .
+  .
+
+The program shows that division fails for divisors starting with 10111111,
+10001111, and 11101111.  Patterns like the ones above will for example be
+used for typical approximations to common numbers like 0.75, 1.5, 3.  So
+dividing by something like 2.999999999999999 will potentially trigger the
+bug.  Maybe those 27000 years Intel is talking about will pass sooner than
+you'd hope...
+
+The largest relative error found by the program (in 6 minutes on a P90) is
+0.000049 and happens for 0.6249995231610228 / 0.9374999701976776.
+
+(To compile this with a compiler were "int" is a 16 bit quantity, it should
+work to just pass -Dint=long to the compiler.)
+
+
+/* Program to test accuracy of floating point arithmetic.  */
+
+#if defined (__svr4__) || defined (__hpux) || defined (__alpha)
+#define random mrand48
+#endif
+
+long random ();
+
+#if defined (__i386__) || defined (__vax__) || defined (MIPSEL)
+#define WORDS_LITTLE_ENDIAN 1
+#else
+#define WORDS_LITTLE_ENDIAN 0
+#endif
+
+typedef union
+{
+  double d;
+  struct
+    {
+#if WORDS_LITTLE_ENDIAN
+      unsigned int l, h;
+#else
+      unsigned int h, l;
+#endif
+    } ii;
+} dbl_extract_t;
+
+unsigned int
+random_bitstring ()
+{
+  unsigned int x;
+  unsigned int ran, n_bits;
+  int tot_bits = 8 * sizeof (int) + 6;
+
+  x = 0;
+  for (;;)
+    {
+      ran = random ();
+      n_bits = (ran >> 1) % 16;
+
+      if (n_bits == 0)
+	break;
+
+      x <<= n_bits;
+      if (ran & 1)
+	x |= (1 << n_bits) - 1;
+
+      tot_bits -= n_bits;
+      if (tot_bits < 0)
+	break;
+    }
+  return x;
+}
+
+main ()
+{
+  dbl_extract_t x, y;
+  unsigned long reps, errs = 0;
+  double xd, yd, q, p, relerr, maxerr = 0.0;
+  char tab8[0x100];
+
+  memset (tab8, 0, 0x100);
+
+  for (reps = 0; ; reps++)
+    {
+      x.ii.h = (random_bitstring () & 0xfffff) + 0x3fe00000;
+      x.ii.l = random_bitstring ();
+      y.ii.h = (random_bitstring () & 0xfffff) + 0x3fe00000;
+      y.ii.l = random_bitstring ();
+
+      xd = x.d;
+      yd = y.d;
+      q = xd / yd;
+      p = q * yd;
+      relerr = (p - xd) / xd;
+      if (relerr < 0)
+	relerr = -relerr;
+      if (relerr > 2.220446049250308e-16)
+	{
+	  int denompat8;
+	  printf ("%.16g / %.16g gives error of %.2g (test #%lu)\n",
+		  xd, yd, relerr, reps);
+	  errs++;
+	  denompat8 = 0x80 | ((y.ii.h >> 13) & 0x7f);
+	  if (tab8[denompat8] == 0)
+	    {
+	      tab8[denompat8] = 1;
+	      printf ("*** New failing bit pattern: ");
+	      pb (denompat8);
+	      printf ("\n");
+	    }
+	  if (relerr > maxerr)
+	    {
+	      maxerr = relerr;
+	      printf ("*** New record error: %.16f\n", maxerr);
+	    }
+	}
+    }
+}
+
+pb (x)
+     unsigned int x;
+{
+  if (x >> 1 != 0)
+    pb (x >> 1);
+  putchar ('0' + (x & 1));
+}
+--
+Torbjorn Granlund
+(tege@cygnus.com)
+

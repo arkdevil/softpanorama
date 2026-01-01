@@ -1,0 +1,305 @@
+$Macro_File LGB;
+  {Л.Г.Бунич 11.04.91  -- Multi-Edit 5.00}
+
+{ Макро:
+
+  DUMP     - шестнадцатиричный дамп текущей строки
+  STAT     - вывод полезных сведений о текущем тексте
+  SWCASE   - переключение регистра русских и латинских букв
+  RCORR    - корректировка слова, ошибочно набранного не на том регистре
+  LGEXIT   - выход с сохранением всех измененных файлов и статуса
+  KILLTABS  - заменить все символы табуляции в файле на пробелы
+  MARKWORD  - отметка текущего слова как непрерывного блока
+  WORD_SCH  - поиск/замена слов, ограниченных с обеих сторон не
+              алфавитно-цифровыми символами
+
+  Макро DUMP разработана по мотивам Корзуна Е.Г.
+
+}
+
+$Macro Dump trans;
+
+  Def_Int(n,i,im,l,LCol);
+  Def_Str(Tab[16] := '0123456789ABCDEF', h1[140], h2[140]);
+
+  Push_Undo; Mark_Pos;
+  im := Insert_Mode; Insert_Mode := 0;
+  LCol := C_Col - WhereX + Win_X1 + 1;
+  l := Length(Get_Line) - LCol + 1;
+  i := Win_X2 - Win_X1;
+  If l > i Then l := i; End;
+  Refresh := False; GoTo_Col(LCol);
+  i := 1; While i <= l do
+    n := ASCII(Cur_Char);
+    h1 := Str_Ins(Copy(Tab,n/16+1,1),h1,i);
+    h2 := Str_Ins(Copy(Tab,(n Mod 16) + 1,1),h2,i);
+    right; ++i;
+  End;
+  GoTo_Col(LCol); Down; RM('MESYS^DELEOL'); Text(h1);
+  GoTo_Col(LCol); Down; RM('MESYS^DELEOL'); Text(h2);
+  GoTo_Mark; Down; Down; Up; Up;
+  Refresh := True; Pop_Undo;
+  Make_message('Десятичный код текущего символа: ' + Str(ASCII(Cur_Char))
+             + '. Нажмите любую клавишу...');
+  Read_key;
+  Undo; Insert_Mode := im; Make_message('');
+End_Macro;
+{---------------------------------------------------------}
+$Macro Stat trans;
+
+  Def_Int(k, ll, et);
+  Def_Int(fl := 0, len := 0, n := 1, lc := 0, ntab := 0, ktab := 0);
+  Def_Int(np := 0, nch := 0);
+  Def_Char(cc);
+
+  et := Tab_Expand; Display_Tabs := 1;
+  Push_Undo;
+  Refresh := False; Tab_Expand := 1;
+  Mark_Pos; TOF; WORKING;
+  While At_EOF = 0 do
+    ll := Length(Get_Line); fl := fl + ll + 2;
+    If len < ll Then len := ll; n := C_LINE; End;
+    If LINE_CHANGED Then ++nch; End;
+    If Xpos('|09',Get_Line,1) > 0 Then
+      k := 0; While k < ll Do
+        ++k;
+        If Copy(Get_Line,k,1) = '|09' Then ++ktab; End;
+      End;
+      If ntab = 0 Then ntab := C_LINE; End;
+    End;
+    If Xpos('|12',Get_Line,1) > 0 Then
+      k := 0; While k < ll Do
+        ++k;
+        If Copy(Get_Line,k,1) = '|12' Then ++np; End;
+      End;
+    End;
+    Down; ++lc;
+  End;
+  GoTo_Mark;
+  Refresh := True; Redraw;
+  Put_Box(4,4,70,20,LightGray,Red,File_Name,1);
+  Write('Общее число строк в тексте....... ' + Str(lc),7,6,LightGray,Black);
+  Write(', измененных: ' + Str(nch),
+                           41+Length(Str(lc)),6,LightGray,Black);
+  Write('Самая длинная строка............. '+Str(n)+
+        '-я, ее длина: '+Str(len),7,7,LightGray,Black);
+  Write('Число переводов листа (FormFeed). ' + Str(np),  7,8,LightGray,Black);
+  Write('Число строк, содержащих Tab...... ' + Str(ktab),7,9,LightGray,Black);
+  If ktab > 0 Then Write(', первая из них: ' + Str(ntab),
+                         41+Length(Str(ktab)),9,LightGray,Black); End;
+  Write('Файл занимает на диске........... ' + Str(Cur_File_Size)
+         + ' байт(ов)', 7,10,LightGray,Black);
+  Write('Текущая длина (в памяти)......... ' + Str(fl) + ' байт(ов)',
+        7,11,LightGray,Black);
+  Write('Нажмите любую клавишу...',10,18,LightGray,Red);
+  Read_Key; Kill_Box;
+  Pop_Undo; Undo; Tab_Expand := et;
+End_Macro;
+{---------------------------------------------------------}
+$Macro Swcase TRANS2;
+  { Переключение регистра русских и латинских букв:
+    заглавные буквы становятся строчными и наоборот
+
+    Параметр:
+      опущен - конвертирование идет до конца слова
+      /t=e   - конвертирование идет до конца строки
+  }
+  Def_Int(n,im,k);
+  Def_Char(c);
+  Def_Str(t);
+
+  t := Parse_Str('/T',Mparm_Str);
+  If t = '' Then t := Parse_Str('/t',Mparm_Str); End;
+  If (t <> '') And (t <> 'e') Then
+    Make_Message('SWCASE: invalid parameter');
+    Beep; GoTo F;
+  End;
+  k := 0; im := Insert_Mode;
+  Push_Undo; Insert_Mode := False;
+process:
+  If At_EOF Then GoTo Finish; End;
+  If At_EOL Then
+    If t <> 'e' Then Down; Home; End;
+    GoTo Finish;
+  End;
+  n := ASCII(Cur_Char);
+  If n < 65  Then GoTo NextChar; End;
+  If n < 91  Then GoTo lower; End;
+  If n < 97  Then GoTo NextChar; End;
+  If n < 123 Then GoTo upper; End;
+  If n < 128 Then GoTo NextChar; End;
+  If n < 144 Then GoTo lower; End;
+  If n < 160 Then c := Char(n + 80); GoTo convert; End;
+  If n < 176 Then GoTo upper; End;
+  If n < 224 Then GoTo NextChar; End;
+  If n > 239 Then GoTo NextChar; End;
+  c := Char(n - 80); GoTo convert;
+upper:
+  c := Char(n - 32); GoTo convert;
+lower:
+  c := Char(N + 32);
+convert:
+  Text(c);
+  k := k + 1; GoTo process;
+NextChar:
+  If t = '' Then
+    If k > 0 Then GoTo Finish; End;
+  End;
+  Right; GoTo process;
+Finish:
+  Pop_Undo;
+  Make_Message(Str(k)+' letters converted.');
+  Insert_Mode := im;
+F:
+End_Macro;
+{---------------------------------------------------------}
+$Macro RCorr trans2;
+  {Корректировка слова, ошибочно набранного не на том регистре.
+   Учитывается состояние клавиши Shift, но не CAPS, поэтому
+   регистр букв ХЪЖЭБЮ при нажатом CAPS может быть неверен}
+
+  Def_Int(i,k);
+  Def_Char(c);
+  Def_Str(cyr,lat);
+
+  Insert_Mode := False; i := 0;
+  lat := '%^&qwertyuiop[]asdfghjkl;''zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:"ZXCVBNM<>';
+  cyr := ':,.йцукенгшщзхъфывапролджэячсмитьбюЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ';
+process:
+  If C_Col < 2 Then GoTo WordEnd; End;
+  Left;
+  If i = 0 Then
+    If ASCII(Cur_Char) < 128 Then i := 1; Else i := 2; End;
+  End;
+  If i = 1 Then
+    k := Xpos(Cur_Char,lat,1);
+    If k = 0 Then GoTo WordEnd; End;
+    c := Copy(cyr,k,1);
+  Else
+    k := Xpos(Cur_Char,cyr,1);
+    If k = 0 Then GoTo WordEnd; End;
+    c := Copy(lat,k,1);
+  End;
+  Text(c); Left; GoTo process;
+WordEnd:;
+End_Macro;
+{---------------------------------------------------------}
+$Macro LGExit;
+
+  Make_Message('Записываю STATUS.ME...');
+  RM('EXIT^STATUS');
+  RM('EXIT /NP=1');
+
+End_Macro;
+{---------------------------------------------------------}
+$Macro KillTabs;
+
+  Def_Int(im);
+
+  Push_Undo; Working;
+  Tab_Expand  := 1; Display_Tabs := 1;
+  im := Insert_Mode; Insert_Mode := 0;
+  Refresh := False;
+  Mark_Pos; TOF;
+  While At_EOF = 0 do
+    If Xpos('|09',Get_Line,1) > 0 Then
+      Tab_Expand := 0; Text(Cur_Char); Tab_Expand := 1;
+      left;
+    End;
+    Down;
+  End;
+  GoTo_Mark;
+  Refresh := True; Redraw;
+  Insert_Mode := im; Tab_Expand := 0; Display_Tabs := 0;
+  Pop_Undo;
+
+End_Macro;
+{---------------------------------------------------------}
+$Macro MarkWord trans2;
+
+  Push_Undo;
+  If Xpos(Cur_Char,Word_Delimits,1) Then
+    Word_Right;                 { мы вне слова }
+  Else
+    Right; Word_Left;           { мы внутри слова }
+  End;
+  Str_Block_Begin;
+  While (At_EOL = 0) And (Xpos(Cur_Char,Word_Delimits,1) = 0) Do;
+    Right; End;                 { подводим конец }
+  Block_End;
+  Pop_Undo;
+
+End_Macro;
+{---------------------------------------------------------}
+$Macro Word_Sch;
+{ Параметр:
+        опущен - поиск слов
+        /R     - замена слов
+}
+  Def_Int(i,res);
+  Def_Str(w,ss);
+  Def_Str(dlm  := '[~0-9A-Z_a-zА-пр-я]');
+  Def_Str(meta := '?%$*+[]{}||@');
+
+  Push_Undo; Mark_Pos;
+  If Xpos(Cur_Char,Word_Delimits,1) Then
+    Word_Right;
+  Else
+    Right; Word_Left;
+  End;
+  w := Get_Word(Word_Delimits);
+  GoTo_Mark;
+  Return_Str := w;                      { формируем умалчиваемое слово }
+  res := Reg_Exp_Stat;
+  Reg_Exp_Stat := True;
+  If XPos('/R',Caps(Mparm_str),1) = 0 Then      { просто поиск }
+    RM('USERIN^QUERYBOX /W=60/T=Поиск слов/P= Введите слово');
+    If Return_Int = 0 Then GoTo F; End;
+    Call PrePro;
+    ss := Global_Str('SWITCHES');
+    w := ss; i := XPos('X',ss,1);               { отменим режим X }
+    If i > 0 Then w := Str_Del(ss,i,1); End;
+    Set_Global_Str('SWITCHES',w);
+    Push_Key(9,15); Push_Key(9,15);
+    RM('MEUTIL2^SEARCH');
+    Set_Global_Str('SWITCHES', ss) ;            { восстановим режимы }
+  Else                                          { поиск с заменой }
+    RM('USERIN^QUERYBOX /W=60/T=Поиск и замена слов/P= Введите слово');
+    If Return_Int = 0 Then GoTo F; End;
+    Call PrePro;
+    RM('USERIN^QUERYBOX /W=60/T=Поиск ' + Return_Str + '/P= Заменить на');
+    If Return_Int = 0 Then GoTo F; End;
+    w := Return_Str; i := 0;
+prloop:  ++i;
+    If Xpos(Str_Char(w,i),'$%&#^@',1) Then
+      w := Str_Ins('@',w,i); ++i;               { метасимволы допускаются }
+    End;
+continueR:
+    If i < Length(w) Then GoTo prloop; End;
+    Set_Global_Str('REPLACE_STR', '#1' + w + '#3') ;
+    ss := Global_Str('REPL_SWITCHES');
+    w := ss; i := XPos('X',ss,1);               { отменим режим X }
+    If i > 0 Then w := Str_Del(ss,i,1); End;
+    Set_Global_Str('REPL_SWITCHES',w);
+    Push_Key(9,15); Push_Key(9,15); Push_Key(9,15);
+    RM('MEUTIL2^S_REPL');
+    Set_Global_Str('REPL_SWITCHES', ss) ;       { восстановим режимы }
+  End;
+  GoTo F;
+
+PrePro:
+  w := Return_Str; i := 0;
+pploop:  ++i;
+  If Xpos(Str_Char(w,i),meta,1) Then
+    w := Str_Ins('@',w,i); ++i;                 { метасимволы допускаются }
+  End;
+continue:
+  If i < Length(w) Then GoTo pploop; End;
+  Set_Global_Str('SEARCH_STR', '{%}||{' + dlm + '}' + w
+               + '{$}||{' + dlm + '}') ;
+  Ret;
+
+F:
+ {Reg_Exp_Stat := res;}
+  Pop_Undo;
+End_Macro;

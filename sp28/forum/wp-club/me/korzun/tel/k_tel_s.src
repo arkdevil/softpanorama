@@ -1,0 +1,47 @@
+$MACRO TELSTART;                        { Для вызова справочника из DOS        }
+{* *******************************************  Корзун Е.Г. 25.09.90 15:44 **
+ *                      --------------------
+ *             Для вызова из DOS - P.BAT ; параметр -имя файла
+ *                      --------------------
+   @echo off
+   :      Вызов справочника телефонов , параметр - имя справочника,
+   :        нужно задать, если не PHONE.DB ;
+   :      Поиск справочника в текущем директории, а если нет, то в ME - DIR
+   SET K_ME_ID=%ME_ID%
+   SET ME_ID=TEL        - тем самым будем использовать не INIT а TELINIT
+   what ye
+   set k_drive=%what%   - имя диска откуда вызваны
+   what y
+   set k_path=%what%    - директорий, откуда вызвыны
+   me_4 /R telstart /Д-%k_drive%:%k_path%  /Ф-%1%
+   SET ME_ID=%K_ME_ID%  - а вдруг нас вызывали непосредственно из DOS а не из NC
+******************************************************************************}
+   Def_Int(Num_Parm);
+   Def_Str(Next_Parm,T_Path,T_Base);
+   Num_Parm := 0;
+   T_Path := '';
+   T_Base := '';
+   While (Num_Parm < Param_Count) Do
+      ++Num_Parm;                      { Нулевой параметр - пропускаем        }
+      Next_Parm := Param_Str (Num_Parm);         { Очередной  DOS - параметр  }
+      If (SVL(T_Path) = 0) Then
+         T_Path := Parse_Str('Д-',Next_Parm);    { Ищем путь в параметре  Д-  }
+      End;
+      If (SVL(T_Base) = 0) Then
+         T_Base := Parse_Str('Ф-',Next_Parm);    { --"-- имя справочника в Ф- }
+      End;
+   End;
+
+   Make_Message('параметры: ' + T_PATH + '||' + T_BASE);
+   If (Xpos(':',T_BASE,1) > 0 ) OR (Xpos('\',T_BASE,1) > 0 ) Then
+      T_Path := '';                    { В имени явно указан и полный PATH    }
+   End;
+
+   If (Str_Char(T_Path,SVL(T_Path)) = '\') OR NOT(SVL(T_Path)) Then
+      Next_Parm := T_Path + T_Base ;
+   Else                                { Вставим \ между PATH и FILENAME      }
+      Next_Parm := T_Path + '\' + T_Base ;
+   End;
+   Run_Macro('DB^DB /X=1/Y=1/F=' + Next_Parm );
+   QUIT(0);                            { Выход из ME насовсем                 }
+ END_MACRO;

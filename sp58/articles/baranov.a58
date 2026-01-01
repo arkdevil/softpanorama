@@ -1,0 +1,1764 @@
+
+          ОБЪЕКТНО-ОРИЕНТИРОВАННЫЕ РАСШИРЕНИЯ И ПАРАЛЛЕЛИЗМ
+                В ЯЗЫКЕ TS MODULA - 2 Ver. 3.01 (JPI).
+
+
+
+
+                       А.О. БАРАНОВ
+
+                       Москва,  1993
+
+
+
+
+
+
+
+
+
+
+                         СОДЕРЖАНИЕ
+  1. ВВЕДЕНИЕ................................................
+  2. ТЕОРЕТИЧЕСКАЯ ЧАСТЬ.....................................
+     2.1. ОБЪЕКТНО-ОРИЕНТИРОВАННЫЕ РАСШИРЕНИЯ................
+     2.2. ПАРАЛЛЕЛИЗМ........................................
+  3. ПРАКТИЧЕСКАЯ ЧАСТЬ -- ПИШЕМ ПРОГРАММУ...................
+  4. ЗАКЛЮЧЕНИЕ..............................................
+     ЛИТЕРАТУРА..............................................
+
+
+
+                       1. ВВЕДЕНИЕ
+     Цель   данной  работы  состоит в  описании  возможностей
+параллельного программирования ,реализованных в языке Modula-
+2  и   объектно-ориентированных расширений , предложенных JPI
+Intl. в TopSpeed Modula-2.
+
+     Предполагается , что  читатель знаком  с объектным про-
+граммированием на TP 5.5 и выше.
+
+     В качестве примера приведена действующая программа,напи-
+санная на языке TopSpeed Modula-2.
+
+    Представленная программа  выполняет построение лабиринта и
+моделирует поиск Тезеем (несколькими Тезеями) выхода из  лаби-
+ринта.  Программа  написана  на  языке  TopSpeed  Modula-2 DOS
+Release 3.01 .
+
+
+             2. ТЕОРЕТИЧЕСКАЯ ЧАСТЬ.
+
+          2.1. ОБЪЕКТНО-ОРИЕНТИРОВАННЫЕ РАСШИРЕНИЯ.
+
+      В этой части ограничимся описанием отличительных особен-
+   ностей  объектно-ориентированных   расширений,реализованных
+   Jensen  & Partners International в языке Top Speed Modula-2
+   DOS Release 3.01 .
+
+   Объявления экземпляров класса
+         CLASS Line;
+                   ..... объявление полей ......
+                   ..... объявление методов ....
+         END Line;
+         CLASS IMPLEMENTATION Line;
+                   ..... тела полей ............
+         BEGIN
+                   .. инициализационная часть ..
+         END Line;
+         . . .
+         . . .
+         . . .
+
+         VAR
+            a, b : Line;
+            p    : POINTER TO Line;
+
+   Инициализационная часть класса  соответствует  термину  ООП
+"конструктор" (constructor).Инициализационная часть класса вы-
+полняется каждый раз,  когда  объявляется  переменная-  объект
+этого  класса .В примере (см.  выше) при объявлении переменной
+"a" будет выполнена инициализационная часть класса Line.
+   Добавим класс Rect - потомок класса Line :
+
+         CLASS Line;
+                   ..... объявление полей ......
+                   ..... объявление методов ....
+         END Line;
+         CLASS IMPLEMENTATION Line;
+                   ..... тела полей ............
+         BEGIN
+                   .. инициализационная часть ..
+         END Line;
+         CLASS Rect(Line);
+                   ..... объявление полей ......
+                   ..... объявление методов ....
+         END Rect;
+         CLASS IMPLEMENTATION Rect;
+                   ..... тела полей ............
+         BEGIN
+                   .. инициализационная часть ..
+         END Rect;
+         . . .
+         . . .
+         . . .
+
+         VAR
+            a    : Rect;
+            b    : Line;
+            p    : POINTER TO Line;
+
+    Теперь при объявлении переменной "a" будет выполнена  сна-
+чала инициализационная часть класса Line,  а затем инициализа-
+ционная часть класса Rect. Это далеко не всегда удобно -- поч-
+ти всегда неудобно. Поэтому , стоит использовать инициализаци-
+онную часть класса осторожно,  а возможно , лучше ее совсем не
+использовать.
+
+
+   Наследование, инкапсуляция, полиморфизм.
+
+   Напомним о трех основных понятиях ,  на которых  ,  как  на
+трех китах,  базируется объектно- ориентированное программиро-
+вание ( ООП ) :
+
+   Кит первый : Наследование.
+
+   В предыдущем примере класс Rect, являясь наследником класса
+Line, обладает всеми полями и методами , объявленными в Line ,
+и ,  кроме того, обладает всеми свойствами, объявленными в нем
+самом.
+
+   Кит второй :  Инкапсуляция.
+
+   Когда объектно-ориентированным  программистам-новичкам объ-
+ясняют основные принципы ООП ,  то,  чтобы они  не  испугались
+обилия новых понятий,  их обычно обманывают , говоря,что класс
+- это та же запись ,  которая ,  кроме полей ,  содержит еще и
+процедуры  и  функции.  Инкапсуляция - это объединение в одном
+классе полей (данных) и методов (процедур и функций) .  Поля и
+методы, объединенные в одном классе, получили общее название -
+свойства .
+
+   Кит третий :  Полиморфизм.
+
+   Приведем пример :
+
+      DEFINITION MODULE EXAMPLE;
+         CLASS  Point;
+           X,Y  :  CARDINAL;
+           PROCEDURE Show(x,y);
+           PROCEDURE Hide(x,y);
+           PROCEDURE Move(x1,y1,x2,y2);
+         END Point;
+         CLASS Circle(Point);
+           R    :  CARDINAL;
+           PROCEDURE Show(x,y);
+           PROCEDURE Hide(x,y);
+         END Circle;
+      END EXAMPLE;
+
+     Процедура Show в классе Point и Show в  классе  Circle  -
+это две разные процедуры. В Point Show показывает точку на эк-
+ране,  в Circle Show рисует на экране окружность .С процедурой
+Hide  все  аналогично ,  только она рисует объекты цветом фона
+(т.е. стирает их с экрана).Процедура Move выглядит так :
+
+         PROCEDURE Move(x1,y1,x2,y2);
+         BEGIN
+            Hide(x1,y1);
+            Show(x2,y2);
+         END Move;
+
+    Т.е. объект  перемещается   по   экрану   с   (x1,y1)   на
+(x2,y2).Cicrle  наследует от Point процедуру Move в неизменном
+виде.Однако ,  при ее вызове Move будет обращаться  к  Hide  и
+Show из объекта Point,  так было предрешено компилятором (этот
+эффект называется ранним связыванием).  Выход из этого положе-
+ния :
+
+      DEFINITION MODULE EXAMPLE;
+         CLASS  Point;
+           X,Y  :  CARDINAL;
+           VIRTUAL PROCEDURE Show(x,y);
+           VIRTUAL PROCEDURE Hide(x,y);
+           PROCEDURE Move(x1,y1,x2,y2);
+         END Point;
+         CLASS Circle(Point);
+           R    :  CARDINAL;
+           VIRTUAL PROCEDURE Show(x,y);
+           VIRTUAL PROCEDURE Hide(x,y);
+         END Circle;
+      END EXAMPLE;
+
+   Теперь будет  происходить позднее связывание - на этапе вы-
+полнения.  Исполняемый модуль будет обращаться  к  виртуальной
+процедуре  через  таблицу  виртуальных методов.  В приведенном
+примере при вызове Move будут вызваны Hide и  Show  из  своего
+объекта.
+
+
+   Корректными действиями над переменными  экземпляров  класса
+являются только присваивания, сравнение на равенство, передача
+в качестве параметров и применение методов.
+
+   Правила совместимости
+   Лучше всего эти правила объяснить на примере.
+         CLASS a;
+                ....
+         END a;
+         CLASS IMPLEMENTATION a;
+                ....
+         BEGIN
+                ....
+         END a;
+         CLASS b( a );
+                ....
+         END b;
+         CLASS IMPLEMENTATION b;
+                ....
+         BEGIN
+                ....
+         END b;
+         CLASS c( b );
+                ....
+         END c;
+         CLASS IMPLEMENTATION c;
+                ....
+         BEGIN
+                ....
+         END c;
+
+         cptr = POINTER TO c;
+         aptr = POINTER TO a;
+      VAR
+         ia1, ia2 : a;
+         ib       : b;
+         icp1, icp2 : cptr;
+         iap1 : aptr;
+      ........
+      ........
+      PROCEDURE act1( pb : b );
+      PROCEDURE act2( VAR pa : a );
+   Два экземпляра совместимы по присваиванию только,  если они
+-- экземпляры одного класса:
+      ia1 := ia2;   (* верно *)
+      ib := ia1;    (* не верно *)
+   Аналогично с параметрами, передаваемыми значением:
+      act1( ib );    (* верно *)
+      act2( ia1 );   (* не верно *)
+   Экземпляр класса   совместим  с  формальным  var-параметром
+CLASS'а,  если тип  var-параметра  идентичен  типу  экземпляра
+класса или есть родительский класс класса экземпляра.
+      act2( ia1 ); act2( ib );
+   Аналогично указатель на экземпляр класса совместим с другим
+указателем,  если типы обоих указателей идентичны, либо второй
+тип указателя указывает на родительский класс первого.
+      icp1 := icp2; (*  верно *)
+      iap1 := icp1; (*  верно *)
+
+   Модификаторы доступа.
+
+     Контроль Экспорта   в   Top   Speed   Modula-2   Ver.3.01
+  отсутствует.Все поля  являются  общедоступными(public  class
+  members) для любых процедур и функций как внутри, так и сна-
+  ружи класса.Модификаторы PRIVATE и PROTECTED не реализованы.
+
+
+   Множественное наследование.
+
+   B TopSpeed Modula-2 Ver 3.01 допустимо множественное насле-
+дование.Вот пример:
+         CLASS a;
+                ....
+         END a;
+         CLASS IMPLEMENTATION a;
+                ....
+         BEGIN
+                ....
+         END a;
+         CLASS b;
+                ....
+         END b;
+         CLASS IMPLEMENTATION b;
+                ....
+         BEGIN
+                ....
+         END b;
+         CLASS c( а, b );
+                ....
+         END c;
+         CLASS IMPLEMENTATION c;
+                ....
+         BEGIN
+                ....
+         END c;
+
+  Самые распространенные  проблемы со множественным наследова-
+нием - конфликт имен и повторное наследование.
+
+  Конфликт имен(name clash) - cитуация,  возникающая при  мно-
+жественном   наследовании   ,  если  несколько  предков  имеют
+свойства(поля или методы) с одинаковыми именами.Пример :
+
+         CLASS a;
+                ....
+         VIRTUAL PROCEDURE A1;
+         END a;
+         CLASS IMPLEMENTATION a;
+                ....
+         VIRTUAL PROCEDURE A1;
+         BEGIN
+          .....
+         END A1;
+                ....
+         BEGIN
+                ....
+         END a;
+         CLASS b;
+                ....
+         VIRTUAL PROCEDURE A1;
+         END b;
+         CLASS IMPLEMENTATION b;
+                ....
+         VIRTUAL PROCEDURE A1;
+         BEGIN
+          .....
+         END A1;
+                ....
+         BEGIN
+                ....
+         END b;
+         CLASS c( a, b );
+                ....
+         END c;
+         CLASS IMPLEMENTATION c;
+                ....
+         BEGIN
+                ....
+         END c;
+      .........
+      .........
+       VAR
+         cc : c;
+      .........
+      .........
+      BEGIN
+        cc.A1;
+      .........
+   Процедуры A1,  описанные  в  классах  'a' и 'b' могут иметь
+одинаковые тела,  могут и разные.  Какая из процедур A1  будет
+выполнена объектом 'с'? Ответ: никакая.В TopSpeed Modula-2 Ver
+3.01 конфликт имен запрещен.В данном случае будет выдана ошиб-
+ка на этапе компиляции ("Undifined Proceddure A1").
+
+   Повторное наследование  (reapeated inheritance) - cитуация,
+возникающая при сложном множественном наследовании, когда один
+класс является потомком другого более чем один раз.Пример :
+
+         CLASS a;
+                ....
+         END a;
+         CLASS IMPLEMENTATION a;     (*    ┌───┐              *)
+                ....                 (*    │ a │              *)
+         BEGIN                       (*    └┬─┬┘              *)
+                ....                 (*     │ │               *)
+         END a;                      (*     │ │               *)
+         CLASS b(a );                (*     │ └─────────┐     *)
+                ....                 (*     │           v     *)
+         END b;                      (*     │         ┌─┴─┐   *)
+         CLASS IMPLEMENTATION b;     (*     │         │ b │   *)
+                ....                 (*     │         └─┬─┘   *)
+         BEGIN                       (*     └┐          │     *)
+                ....                 (*      │          │     *)
+         END b;                      (*      │          │     *)
+         CLASS c( а, b );            (*      v          │     *)
+                ....                 (*    ┌───┐        │     *)
+         END c;                      (*    │ c │<───────┘     *)
+         CLASS IMPLEMENTATION c;     (*    └───┘              *)
+                ....
+         BEGIN
+                ....
+         END c;
+
+   Класс 'b' - потомок класса  'a',  а  класс  'c'  -  потомок
+классов 'a' и 'b'. Итак , мы стали свидетелями своеобразного "
+эдипова комплекса " - класс 'а' является "дедушкой" и  "отцом"
+класса  'с'  одновременно.Класс  'b'  - "отец" и "брат" класса
+'с'.Класс 'с' - "сын" классов 'a' и 'b' ,  "внук" класса 'a' и
+"брат"  класса  'b'.  Будут ли свойства (поля и методы) класса
+'а' скопированы в 'с' дважды ?
+    Трудно ,   однако,  представить,  где  на  практике  можно
+использовать такое нетривиальное наследование .  Более обосно-
+ван и логичен следующий случай :
+
+      CLASS a;
+             ....
+      END a;
+      CLASS IMPLEMENTATION a;  (*          ┌───┐             *)
+             ....              (*          │ a │             *)
+      BEGIN                    (*          └┬─┬┘             *)
+             ....              (*           │ │              *)
+      END a;                   (*           │ │              *)
+      CLASS b(a );             (*   ┌───────┘ └─────────┐    *)
+             ....              (*   v                   v    *)
+      END b;                   (* ┌───┐               ┌───┐  *)
+      CLASS IMPLEMENTATION b;  (* │ b │               │ c │  *)
+             ....              (* └─┬─┘               └─┬─┘  *)
+      BEGIN                    (*   │                   │    *)
+             ....              (*   │                   │    *)
+      END b;                   (*   │                   │    *)
+      CLASS c( а);             (*   │                   │    *)
+             ....              (*   │      ┌───┐        │    *)
+      END c;                   (*   └─────>│ d │<───────┘    *)
+      CLASS IMPLEMENTATION c;  (*          └───┘             *)
+             ....
+      BEGIN
+             ....
+      END c;
+      CLASS d( b, c );
+             ....
+      END d;
+      CLASS IMPLEMENTATION d;
+             ....
+      BEGIN
+             ....
+      END d;
+
+    Класс 'd', являясь , таким образом, жертвой инцеста - кро-
+восмесительного  брака  между  классами  'b'  и 'c' ,  рискует
+унаследовать свойства своего "дедушки" 'а' дважды . В TopSpeed
+Modula-2  Ver  3.01 такая проблема решается просто - повторное
+наследование запрещено  (  возможно  ,  в  силу  непоколебимой
+нравственности англичан-авторов TopSpeed`a) .
+
+
+
+               2.1. ПАРАЛЛЕЛИЗМ.
+
+        Опишем  модуль  Process .
+     Mодуль  Process представлен следующими процедурами :
+   ┌──────────────────────────────────────────────────────┐
+   │  Process.Awaited            Process.StartProcess     │
+   │  Process.Delay              Process.StartScheduler   │
+   │  Process.Init               Process.StopScheduler    │
+   │  Process.Lock               Process.Unlock           │
+   │  Process.Notify             Process.WAIT             │
+   │  Process.SEND                                        │
+   └──────────────────────────────────────────────────────┘
+
+      Процедуры этого модуля управляют параллельными процесса-
+   ми.  Для  однопроцессорных  машин это достигается с помощью
+   разделения времени.  Каждый  процесс  получает  для  работы
+   квант  времени  до  прерывания  от  супервизорной программы
+   (Sheduler).  Он (Scheduler) сохраняет среду  процесса  (ре-
+   гистры  и пр.) и передает управление следующему процессу из
+   очереди. Выбор из очереди основан на механизме приоритетов,
+   т.е. чисел, показывающих "важность" каждого процесса (уста-
+   навливается программистом).  Нуль - наивысший приоритет,  и
+   чем меньше число, тем выше приоритет. В любой момент време-
+   ни выполнятся будет процесс с наивысшим приоритетом.
+         Процессы могут взаимодействовать двумя различными пу-
+    тями: или благодаря глобальным разделяемым переменным, или
+    благодаря сигналам. Сигналы используются для синхронизации
+    процессов.  Кроме инициализации,  следующие операции могут
+    быть выполнены на сигналах: SEND, WAIT, Notify, и Awaited.
+    Сигнал состоит из двух категорий:  счетчик и очередь. Каж-
+    дый процесс реализуется как цикл LOOP.
+       Затем процесс может приостанавливаться и ждать событий,
+   связанных с их действиями (события внешние - нажатие клави-
+   ши, или события внутренние - приход сигнала). Как результат
+   этого  события процесс начинает свою деятельность,  а затем
+   возвращается к ожиданию следующего события.
+
+   Вот модуль определений Process (файл PROCESS.DEF) :
+
+DEFINITION MODULE Process;
+
+CONST MaxProcess = 32;
+TYPE SIGNAL;
+
+
+PROCEDURE StartScheduler;  (* Запускает  процедуру  разделения
+   времени. Если она уже
+    активна, этот запрос действия не имеет. *)
+
+
+PROCEDURE StopScheduler; (* Останавливает процедуру разделения
+    времени. *)
+
+
+PROCEDURE StartProcess(P: PROC; N: CARDINAL; Pr: CARDINAL); (*
+       Cоздает новый процесс, который выражается процедурой Р.
+    P -  процедура без параметров.  Процесс будет распределять
+    рабочую область размером N байт Pr -  это  приоритет  про-
+    цесса.  Если  Pr больше или равен приоритету текущего про-
+    цесса, то заново созданный процесс станет активным. *)
+
+
+PROCEDURE StopProcess(); (* Останавливает текущий процесс *)
+
+
+PROCEDURE SEND(s:  SIGNAL);  (* Запрос SEND  сделает  активным
+      1-ый процесс, ждущий s.
+    Если никаких процессов не ожидается,  запрос будет постав-
+    лен в очередь.
+         Операция SEND работает посредством возрастания  счет-
+    чика,  связанным с s.  Если счетчик < = 0,  то, по крайней
+    мере,  1 процесс ждет s и 1-ый процесс в очереди будет го-
+    тов  к выполнению.  Этот процесс также начнет выполняться,
+    если его приоритет > = приоритета текущего процесса. *)
+
+
+PROCEDURE WAIT(s:  SIGNAL); (* Запрос WAIT заставляет запраши-
+   ваемый процесс ждать
+    ответственно SEND,  если  сигнал s не имеет предварительно
+    поставленных в очередь операций SEND.
+         Процедура WAIT уменьшает счетчик, cвязанный с s. Если
+    счетчик меньше 0,  это значит,  что запрашиваемый  процесс
+    должен  ждать  соответствующий SEND в s,  и другой процесс
+    будет активизирован.  Если счетчик больше или равен 0,  то
+    запрашиваемый процесс будет продолжаться. *)
+
+
+PROCEDURE Notify(s: SIGNAL); (* Заставляет задачу, ждущую сиг-
+      нал s, регистрироваться,
+    когда возможно, т.е в следующий момент времени. Если ника-
+    кой процесс не ждет s, то запрос не действует. Этот запрос
+    не  вызывает  перерегистрацию,  таким  образом,  он  может
+    использоваться  устройством  управления  прерыванием чтобы
+    безопасно обозначить другой процесс в момент,  когда  про-
+    исходит событие. *)
+
+
+PROCEDURE Awaited(s:  SIGNAL) :  BOOLEAN;  (* Возвращает  TRUE
+      (истина), если любой процесс ждет
+    нал s (т.е., если счетчик, связанный с s, отрицателен). *)
+
+
+PROCEDURE Init(VAR  s:  SIGNAL);  (* Инициализирует сигнал s (
+      т.е. его счетчик установлен в
+    0, и очередь пуста). *)
+
+
+PROCEDURE Delay(T:  CARDINAL);  (* Задерживает текущий процесс
+       по меньшей мере на t
+    валов времени.  Интервал времени  приблизительно  1/18  с.
+    Если t=0, перерегистрация имеет место без задержки, разре-
+    шая другому процессу с таким же  или  большим  приоритетом
+    стать активным. *)
+
+
+PROCEDURE Lock; (* Lock предотвращает текущий процесс от пере-
+     регистрации с
+    помощью интервала времени до тех пор, пока не будет запро-
+    шен Unlock. Lock служит для обхода критической зоны , нап-
+    ример,  когда процесс использует данные,  которые разделя-
+    ются между несколькими процессами. Запросы их к Lock могут
+    быть вложены,  но должны быть всегда спарены  с  запросами
+    UnLock. *)
+
+
+PROCEDURE Unlock; (* Unlock разрешает перерегистрацию в интер-
+      вал времени, и
+    должен быть всегда спарен с запросом Lock. Текущий процесс
+    будет перерегистрирован,  если в готовности находится про-
+    цесс такого же или большего приоритета. *)
+
+
+PROCEDURE Idler;  (* Idler - англ.  лентяй,  бездельник. Может
+    быть использована
+  для организации  пустых процессов.  Это бывает нужно при за-
+  пуске нескольких  процессов  процедурой  StartProcess,  т.к.
+  планировщик  будет  считать  (и вполне справедливо),что все,
+  что находится между последней процедурой StartProcess и про-
+  цедурой   StopScheduler   ,  тоже  является  отдельным  про-
+  цессом.Поэтому в  это  место  надо  вставить  какой-  нибудь
+  бесконечный цикл, можно Idler *)
+
+
+         3. ПРАКТИЧЕСКАЯ ЧАСТЬ -- ПИШЕМ ПРОГРАММУ.
+
+     Проиллюстрируем технологию ООП  на  примере,  позволяющем
+проследить некоторые аспекты ООП и программирования параллель-
+ных процессов .
+     Напишем  программу,  выполняющую  построение лабиринта  и
+моделирующую перемещения по нему нескольких Тезеев.
+
+      О лабиринте примем следующие соглашения:
+
+- вначале лабиринт представляет собой сплошную твердую поверх-
+  ность квадратной формы;
+- затем в лабиринте случайным  образом  прогрызаются  ходы;
+- после этого в лабиринте создаются некие существа, назовем их
+  Тезеями ,  которые настолько разумны, что сразу же отправля-
+  ются искать выход из лабиринта;
+- все Тезеи блуждают по лабиринту одновременно , т.е. в парал-
+  лельном режиме;
+- каждый Тезей  в  меру  своих  интеллектуальных  возможностей
+  использует свою собственную стратегию поиска выхода;
+- наружу из лабиринта существует только один выход;
+- из любого места в лабиринте можно найти выход наружу;
+
+
+   Вот модуль MyMaze, в котором определены все классы , используемые
+в нашей программе.
+
+(* файл MYMAZE.DEF  *)
+
+DEFINITION MODULE MyMaze;
+(* Поскольку  мы реализуем работу всех Тезеев в параллельном режиме,
+   нам потребуются процедуры из модуля Process *)
+IMPORT Process;
+
+CONST
+(* Зададим размер лабиринта от MaxX до MinX *)
+  MaxX    = 40;
+  MinX    = 30;
+
+(* Зададим реальный размер лабиринта в экранных пикселях *)
+  Scr     = 190;
+
+(* Point  соответствует типу CARDINAL и определяет местоположение
+   объекта в лабиринте *)
+  Point ::= CARDINAL;
+
+(* Определим цвета для каждого объекта *)
+  clTezey = 13;       clWise = 15;     clSilly   = 10;
+  clWall  = 14;       clFree = 1 ;     clFlgFree = 2 ;
+  clSmart = 11;       clTerminator = 12;
+
+(* row и col - экранные координаты в текстовом режиме,
+   по которым Тезеи будут выдавать свои сообщения *)
+  row     = 25;
+  col     = 5;
+
+
+TYPE
+
+(* CAST - тип, определяющий компоненты, из которых
+   состоит лабиринт. Здесь Tezey,Wise,Silly,Smart,
+   Terminator это , по существу, пять разных Тезеев,
+   у каждого из которых своя стратегия перемещения
+   по лабиринту.Wall - это стена в лабиринте,Free -
+   это проход , который проделали в стене, FlgFree-
+   это тот же поход для всех Тезеев , кроме Tezey
+   и Smart,которые помечают за собой путь, заменяя
+   Free на FlgFree *)
+
+  CAST    = (Tezey,Wise,Silly,Smart,Terminator,Wall,Free,FlgFree);
+
+(* Каждое текущее состояние лабиринта записывается
+   в двумерный массив Matrix *)
+
+  Matrix  = ARRAY [1..MaxX] OF ARRAY [1..MaxX] OF CAST;
+
+(* Для демонстрации множественного наследования был
+   введен класс Reports , который является речевым
+   аппаратом наших Тезеев*)
+CLASS Reports ;
+PROCEDURE Report(Txt : ARRAY OF CHAR;Cl : CARDINAL);
+END Reports;
+
+(* класс Show - основной класс, описывающий наш лабиринт
+   и события, которые в нем происходят*)
+CLASS  Show;
+(* Можно было бы описать текущее местоположение Тезея
+   как
+  X,Y      : Point;
+   но мы не станем этого делать, т.к. для управления
+   событиями в лабиринте нам понадобятся не только
+   текущие координаты , но и координаты  прошлого
+   местоположения Тезея(эти две точки в совокупности
+   составят вектор перемещения Тезея). Нам будут
+   нужны также координаты точек слева, справа и
+   впереди от нашего героя, только так он сможет
+   ориентироваться в пространстве.Поэтому ,не стоит
+   держать все эти данные в качестве полей данного
+   класса. Это только все запутает, и , кроме того,
+   все координаты будут меняться на каждом  шаге,
+   нет смысла делать лишнюю работу заставляя процедуры,
+   ответственные  за изменение координат, записывать
+   каждый раз новые значения в соответствующие поля.
+*)
+
+  Dx       : Point;
+(* Dx  определяет, сколько пикселей  содержит сторона
+   одной ячейки лабиринта
+   cl - цвет ячейки или Тезея*)
+  cl       : CARDINAL;
+
+(* Scale возвращает количество пикселей ,которое содержит
+   сторона одной ячейки лабиринта
+*)
+  PROCEDURE   Scale(d : Point) : CARDINAL;
+(* Следующие три процедуры делают следующее :
+   -  WhereLeft  определяет координаты точки, которая
+      находится слева от Тезея
+
+          ┌───┬───┬───┬───┬─    x1,y1 - точка, в которой
+          │   │   │ ? │   │          Тезей находился до
+          ├───┼───┼─┼─┼───┼─         текущего  положения
+          │   │ о─┼─o │   │
+          ├───┼───┼───┼───┼─    x2,y2 - текущее  положение
+          │   │   │   │   │
+          ├───┼───┼───┼───┼─    xr,yr - точка слева от
+                                        текущего положения
+
+
+
+   -  Turn  аналогичным образом определяет координаты точки,
+      которая находится справа от Тезея
+
+         ┌───┬───┬───┬───┬─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+         │   │ о─┼─o │   │
+         ├───┼───┼─┼─┼───┼─
+         │   │   │ ? │   │
+         ├───┼───┼───┼───┼─
+
+
+   -  GoForvard определяет координаты точки, которая впереди
+      текущего положения по ходу движения
+
+
+         ┌───┬───┬───┬───┬─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+         │   │ о─┼─о─┼─? │
+         ├───┼───┼───┼───┼─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+
+
+*)
+  VIRTUAL PROCEDURE   WhereLeft(x1,y1,x2,y2 : Point; VAR xr,yr : Point);
+  VIRTUAL PROCEDURE   Turn(x1,y1,x2,y2 : Point; VAR xt,yt : Point);
+  VIRTUAL PROCEDURE   GoForvard(x1,y1,x2,y2 : Point; VAR xf,yf : Point);
+
+(* ShowMx показывает лабиринт на экране *)
+  VIRTUAL PROCEDURE   ShowMx(d : Point;M : Matrix);
+
+(* Init находит первое попавшееся свободное место в лабиринте
+   M со стороной из Len ячеек и возвращает его координаты в x,y *)
+  VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix; Len : Point);
+
+(* ShowMe показывает Тезея в точке x1,y1
+
+                  x1
+         ┌───┬───┬───┬───┬─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+      y1 │   │   │ o │   │
+         ├───┼───┼───┼───┼─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+
+
+   HidMe прячет( стирает) Тезея в точке x1,y1.
+   Lock() и Unlock() нужны здесь т.к. используем процедуры,
+   выводящие на экран изображения.
+
+*)
+  VIRTUAL PROCEDURE   ShowMe(x1,y1 : Point);
+  VIRTUAL PROCEDURE   HideMe(x1,y1 : Point);
+
+(* MoveMe перемещает Тезея из точки x1,y1 в точку x2,y2 и
+   заносит изменения в матрицу лабиринта M
+
+               x1 x2
+         ┌───┬───┬───┬───┬─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+  y1,y2  │   │ о─┼─о │   │
+         ├───┼───┼───┼───┼─
+         │   │   │   │   │
+         ├───┼───┼───┼───┼─
+
+*)
+  VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+(* Заметим, что все процедуры , которые были объявлены как
+   виртуальные ,могут в перспективе использоваться  потомками
+   класса Show из других процедур
+*)
+
+END Show;
+
+(* Определим класс TEZEY, потомок Show и Reports.
+   TEZEY - один из тезеев, которые блуждают по
+   лабиринту.
+*)
+
+CLASS  TEZEY(Show,Reports);
+(* Стратегия у TEZEY следующая : Тезей помечает стены
+   мелом там, где он уже прошел и старается не идти
+   туда, где уже был.Если оказывается , что Тезей был
+   во всех точках, которые его окружают, то ему ничего
+   не остается делать, как идти туда, где он уже был.
+
+         ┌───┬───┬───┬───┬─
+         │   │   │ x │   │
+         ├───┼───┼───┼───┼─
+         │ x │ x │ o─┼─x │
+         ├───┼───┼───┼───┼─
+         │   │   │ x │   │
+         ├───┼───┼───┼───┼─
+
+   Алгоритм этой стратегии ,реализуемый с помощью логических
+   переменных WasThere , To_Go_Or_Not_To_Go и SecondAttempt ,
+   можно представить так :
+   1. WasThere := FALSE; To_Go_Or_Not_To_Go:= TRUE ;
+      SecondAttempt := FALSE;
+   2. Посмотреть на шаг вперед.
+   3. IF (уже здесь были) AND (WasThere) THEN
+       WasThere := TRUE;
+       To_Go_Or_Not_To_Go := FALSE;
+      ELSIF (уже здесь были) AND NOT(SecondAttempt) THEN
+       SecondAttempt      := TRUE;
+       To_Go_Or_Not_To_Go := FALSE;
+       WasThere := TRUE;
+      ELSIF (уже здесь были) THEN
+       WasThere := FALSE;
+       SecondAttempt := FALSE;
+       To_Go_Or_Not_To_Go := TRUE;
+       Сделать шаг вперед;
+       GOTO 2;
+      ELSE
+       To_Go_Or_Not_To_Go := TRUE;
+       Повернуть налево;
+       GOTO 2;
+      END;
+
+   Этот алгоритм реализован в процедуре Strategy
+
+*)
+  WasThere            :  BOOLEAN;
+  To_Go_Or_Not_To_Go  :  BOOLEAN;
+  SecondAttempt       :  BOOLEAN;
+  VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix; Len : Point);
+  VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+  VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+END TEZEY;
+
+(* Следующий класс WISE, потомок Show и Reports.
+   WISE - один из тезеев, которые блуждают по
+   лабиринту.
+*)
+CLASS  WISE(Show,Reports);
+(* Стратегия WISE следующая - WISE идет по лабиринту, постоянно
+   держась левой рукой за стену. Доказано, что при отсутствии
+   циклов WISE непременно  найдет выход из лабиринта.
+   C другой стороны, попав в цикл , WISE никогда из него не
+   выйдет.
+
+   Алгоритм перемещений WISE можно представить так :
+   1. Посмотреть налево;
+   2. IF (проход свободен) THEN Повернуться налево;
+   3. Посмотреть на шаг вперед;
+   4. IF (проход свободен) THEN  Сделать шаг вперед
+      ELSE Повернуться налево;
+   5. GOTO 1.
+
+*)
+
+  VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix; Len : Point);
+  VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+  VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+END WISE;
+
+CLASS  SILLY(Show,Reports);
+(* В стратегии SILLY нет ничего особенно интересного:
+   SILLY просто на каждом своем шаге бросает две монетки,
+   которые определяют , в каком направлении ему идти дальше.
+   Если путь в этом направлении закрыт, SILLY бросает монетки
+   снова.
+*)
+  VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix; Len : Point);
+  VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+  VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+END SILLY;
+
+CLASS SMART(TEZEY);
+(* SMART объединяет стратегии TEZEY и WISE :
+   он  идет по лабиринту, держась левой рукой за стену и при
+   этом проверяет - не был ли он здесь уже ? Если был, SMART,
+   как и WISE , старается туда не идти.
+*)
+  VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix; Len : Point);
+  VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+  VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+END SMART;
+
+CLASS  TERMINATOR(Show,Reports);
+(* TERMINATOR содержит в себе признак окончания моделирования :
+   как только TERMINATOR выходит из лабиринта , поднимается
+   флаг-поле Done. Этого момента ждет цикл
+
+         REPEAT
+         UNTIL NOT(Done);
+
+   в теле главного модуля.
+   Класс  TERMINATOR примечателен также тем ,что Тезей, описываемый
+   этим классом , не имеет никакой стратегии, -  фактически являясь
+   марионеткой , TERMINATOR управляется стрелками с клавиатуры.
+*)
+
+  Done : BOOLEAN;
+  VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix; Len : Point);
+  VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+  VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+END TERMINATOR;
+
+END MyMaze.
+
+
+  Ниже приведен текст файла MYMAZE.MOD.
+
+
+IMPLEMENTATION MODULE MyMaze;
+IMPORT Process,Lib;
+FROM Lib IMPORT RANDOM,RANDOMIZE;
+FROM Graph IMPORT SetVideoMode,Rectangle,TrueDisc,
+     TextCoords,SetTextColor,SetTextPosition,OutText;
+FROM BiosIO IMPORT RdKey,KeyPressed;
+FROM MazeGen IMPORT OutRange,Evolve;
+
+(*------------------ Reports ------------------------------- *)
+CLASS IMPLEMENTATION Reports;
+
+PROCEDURE Report(Txt : ARRAY OF CHAR;Cl : CARDINAL);
+VAR
+  ClOld  :  CARDINAL;
+  TC     :  TextCoords;
+BEGIN
+Process.Lock();
+ClOld := SetTextColor(Cl);
+TC := SetTextPosition( row, col);
+OutText( Txt);
+Process.Unlock();
+END Report;
+
+BEGIN
+END Reports;
+
+(* -------------------- Show ------------------------------- *)
+
+CLASS IMPLEMENTATION Show;
+
+PROCEDURE   Scale(d : Point) : CARDINAL;
+BEGIN
+  RETURN(Scr DIV d);
+END Scale;
+
+VIRTUAL PROCEDURE   WhereLeft(x1,y1,x2,y2 : Point; VAR xr,yr : Point);
+BEGIN
+CASE (x2-x1) OF
+|    -1  :  yr := y2+1; xr := x2;
+|    +1  :  yr := y2-1; xr := x2;
+|     0  :  CASE (y2-y1) OF
+            |    -1  :  yr := y2; xr := x2-1;
+            |    +1  :  yr := y2; xr := x2+1;
+            END;
+END;
+END WhereLeft;
+
+VIRTUAL PROCEDURE   Turn(x1,y1,x2,y2 : Point; VAR xt,yt : Point);
+BEGIN
+CASE (x2-x1) OF
+|    -1  :  yt := y2-1; xt := x2;
+|    +1  :  yt := y2+1; xt := x2;
+|     0  :  CASE (y2-y1) OF
+            |    -1  :  yt := y2; xt := x2+1;
+            |    +1  :  yt := y2; xt := x2-1;
+            END;
+END;
+END Turn;
+
+VIRTUAL  PROCEDURE   GoForvard(x1,y1,x2,y2 : Point; VAR xf,yf : Point);
+BEGIN
+CASE (x2-x1) OF
+|    -1  :  yf := y2; xf := x2-1;
+|    +1  :  yf := y2; xf := x2+1;
+|     0  :  CASE (y2-y1) OF
+            |    -1  :  yf := y2-1; xf := x2;
+            |    +1  :  yf := y2+1; xf := x2;
+            END;
+END;
+END GoForvard;
+
+VIRTUAL PROCEDURE   ShowMx(d : Point;M : Matrix);
+VAR i, j, x1, y1, x2, y2 : CARDINAL;
+BEGIN
+   Dx := Scale(d);
+   FOR i := 1 TO d DO
+     x1 := i*Dx;
+     y1 := 1;
+     FOR j := 1 TO d DO
+       x2 := (x1+Dx);
+       y2 := (y1+Dx);
+       IF M[i,j] = Free THEN
+          Rectangle( x1, y1, x2, y2 ,clFree, TRUE );
+       ELSE
+          Rectangle( x1, y1, x2, y2 ,clWall, TRUE );
+       END;
+       x1 := i*Dx;
+       y1 := j*Dx;
+     END;
+   END;
+END ShowMx;
+
+VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix;Len : Point) ;
+BEGIN
+  LOOP
+    x := 2+RANDOM(Len-2);
+    y := 2+RANDOM(Len-2);
+    IF  M[x,y] >= Free THEN
+      EXIT;
+    END;
+  END;
+END Init;
+
+VIRTUAL PROCEDURE   ShowMe(x1,y1 : Point);
+BEGIN
+  x1 := x1*Dx+(Dx DIV 2);
+  y1 := (y1-1)*Dx+(Dx DIV 2);
+  Process.Lock();
+  TrueDisc( x1, y1, Dx DIV 3, cl);
+  Process.Unlock();
+END ShowMe;
+
+VIRTUAL PROCEDURE   HideMe(x1,y1 : Point);
+BEGIN
+  x1 := x1*Dx+(Dx DIV 2);
+  y1 := (y1-1)*Dx+(Dx DIV 2);
+  Process.Lock();
+  TrueDisc( x1, y1, Dx DIV 3, clFree);
+  Process.Unlock();
+END HideMe;
+
+VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+BEGIN
+  HideMe(x1,y1);
+  ShowMe(x2,y2);
+END Move2;
+
+BEGIN
+END Show;
+
+(*-------------------- TEZEY ------------------------------------*)
+CLASS   IMPLEMENTATION TEZEY;
+
+VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix;Len : Point) ;
+BEGIN
+  Process.Lock();
+  cl := clTezey;
+  Process.Unlock();
+  Show.Init(x,y,M,Len);
+  Dx := Scale(Len);
+END Init;
+
+VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+BEGIN
+  Process.Lock();
+  M[x1,y1] := FlgFree;
+  M[x2,y2] := Tezey;
+  Process.Unlock();
+  Show.Move2(x1,y1,x2,y2,M);
+END Move2;
+
+VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+VAR x1,y1,x2,y2,x3,y3  :  Point;
+
+PROCEDURE RecursiveWalk;
+BEGIN
+    GoForvard(x1,y1,x2,y2,x3,y3);
+    IF (M[x3,y3] = FlgFree) AND NOT(WasThere) THEN
+       WasThere := TRUE;
+       To_Go_Or_Not_To_Go := FALSE;
+    ELSIF (M[x3,y3] = FlgFree) AND NOT(SecondAttempt) THEN
+       SecondAttempt      := TRUE;
+       To_Go_Or_Not_To_Go := FALSE;
+       WasThere := TRUE;
+    ELSIF (M[x3,y3] = FlgFree) THEN
+       WasThere := FALSE;
+       SecondAttempt := FALSE;
+       To_Go_Or_Not_To_Go := TRUE;
+    ELSE
+       To_Go_Or_Not_To_Go := TRUE;
+    END;
+    IF (M[x3,y3] >= Free) AND (To_Go_Or_Not_To_Go) THEN
+      x1 := x2;           (* x2 - where we are *)
+      y1 := y2;           (* x1 - where we was *)
+      x2 := x3;
+      y2 := y3;
+      Move2(x1,y1,x2,y2,M);
+    ELSE
+      Turn(x1,y1,x2,y2,x3,y3);
+      x1 := x3;
+      y1 := y3;
+    END;
+END RecursiveWalk;
+
+BEGIN
+  Init(x2,y2,M,Len);
+  ShowMe(x2,y2);
+  x1 := x2;
+  y1 := y2 - 1;
+  WasThere := FALSE;
+  SecondAttempt  := FALSE;
+  To_Go_Or_Not_To_Go := TRUE;
+  REPEAT
+    Process.Delay(3);
+    RecursiveWalk
+  UNTIL  OutRange(x2,y2,Len);
+  Report("Tezey : I've Got To Do It !!! ",cl);
+  Process.Lock();
+  M[x2,y2] := Free;
+  Process.Unlock();
+  HideMe(x2,y2);
+  REPEAT
+    Process.Delay(10);
+  UNTIL FALSE;
+END Strategy;
+
+BEGIN
+END TEZEY;
+
+(*-------------------- WISE  ------------------------------------*)
+CLASS   IMPLEMENTATION WISE;
+
+VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix;Len : Point) ;
+BEGIN
+  Process.Lock();
+  cl := clWise;
+  Process.Unlock();
+  Show.Init(x,y,M,Len);
+  Dx := Scale(Len);
+END Init;
+
+VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+BEGIN
+  Process.Lock();
+  M[x1,y1] := Free;
+  M[x2,y2] := Wise;
+  Process.Unlock();
+  Show.Move2(x1,y1,x2,y2,M);
+END Move2;
+
+VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+VAR x1,y1,x2,y2,x3,y3,xr,yr  :  Point;
+
+PROCEDURE RecursiveWalk;
+BEGIN
+    WhereLeft(x1,y1,x2,y2,xr,yr);
+    IF M[xr,yr] >= Free THEN
+       Turn(x1,y1,x2,y2,x3,y3);
+       x1 := x3;
+       y1 := y3;
+    END;
+    GoForvard(x1,y1,x2,y2,x3,y3);
+    IF (M[x3,y3] >= Free) THEN
+      x1 := x2;           (* x2 - where we are *)
+      y1 := y2;           (* x1 - where we was *)
+      x2 := x3;
+      y2 := y3;
+      Move2(x1,y1,x2,y2,M);
+    ELSE
+      Turn(x1,y1,x2,y2,x3,y3);
+      x1 := x3;
+      y1 := y3;
+    END;
+END RecursiveWalk;
+
+BEGIN
+  Init(x2,y2,M,Len);
+  ShowMe(x2,y2);
+  x1 := x2;
+  y1 := y2 - 1;
+  REPEAT
+    Process.Delay(4);
+    RecursiveWalk
+  UNTIL  OutRange(x2,y2,Len);
+  Report("Wise : Bravo ! Here I Am !!!",cl);
+  Process.Lock();
+  M[x2,y2] := Free;
+  Process.Unlock();
+  HideMe(x2,y2);
+  REPEAT
+    Process.Delay(10);
+  UNTIL FALSE;
+END Strategy;
+
+BEGIN
+END WISE;
+
+(*-------------------- SILLY  ------------------------------------*)
+CLASS   IMPLEMENTATION SILLY;
+
+VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix;Len : Point) ;
+BEGIN
+  Process.Lock();
+  cl := clSilly;
+  Process.Unlock();
+  Show.Init(x,y,M,Len);
+  Dx := Scale(Len);
+END Init;
+
+VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+BEGIN
+  Process.Lock();
+  M[x1,y1] := Free;
+  M[x2,y2] := Silly;
+  Process.Unlock();
+  Show.Move2(x1,y1,x2,y2,M);
+END Move2;
+
+VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+VAR x1,y1,x2,y2  :  Point;
+
+PROCEDURE RecursiveWalk;
+BEGIN
+    Evolve(x1,y1,x2,y2);
+    IF (M[x2,y2] >= Free) THEN
+      Move2(x1,y1,x2,y2,M);
+      x1 := x2;
+      y1 := y2;
+    END;
+END RecursiveWalk;
+
+BEGIN
+  Init(x1,y1,M,Len);
+  ShowMe(x1,y1);
+  REPEAT
+    Process.Delay(1);
+    RecursiveWalk
+  UNTIL  OutRange(x1,y1,Len);
+  Report("Silly : I've manage to go out !!!",cl);
+  Process.Lock();
+  M[x1,y1] := Free;
+  Process.Unlock();
+  HideMe(x1,y1);
+  REPEAT
+    Process.Delay(10);
+  UNTIL FALSE;
+END Strategy;
+
+BEGIN
+END SILLY;
+
+(*-------------------- SMART ------------------------------------*)
+CLASS   IMPLEMENTATION SMART;
+
+VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix;Len : Point) ;
+BEGIN
+  Process.Lock();
+  cl := clSmart;
+  Process.Unlock();
+  Show.Init(x,y,M,Len);
+  Dx := Scale(Len);
+END Init;
+
+VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+BEGIN
+  Process.Lock();
+  M[x1,y1] := FlgFree;
+  M[x2,y2] := Smart;
+  Process.Unlock();
+  Show.Move2(x1,y1,x2,y2,M);
+END Move2;
+
+VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+VAR x1,y1,x2,y2,x3,y3  :  Point;
+
+PROCEDURE RecursiveWalk;
+BEGIN
+    WhereLeft(x1,y1,x2,y2,x3,y3);
+    IF M[x3,y3] >= Free THEN
+       Turn(x1,y1,x2,y2,x3,y3);
+       x1 := x3;
+       y1 := y3;
+    END;
+    GoForvard(x1,y1,x2,y2,x3,y3);
+    IF (M[x3,y3] = FlgFree) AND NOT(WasThere) THEN
+       WasThere := TRUE;
+       To_Go_Or_Not_To_Go := FALSE;
+    ELSIF (M[x3,y3] = FlgFree) AND NOT(SecondAttempt) THEN
+       SecondAttempt      := TRUE;
+       To_Go_Or_Not_To_Go := FALSE;
+       WasThere := TRUE;
+    ELSIF (M[x3,y3] = FlgFree) THEN
+       WasThere := FALSE;
+       SecondAttempt := FALSE;
+       To_Go_Or_Not_To_Go := TRUE;
+    ELSE
+       To_Go_Or_Not_To_Go := TRUE;
+    END;
+    IF (M[x3,y3] >= Free) AND (To_Go_Or_Not_To_Go) THEN
+      x1 := x2;           (* x2 - where we are *)
+      y1 := y2;           (* x1 - where we was *)
+      x2 := x3;
+      y2 := y3;
+      Move2(x1,y1,x2,y2,M);
+    ELSE
+      Turn(x1,y1,x2,y2,x3,y3);
+      x1 := x3;
+      y1 := y3;
+    END;
+
+END RecursiveWalk;
+
+BEGIN
+  Init(x2,y2,M,Len);
+  ShowMe(x2,y2);
+  x1 := x2;
+  y1 := y2 - 1;
+  WasThere := FALSE;
+  SecondAttempt  := FALSE;
+  To_Go_Or_Not_To_Go := TRUE;
+  REPEAT
+    Process.Delay(2);
+    RecursiveWalk
+  UNTIL  OutRange(x2,y2,Len);
+  Report("Smart : Yeh-Hoo !!! It's Me ! ",cl);
+  Process.Lock();
+  M[x2,y2] := Free;
+  Process.Unlock();
+  HideMe(x2,y2);
+  REPEAT
+    Process.Delay(10);
+  UNTIL FALSE;
+END Strategy;
+
+BEGIN
+END SMART;
+
+(*-------------------- TERMINATOR  ------------------------------------*)
+CLASS   IMPLEMENTATION TERMINATOR;
+
+VIRTUAL PROCEDURE   Init(VAR x,y : Point;M : Matrix;Len : Point) ;
+BEGIN
+  Process.Lock();
+  cl := clTerminator;
+  Process.Unlock();
+  Show.Init(x,y,M,Len);
+  Dx := Scale(Len);
+END Init;
+
+VIRTUAL PROCEDURE   Move2(x1,y1,x2,y2 : Point;VAR M : Matrix);
+BEGIN
+  Process.Lock();
+  M[x1,y1] := Free;
+  M[x2,y2] := Terminator;
+  Process.Unlock();
+  Show.Move2(x1,y1,x2,y2,M);
+END Move2;
+
+VIRTUAL PROCEDURE   Strategy(M : Matrix; Len : Point);
+VAR x2,y2  :  Point;
+
+PROCEDURE RecursiveWalk;
+VAR Ch : CHAR;
+BEGIN
+    REPEAT
+    UNTIL (KeyPressed());
+    Ch := RdKey();
+    CASE ORD(Ch) OF
+    |   72 :
+        IF (M[x2,y2-1] >= Free) THEN
+           Move2(x2,y2,x2,y2-1,M);
+           x2 := x2;
+           y2 := y2-1;
+        END;
+    |   77 :
+        IF (M[x2+1,y2] >= Free) THEN
+           Move2(x2,y2,x2+1,y2,M);
+           x2 := x2+1;
+           y2 := y2;
+        END;
+    |   80 :
+        IF (M[x2,y2+1] >= Free) THEN
+           Move2(x2,y2,x2,y2+1,M);
+           x2 := x2;
+           y2 := y2+1;
+        END;
+    |   75 :
+        IF (M[x2-1,y2] >= Free) THEN
+           Move2(x2,y2,x2-1,y2,M);
+           x2 := x2-1;
+           y2 := y2;
+        END;
+    END;
+END RecursiveWalk;
+
+BEGIN
+  Init(x2,y2,M,Len);
+  ShowMe(x2,y2);
+  REPEAT
+    Process.Delay(1);
+    RecursiveWalk
+  UNTIL  OutRange(x2,y2,Len);
+  Report("Terminator : Obediense's My Honor !",cl);
+  Process.Lock();
+  M[x2,y2] := Free;
+  Process.Unlock();
+  HideMe(x2,y2);
+  Done := FALSE;
+  REPEAT
+    Process.Delay(10);
+  UNTIL FALSE;
+END Strategy;
+
+BEGIN
+END TERMINATOR;
+
+
+VAR
+  V        : BOOLEAN;
+BEGIN
+V := SetVideoMode(19);
+END MyMaze.
+
+
+
+  Файл MAZEGEN.DEF  содержит описание процедур, ответственных
+  за генерацию лабиринта.
+
+DEFINITION MODULE MazeGen;
+FROM MyMaze IMPORT Matrix,Point,CAST,MaxX,MinX;
+IMPORT Lib;
+
+(* Функция OutRange проверяет , не выходит ли точка
+   x,y за пределы лабиринта со стенами длиной d
+*)
+PROCEDURE OutRange(x,y,d  :  Point)  :  BOOLEAN;
+
+(* Процедура Evolve разыгрывает приращения для X1,Y1
+   в случайном направлении и выдает новые значения
+   в виде X2,Y2.
+   Приращения могут быть таковы :
+
+         по X     по Y
+          0        +1
+          0        -1
+         +1         0
+         -1         0
+
+*)
+PROCEDURE Evolve(VAR X1,Y1,X2,Y2  :  Point);
+
+(* InitMaze строит лабиринт M со случайной
+   длиной стены Len,причем  лабиринт пока
+   не содержит проходов .
+*)
+PROCEDURE InitMaze(VAR M : Matrix;VAR Len  :  Point);
+
+(* SityWall возводит стены по периметру и
+   возвращает получившийся лабиринт в переменную
+   Mx ; d - длина стены.
+*)
+PROCEDURE SityWall(VAR Mx : Matrix; d  :  Point);
+
+(* Gen генерирует случайные ходы в лабиринте
+   Mx .
+*)
+PROCEDURE Gen(VAR Mx : Matrix; d  :  Point);
+END MazeGen.
+
+
+    Ниже приведем текст файла MAZEGEN.MOD
+
+IMPLEMENTATION MODULE MazeGen;
+FROM Lib IMPORT RANDOM,RANDOMIZE;
+
+PROCEDURE OutRange(x,y,d  :  Point)  :  BOOLEAN;
+BEGIN
+  IF (x<=1) OR (y<=1) OR (x>=d) OR (y>=d) THEN
+     RETURN(TRUE)
+  ELSE
+     RETURN(FALSE)
+  END;
+END OutRange;
+
+PROCEDURE InitMaze(VAR M : Matrix;VAR Len  :  Point);
+VAR I,J : Point;
+BEGIN
+RANDOMIZE;
+Len := RANDOM(MaxX-MinX)+MinX;
+FOR I := 1 TO  MaxX DO
+  FOR J := 1 TO  MaxX DO
+    M[I,J] := Wall;
+  END;
+END;
+END InitMaze;
+
+PROCEDURE SityWall(VAR Mx : Matrix; d  :  Point);
+VAR   I   : Point;
+BEGIN
+   FOR I := 1 TO d DO
+     Mx[1,I] := Wall;
+     Mx[d,I] := Wall;
+     Mx[I,1] := Wall;
+     Mx[I,d] := Wall;
+   END;
+
+END SityWall;
+
+
+PROCEDURE Evolve(VAR X1,Y1,X2,Y2  :  Point);
+VAR DX,DY : INTEGER;
+BEGIN
+  Lib.RANDOMIZE;
+  DX := 1-INTEGER(Lib.RANDOM(3));
+  DY := INTEGER(BITSET(ABS(DX)) / BITSET(1))*
+        INTEGER(BITSET(INTEGER(Lib.RANDOM(2))-1) + BITSET(1));
+  X2 := Point(INTEGER(X1)+DX);
+  Y2 := Point(INTEGER(Y1)+DY);
+END Evolve;
+
+PROCEDURE Gen(VAR Mx : Matrix; d  :  Point);
+VAR N,RN,RRN,X1,Y1,X2,Y2,XOld,YOld : Point;
+    Count                          : CARDINAL;
+
+PROCEDURE SubGen;
+BEGIN
+    X1 :=X2;
+    Y1 :=Y2;
+    Mx[X2,Y2] := Free;
+    LOOP
+      Evolve(X1,Y1,X2,Y2);
+      IF NOT (OutRange(X2,Y2,d)) THEN EXIT
+      END;
+    END;
+END SubGen;
+
+BEGIN
+  Lib.RANDOMIZE;
+  RRN := d DIV 2;
+  Mx[RRN,d] := Free;
+  RN := Lib.RANDOM(d)+d;
+  Count := d DIV 6;
+  FOR N := 1 TO Count DO
+    Y2 := d-N;
+    Mx[RRN,Y2] := Free;
+  END;
+  X2 := RRN;
+  FOR N := 1 TO RN DO
+     SubGen;
+     IF  (N MOD Count) = 0 THEN
+       XOld := X2;
+       YOld := Y2;
+       LOOP
+          X2 := Lib.RANDOM(d-4)+3;
+          Y2 := Lib.RANDOM(d-4)+3;
+          IF Mx[X2,Y2] = Free THEN EXIT
+          END;
+       END;
+       FOR N := 1 TO Lib.RANDOM(RN) DO
+         SubGen;
+       END;
+       X2 := XOld;
+       Y2 := YOld;
+     END;
+  END;
+
+END Gen;
+
+BEGIN
+END MazeGen.
+
+
+
+     И , наконец , текст главного модуля , MAZEDEMO.MOD
+
+MODULE MazeDemo;
+
+IMPORT IO, MyMaze, MazeGen, Graph, Process;
+FROM BiosIO IMPORT KeyPressed;
+
+VAR Len      : MyMaze.Point;
+
+(* Переменная M - матрица, в которой будет храниться вся
+   информация о лабиринте.
+*)
+    M        : MyMaze.Matrix;
+
+(*  MZ, TZ, WZ, SZ, RZ, NZ  - экземпляры классов,
+    которые были описаны в модуле MyMaze.
+*)
+    MZ       : MyMaze.Show;
+    TZ       : MyMaze.TEZEY;
+    WZ       : MyMaze.WISE;
+    SZ       : MyMaze.SILLY;
+    RZ       : MyMaze.SMART;
+    NZ       : MyMaze.TERMINATOR;
+
+(*  Определяем пять процедур - параллельных процессов,
+    каждая из которых представляет своего Тезея.
+*)
+PROCEDURE P1;
+BEGIN
+  TZ.Strategy(M,Len);
+END P1;
+
+PROCEDURE P2;
+BEGIN
+  WZ.Strategy(M,Len);
+END P2;
+
+PROCEDURE P3;
+BEGIN
+  SZ.Strategy(M,Len);
+END P3;
+
+PROCEDURE P4;
+BEGIN
+  RZ.Strategy(M,Len);
+END P4;
+
+PROCEDURE P5;
+BEGIN
+  NZ.Strategy(M,Len);
+END P5;
+
+BEGIN
+  IO.WrLn();
+  IO.WrStr(' L O A D I N G ...');
+
+(*   Инициализируем лабиринт, строим стены,
+     прогрызаем проходы и показываем результат
+     на экране .
+*)
+  MazeGen.InitMaze(M, Len);
+  MazeGen.SityWall(M, Len);
+  MazeGen.Gen(M, Len);
+  MZ.ShowMx(Len,M);
+
+(*   Запускаем процедуру разделения времени.
+*)
+  Process.StartScheduler();
+
+(*   Запускаем пять параллельных процессов.
+*)
+  Process.StartProcess(P1,1024*5,1);
+  Process.StartProcess(P2,1024*5,1);
+  Process.StartProcess(P3,1024*5,1);
+  Process.StartProcess(P4,1024*5,1);
+  Process.StartProcess(P5,1024*5,1);
+
+(*   Шестой процесс - ожидание изменения
+     логической переменной Done.
+*)
+  REPEAT
+  UNTIL NOT(NZ.Done);
+
+(*   Останавливаем планировщик процессов.
+*)
+  Process.StopScheduler();
+
+END MazeDemo.
+
+
+  В представленной модели каждый Тезей, являясь потомком обще-
+го Лабиринта,  путешествует  в  своем  оригинальном  измерении
+пространства "Лабиринт", не замечая остальных Тезеев . Другими
+словами ,  у каждого Тезея свой собственный Лабиринт.  Поэтому
+наши  герои  не  видят  друг  друга,и,следовательно,никогда не
+сталкиваются.
+    Если два  Тезея  встретятся на узкой дорожке в Лабиринте и
+окажутся в одной точке,  то они спокойно пройдут  один  сквозь
+другого, даже не заметив этого.
+
+  Что будет, если поместить всех в один лабиринт ?
+
+  Решим эту  проблему,  сделав  переменную M типа Matrix види-
+мой/изменяемой для всех процессов. Будем передавать и читать M
+по ссылке, а не по значению, как раньше:
+
+
+    БЫЛО :   (файл MyMaze.DEF )
+
+CLASS  TEZEY(Show,Reports);
+  ...
+  ...
+  ...
+
+  VIRTUAL PROCEDURE   Strategy( M : Matrix; Len : Point);
+END TEZEY;
+
+    СТАЛО :
+
+CLASS  TEZEY(Show,Reports);
+  ...
+  ...
+  ...
+
+  VIRTUAL PROCEDURE   Strategy(VAR M : Matrix; Len : Point);
+END TEZEY;
+
+
+   Сделав аналогичные изменения и для классов WISE,SILLY,SMART
+и TERMINATOR,  и не  забыв  таким  же  образом  изменить  файл
+MyMaze.MOD, получим общий лабиринт для всех Тезеев.
+
+  Какие коллизии возникнут в образовавшемся коллективе ? Тезеи
+могут мешать, но могут и помогать др. другу. Несложные рассуж-
+дения  показывают,  что  в таком сообществе обычно проигрывает
+Smart , Wise выигрывает.
+
+  О чем мы забыли ?
+  Оказавшись в  одном лабиринте,  Smart и Tezey могут обмануть
+друг друга,  т.к. они помечают стены Лабиринта,рисуя на стенах
+крестики мелом одного цвета.Следовательно, еще не пройдя опре-
+деленный участок Лабиринта,Smart может подумать,  что  он  там
+уже был.  Решить эту проблему достаточно просто -- нужно всего
+лишь дать героям мелки разного цвета.Программное решение  этой
+проблемы тривиально,и,не имея к этому достаточно интереса,  мы
+не будем приводить его в рамках данной работы.
+
+
+                 4. ЗАКЛЮЧЕНИЕ.
+
+   Были изучены средства параллельного программирования  языка
+Modula-2 и объектно - ориентированные расширения , реализован-
+ные Jensen & Partners Intl.  в языке  TopSpeed  Modula-2  Ver.
+3.01.
+
+  Среда и  языки  TopSpeed реализованы очень остроумно - среда
+многоязыковая, довольно мощная, гибкая, настраиваемая, облада-
+щая  множеством приятных свойств,  которыми не обладают другие
+среды программирования.Языки обладают свойствами параллельного
+и   объектно-ориентированного  программирования.  Организована
+поддержка BGI и совместимость с Microsoft C на уровне исходных
+текстов (мы,  однако, этого не проверяли).Создан конвертор для
+перевода  текстов,написанных  на   Turbo   Pascal'е   (Borland
+International.) в TopSpeed Pascal.
+
+  В языках TopSpeed обнаружено большое количество ошибок. Поэ-
+тому,  тому, кто программирует на TopSpeed, приходится учиться
+их избегать, а возможно -- использовать (?!).
+
+
+
+
+                       ЛИТЕРАТУРА
+   1. Вирт  Н.  Программирование  на языке МОДУЛА-2 :  Пер.  с
+англ. - М.: Мир, 1987.
+   2. Вирт Н.  Алгоритмы и структуры данных :  Пер.  с англ. -
+М.: Мир, 1989.
+   3. Кристиан К. Руководство по программированию на языке МО-
+ДУЛА-2 : Пер. с англ. - М.: Мир, 1989.
+   4. Полторак А.В.  Проектирование и разработка систем парал-
+лельных программных процессов :  Учебное пособие.  - М.: МИФИ,
+1992.
+   5. Полторак А.В. Объектно-ориентированное программирование:
+Учебное пособие. - М.:  Изд. МИФИ, 1993.
+   6. Пекар В.  Немного истории ООП .- "Программистские  ведо-
+мости " NN 1, 1991.
+   7. Руководство по ООП Turbo Pascal 5.5 : Пер. с англ.
+   8. Страуструп Б. Язык программирования С++ : Пер. с англ. -
+М.: Мир, 1991.
+
+
+
+

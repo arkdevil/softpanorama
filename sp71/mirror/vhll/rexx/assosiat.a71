@@ -1,0 +1,174 @@
+From: dac@prolix.apana.org.au (Andrew Clayton)
+Newsgroups: comp.lang.rexx
+Subject: Re: How to find all elements of a compund variable? (VM/CMS)
+Message-ID: <YD++v*wP7@prolix.apana.org.au>
+Date: Mon, 02 Jan 1995 06:25:32 GMT
+Organization: More like Dis~, really.
+
+In article <D1ot3z.LGx@cix.compulink.co.uk>, "Chris Miles" writes:
+
+> > I have a program which creates variables of the form
+> > Q.qname, where the qnames are arbitrary strings not known until
+> > execution time.  
+
+> > I would like to be able to look at all of these compund variables
+> > without having to know the qnames (similar to "for each" in perl).
+
+>   qnames.0 number of qnames
+>   qnames.1 1st qname, etc
+
+Along similar lines, but unsolvable to me, I'm trying to indirectly
+reference stems and their contents, but damned if I can accomplish this
+seemingly simple task.
+
+Here is an example -- I have a number of substems with data, I wish to
+concatenate the contents of all the individual stems into one single
+stem.  I don't know how to accomplish this.
+
+Here's an example of the data,  how I attempted to solve the problem.
+
+
+//////// cut here //////////
+/*rexx*/
+
+/* traverse NAMES, and put the results into a stem called 'EVERYTHING' */
+
+everything. = 0
+
+/* I've set the data statically.  In a real terms this would not be the case,
+   each stem would be created at runtime, with external, random, information */
+
+names.0 = 3
+names.1 = animals
+names.2 = trees
+names.3 = rivers
+
+animals.0 = 4
+animals.1 = "cats"
+animals.2 = "dogs"
+animals.3 = "budgies"
+animals.4 = "horses"
+
+trees.0 = 3
+trees.1 = "deciduous"
+trees.2 = "evergreen"
+trees.3 = "dead"
+
+rivers.0 = 5
+rivers.1 = "rhine"
+rivers.2 = "thames"
+rivers.3 = "colorado"
+rivers.4 = "amazon"
+rivers.5 = "victoria falls"
+
+count = 0                                      /*initialize counter*/
+
+do loop = 1 to names.0                         /*loop for number of entries*/
+  do loop2 = 1 to value(value(names).loop1).0  /*dereference name, get number*/
+    count = count + 1                          /*increment counter*/
+    temp = value(value(names).loop1).loop2     /*extract indirect element*/
+    everything.count = temp                    /*save in new stem*/
+  end                                          /*loop2*/
+end                                            /*loop1*/
+
+everything.0 = count                           /*save count of # entries*/
+
+do loop = 1 to everything.0                    /*loop for #entries in stem*/
+  say everything.loop                          /*print out information*/
+end
+
+//////// cut here //////////
+
+I would appreciate answers on how I can solve this, or other mechanisms
+for a solution to problems with consecutively numbered entries in a stem
+variable.  Thankyou in advance.
+
+Dac
+--
+  David Andrew Clayton.
+  Canberra, Australia.
+  dac@prolix.apana.org.au
+  A Caring Prolix Bastard.
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!eff!usenet.ins.cwru.edu!magnus.acs.ohio-state.edu!math.ohio-state.edu!jussieu.fr!univ-lyon1.fr!swidir.switch.ch!newsfeed.ACO.net!paladin.american.edu!auvm!UNI-KONSTANZ.DE!Otto.Stolz Mon Jan  2 12:50:19 1995
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!eff!usenet.ins.cwru.edu!magnus.acs.ohio-state.edu!math.ohio-state.edu!jussieu.fr!univ-lyon1.fr!swidir.switch.ch!newsfeed.ACO.net!paladin.american.edu!auvm!UNI-KONSTANZ.DE!Otto.Stolz
+Comments: Gated by NETNEWS@AUVM.AMERICAN.EDU
+Newsgroups: comp.lang.rexx
+X-Acknowledge-To: <RZOTTO@nyx.uni-konstanz.de>
+Message-ID: <REXXLIST%95010213154922@VM.GMD.DE>
+Date: Mon, 2 Jan 1995 12:44:04 +0100
+Sender: REXX Programming discussion list <REXXLIST@UGA.BITNET>
+From: Otto Stolz <Otto.Stolz@UNI-KONSTANZ.DE>
+Subject: Re: How to find all elements of a compund variable? (VM/CMS)
+Comments: To: Andrew Clayton <dac@PROLIX.APANA.ORG.AU>,
+          General REXX Discussion List <REXXLIST%vm.gmd.de@uni-konstanz.de>
+Lines: 66
+
+On Mon, 2 Jan 1995 6:25:32 Andrew Clayton <dac@PROLIX.APANA.ORG.AU> said:
+> I'm trying to indirectly reference stems and their contents, but damned
+> if I can accomplish this seemingly simple task.
+
+I hurry to solve your problem before Andrew can figure it out by himself,
+being damned in due course :-)
+
+> Here is an example -- I have a number of substems with data, I wish to
+> concatenate the contents of all the individual stems into one single
+> stem.
+
+...
+> names.1 = animals
+> names.2 = trees
+> names.3 = rivers
+
+Here Andrew has referred to uninitialised variables, viz. animals, trees,
+and rivers. A safer practice would be to use literals where you mean it:
+> names.1 = "ANIMALS"
+> names.2 = "TREES"
+> names.3 = "RIVERS"
+
+If you precede your program with
+  signal on novalue
+  address none
+uninitialized variables (and other typos) will be flagged.
+
+> rivers.1 = "rhine"
+
+This, of course, should rather read
+  rivers.1 = "Rhein"
+I'm living at this river, so I can tell for sure :-)
+
+> do loop = 1 to names.0
+
+Later in the program, A. refers to this variable by "loop1". This sort
+of typo would have been cought by "signal on novalue". The line should
+be mended to read:
+  do loop1 = 1 to names.0                 /*loop for number of entries*/
+
+Now the real agony starts:
+
+> do loop2 = 1 to value(value(names).loop1).0  /*dereference name, get number*/
+
+To dereference, you wil have to apply the value function to "RIVERS.0"
+(or whatever), which A. didn't. If you have set the novalue trap, as
+recommended, above, you will have to use literals rather than uninitial-
+ized variables (you should do this, in any case). I also recommend to
+spell out all concatenation operaors rather than to rely on the
+-- really difficult -- abuttal syntax. This brings us to:
+  do loop2 = 1 to value(value(value("NAMES")||".LOOP1")||".0")
+
+Luckyly, REXX does the dereferncing for compound symbols, automatically,
+so most of the Value function invocations can be disposed off, as in:
+  do loop2 = 1 to value(names.loop1 || ".0")
+
+By the same tokens,
+> temp = value(value(names).loop1).loop2
+becomes
+  temp = value(names.loop1 || ".LOOP2")
+
+Happy programming,
+                    Otto Stolz <Otto.Stolz@uni-konstanz.de>
+
+*** Please use only my new address at uni-konstanz.de, as all Bitnet
+*** addresses at DKNKURZ1 will expire by end of 1994, and all Internet
+*** adresses at Nyx.Uni-Konstanz.de will do so some time in 1995.
+

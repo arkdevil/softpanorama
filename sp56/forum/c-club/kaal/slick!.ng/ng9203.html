@@ -1,0 +1,99 @@
+<HTML>
+<HEAD><TITLE>MacSoft's DESQview aware I/O Library - Long Entry</TITLE></HEAD>
+<BODY>
+
+<A HREF="ng8ffe.html">[&lt;&lt;Previous Entry]</A>
+<A HREF="ng223.html">[^^Up^^]</A>
+<A HREF="ng98d2.html">[Next Entry&gt;&gt;]</A>
+<A HREF="menu.html" >[Menu]</A>
+<A HREF="info.html">[About The Guide]</A>
+<HR>
+<PRE>
+
+   <B>void far _inittimer(int count,int far *where);</B>
+   <B>void interrupt far _timer(void);</B>
+
+   _inittimer() initializes timer interrupt to update timer counters every
+ 55ms. Counters will decrease until they reach zero. Actual interrupt hand-
+ ling is done with _timer(). Note that _inittimer() may be called more
+ than once to add or delete timer channels or replace timers with other
+ ones.
+   Version 3.0 adds one more function
+
+   <B>void far _eventtimer(void far (*func)(int channel));</B>
+
+ which can be used after _inittimer() to set your own event handler. It will
+ be called every time a channel reaches terminal count. Channel number is
+ zero-based.
+
+ <B>Parameters :</B>
+
+ count      Number of timer channels you need.
+ where      Pointer to first channels counter.
+
+ <B>Return :</B>
+
+ None.
+
+ <B>Example :</B>
+
+ #include "window.h"
+ #include &lt;bios.h&gt;
+ #include &lt;dos.h&gt;
+ #include &lt;stdio.h&gt;
+ #include &lt;stdlib.h&gt;
+ #include &lt;string.h&gt;
+
+ #define CHANNELS 21
+
+ int clocks[CHANNELS];
+ void interrupt far (*oldvect)();
+
+ void myexit(void)
+ {
+     _deinittimer();
+     while (closewnd());
+     if (oldvect)
+         setvect(0x1b,oldvect);
+ }
+
+ void interrupt far mybreak(void)
+ {
+ }
+
+ void main(void)
+ {
+ int i;
+ char s[80];
+     atexit(myexit);
+     oldvect=getvect(0x1b);
+     setvect(0x1b,mybreak);
+     makewnd(5,0,32,CHANNELS+3,SINGLEFRAME,0x0f0f,80);
+     cursoroff();
+     for (i=0;i&lt;CHANNELS;i++) {
+         sprintf(s,"Timer channel %d",i+1);
+         prtwnd(2,i+1,s,0x0f);
+         clocks[i]=(i+1)*50;
+     }
+     _inittimer(CHANNELS,clocks);
+     while (!bioskey(1)) {
+         for(i=0;i&lt;CHANNELS;i++) {
+             itoa(clocks[i],s,10);
+             strcat(s,"      ");
+             prtwnd(19,i+1,s,0x0f);
+         }
+     }
+     while(bioskey(1))
+         bioskey(0);
+ }
+</PRE>
+<HR>
+<B>See Also:</B>
+<A HREF="ng98d2.html">_deinittimer()</A>
+<A HREF="ng2e24.html">makewnd()</A>
+<A HREF="ng528b.html">prtwnd()</A>
+<A HREF="ngda9.html">closewnd()</A>
+<A HREF="nga553.html">cursoroff()</A>
+
+</BODY>
+</HTML>

@@ -1,0 +1,2194 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                               INTEL
+
+                                8272
+
+                   SINGLE/DOUBLE DENSITY FLOPPY DISK
+
+                             CONTROLLER.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ █ IBM Compatible in Both Single and      █ Data Transfers in DMA or Non-DMA
+   Double Density Recording Formats         Mode
+
+ █ Programmable Data Record Lengths :     █ Parallel Seek Operations on Up to
+   128,256,512, or 1024 Bytes/Sector        Four Drives
+
+ █ Drive Up to 4 Floppy Disks             █ Compatible with Most
+                                            Microprocessors Including 8080A,
+ █ Data Scan Capability - Will Scan a       8085A,8086 and 8088
+   Single Sector or an Entire Cylinder's
+   Worth of Data Fields, Comparing on a   █ Single-Phase 8 MHz Clock
+   Byte by Byte Basics, Data in the
+   Processor's Memory with Data Read      █ Single +5 Volt Power Supply
+   from the Diskette
+                                          █ Available in 40-Pin Plastic Dual-in
+                                            -line Package
+
+
+
+
+
+
+    The 8272 is an LSI Floppy Disk Controller (FDC) Chip, WHICH contains  the
+    circulty and control functions for interfacing a processor to 4 Floppy Disk
+    Drives. It is capable of supporting either IBM 3740 single density format
+    (FM),or IBM System 34 Double Density format (MFM) including double sided
+    recording. The 8272 provides control signals which simlify the design of an
+    external phase locked loop, and write precompensation circultry. The FDC
+    simplifies and hanles most of the burdens associated with implementing
+    a Floppy Disk Drive Interface.
+
+
+
+
+
+_______________________________________________________________________________
+
+
+         PIN CONFIGURATION
+
+
+            ┌───┐   ┌────┐
+     RESET──┤1  └───┘ 40 ├──Vcc
+       _RD──┤2        39 ├──_RW/SEEK
+       _WR──┤3        38 ├──LCT/DIR
+       _CS──┤4        37 ├──FR/STP
+        A0──┤5        36 ├──MDL
+       DB0──┤6        35 ├─RDY
+       DB1──┤7        34 ├──WP/TS
+       DB2──┤8        33 ├──FLT/TRK0
+       DB3──┤9        32 ├──PS0
+       DB4──┤10       31 ├──PS1
+       DB5──┤11       30 ├──WR DATA
+       DB6──┤12       29 ├──DS0
+       DB7──┤13       28 ├──DS1
+       DRQ──┤14       27 ├──HDSEL
+     _DACK──┤15       26 ├──MFM
+        TC──┤16       25 ├──WE
+       IDX──┤17       24 ├──Vc0
+       INT──┤18       23 ├──RD DATA
+       CLR──┤19       22 ├──DW
+       GND──┤20       21 ├──WR CLK
+            └────────────┘
+
+
+
+
+
+
+
+       8272 INTERNAL BLOCK DIAGRAM
+
+
+
+
+
+
+                           │ │      ┌──────────┐
+            ┌───────┐      │ │      │          │
+       /__\ │       │ /__\ │ │ /__\ │          │
+ DB0-7<____>│ DATA  │<___ >│8│<____>│          │
+       \  / │  BUS  │ \  / │2│ \  / │REGISTERS │
+            │ BUFFER│      │7│      │          │
+            │       │      │2│      │          │
+            │       │      │ │      │          │
+            └───────┘      │I│      │          │
+         ─────┐            │N│      └──────────┘
+    TERMINAL  │            │T│
+      COUNT  \│ /          │E│      ┌──────────┐
+              \/           │R│      │  SERIAL  │<------- WR CLOCK
+           ┌────────┐      │N│      │ INTERFACE│-------> WR DATA
+    DRQ<---│        │      │A│ /__\ │CONTROLLER│-------> WR ENABLE
+   DACK--->. READ   │      │L│<____>│          │-------> PRE-SHIFT0
+    INT<---│ WRITE  │      │ │ \  / │          │-------> PRE-SHIFT1
+     ID--->. DMA    │ /__\ │B│      │          │<------- READ DATA
+     WR--->. CONTROL│<____>│U│      │          │<------- DATA WINDOW
+     A0--->│ LOGIC  │ \  / │S│      └──────────┘-------> Vco SYNC
+  RESET--->│        │      │ │      ┌──────────┐
+           │        │      │ │      │          │    ┌─────┐
+           └───.────┘      │ │      │          │ /__│     │
+              /│\          │ │      │  DRIVE   │<___│INPUT│
+               │           │ │ /__\ │INTERFACE │ \  │ PORT│
+               │           │ │<____>│CONTROLLER│    │     │
+               │           │ │ \  / │          │    └─────┘
+       CS ─────┘           │ │      │          │ /\ ┌─────┐
+                           │ │      │          │<-->│     │-->DRIVE SEL0
+                           │ │      └──────────┘ \/ │ OUT │-->DRIVE SEL1
+                           │ │                      │     │-->MFM MODE
+         CLK --->          │ │                      │ PORT│-->R/W SEEK
+         Vcc --->                                   │     │-->HEAD LOAD
+         GND --->                                   │     │-->HEAD SELECT
+                                                    │     │-->LOW
+                                                    │     │   CURRENT/DIRECTION
+                                                    └─────┘-->FAULT RESET/STEP
+
+
+
+
+
+
+
+
+
+     8272 SYSTEM BLOCK DIAGRAM
+
+
+
+
+                     ┌──────┐
+                     │      │
+                     │ CPU  │
+                     │      │
+                     └──────┘
+                        ^
+                       / \
+                      /   \
+                       | |
+                       | |
+                      \   /
+                       \ /
+                        
+    ────────────────────────────────────────────────────────
+                    SYSTEM BUS
+    ────────────────────────────────────────────────────────
+           ^                    ^
+          / \                  / \
+         /   \                /   \
+          | |                  | |
+          | |                  | |
+         \   /                \   /
+          \ /                  \ /
+                               
+      ┌──────────┐         ┌──────────┐   DATA     ┌───┐   ┌──────────┐
+      │          │  DRQ    │          │   WINDOW   │   │   │        ──┤
+      │          │<--------│          │<-----------│FLL│---│          │
+      │          │         │          │            │   │ | │
+      │  8237    │         │  8272    │            └───┘ | │ DRIVE    │
+      │   DMA    │ _DACK   │          │  RD DATA         | │          │
+      │CONTROLLER│-------->│  FDC     │<------------------ │INTERFACE
+      │          │         │          │  WR DATA           │          │
+      │          │         │          │------------------->│          │
+      │          │         │          │  /                 │          │
+      │          │-------->│          │ / -----------------│          │
+      └──────────┘   TC    │          │<  INPUT CONTROL    │          │
+                           │          │ \ -----------------│          │
+           (TERMINAL COUNT)│          │  \                 │          │
+                           │          │                 \  │          │
+                           │          │------------------\ │          │
+                           │          │  OUTPUT CONTROL   >│          │
+                           └──────────┘------------------/ └──────────┘
+                                                        /
+
+
+ DESCRIPTION
+
+ Hand-shaking signals are provided in the 8272 which make DMA operation
+ easy to incorporate with the aid of an external DMA Controller chip, such
+ as the 8237. The FDC will operate in einther DMA or Non-DMA mode. In the
+ Non-DMA mode,the FDC generates interrupts to the processor for every transfer
+ of data byte between the CPU and 8272. In the DMA mode, the processor need
+ only load command into the FDC  and all data transfers occur under control of
+ the 8272 and DMA controller.
+
+ There are 15 separate commands which the 8272 will execute. Each of these
+ commands require multiple 8-bit bytes to fully specify the operation which
+ the processor wishes the FDC to perform. The following commands are available:
+
+    Read Data                         Write Data
+    Read ID                           Format a Track
+    Read Deleted Data                 Write Deleted Data
+    Read a Track                      Seek
+    Scan Equal                        Recalibrate (Restore to Track 0)
+    Scan High or Equal                Sense Interrupt Status
+    Scan Low or Equal
+    Specify                           Sense Drive Status
+
+
+
+
+  FEATURES
+
+ Addres mark detection circultry is internal to the FDC which simlifies the
+ phase locked loop and read electronics. The track stopping rate, head load
+ time, and head unload time may be programmed by user. The 8272 offers many
+ additional features such as multiple sector transfers in both read and write
+ modes with a single command, and full IBM compatibillity in both single (FM)
+ and double density (MFM) modes.
+
+
+ 8272 REGISTERS - CPU INTERFACE
+
+ The 8272 contain two registers which may accessed by the main system
+ processor: a Status Register and a Data Register. The 8-bit Main Status
+ Register contains the status information of the FDC ,and may be accessed at
+ any time. The 8-bit Data Register ( actually consists of several registers in
+ a stack with only one register presented to the data bus at time), stores
+ data ,commands,parameters, and FDD status information. Data bytes are read
+ out of, or written into, the Data Register in order to program or obtain the
+ results after execution of command. The Status Register may only be read and
+ is used to facilitate the transfer of data between the processor and 8272.
+
+ The relationship between the Status/Data registers and the signals _RD,_WR,
+ and A0 is shown below.
+
+   ┌───┬─────┬─────┬───────────────────────────┐
+   │A0 │ _RD │ _WR │  FUNCTION                 │
+   ╞═══╪═════╪═════╪═══════════════════════════╡
+   │ 0 │  0  │  1  │  Read Main Status         │
+   │   │     │     │  Register                 │
+   ╞═══╪═════╪═════╪═══════════════════════════╡
+   │ 0 │  1  │  0  │  illegal                  │
+   ╞═══╪═════╪═════╪═══════════════════════════╡
+   │ 0 │  0  │  0  │  illegal                  │
+   ╞═══╪═════╪═════╪═══════════════════════════╡
+   │ 1 │  0  │  0  │  illegal                  │
+   ╞═══╪═════╪═════╪═══════════════════════════╡
+   │ 1 │  0  │  1  │  Read from Data Register  │
+   ╞═══╪═════╪═════╪═══════════════════════════╡
+   │ 1 │  1  │  0  │  Write into Data Register │
+   │   │     │     │                           │
+   └───┴─────┴─────┴───────────────────────────┘
+
+
+
+   The  bits in the Main Status Register are defined as follows:
+
+ ┌─────────────┬────────────┬──────────┬─────────────────────────┐
+ │  BIT NUMBER │    NAME    │   SYMBOL │  DESCRIPTION            │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │    DB0      │ FDD0 Busy  │   D0B    │   FDD number 0 is in the│
+ │             │            │          │   seek mode.            │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │    DB1      │ FDD1 Busy  │   D1B    │   FDD number 1 is in the│
+ │             │            │          │   seek mode.            │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │    DB2      │ FDD2 Busy  │   D2B    │   FDD number 2 is in the│
+ │             │            │          │   seek mode             │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │    DB3      │ FDD3 Busy  │   D30    │   FDD number 3 is in the│
+ │             │            │          │   seek mode             │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │    DB4      │ FDD4 Busy  │   CB     │  A read or write command│
+ │             │            │          │   is in progress        │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │    DB5      │ Non - DMA  │   NDM    │  The FDC is in the non -│
+ │             │   mode     │          │  DMA mode. This bit is  │
+ │             │            │          │  set only during the    │
+ │             │            │          │  execution phase in     │
+ │             │            │          │  non-DMA mode.Transitien│
+ │             │            │          │  ts "G" state indicates │
+ │             │            │          │  execution phase has    │
+ │             │            │          │  ended                  │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │   DB6       │ Data Input │   DIO    │ Indicates direction of  │
+ │             │  -Output   │          │ data transfer between   │
+ │             │            │          │ FDC and Data Register.  │
+ │             │            │          │ If DIO is "1",then      │
+ │             │            │          │ transfer is from Data   │
+ │             │            │          │ Register to the         │
+ │             │            │          │ processor.If DIO is "0",│
+ │             │            │          │ then transfer is from   │
+ │             │            │          │ the Processor to Data   │
+ │             │            │          │ Register.               │
+ ├─────────────┼────────────┼──────────┼─────────────────────────┤
+ │  DB7        │ Request for│  RQM     │ Indicates Data Register │
+ │             │            │          │ is ready to send or     │
+ │             │ Master     │          │ receive data to or from │
+ │             │            │          │ the Processor.Both bits │
+ │             │            │          │ DIO and RQM should be   │
+ │             │            │          │ used to perfom the      │
+ │             │            │          │ handshaking functios of │
+ │             │            │          │ "ready" and "direction" │
+ │             │            │          │ to the processor.       │
+ └─────────────┴────────────┴──────────┴─────────────────────────┘
+
+
+
+
+
+    PIN DESCRIPTION
+ ┌──────────────┬───────┬─────────────────┬──────────────────────────────────┐
+ │              │       │                 │                                  │
+ │  PIN         │   I/O │    CONNECTION   │    DESCRIPTION                   │
+ ├─────┬────────┤       │                 │                                  │
+ │     │        │       │       TO        │                                  │
+ │ NO. │ SYMBOL │       │                 │                                  │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │  1  │   RST  │   I   │     mP          │ Reset Places FDC in idts         │
+ │     │        │       │                 │ state Resets output lines to     │
+ │     │        │       │                 │ FDD is "0" (low)                 │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Read:Control signal for          │
+ │  2  │  _RD   │   I*  │     mP          │ transfer of data from FDC to     │
+ │     │        │       │                 │ Data Bus, when "0" (low)         │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Write: Control signal for        │
+ │  3  │  _WR   │   I*  │     mP          │ transfer of data to FDC via Data │
+ │     │        │       │                 │ Bus, when "0" (low)              │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │  4  │  _CS   │   I   │     mP          │ Chip Select: IC selected         │
+ │     │        │       │                 │ when "0" (low), allowing         │
+ │     │        │       │                 │ _RD and _WR to be enabled        │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │  5  │   A0   │   I*  │     mP          │ Data/Status Reg Select:          │
+ │     │        │       │                 │ Select Data Reg (A0=1) or        │
+ │     │        │       │                 │ Status Reg (A0=0)                │
+ │     │        │       │                 │ content be sent to Data Bus      │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │6-13 │DB0-DB7 │  I/O* │     mP          │ Data Bus: Bidirectional          │
+ │     │        │       │                 │ 8 - Bit Data Bus                 │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 14  │  DRQ   │   O   │     DMA         │ Data DMA Request: DMA            │
+ │     │        │       │                 │ Request is being made by         │
+ │     │        │       │                 │ FDC when DRQ "1"                 │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 15  │_DACK   │   I   │     DMA         │ DMA Acknowledge: DMA             │
+ │     │        │       │                 │ cycle is active when "0"         │
+ │     │        │       │                 │ (low) and Controller is          │
+ │     │        │       │                 │ performing DMA transfer          │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 16  │  TC    │   I   │     DMA         │ Terminal Count: Indicates        │
+ │     │        │       │                 │ the termination of a DMA         │
+ │     │        │       │                 │ transfer when "1" (high)         │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │                                  │
+ │ 17  │  IDX   │   I   │     FDD         │ Index: Indicates the beginning   │
+ │     │        │       │                 │ of a disk track                  │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │                                  │
+ │ 18  │  INT   │   O   │     mP          │ Interrupt: Interrupt Request     │
+ │     │        │       │                 │ Generated by FDC                 │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │                                  │
+ │ 19  │  CLK   │   I   │                 │ Check: Single Phase 6MHz         │
+ │     │        │       │                 │ Squarewave Check                 │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │                                  │
+ │ 20  │  CND   │       │                 │ Ground: D.C. Power Return        │
+ └─────┴────────┴───────┴─────────────────┴──────────────────────────────────┘
+  Note * :Disabled when _CS = 1.
+
+ ┌──────────────┬───────┬─────────────────┬──────────────────────────────────┐
+ │              │       │                 │                                  │
+ │  PIN         │   I/O │    CONNECTION   │    DESCRIPTION                   │
+ ├─────┬────────┤       │                 │                                  │
+ │     │        │       │       TO        │                                  │
+ │ NO. │ SYMBOL │       │                 │                                  │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 40  │  Vcc   │       │                 │ POWER                            │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Read Write/SEEK. When "1"        │
+ │ 39  │_RWseek │   O   │     FDD         │ (high) seek mods selected and    │
+ │     │        │       │                 │ when "0" (low) Read/Write        │
+ │     │        │       │                 │ mode selected                    │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │     FDD         │ Low Current direction.Lawers     │
+ │ 38  │ LGT/DIR│   O   │                 │ Write current on inner tracks    │
+ │     │        │       │                 │ in Read/Write mode,determines    │
+ │     │        │       │                 │ direction head will step         │
+ │     │        │       │                 │ in Seek mode                     │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Fault Reset/Step: Resets fault   │
+ │ 37  │ FR/STP │   O   │     FDD         │ FF in FDD in Read/Write          │
+ │     │        │       │                 │ mode, provides step pulses to    │
+ │     │        │       │                 │ move head to  another cylinder   │
+ │     │        │       │                 │ in Seek mode                     │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Head Load: Command which         │
+ │ 36  │  HDL   │   O   │     FDD         │ causes read/write head in FDD    │
+ │     │        │       │                 │ to contact diskette              │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Ready: Indicates FDD is ready    │
+ │ 35  │  RDY   │   I   │     FDD         │ to send or receive data          │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 34  │ WP/TS  │   I   │     FDD         │ Write Protect/Two-Side:          │
+ │     │        │       │                 │ Senses Write Protect status in   │
+ │     │        │       │                 │ Read/Write mode,and Two          │
+ │     │        │       │                 │ Side Media in Seek mode          │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Fault/Track 0: Senses FDD        │
+ │ 33  │FLT/TRK0│   I   │     FDD         │ fault condition in Read/Write    │
+ │     │        │       │                 │ mode and Track 0 condition       │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Precompensation (pre-shift):     │
+ │31,32│PS1,PS2 │   O   │     FDD         │ Write precompensation status     │
+ │     │        │       │                 │ during MFM mode, Determines      │
+ │     │        │       │                 │ early,late,and normal times.     │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Write Data: Serial clock and     │
+ │ 30  │WR DATA │   O   │     FDD         │ data bits to FDD                 │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │                                  │
+ │28,29│DS1,DS0 │   O   │     FDD         │ Drive Select: Selects FDD until  │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 27  │ HDSEL  │   O   │     FDD         │ Head Select: Head 1 selected     │
+ │     │        │       │                 │ when "1" (high) Head 0           │
+ │     │        │       │                 │ selected when  "0" (low)         │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │ 26  │  MFM   │   O   │     FLL         │     MFM Mode. MFM mode when      │
+ │     │        │       │                 │ "1", FM mode when "0"            │
+ └─────┴────────┴───────┴─────────────────┴──────────────────────────────────┘
+
+
+
+ ┌─────┬────────┬───────┬─────────────────┬──────────────────────────────────┐
+ │     │        │       │                 │ Write Enable: Enables write      │
+ │ 25  │  WE    │   O   │     FDD         │ data  into FDD                   │
+ │     │        │       │                 │                                  │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ VCO Sync:  Inhibits VCO in       │
+ │ 24  │  VCO   │   O   │     FLL         │ FLL when "0" (low), enables      │
+ │     │        │       │                 │ VCO when "1"                     │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Read Data. Read data from        │
+ │ 23  │RD DATA │   I   │     FDD         │ FDD. containing clock and        │
+ │     │        │       │                 │ data bits                        │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Data Window: Generated by FLL,   │
+ │ 22  │  DW    │   I   │     FLL         │ and used     to   sample dats    │
+ │     │        │       │                 │ from FDD                         │
+ ├─────┼────────┼───────┼─────────────────┼──────────────────────────────────┤
+ │     │        │       │                 │ Write Clock: Write dats rate to  │
+ │ 21  │ WR CLK │   I   │                 │ FDD  FM = 500 kHZ,MFM=1          │
+ │     │        │       │                 │ MHz,with a pulse witdh of  250 ms│
+ │     │        │       │                 │ for both FM and MFM              │
+ │     │        │       │                 │ Must be unabled for all          │
+ │     │        │       │                 │ operations, both Read and Write  │
+ └─────┴────────┴───────┴─────────────────┴──────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+   The DIO and RQM bits in the Status Register indicate:
+   when Data is  eady and in which direction data will be transferred on the
+   Data Bus.
+
+
+
+   READY
+
+  ═══════╗ NOT╔══════╗  ╔═════════╗    ╔═════╗      ╔═══════╕
+ REQUEST ║    ║      ║  ║         ║    ║     ║      ║       │
+ FOR     ║ RDY║      ║  ║         ║    ║     ║      ║
+ MASTER  ╚════╣      ╠══╝         ╚════╣     ╚══════╝       │
+ (RQM)        │      │                 │
+         │              │                    │      │       │
+              │      │                 │
+         │              │                           │       │
+              │      │            │    │     │
+         │              │                           │       │
+  ═════╗ ╔════╤════╗ ╔══════════════════════════════════════
+ _WR   ║ ║    │    ║ ║  │              │            │       │
+       ╚═╣         ╚═╣            │          │
+         │    │      │  │              │            │       │
+  ═══════╪════╪══════╪══════════╗ ╔════════╗ ╔══════════════
+         │    │      │  │       ║ ║    │   ║ ║      │       │
+ _RD                            ╚═╝        ╚═╝
+         │    │      │  │              │            │       │
+                     │            │          │
+    ┌────┬────┬──────┬──┬────┬────┬────┬─────┬────┬─┼───────┐
+    │  A │ B  │   A  │B │ A  │ C  │ D  │  C  │ D  │B│    A  │
+    └────┴────┴──────┴──┴────┴────┴────┴─────┴────┴─┴───────┘
+
+
+
+
+   NOTE : (A) - DATA REGISTER READY TO BE WRITTEN INTO BY PROCESSOR
+          (B) - DATA REGISTER NOT READY TO BE WRITTEN INTO AT PROCESSOR
+          (C) - DATA REGISTER READY FOR NEXR DATA BYTE TO BE READ BY THE
+                PROCESSOR.
+          (D) - DATA REGISTER NOT READY FOR NEXT DATA BYTE TO BE READ BY
+                PROCESSOR
+
+
+
+
+
+
+    Pic. STATUS REGISTER TIMING
+
+
+
+
+
+
+
+
+   The 8272 is capable of executing 15 different commands. Each command is
+   initiated by a multi-byte transfer from the proaessor, and the result after
+   execution of the command may also be a multi-byte transfer back to the
+   processor. Because of this multi-byte interchange of information between
+   the 8272 and the processor, it is convenient to consider each command as
+   consisting of three phases:
+
+         Command Phase: The FDC receives all information required to perform
+                        a particular operation from the processor.
+
+         Execution Phase: The FDC performs the operation it was instructed
+                          to do.
+         Result Phase:   After completion of the operation, status and other
+                         housekeeping information are made available to the
+                         processor.
+
+ During Command or Result Phases the Main Status Register (described earlier)
+ must be read by the processor before each byte of information is written into
+ or read from the Data Register. Bits D6 and D7 in the Main Status Register
+ must be in a 0 and 1 state, respectively,before each byte of the command word
+ may be written into the 8272. Many of the commands require multiple bytes,
+ and as a result the Main Status Register must be read prior to each byte
+ transfer to the 8272. On the other hand, during the Result Phase, D6 and D7
+ in the Main Status Register must both 1's (D6=1 and D7=1) before reading each
+ byte from the Data Register. Note, this reading of the Main Status Register
+ before each byte transfer to the 8272 is required in only the Command and
+ Result Phases, and NOT during the Execution Phase.
+
+ During the Execution Phase, the Main Status Register need not be read. If the
+ 8272 is in the NON-DMA Mode, then the receipt of each data byte (if 8272 is
+ reading data from FDD) is indicated by an interrupt signal on pin 18 (INT=1).
+ The generation of Read signal (_RD=0) will reset the interrupt as well as
+ output the Data onto the Data Bus. For example, if the processor connot handle
+ interrupts fast enough (every 13 ms for MFM mode) then it may poll the Main
+ Status Register and then bit D7 (RQM) functions just like the interrupt signal.
+ If a Write Command is in process then the _WR signal performs the reset to the
+ interrupt signal.
+ If the 8272 is in the DMA Mode, no interrupts are generated during the
+ Execution Phase. The 8272 generated DRQ's (DMA Requests) when each byte of
+ data is available. The DMA Controller responds to this request with both a
+ _DACK =0 (DMA Acknowledge) and a _RD = 0 (Read signal).
+ When the DMA Acknowlege signal goes low (_DACK=0) then the DMA Request is
+ reset (DRQ=0). If a Write Command has been prorammed then a _WR signal will
+ appear instead of _RD. After the Execution Phase has been completed (Terminal
+ Count has occurred) then an interrupt will occur (INT=1). This signifies the
+ beginning of the Result Phase. When the first byte of data is read during the
+ Result Phase, the interrupt is automatically reset (INT=0).
+
+
+ It is important to note that during the Result Phase all bytes shown in the
+ Command Table must be read. The Read Data Command, for example, has seven
+ bytes of data in the Result Phase. All seven bytes  must be read in order to
+ succesfully complete the Read Data Command. The 8272 will not accept a new
+ command until all seven bytes have been read. Other commands may require fewer
+ bytes to be read during the Result Phase.
+
+ The 8272 contains five Status Register. The Main Status Register mentioned
+ above may be read by the processor at any time. The other four Status
+ Registers (ST0,ST1,ST2, and ST3) are only available during the Result Phase,
+ and may be read only after successfully completing command. The particular
+ command which has been executed determines how many of the Status Register
+ will be read.
+
+ The bytes of data which are sent to the 8272 in the Result Phase, must occur
+ in the order shown in the Command Table. That is ,the Command Code must be
+ sent first and the other bytes sent in the prescribed sequence.
+ No foreshortening of the Command of Result Phases are allowed. After the last
+ byte of data in the Command Phase is sent to the 8272 the Execution Phase
+ automatically starts. In a similar fashion, when the last byte of data is read
+ out in the Result Phase, the command is automtically ended and the 8272 is
+ ready for a new command. Acommand may be aborted by simply sending  a Terminal
+ Count to pin 16 (TC=1). This is convenient means of ensuring that the
+ processor may always get the 8272's attention even if the disk system hangs
+ up in an abnormal manner.
+
+  POLLING FEATURE OF THE 8272
+
+  After the Specify command has been sent to the 8272, the Drive Select Lines
+ DS0 and DS1 will automatically go into a polling mode. In between commands
+ (and between step pulses in the SEEK command) the 8272 polls all four FDD
+ looking for a change in the Ready line from any of the drives. If the Ready
+ line changes state (usually due to a door opening of closing) then the 8272
+ will generate an interrupt. When Status Register 0 (ST0) is read (after Sense
+ interrupt Status is issued), Not Ready (NR) will be indicated. The polling of
+ the Ready line by the 8272 occurs continuously between instructions, thus
+ notifying the processor which drives are on or off line.
+
+
+
+
+
+
+
+
+
+
+
+  TABLE 1. 8272 COMMAND SET
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                        READ DATA                                         │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM SK   0   0   1    1   0 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------DTL------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data transfer           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system   │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                    READ DELETED DATA                                     │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM SK   0   1   1    0   0 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------DTL------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data transfer           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system   │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                        WRITE DATA                                        │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM  0   0   0   1    0   1 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------DTL------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data transfer           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system   │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                  WRITE DELETED DATA                                      │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM  0   0   1   0    0   1 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------DTL------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data transfer           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system   │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                      READ TRACK                                          │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0  MFM SK   0   0   0    1   0 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------DTL------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data transfer           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system.  │
+  │         │     │                                 │FDC read all of         │
+  │         │     │                                 │cylinders contents      │
+  │         │     │                                 │from index hole to      │
+  │         │     │                                 │EOT                     │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                        READ ID                                           │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0  MFM  0   0   1   0    1   0 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │The first correct ID    │
+  │         │     │                                 │information on the      │
+  │         │     │                                 │Cylinder is stored in   │
+  │         │     │                                 │Data Register           │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│during Execution        │
+  │         │  R  │-------------N-------------------│Phase.                  │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                       FORMAT A TRACK                                     │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0  MFM  0   0   1   1    0   1 │Command Codes           │
+  │         │  W  │  0   0   0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │-------------N-------------------│Bytes/Sector            │
+  │         │  W  │------------SC-------------------│Sectors/Cylinder        │
+  │         │  W  │------------GPL------------------│Gap 3                   │
+  │         │  W  │-------------D-------------------│Filler byte             │
+  │         │     │                                 │FDC formats an          │
+  │         │     │                                 │entire cylinder         │
+  │Execution│     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│In this case, the ID    │
+  │         │  R  │-------------R-------------------│information has no      │
+  │         │  R  │-------------N-------------------│meaning                 │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                       SCAN EQUAL                                         │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM SK   1   0   0    0   1 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------DTL------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data compared           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system.  │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                  SCAN LOW OR EQUAL                                       │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM SK   1   1   0    0   1 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------STP------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data compared           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system.  │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                  SCAN HIGH OR EQUAL                                      │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │ MT  MFM SK   1   1   1    0   1 │Command Codes           │
+  │         │  W  │  0    0  0   0   0  HDS  DS1 DS0│                        │
+  │         │  W  │                                 │                        │
+  │         │  W  │-------------C-------------------│Sector ID information   │
+  │         │  W  │-------------H-------------------│prior to Command        │
+  │         │  W  │-------------R-------------------│execution               │
+  │         │  W  │-------------N-------------------│                        │
+  │         │  W  │------------EOT------------------│                        │
+  │         │  W  │------------GPL------------------│                        │
+  │         │  W  │------------STP------------------│                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Data compared           │
+  │         │     │                                 │between the FDD         │
+  │         │     │                                 │and the main - system.  │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│Status information      │
+  │         │  R  │------------ST1------------------│after Command           │
+  │         │  R  │------------ST2------------------│execution               │
+  │         │  R  │-------------C-------------------│                        │
+  │         │  R  │-------------H-------------------│Sector ID information   │
+  │         │  R  │-------------R-------------------│after command           │
+  │         │  R  │-------------N-------------------│execution               │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                      RECALIBRATE                                         │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0   0   0   0   0   1    1   1 │Command Codes           │
+  │         │  W  │  0   0   0   0   0   0   DS1 DS0│                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Execution│     │                                 │Head retracted to       │
+  │         │     │                                 │Track 0                 │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                   SENSE INTERRUPT STATUS                                 │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0   0   0   0   1   0    0   0 │Command Codes           │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │-------------ST0-----------------│Status information at   │
+  │         │  R  │-------------PCN-----------------│the end of each seek    │
+  │         │     │                                 │operation about the     │
+  │         │     │                                 │FDC                     │
+  │         │     │                                 │                        │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                         SPECIFY                                          │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0   0   0   0   0   0    1   1 │Command Codes           │
+  │         │     │                                 │                        │
+  │         │  W  │----SRT------------------HUT-----│                        │
+  │         │     │                                 │                        │
+  │         │  W  │----HLT------------------------ND│                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                     SENSE DRIVE STATUS                                   │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0   0   0   0   0   1    0   0 │Command Codes           │
+  │         │     │                                 │                        │
+  │         │  W  │  0   0   0   0   0  HDS  DS1 DS0│                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST3------------------│ Status information     │
+  │         │     │                                 │ about FDD              │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+  
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                         SEEK                                             │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  0   0   0   0   1   1    1   1 │Command Codes           │
+  │         │     │                                 │                        │
+  │         │  W  │  0   0   0   0   0  HDS  DS1 DS0│                        │
+  │         │     │                                 │                        │
+  │         │  W  │------------NCN------------------│ Status information     │
+  │         │     │                                 │ about FDD              │
+  │Execution│     │                                 │                        │
+  │         │     │                                 │Head is positioned      │
+  │         │     │                                 │over proper Cylinder    │
+  │         │     │                                 │on Diskette             │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+  ┌─────────┬─────┬─────────────────────────────────┬────────────────────────┐
+  │         │     │       DATA BUS                  │                        │
+  │         │     ├─────────────────────────────────┤                        │
+  │PHASE    │ R/W │ D7  D6  D5  D4  D3  D2  D1  D0  │REMARKS                 │
+  ├─────────┴─────┴─────────────────────────────────┴────────────────────────┤
+  │                        INVALID                                           │
+  ├─────────┬─────┬─────────────────────────────────┬────────────────────────┤
+  │Command  │  W  │  -------INVALID CODE------------│Invalid Command         │
+  │         │     │                                 │Codes (NoOp - FDC       │
+  │         │     │                                 │goes into Standby       │
+  │         │     │                                 │State)                  │
+  │         │     │                                 │                        │
+  │         │     │                                 │                        │
+  │Result   │  R  │------------ST0------------------│ST0=80 HEX.             │
+  └─────────┴─────┴─────────────────────────────────┴────────────────────────┘
+
+
+
+
+
+
+  Note: 1. Symbols used in this table are described at the end of this section.
+        2. A0 = 1 for all operations.
+        3. X = Don't care, usually made to equal binary 0.
+
+
+
+
+   TABLE 2. COMMAND MNEMONICS
+ ┌─────────┬─────────────────┬───────────────────────────────────────────────┐
+ │ SYMBOL  │     NAME        │ DESCRIPTION                                   │
+ │         │                 │                                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │ A0      │Addres line 0    │A0 controls selection of Main Status           │
+ │         │                 │                                               │
+ │         │                 │Register (A0=0) or Data Register (A0=1)        │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ C       │Cylinder Number  │C stands for the current selected Cylinder     │
+ │         │                 │track number 0 trough 76 of the medium.        │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ D       │Date             │D stands for the data pattern which is         │
+ │         │                 │going to be written into a Sector.             │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ D7-D0   │Data Bus         │8-bit Data where D7 is the most                │
+ │         │                 │significant bit,and D0 is the least            │
+ │         │                 │significant bit.                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ DS0,DS1 │Drive Select     │DS stands for a selected drive number 0        │
+ │         │                 │or 1.                                          │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ DTL     │Date Length      │When N is defined as 00,DTL stands for         │
+ │         │                 │the data length which users are going to       │
+ │         │                 │read out or write into the Sector.             │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ EOT     │ End of Track    │EOT stands for the final Sector number of      │
+ │         │                 │a Cylinder.                                    │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ GPL     │ Gap Length      │GPL stands for the length of Gap 3             │
+ │         │                 │(spacing between Sector excluding VCO          │
+ │         │                 │Sync.Field).                                   │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │   H     │ Head Addres     │ H stands for head number 0 or 1,as            │
+ │         │                 │ specified in ID field.                        │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │  HDS    │ Head Select     │ HDS stands for a selected head number 0       │
+ │         │                 │ or 1 (H=HDS in all command words).            │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │  HLT    │ Head Load Time  │ HLT stands for the head load time in the      │
+ │         │                 │ FDD (2 to 254 ms in 2 ms increment).          │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │  HUT    │ Head Unload Time│ HUT stands for the head unload time after     │
+ │         │                 │ a read or write operation has occure (16      │
+ │         │                 │ to 240 ms in 16 ms increments).               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │ If MF is low, FM mode is selected end if      │
+ │  MFM    │FM or MFM Mode   │ it is high, MFM mode is selected              │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │  MT     │Multi-Track      │ If MT is high, a multi-track operation is to  │
+ │         │                 │ be performed (a cylinder under both HD0       │
+ │         │                 │ and HD1 will be read or written).             │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │  N      │ Number          │ N stands for the number of data bytes         │
+ │         │                 │ written in a Sector.                          │
+ └─────────┴─────────────────┴───────────────────────────────────────────────┘
+
+
+
+
+ 
+
+
+ ┌─────────┬─────────────────┬───────────────────────────────────────────────┐
+ │ SYMBOL  │     NAME        │ DESCRIPTION                                   │
+ │         │                 │                                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │ NCN     │New Cylinder     │NCN stands for a new Cylinder number,          │
+ │         │    Number       │which is going to be reachad as a result       │
+ │         │                 │of the Seek operation.Desired position of Head.│
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ ND      │NON-DMA Mode     │ND stands for operation in the NON-DMA Mode    │
+ │         │                 │                                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ PCN     │Present Cylinder │PCN stands for the Cylinder number at the      │
+ │         │  Number.        │completion of SENSE INTERRUPT STATUS Command.  │
+ │         │                 │Position of Head at present time.              │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │   R     │Record           │It stands for the Sector number, which will    │
+ │         │                 │be read or writen                              │
+ │         │                 │                                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │ R/W     │Read/Write       │Read or Write signal                           │
+ │         │                 │or 1.                                          │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ SC      │Sector           │SC indicates the number of Sectors per         │
+ │         │                 │cylinder                                       │
+ │         │                 │                                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │ SK      │ Skip            │SK stands for Skip Deleted Data Addres Mark    │
+ │         │                 │                                               │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │                                               │
+ │ SRT     │ Step Rate Time  │SRT stands for the Stepping Rate for the       │
+ │         │                 │FDD (1 to 16 ms in 1 ms increments).The same   │
+ │         │                 │Stepping Rate applies to all drives (F=1ms     │
+ │         │                 │E=2ms. etc)                                    │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │ ST0     │ Status 0        │ST0-3 stand for one of four registers which    │
+ │ ST1     │ Status 1        │ store the status information after a command  │
+ │ ST2     │ Status 2        │ has been executed. This information is        │
+ │ ST3     │ Status 3        │ availaible during the result phase after      │
+ │         │                 │ command execution. These registers should not │
+ │         │                 │ be cofused with the main status register      │
+ │         │                 │ (selected by A0 = 0). ST0-3 may be read only  │
+ │         │                 │ after a command has been executed and contain │
+ │         │                 │ information relevant to that particular       │
+ │         │                 │ command.                                      │
+ ├─────────┼─────────────────┼───────────────────────────────────────────────┤
+ │         │                 │ During a Scan operation, if STP=1, the data   │
+ │  STP    │                 │ in contiguous sectors is compared byte by byte│
+ │         │                 │ with data sent from the processor (or DMA),   │
+ │         │                 │ and if STP=2, then alternats sectors are read │
+ │         │                 │ and compared.                                 │
+ └─────────┴─────────────────┴───────────────────────────────────────────────┘
+
+ 
+
+
+
+
+    COMMAND DESCRIPTIONS
+
+
+  During the Commnd Phase, the Main Status Register must be polled by the CPU
+ before each byte is written into the Data Register. The DIO (DB6) and RQM
+ (DB7) bits in the Main Status Register must be in the "0" and "1" states
+ respectivety, before each byte of the command may be written into the 8272.
+ The beginning of the execution phase for any of these commands will chuse
+ DIO and RQM to switch to "1" and "0" states respectively.
+
+
+    READ DATA
+
+
+ A set of nine (9) byte words are required to place the FDC into the Read Data
+ Mode. After the Read Data commands has been issued the FDC loads the head
+ (if it is in the unloaded state), waits the specified head setting time
+ (defined in the Specify Command), and begins reading ID Address Mark and ID
+ fields. When the current sector number ("R") stored in the ID Register (IDR)
+ compares with the sector number read off the diskette, then FDC outputs data
+ (from the data field) byte-byte to the main system via the data bus.
+
+ After completion of the read operatipn from the current sector, the Sector
+ Number is incremented by one , and the data from the next sector is read and
+ output on the data bus. This continuous read function is called a "Multi-
+ Sector Read Operation". The Read Data Command may be the receipt of a Terminal
+ Count signal. Upon receipt of this signal, the FDC stops outputting data to
+ the processor, but will continue to read data from the current sector, check
+ CRC (Cyclic Redundancy Count) bytes, and then at the end of the sector
+ terminate the Read Data Command.
+
+ The amount of data wchich can be hanled with a single command to the FDC
+ depends upon MT (multo-track), MFM (MFM/FM), and N (Number of Bytes/Sector).
+ Table 3 below shows the Transfer Capacity.
+
+  
+
+
+   TABLE 3. TRANSFER CAPACITY
+
+┌───────────┬───────┬─────────────┬─────────────────────────────────┬─────────┐
+│Multi-Track│ MFM/FM│ Bytes/Sector│ Maximum Transfer Capacity       │ Final   │
+│   MT      │   MFM │      N      │ (Bytes/Sector)(Number of Sectors│ Sector  │
+│           │       │             │                                 │ Read    │
+│           │       │             │                                 │ from    │
+│           │       │             │                                 │ Diskette│
+├───────────┼───────┼─────────────┼─────────────────────────────────┼─────────┤
+│    0      │   0   │     00      │      (128)(26)=3.325            │26 at    │
+│    0      │   1   │     01      │      (256)(26)=6.656            │Side 0 or│
+│           │       │             │                                 │Side 1   │
+├───────────┼───────┼─────────────┼─────────────────────────────────┼─────────┤
+│           │       │             │                                 │         │
+│    1      │   0   │     00      │      (128)(52)=6.656            │ 26      │
+│    1      │   1   │     01      │      (256)(52)=13.312           │ at Side1│
+├───────────┼───────┼─────────────┼─────────────────────────────────┼─────────┤
+│           │       │             │                                 │Side 1   │
+│    0      │   0   │     01      │      (256)(15)=3.840            │ or 0    │
+│    0      │   1   │     02      │      (512)(15)=7.680            │ 15      │
+├───────────┼───────┼─────────────┼─────────────────────────────────┼─────────┤
+│           │       │             │                                 │  15     │
+│    1      │   0   │     01      │      (256)(30)=7.680            │  at     │
+│    1      │   1   │     02      │      (512)(30)=15.360           │Side 1   │
+├───────────┼───────┼─────────────┼─────────────────────────────────┼─────────┤
+│           │       │             │                                 │8 at Side│
+│    0      │   0   │     02      │      (512)(8)=4.095             │0 or 8 at│
+│    0      │   1   │     03      │      (1024)(8)=8.192            │Side 1   │
+├───────────┼───────┼─────────────┼─────────────────────────────────┼─────────┤
+│           │       │             │                                 │         │
+│    1      │   0   │     02      │      (512)(16)=8.192            │8 at     │
+│    1      │   1   │     03      │      (1024)(16)=16.384          │Side 1   │
+│           │       │             │                                 │         │
+└───────────┴───────┴─────────────┴─────────────────────────────────┴─────────┘
+
+
+
+
+
+ The "multi-track" function (MT) allows the FDC to read data from sides of the
+ diskette. For a particular cylinder, data will be transferred starting at
+ Sector 1,Side 0 and completing at Sector L, Side 1 ( Sector L- last sector
+ on the side). Note, this function pertains to only one cylinder (the same
+ track ) on each side of the diskette.
+
+ When N=0, then DTL defines the length which the FDC must treat as a sector.
+ If DTL is smaller than the actual data length in a Sector, the data beyong DTL
+ in the Sector, is not sent to the Data Bus. The FDC reads (internally) the
+ complete Sector performing the CRC check, and depending upon the manner of
+ command termination, may perform a Multi-Sector Read Operation. When N is
+ no-zero, then DTL has no meaning and should be set to 0FFH.
+
+ At the completion of the Read Data Command, the head is not unloaded until
+ after Head Unload Time inteval (specified in the Specify Command) has elapsed.
+ If the processor issues another command before the head unloads then the head
+ setting time may be saved between subsequent reads. This time out is
+ particulary valuable when a diskette is copied from one drive to another.
+
+
+ If the FDC detects the Index Hole twice without finding the riht sector,
+ (indicated in "R"), then the FDC sets the ND (No Data) flag in Status Register
+ 1 to a 1 (high), and terminates the Read Data Command. (Status Register 0 also
+ has bits 7 and 6 set to 0 and 1 respectively).
+
+ After reading the ID and Data Fields in each sector, the FDC checks the CRC
+ bytes . If a read error is detected (incorrect CRC in ID field), the FDC sets
+ the DE (Data Error) flag in Status Register 1 to a 1 (high), and if a CRC
+ error occurs in the Data Field the FDC also sets the DD(Data Error in Data
+ Field) flag in Status Register 2 to a 1 (high), and terminates the Read Data
+ Command. (Status Register 0 also has bits 7 and 6 set to 0 and 1 respectively)
+
+
+ If the FDC reads a Deleted Data Address Mark off the diskette, and the SK bit
+ (bit D5) in the first Command Word) is not set (SK=0), then the FDC sets the
+ CM (Control Mark) flag in Status Register 2 to a 1 (high), and terminates the
+ Read Data Command,after reading all the data in the Sector. If SK=1, the FDC
+ skips the sector with the Deleted Data Address Mark and reads the next sector.
+
+ During disk data transfers between the FDC and the processor, via data bus,
+ FDC must be serviced by the processor every 27 ms in the FM Mode, and every
+ 13 ms in the MFM Mode, or the FDC sets the OR (Over Run) flag in Status
+ Register 1 to a 1 (high), and terminates the Read Data Command.
+
+ If the processor terminates a read (or write) operation in the FDC, then the
+ ID information in the Result Phase is dependent upon the state of the MT bit
+ and EOT byte. Table 4 shows the values for C,H,R, and N, when  the processor
+ terminates the Command.
+
+
+
+
+  TABLE 4. ID INFORMATION WHEN PROCESSOR TERMINATES COMMAND
+
+┌────┬─────┬──────────────────────────┬──────────────────────────────────┐
+│ MT │ EOT │ Final Sector Transferred │ ID information at Result Phase   │
+│    │     │       Processor          ├────────┬────────┬───────┬────────┤
+│    │     │                          │   C    │   H    │   R   │   N    │
+├────┼─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │  1A │Sector 1 to 25 at Side 0  │  NC    │  NC    │ R+1   │  NC    │
+│    │     │                          │        │        │       │        │
+│    │  0F │Sector 1 to 14 at Side 0  │        │        │       │        │
+│    │     │                          │        │        │       │        │
+│    │  08 │Sector 1 to 7 at Side 0   │        │        │       │        │
+│    ├─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │  1A │Sector 26 at Side 0       │        │        │       │        │
+│    │  0F │Sector 15 at Side 0       │  C+1   │   NC   │ R=01  │   NC   │
+│    │  08 │Sector 8  at Side 0       │        │        │       │        │
+│ 0  ├─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │     │                          │        │        │       │        │
+│    │  1A │Sector 1 to 25 at Side 1  │        │        │       │        │
+│    │  0F │Sector 1 to 14 at Side 1  │        │        │       │        │
+│    │  08 │Sector 1 to  7 at Side 1  │  NC    │  NC    │ R+1   │  NC    │
+│    ├─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │     │                          │        │        │       │        │
+│    │  1A │Sector 26 at Side 1       │        │        │       │        │
+│    │  0F │Sector 15 at Side 1       │  C+1   │  NC    │ R=01  │  NC    │
+│    │  08 │SEctor 8 at  Side 1       │        │        │       │        │
+│    │     │                          │        │        │       │        │
+├────┼─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │  1A │Sector 1 to 25 at Side 0  │  NC    │  NC    │ R+1   │  NC    │
+│    │     │                          │        │        │       │        │
+│    │  0F │Sector 1 to 14 at Side 0  │        │        │       │        │
+│    │     │                          │        │        │       │        │
+│    │  08 │Sector 1 to 7 at Side 0   │        │        │       │        │
+│    ├─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │  1A │Sector 26 at Side 0       │        │        │       │        │
+│    │  0F │Sector 15 at Side 0       │  NC    │  LSB   │ R=01  │   NC   │
+│    │  08 │Sector 8  at Side 0       │        │        │       │        │
+│ 1  ├─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │     │                          │        │        │       │        │
+│    │  1A │Sector 1 to 25 at Side 1  │        │        │       │        │
+│    │  0F │Sector 1 to 14 at Side 1  │        │        │       │        │
+│    │  08 │Sector 1 to  7 at Side 1  │  NC    │  NC    │ R+1   │  NC    │
+│    ├─────┼──────────────────────────┼────────┼────────┼───────┼────────┤
+│    │     │                          │        │        │       │        │
+│    │  1A │Sector 26 at Side 1       │        │        │       │        │
+│    │  0F │Sector 15 at Side 1       │  C+1   │  LSB   │ R=01  │  NC    │
+│    │  08 │SEctor 8 at  Side 1       │        │        │       │        │
+│    │     │                          │        │        │       │        │
+└────┴─────┴──────────────────────────┴────────┴────────┴───────┴────────┘
+
+
+
+
+   Note : 1. NC (No Change); The same valua as the one at the beginning of
+             command execution.
+
+          2. LSB (Least Significant Bit); The least significant bit of H is
+             completed
+
+
+
+
+
+
+
+
+
+    WRITE DATA
+
+
+  A set of nine (9) bytes are required to set the FDC into the Write Data mode.
+  After the Write Data command has been issued the FDC loads the head (if it
+ is in the unloaded stste),waits the specified head setting time ( defined
+ in the Specify Command), and begins reading ID Fields. When the current number
+ ("R"), stored in the ID Register (IDR) compares with the sector number read
+ off the diskette, then the FDC takes data from the processor byte-by-byte via
+ the data bus, and outputs it to the FDD.
+
+ After writing data into the current sector, the Sector Number stored in "R" is
+ incremented by one, and the next data field is written into. The FDC continues
+ this "Multi-Sector Write Operation" until the issuance of a Terminal Count
+ signal. If a Terminal Count signal is sent to the FDC it continues writing
+ into the current sector to complete the data field. If the Terminal Count
+ signal is received while a data field is being written then the remainder of
+ the data field is filled with 00 (zeros).
+
+ The FDC reads the ID fields of each sector and checks the CRC bytes. If the
+ FDC detects a read error (incorrect CRC) in one of the ID Fields, it sets the
+ DE (Data Error) flag of Status Register 1 to a 1 (high), and terminates the
+ Write Data Command. (Status Register 0 also has bits 7 and 6 set to 0  and 1
+ respectively.)
+
+
+ The Write Command operates in much the same manner as Read Command. The
+ following items are the same; refer to the Read Data Command for details;
+
+
+
+ ▐ Transfer Capacity
+
+ ▐ EN (end of Cylinder) Flag
+
+ ▐ ND (No Data) Flag
+
+ ▐ Head Unload Time Interval
+
+ ▐ ID Information when the processor terminates
+   command (see Table 2)
+ ▐ Definition of DTL when N=0 and when N!=0
+
+  In the Write Data mode, data transfers between the processor and FDC must
+ occur every 31 ms in the FM mode, and every 15 ms in the MFM mode. If the
+ time interval between data transfers is longer than this then the FDC sets the
+ OR (Over Run) flag in Status Register 1 to a 1 (high), and terminates the
+ Write Data Command.
+
+
+
+   WRITE DELETED DATA
+
+  This command is the same as the Write Data Command except a Deleted Data
+ Address Mark is written at the beginning of the Data Field instead of the
+ normal Data Address Mark.
+
+
+   READ DELETED DATA
+
+
+  This command is the same as Read Data Command except that when the FDC
+ detects a Data Address Mark at the beginnin of a Data Field ( and SK = 0
+ (low)), it will read all the data in the sector and set the CM flag in Status
+ Register 2 to a 1 (high), and then terminate the command . If SK=1, then the
+ FDC skips the sector with the Data Address Mark and reads the next sector.
+
+
+   READ A TRACK
+
+
+  This command is similar to READ DATA Command except that the entire data
+ field is read continuously from each of the sectors of a track. Immediately
+ after encountering the INDEX HOLE, the FDC starts reading all data fields on
+ the track as continuous blocks of data. If the FDC finds an error in the ID
+ or DATA CRC check bytes, it continues to read data from the track. The FDC
+ compares the ID information read from each sector with the valua stored in the
+ IDR, and sets the ND flag of Status Register 1 to 1 (high) if there is no
+ comparison. Multi-track or skip operations are not allowed with this command.
+
+ This command terminates when EOT number of sectors have been read. If the FDC
+ does not find an ID Address Mark on the diskette after it encountera the INDEX
+ HOLE for the second time, then it sets the MA (missing address mark) flag in
+ Status Register 1 to 1 (high), and terminates the command. (Status Register 0
+ has bits 7 and 6 set to 0 and 1 respectively.)
+
+
+    READ ID
+
+
+  The Read ID Command is used to give the present position of the recording
+ head. The FDC stores the values from the first ID Field it is able to read.
+ If no proper ID Address Mark is found on the diskette, before the INDEX HOLE
+ is encountered for the second time then the MA (Missing Address Mark) flag in
+ Status Register 1 is set to 1 (high), and if no data is found then ND (No
+ Data ) flag is also set in Status Register 1 to 1 (high) and the command is
+ terminated.
+
+
+
+
+    FORMAT TRACK
+
+
+  The Format Command allows an entire track to be formatted. After the INDEX
+ HOLE is detected, Data is written on the Diskette:Gaps,Address Marks,ID Fields
+ and Data Fields, all per the IBM System 34 (Double Density) or System 3740
+ (Single Density) Format are recorded. The particular format which will be
+ written is controlled by the values programmed into N (number of bytes/sector),
+ SC (sector/cylinder), GPL (Gap Length), and D (Data Pattern) which are
+ supplied by the processor during the Command Phase. The Data Field is filled
+ with the Command Phase. The Data Field is filled with the Byte of data stored
+ in D. The ID Field for each sector is supplied by the processor; that is, four
+ data requests per sector are made by the FDC for C (Cylinder Number), H (Head
+ Number), R(Sector Number) and N (Number of Bytes/Sector). This allows the
+ diskette to be formatted with nonsequential sector numbers, if desired.
+
+ After formatting each sector, the processor must send new values for C,H,R,
+ and N to the 8272 foe each sector on the track. The contents of the R register
+ is incremented by one after each sector is formatted, thus, the R register
+ contains a value of R+1 when it is read during the Result Phase. This
+ incrementing and formatting continues for the whole track until the FDC
+ encounters the INDEX HOLE for the second time , where-upon it terminates the
+ command.
+
+ If a FAULT signal is recelved from the FDD at the end of a write operation,
+ then the FDC sts the EC flag of Status Register 0 to a 1 (high), and
+ terminates the command after setting bits 7 and 6 of Status Register 0 to 0
+ and 1 respectively. Also the loss of a READY signal at the beginnig of a
+ command execution phase causes command termination.
+
+ Table 5 shows the relationship between N,SC, and GPL for various sector sizes:
+
+
+   TABLE 5. SECTOR SIZE RELATIONSHIPS
+
+ ┌──────────┬─────────────────┬─────┬─────┬──────┬────────┬────────────────┐
+ │  FORMAT  │    SECTOR SIZE  │  N  │ SC  │  GPL1│  GPL2  │ REMARKS        │
+ ├──────────┼─────────────────┼─────┼─────┼──────┼────────┼────────────────┤
+ │          │128 bytes/Sector │ 00  │ 1A  │  07  │  1B    │ IBM Diskette 1 │
+ │ FM Mode  │256              │ 01  │ 0F  │  0E  │  2A    │ IBM Diskette 2 │
+ │          │512              │ 02  │ 08  │  1B  │  3A    │                │
+ ├──────────┼─────────────────┼─────┼─────┼──────┼────────┼────────────────┤
+ │          │1024 bytes/Sector│ 03  │ 04  │  __  │  __    │                │
+ │ FM Mode  │2048             │ 04  │ 02  │  __  │  __    │                │
+ │          │4096             │ 05  │ 01  │  __  │  __    │                │
+ ├──────────┼─────────────────┼─────┼─────┼──────┼────────┼────────────────┤
+ │          │256              │ 01  │ 1A  │  0E  │  36H   │IBM Diskette 2D │
+ │          │512              │ 02  │ 0F  │  1B  │  54H   │                │
+ │ MFM Mode │1024             │ 03  │ 08  │  36H │  74H   │IBM Diskette 2D │
+ │          │2048             │ 04  │ 04  │  __  │  __    │                │
+ │          │4096             │ 05  │ 02  │  __  │  __    │                │
+ │          │8192             │ 06  │ 01  │  __  │  __    │                │
+ └──────────┴─────────────────┴─────┴─────┴──────┴────────┴────────────────┘
+
+
+
+      Note : 1. GPL1 Suggested values of GPL in Read or Write Commands to avoid
+                splice point between data and ID field of contiguous sections.
+
+             2  GPL2, Suggested values of GPL in format command.
+ 
+
+
+
+          SCAN COMMANDS
+
+
+   The SCAN Commands allow data which is being read from the diskette to be
+ compared against data which is being supplied from the main system (Processor
+ in NON-DMA mode, and DMA Controller in DMA mode). The FDC compares the data
+ on a byte - by - byte basis, and looks for a sector of data which meets the
+ conditions of D_FDD = D_Processor,D_FDD<=D_Processor,or D_FDD>=D_Processor.
+ Ones complement arithmetic is used for comparison (FF=larget number,
+ 00=smallest number). After a whole sector of data is compared, if the
+ conditions are not met, the sector number is incremented (R+STP -> R)
+ and the scan operation is continued.The scan operation continues one of the
+ following conditions occur: the conditions for scan are met (equal,low,or
+ high),the last sector on the track is reached (EOT), or the terminal count
+ signal is received.
+
+ If the conditions for scan are met the FDC sets the SH (Scan Hit) flag of
+ Status Register 2 to 1 (high), and terminates the Scan Command. If the
+ conditions for scan are not met between the starting sector (as specified by
+ R) and the last sector on the cylinder (EOT), then the FDC sets the SN (Scan
+ Not Satisfied) flag of Status Register 2 to a 1 (high), and terminates the
+ Scan Command. The receipt of a TERMINAL COUNT signal from the Processor or DMA
+ Controller during the scan operation will cause the FDC to complete the
+ comparison of the particular byte which is in process, and then to terminate
+ the command. Table 6 shows the status of bits SH and SN under various
+ conditions of SCAN.
+
+
+   TABLE 6. SCAN STATUS CODES
+  ┌─────────────────┬──────────────────────────┬───────────────────────┐
+  │                 │ STATUS REGISTER 2        │                       │
+  ├─────────────────┼───────────┬──────────────┤                       │
+  │ COMMAND         │BIT 2 = SN │ BIT 3 = SH   │ COMMENTS              │
+  ├─────────────────┼───────────┼──────────────┼───────────────────────┤
+  │ Scan Equal      │     0     │      1       │D_FDD = D_Processor    │
+  │                 │     1     │      0       │D_FDD != D_Processor   │
+  ├─────────────────┼───────────┼──────────────┼───────────────────────┤
+  │                 │     0     │      1       │D_FDD = D_Processor    │
+  │Scan Low or Equal│     0     │      0       │D_FDD < D_Processor    │
+  │                 │     1     │      0       │D_FDD !< D_Processor   │
+  ├─────────────────┼───────────┼──────────────┼───────────────────────┤
+  │                 │     0     │      1       │D_FDD = D_Processor    │
+  │Scan High or Equ.│     0     │      0       │D_FDD > D_Processor    │
+  │                 │     1     │      0       │D_FDD !> D_Processor   │
+  └─────────────────┴───────────┴──────────────┴───────────────────────┘
+
+
+
+
+   If the FDC encounters a Deleted Data Address Mark on one of the sectors
+ (and SK = 0), then it regards the sector as the last sector on the cylinder,
+ sets CM ( Control Mark) flag of Status Register 2 to a 1 (high) and terminates
+ the command. If SK = 1, the FDC skips the sector with the Deleted Address
+ Mark, and reads the next sector. In the second case (SK = 1), the FDC sets the
+ CM (Contol Mark) flag of Status Register 2 to a 1 (high) in order to show that
+ a Deleted Sector had been encountered.
+  
+
+ When either the STP (contiguous sectors STP = 01, or alternate sectors STP=02
+ sectors are read) or the MT(Multi-Track) are programmed, it is necessary to
+ remember that the last sector on the track must be read. For example, if
+ STP = 02, MT = 0 ,the sectors are numbered sequentially 1 through 26, and we
+ start the Scan Command at sector 21; the following will happen.
+ Sectors 21,23, and 25 will be read, then the next sector (26) will be skipped
+ and the Index Hole will be encountered befor the EOT value of 26 can be read.
+ This will result in an abnormal termination of the command.If the EOT had been
+ set at 25 or the scanning started at sector 20, then the Scan Command would be
+ completed in a normal manner.
+
+ During the Scan Command data is supplied by either the processor or DMA
+ Controller for comparison against the data read from the diskette. In order to
+ avoid having the OR (Over Run) flag set in Status Register 1, it is necessary
+ to have the data available in less than 27 ms (FM Mode) or 13 ms (MFM Mode).
+ If Overrun occurs the FDC terminates the command.
+
+
+  SEEK
+
+
+ The read/write head within the FDD is moved from cylinder under control of the
+ Seek Command. The FDC compares the PCN (Present Cylinder Number) which is the
+ current head position with the NCN (New Cylinder Number), and performs the
+ following operation if there is difference:
+
+     PCN < NCN: Direction signal to FDD set to a 1 (high), and Step Pulses are
+ issued. (Step in.)
+
+     PCN > NCN: Direction signal to FDD set to a 0 (low), and Step Pulses are
+ issued. (Step Out.)
+
+
+
+ The rate which Step Pulses are issued is controlled by SRT (Stepping Rate
+ Time) in the SPECIFY Command. After each Step Pulse is issued NCN is compared
+ against PCN, and when NCN = PCN, then the SE ( Seek End) flag is set in Status
+ Register 0 to a 1 (high), and the command is terminated.
+
+ During the Command Phase of the Seek operation the FDC in the FDC BUSY state,
+ but during the Execution Phase it is in the NON BUSY state. While the FDC is
+ in the NON BUSY state, another Seek Command may be issued, and in this manner
+ parallel seek operation may be done on up to 4 Drives at once.
+
+
+ If an FDD is in a NOT READY state at the beginnig of the command execution
+ phase or during the seek operation, then the NR (NOT READY) flag is set in
+ Status Register 0 to 1 (high), and the command is terminated.
+
+
+ 
+
+
+   RECALIBRATE
+
+
+  This command causes the read/write head within the FDD to retract to the
+ Track 0 position. The FDC clears the contents of the PCN counter, and checks
+ the status of the Track 0 signal from the FDD. As long as the Track 0 signal
+ is low, the Direction signal remains 1 (high) and Step Pulses are issued.
+ When the Track 0 signal goes high, the SE (SEEK END) flag in Status Register 0
+ is set to 1 (high) and the command is terminated. If the Track 0 signal is
+ still low after 77 Stop Pulses have been issued, the FDC sets the SE
+ (SEEK END) and EC (EQUIPMENT CHECK) flags of Status Register 0 to both 1s
+ (highs), and terminates the command.
+
+ The abillity to overlap RECALIBRATE Commands to Multiple FDDs, and the loss
+ of the READY signal, as described in the SEEK Command, also applies to the
+ RECALIBRATE Command.
+
+
+
+   SENSE INTERRUPT STATUS
+
+
+
+ An interrupt signal is generated by the FDC for one of the following reasons:
+   1. Upon entering the Result Phase of:
+       a. Read Data Command
+       b. Read a Track Command
+       c. Read ID Command
+       d. Read Deleted Data Command
+       e. Write Data Command
+       f. Format a Cylinder Command
+       g. Write Deleted Data Command
+       h. Scan Commands
+   2. Ready Line of FDD changes state
+   3. End of Seek or Recalibrate Command
+   4. During Execution Phase in the NON-DMA Mode
+
+ Interrupts causes by reasons 1 and 4 above occur during normal command
+ operations and are easilly discernible by the processor. However, interrupts
+ causes by reasons 2 and 3 above may be uniquely identified with the aid of the
+ Sense Interrupt Status Command. This command when issued resets the interrupt
+ signal and via bits 5,6, and 7 of Status Register 0 identifies the cause of
+ the interrupt.
+
+
+
+
+   TABLE 7. SEEK. INTERRUPT CODES
+
+ ┌─────────────┬───────────────────┬────────────────────────┐
+ │ SEEK END    │  INTERRUPT CODE   │       CAUSE            │
+ │             ├─────────┬─────────┤                        │
+ │   BIT 5     │   BIT 6 │ BIT 7   │                        │
+ ├─────────────┼─────────┼─────────┼────────────────────────┤
+ │     0       │    1    │    1    │ Ready Line changed     │
+ │             │         │         │ state, either polarity │
+ ├─────────────┼─────────┼─────────┼────────────────────────┤
+ │             │         │         │ Normal Termination     │
+ │     1       │    0    │    0    │ of Seek or Recalibrate │
+ │             │         │         │ Command                │
+ ├─────────────┼─────────┼─────────┼────────────────────────┤
+ │             │         │         │ Abnormal Termination of│
+ │             │         │         │ Seek or Recalibrate    │
+ │     1       │    1    │    0    │ Command                │
+ │             │         │         │                        │
+ └─────────────┴─────────┴─────────┴────────────────────────┘
+
+
+
+  Neither the Seek or Recalibrate Command have a Result Phase. Therefore, it
+ is mandatory to use the Sense Interrupt Status Command after these commands
+ to effectively terminate the and to provide verification of the head position
+ (PCN).
+
+
+
+    SPECIFY
+
+
+  The Specify Command sets the initial values for each of the three internal
+ timers. The  HUT (Head Unload-Time) defines from the end of the Execution
+ Phase of one of the Read/Write Commands to the head unload state. This is
+ programmable from 16 to 240 ms in increments of 16 ms (01 = 16 ms,02 = 32 ms..
+ ...OF = 240 ms ). The SRT ( Step Rate Time) defines the time interval between
+ adjacent step pulses. This timer is programmable from 1 to 16 ms in increments
+ of 1 ms (F = 1 ms, E = 2ms, etc.). The HLT (Head Load Time) defines the time
+ between when the Head Load signal goes high and when the Read/Write operation
+ starts. This timer is programmable from 2 to 254 ms in increments of 2 ms
+ (01 = 2 ms, 02 = 4 ms, 03 = 6 ms ...FE = 254 ms).
+
+ The time intervals mentioned above are a direct function of the clock (CLK on
+ pin 19). Times indicated above are for an 8 MHz clock, if the clock was
+ reduced to 4 MHz (mini-floppy application) then all time intervals are
+ increased by a factor of 2.
+
+
+ The choice of DMA or NON-DMA operation is made by the ND (NON-DMA) bit.
+ When this bit is high (ND = 1) the NON=DMA mode is selected, and when ND = 0
+ the DMA mode is selected.
+
+
+
+
+  SENSE DRIVE STATUS
+
+
+
+ This command may be used by the processor whenever it wishes to obtain the
+ status of the FDDs. Status Register 3 contains the Drive Status Information.
+
+
+
+  INVALID
+
+
+ If an invalid command is sent to the FDC ( a command not defined above), then
+ the FDC will terminate the command. No interrupt is generated by the 8272
+ during this condition. Bit 6 and bit 7 (DIO and RQM) in the Main Status
+ Register are above both high ("1") indicating to the processor that the 8272
+ is in the Result Phase and the contents of Status Register 0 (ST0) must be
+ read. When the processor reads Status Register 0 it will find a 80h indicating
+ an invalid command was received.
+
+ A Sense Interrupt Status Command must be sent after a Seek or Recalibrate
+ interrupt, otherwise the FDC will consider the next command to be an invalid
+ Command.
+
+ In some applications the user may wish to use this command as a No-Op command,
+ to place the FDC in a standby or no operation state.
+
+
+
+
+
+    TABLE 8. STATUS REGISTERS
+
+  ┌─────────────────────────────┬────────────────────────────────────────┐
+  │                             │                                        │
+  │        BIT                  │                                        │
+  ├───┬────────────┬────────────┤     DESCRIPTION                        │
+  │NO │  NAME      │ SYMBOL     │                                        │
+  ├───┴────────────┴────────────┴────────────────────────────────────────┤
+  │                 STATUS REGISTER 0                                    │
+  ├───┬────────────┬────────────┬────────────────────────────────────────┤
+  │D7 │Interrupt   │    IC      │  D7 = 0 and D6 = 0                     │
+  │   │Code        │            │ Normal Termination of Command,         │
+  │   │            │            │ (NT) Command was completed and         │
+  │   │            │            │ properly executind.                    │
+  │   │            │            ├────────────────────────────────────────┤
+  │   │            │            │D7=0 and D6 = 1                         │
+  │D6 │            │            │Abnormal Tremination of Command,        │
+  │   │            │            │(AT). Execution of Command              │
+  │   │            │            │was started, but was not                │
+  │   │            │            │successfully completed.                 │
+  │   │            │            ├────────────────────────────────────────┤
+  │   │            │            │ D7 = 1 and D6 = 0                      │
+  │   │            │            │ Invalid Command issued. (IC).          │
+  │   │            │            │ Command which was issued was           │
+  │   │            │            │ never started.                         │
+  │   │            │            ├────────────────────────────────────────┤
+  │   │            │            │ D7 = 1 and D6 = 1                      │
+  │   │            │            │ Abnormal Termination because           │
+  │   │            │            │ during command execution the           │
+  │   │            │            │ ready signal from FDD changed          │
+  │   │            │            │ state.                                 │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │   │            │            │ When the FDC completes the             │
+  │D5 │ Seek End   │    SE      │ SEEK Command, this flag is set to 1    │
+  │   │            │            │ (high).                                │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D4 │ Equipment  │    EC      │ If fault Signal is received from the   │
+  │   │ Check      │            │ FDD, or if the Track 0 Signal fails to │
+  │   │            │            │ occur after 77 Step Pulses (Recalibrate│
+  │   │            │            │ Command) then this flag is set.        │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D3 │ Not Ready  │    NR      │ When the FDD is in the not-ready       │
+  │   │            │            │ state and a read or write command is   │
+  │   │            │            │ issued. This flag is set.If a read or  │
+  │   │            │            │ write command is issued to Side 1      │
+  │   │            │            │ of single sided drive,then this flag   │
+  │   │            │            │ is set.                                │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D2 │ Head       │            │ This flag is used to indicate the      │
+  │   │ Address    │    HD      │ state of the head at interrupt         │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │   │ Unit       │            │                                        │
+  │D1 │ Select 1   │    US1     │ These flags are used to indicate a     │
+  ├───┼────────────┼────────────┤ Drive Unit Number at interrupt         │
+  │D0 │ U.Select 0 │    US0     │                                        │
+  └───┴────────────┴────────────┴────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────┬────────────────────────────────────────┐
+  │                             │                                        │
+  │        BIT                  │                                        │
+  ├───┬────────────┬────────────┤     DESCRIPTION                        │
+  │NO │  NAME      │ SYMBOL     │                                        │
+  ├───┴────────────┴────────────┴────────────────────────────────────────┤
+  │                 STATUS REGISTER 1                                    │
+  ├───┬────────────┬────────────┬────────────────────────────────────────┤
+  │D7 │End of      │    EN      │ When the FDC tries to access a         │
+  │   │Cylinder    │            │ Sector beyond the final Sector of a    │
+  │   │            │            │ Cylinder, this flag is set.            │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D6 │            │            │Not used. This bit is always 0 (low).   │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D5 │Data Error  │    DE      │When the FDC detects a CRC error        │
+  │   │            │            │in either the ID field or the data field│
+  │   │            │            │this flag is set.                       │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D4 │Over Run    │    OR      │If the FDC is not serviced by the       │
+  │   │            │            │main-systems during data transfers,     │
+  │   │            │            │within a certain time interval, this    │
+  │   │            │            │flag is set.                            │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D3 │            │            │Not used. This bit is always 0 (low).   │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │   │            │            │ During execution of READ DATA,         │
+  │D2 │ No Date    │    ND      │ WRITE DELETED DATA or SCAN             │
+  │   │            │            │ Command, if the FDC cannot find the    │
+  │   │            │            │ Sector specified in the IDR Register,  │
+  │   │            │            │ this flag is set.                      │
+  │   │            │            ├────────────────────────────────────────┤
+  │   │            │            │ During execution the READ ID Command,  │
+  │   │            │            │ if the FDC cannot read the ID field    │
+  │   │            │            │ without an error, then this flag is    │
+  │   │            │            │ set.                                   │
+  │   │            │            ├────────────────────────────────────────┤
+  │   │            │            │ During the execution of the READ A     │
+  │   │            │            │ Cylinder Command, if the starting      │
+  │   │            │            │ sector cannot be found, then this      │
+  │   │            │            │ flag is set.                           │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │   │  Not       │            │ During execution of WRITE DATA,        │
+  │D1 │ Writable   │    NW      │ WRITE DELETED DATA or Format A         │
+  │   │            │            │ Cylinder Command, if the FDC detects   │
+  │   │            │            │ a write protect signal from the FDD,   │
+  │   │            │            │ then this flag is set.                 │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D0 │ Missing    │    MA      │ If the FDC cannot detect the ID        │
+  │   │ Address    │            │ Address Mark after encountering the    │
+  │   │ Mark       │            │ index hole twice, then this flag is set│
+  │   │            │            ├────────────────────────────────────────┤
+  │   │            │            │ If the FDC cannot detect the Data      │
+  │   │            │            │ Address Mark or Deleted Data           │
+  │   │            │            │ Address Mark,this flag is set. Also at │
+  │   │            │            │ the same time, the MD (Missing Address │
+  │   │            │            │ Mark in Data Field) of Status Register │
+  │   │            │            │ 2 is set.                              │
+  └───┴────────────┴────────────┴────────────────────────────────────────┘
+
+
+
+
+
+
+
+  ┌─────────────────────────────┬────────────────────────────────────────┐
+  │                             │                                        │
+  │        BIT                  │                                        │
+  ├───┬────────────┬────────────┤     DESCRIPTION                        │
+  │NO │  NAME      │ SYMBOL     │                                        │
+  ├───┴────────────┴────────────┴────────────────────────────────────────┤
+  │                 STATUS REGISTER 2                                    │
+  ├───┬────────────┬────────────┬────────────────────────────────────────┤
+  │D7 │            │            │ Not used. This bit is always 0 (low).  │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D6 │ Control    │    CM      │ During execution the READ DATA or      │
+  │   │ Mark       │            │ SCAN Command, if the FDC encounters    │
+  │   │            │            │ a Sector which contains a Deleted Data │
+  │   │            │            │ Address Mark, this flag is set.        │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D5 │ Data Error │    DD      │If the FDC detects a CRC error in the   │
+  │   │ in Data    │            │data field then this flag is set.       │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D4 │ Wrong      │    WC      │This bit is related with the ND bit,    │
+  │   │ Cylinder   │            │and when the contents of C on the       │
+  │   │            │            │medium is different from that stored    │
+  │   │            │            │in the IDR, this flag is set.           │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D3 │ Scan Equel │    SH      │ During execution, the SCAN Command,    │
+  │   │ Hit        │            │ if the condition of "equel" is         │
+  │   │            │            │ satisfied, this flag is set.           │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │   │ Scan Not   │    SN      │ During execution the SCAN Command, if  │
+  │D2 │ Satisfied  │            │ the FDC cannot find a Sector on the    │
+  │   │            │            │ cylinder which meets the condition,    │
+  │   │            │            │ then this flag is set.                 │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D1 │ Bad        │    BC      │ This bit is related with the ND bit,   │
+  │   │ Cylinder   │            │ and when the content of C on the       │
+  │   │            │            │ medium is different from that stored   │
+  │   │            │            │ in the IDR and the content of C is     │
+  │   │            │            │ FF, then this flag is set.             │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D0 │ Missing    │            │ When data is read from the medium,     │
+  │   │ Address    │    MD      │ if the FDC cannot find a Data Address  │
+  │   │ Mark in    │            │ Mark, then this flag is set.           │
+  │   │ Data       │            │                                        │
+  │   │ Field      │            │                                        │
+  └───┴────────────┴────────────┴────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+  ┌─────────────────────────────┬────────────────────────────────────────┐
+  │                             │                                        │
+  │        BIT                  │                                        │
+  ├───┬────────────┬────────────┤     DESCRIPTION                        │
+  │NO │  NAME      │ SYMBOL     │                                        │
+  ├───┴────────────┴────────────┴────────────────────────────────────────┤
+  │                 STATUS REGISTER 3                                    │
+  ├───┬────────────┬────────────┬────────────────────────────────────────┤
+  │D7 │  Fault     │    FT      │ This bit is used to indicate the status│
+  │   │            │            │ of the Fault signal from the FDD       │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D6 │ Write      │            │ This bit used to indicate the status   │
+  │   │ Protected  │    WP      │ of the Write Protected signal from the │
+  │   │            │            │ FDD.                                   │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D5 │ Ready      │    RDY     │ This bit used to indicate the status   │
+  │   │            │            │ of the Ready signal from the FDD       │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D4 │ Track 0    │    T0      │ This bit used to indicate the status   │
+  │   │            │            │ of the Track 0 signal from the FDD     │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D3 │ Two Side   │    TS      │ This bit used to indicate the status   │
+  │   │            │            │ of the Two Side signal from the FDD.   │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D2 │ Head       │    HD      │ This bit used to indicate the status   │
+  │   │ Address    │            │ of Side Select signal to the FDD.      │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D1 │ Unit       │    US1     │ This bit used to indicate the status of│
+  │   │ Select 1   │            │ the Unit Select 1 signal to the FDD.   │
+  ├───┼────────────┼────────────┼────────────────────────────────────────┤
+  │D0 │ Unit       │    US0     │ This bit used to indicate the status of│
+  │   │ Select 0   │            │ the Unit Select 0 signal to the FDD.   │
+  │   │            │            │                                        │
+  └───┴────────────┴────────────┴────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+

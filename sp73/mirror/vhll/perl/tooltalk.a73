@@ -1,0 +1,110 @@
+Newsgroups: comp.lang.perl
+From: Tim.Bunce@ig.co.uk (Tim Bunce)
+Subject: ToolTalk (was: Problem with autoload ...)
+Date: Mon, 2 Jan 1995 14:20:54 +0000
+Message-ID: <D1s7uu.9E9@ig.co.uk>
+
+In article <PAQUETTE.94Dec29182908@atomas.CRIM.CA> paquette@atomas.CRIM.CA (Marc Paquette) writes:
+>
+>Here are my design and implementation notes:
+>
+I hope you get some useful responses!
+
+Am I right in thinking that ToolTalk is a major component of COSE/CDE ?
+And that ToolTalk will be used by many CDE applications for inter-tool
+communication ?
+
+>Notes on the perl 5 extensions for ToolTalk.
+>
+>Design Notes
+>
+>* The ToolTalk extension is as close as possible to its C API
+>counterpart: you should be able to take the C API documentation and
+>write perl code directly from it.
+
+Does a C++ API exist ?
+
+>** The memory consumed by the ToolTalk library is controlled with
+>tt_mark()/tt_release() or tt_malloc()/tt_free(), just as in C.  If you
+>don't manage the memory created by the ToolTalk library, your perl
+>executable will appear to leak.
+>*** This is, I think, the only sensible way to do it.  Messages and
+>patterns are not lexically scoped entities: most of the time creation
+>(tt_*_create) and destruction (tt_*_destroy) are done in completely
+>different lexical blocks.  Furthermore, making them objects and
+>rely on the constructor/destructor function to call the necessary
+>tt_mark()/tt_release() or tt_malloc()/tt_free(), wouldn't works as
+>expected if I really understand the way objects are handled.
+>Effectively, the reference count on an object could go to 0 on the
+>perl side (when the variable containing the object reference goes
+>out-of-scope), but the message or pattern could still be alive.  In
+>that case, there is a possibility to reference a freed memory location
+>in the ToolTalk C library.  The only way where such a strategy would
+>make sense, would to always use entities that don't see their
+>reference count implicitly decreased to 0, i.e. final destruction of
+>this kind of entity would be by an explicit call to it's destructor.
+>But there is no advantage to do this compared to let the programmer
+>use tt_mark()/tt_release().
+
+Not being a ToolTalk API user you'll need to give some examples before
+I can comment on this. Specifically what does "but the message or
+pattern could still be alive." mean? How does an application 'kill'
+a message or pattern that it is no longer interested in?
+
+On the other hand, if a library has a well defined and documented C
+interface then it's very tempting to simply map that as directly as
+possible into Perl. Bells and whistles can be added later as a
+sub-class.
+
+
+>** The ToolTalk back-channel, the file descriptor returned by tt_fd(),
+>is *not* available as a file handle: it is simply an integer that
+>happens to be a file descriptor id on the C side.  It's main usage
+>will be with the select function (i.e. the one with 4 arguments) or
+>with a mechanism similar to XtAddInput, if any GUI extension give you one
+>
+You could make it a file handle quite easily. (Users could even do it
+for themselves using POSIX::fdopen but that would be tacky.) This is
+important for integration with event based GUIs (Tk etc).
+
+
+>Implementation Notes
+>
+>- The tt_c header file have been hand-expanded to convert the C enum
+>definitions into pre-processor defines that are automatically recognized
+>by h2xs and used to construct the 'constant()' XSUB function.
+>
+It's a pity that h2xs can't do this. Anyone want to write a C parser
+as a perl module ? :-)
+
+>- The tt_c header file have been hand-converted to rewrite all function
+>prototypes according the the rigid rules of the XS compiler.
+>
+h2xs should be able to do this, for simple prototypes, one day.
+
+>* ToolTalk callbacks and filter functions handling.
+>
+>	3) The 'ttperl_main_callback' C function will simply call the
+>	   perl function run_callbacks in package ToolTalk.  The
+>	   latter is the one that takes on the responsibility to first
+>	   call each  perl subroutines registered for the "msg"
+>	   argument and then call each perl subroutines registered for
+>	   the "pat" argument.  The ToolTalk semantics of
+>	   TT_CALLBACK_CONTINUE and TT_CALLBACK_PROCESSED will be
+>	   honored by 'run_callbacks'. 
+>
+Once it's working it would be worth down-coding it into C in the XS
+file. Some applications may need good callback performance.
+
+It would be great if you could supply some examples of simple perl
+scripts communicating via ToolTalk and/or interacting with existing
+applications which support ToolTalk (Solaris Deskset apps, SPARCworks
+or configuration management systems for example).
+
+Is anyone else out there interested in ToolTalk ?
+
+>Marc Paquette              |Centre de recherche informatique de Montreal (CRIM)
+
+Regards,
+Tim Bunce.
+

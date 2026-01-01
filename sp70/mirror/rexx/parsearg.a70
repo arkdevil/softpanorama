@@ -1,0 +1,104 @@
+Newsgroups: comp.lang.rexx
+From: adam@tucson.Princeton.EDU (Adam Justin Thornton)
+Subject: Template for getting filenames and options in OS/2
+Message-ID: <1994Dec5.174010.7787@Princeton.EDU>
+Organization: Princeton University
+Date: Mon, 5 Dec 1994 17:40:10 GMT
+
+This was something I wrote because parsing the command line for options and
+filenames is something I do a lot and I figured a general mechanism to do
+so would be kind of useful.  Hopefully someone else will think so too; here
+it is.  Enjoy!
+
+:::::::::::::begin included code:::::::::::::::::::::
+/*  RXTEMPLT.CMD: Template around which to build REXX programs with 
+     options and filenames specified on the command line. 
+
+    After the Parsefnopts call, you should have the number of file arguments
+     in file.0, the file names in file.[1...file.0], the number of option
+     arguments (defined as any argument starting with "-" or "/") in option.0,
+     the options in option.[1...option.0], and remaining arguments that could
+     not be parsed as files or as options in otherarg.0 (how many) and
+     otherarg.[1...otherarg.0] (the arguments).
+
+    Be aware that if this starts up and loads the external functions, and then
+     you load another program that needs them, and then this program
+     terminates, the other program will lose the external functions.  If this
+     is a likely scenario on your setup you probably want to comment out
+     the code in Dropfuncs.
+
+    Adam Thornton
+    December 5, 1994
+*/
+
+Parse Arg filel                       /* suck whole command line into filel */
+
+Call Initialize
+
+Call Addfuncs
+
+Call Parsefnopts filel
+
+/* Put the mainline code here */
+
+Call Dropfuncs
+
+Exit 0
+/*********End of mainline code****************/
+
+
+/*********Begin Template Procedures***********/
+Parsefnopts: procedure expose option. file. otherarg.
+    Parse arg filel
+    option.0 = 0
+    file.0 = 0
+    otherarg.0 = 0
+    Do while filel <> ""
+        Parse Var filel newf filel
+        firstchar = Left(newf,1)
+        If firstchar = "-" | firstchar = "/" Then Do  /* Remove "/" if you */
+            x = option.0 + 1                          /* want it as a      */
+            option.0 = x                              /* directory         */
+            Parse Var newf . 2 option.x               /* separator         */
+        End
+        Else Do
+            rc = sysfiletree(newf,files.,"F")
+            If files.0 = 0 Then Do
+                x = otherarg.0 + 1
+                otherarg.x = newf
+                otherarg.0 = x
+            End
+            Else Do 
+                Do i = 1 to files.0
+                    j = file.0 + i
+                    Parse var files.i . . . . file.j .
+                End
+                file.0 = j
+            End
+        End
+    End
+    Return
+
+Addfuncs: /*Load them, but flag if they're already loaded */
+    funcsloaded = RxFuncAdd("SysLoadFuncs","RexxUtil","SysLoadFuncs")
+    If funcsloaded = 0 Then Do
+       Call SysLoadFuncs
+    End
+    Return
+
+Dropfuncs: /*If they weren't already loaded at the start, drop them */
+    If funcsloaded = 0 Then Call SysDropFuncs
+    Return
+
+Initialize: /*Put global variables and such here */
+    Return
+
+:::::::::::::::::::::End included code:::::::::::::::::::::
+
+Adam
+-- 
+adam@io.com | adam@phoenix.princeton.edu | Viva HEGGA! | Save the choad!
+"Double integral is also the shape of lovers curled asleep" : Pynchon
+64,928 | TEAM OS/2 |   "Ich habe einen Bierbauch!"   |  Linux  | Fnord
+You can have my PGP passphrase when you pry it from my cold, dead brain.
+

@@ -1,0 +1,1 @@
+@st.exe friend.sh~

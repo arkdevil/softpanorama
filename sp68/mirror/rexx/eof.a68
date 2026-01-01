@@ -1,0 +1,136 @@
+Newsgroups: comp.lang.rexx
+From: imc@comlab.ox.ac.uk (Ian Collier)
+Subject: Re: OS/2 REXX LINES()/LINEIN() problem
+Message-ID: <5043.imc@uk.ac.ox.prg>
+Organization: Oxford University Computing Laboratory
+Date: Thu, 18 Aug 1994 16:01:21 GMT
+
+In article <1994Aug17.140954.1424@nrlvx1.nrl.navy.mil>, nellis@nrlvx1.nrl.navy.mil (Ken Nellis) wrote:
+>I am in search of an OS/2 REXX script that will read LINES from an input
+>stream consistently regardless of whether stdin or a file is being read.
+
+>    LNPIPE.CMD  |  /* REXX */
+>                |  PARSE ARG str
+>                |  DO WHILE LINES(str)
+>                |     SAY LINEIN(str)
+>                |  END
+
+The problem with using LINES() is two-fold.  Firstly, it may be inefficient
+as the interpreter may go away and count the lines in the file each time
+(although a sophisticated implementation would not do this).  Secondly,
+it is allowed to return 1 all the time until an EOF condition has been
+met.  From your description it seems like the OS/2 implementation works
+like this:
+
+ - if the input is a pipe, then the system does not know in advance how
+   many lines are available.  The result will always be 1 until after
+   EOF has been read.  The instruction which detects the EOF is the SAY
+   instruction, which will say a blank line because LINEIN() will return a
+   blank line when it detects EOF.
+
+ - if the input is a file, then the system is able to count the exact number
+   of lines in the file.  Therefore LINES will return 0 just after the last
+   line of the file has been read, and the SAY instruction will not output
+   an additional blank line.
+
+There are at least three ways to detect EOF reliably.  One is this:
+
+   parse arg file
+   signal on notready name end_of_loop
+   do forever
+      say linein(file)
+   end
+   end_of_loop:
+
+Some would regard this as less than perfect because of the use of signal.
+What that means is that you can't use this technique inside of a loop or a
+select or whatever.  It also destroys any previous "signal on notready"
+setting, but you almost certainly didn't have one in this case so it is
+OK, besides which you can place the loop in a subroutine in order to
+protect the current settings.
+
+Another is this:
+
+   parse arg file
+   do forever
+      line=linein(file)
+      if stream(file)\='READY' then leave
+      say line
+   end
+
+which can be used anywhere.  Its only drawback is that the test
+
+   if stream(file)\='READY'
+
+might seem a little clumsy.
+
+A third is this:
+
+   parse arg file
+   call on notready name set_eof_flag
+   EOF=0
+   do forever
+      line=linein(file)
+      if EOF then leave
+      say line
+   end
+
+...
+
+   set_eof_flag: EOF=1; return
+
+
+Ian Collier
+Ian.Collier@comlab.ox.ac.uk | imc@ecs.ox.ac.uk
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!MathWorks.Com!europa.eng.gtefsd.com!howland.reston.ans.net!EU.net!Austria.EU.net!newsfeed.ACO.net!paladin.american.edu!auvm!!" Sat Aug 20 10:39:11 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!MathWorks.Com!europa.eng.gtefsd.com!howland.reston.ans.net!EU.net!Austria.EU.net!newsfeed.ACO.net!paladin.american.edu!auvm!!"
+Comments: Gated by NETNEWS@AUVM.AMERICAN.EDU
+Newsgroups: comp.lang.rexx
+X-Mail: IBM - Thomas J. Watson Research Center 38-049 -- Workstation Services
+        Yorktown Heights, NY  10598
+X-External-Networks: yes
+Message-ID: <9408181702.AA2417@vesuvius.watson.ibm.com>
+Date: Thu, 18 Aug 1994 12:56:29 EST
+Sender: REXX Programming discussion list <REXXLIST@UGA.BITNET>
+From: "Thomas E. Bridgman 914-945-3510 (T/L 862-3510)"
+              <mrtom@WATSON.IBM.COM>
+Subject: OS/2 REXX LINES()/LINEIN() problem
+Comments: To: REXXLIST@uga.cc.uga.edu
+In-Reply-To: <9408180757.AA2033@vesuvius.watson.ibm.com>
+Lines: 32
+
+Kenneth Nellis writes:
+> I am in search of an OS/2 REXX script that will read LINES from an input
+> stream consistently regardless of whether stdin or a file is being read.
+
+The problem is that REXX doesn't know whether or not there is more data left
+in a pipe until it tries to read from it.  When you try to read from it and
+it fails, it still returns one excess null line.
+
+Since the blank line always appears, the trick is to ignore the last line of
+output when reading from stdin.  One way to do this is to buffer a line of
+input yourself.  Here's an example of your program that handles both cases
+the same way:
+
+/* Reworked LNPIPE.CMD */
+parse arg Str
+if Str = ''
+  then do
+     Next = linein('STDIN')
+     do while lines('STDIN')
+        Data = Next
+        Next = linein('STDIN')
+        say '>'Data
+     end
+  end
+  else
+     do while lines(str)
+        Data = linein(str)
+        say '>'Data
+     end
+
+Tom Bridgman - Watson Systems Engineering Services (OS/2)
+VNET:   MRTOM at WATSON    Internet: MRTOM@WATSON.IBM.COM
+Bitnet: MRTOM at YKTVMV    IBMMAIL:  USIB53B6
+

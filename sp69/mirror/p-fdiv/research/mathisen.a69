@@ -1,0 +1,272 @@
+From: Terje.Mathisen@hda.hydro.com (Terje Mathisen)
+Newsgroups: comp.sys.intel
+Subject: Re: Pentium fails x87 test
+Date: 30 Oct 1994 12:26:15 GMT
+Organization: Hydro Data, Norsk Hydro (Norway)
+Message-ID: <3903d7$s4i@vkhdsu01.hda.hydro.com>
+
+In <TOMK.94Oct28232634@gabriel.crhc.uiuc.edu>, tomk@crhc.uiuc.edu (Tom Kraljevic) writes:
+>
+>In article <38o0uc$42h@styx.uwa.edu.au> arkell@ee.uwa.edu.au (Arkell Rasiah) writes:
+>
+>> Hi,
+>>      I recently ran the Intel 387DX utilities on 386's 486's...and the tests
+>>  all checked out. However, when I tried running these same checks on a Pentium
+>> machine the transcendental function checks failed. Any suggestions why this is
+>> so? Could it be precision error differences between the Pentium and 386/486
+>> chips.
+>>
+>>
+>> Arkell
+>> arkell@ee.uwa.edu.au
+>
+>The Pentium has an entirely new, faster, and more precise
+>implementation of the trancendentals.  Do not expect a 387 and 486 to
+>give exactly the same results as a Pentium.  You _should_ expect the
+>results to be within a few ULPs, though.  In all cases, the Pentium
+>should be more accurate.
+>
+
+This is true, the fun part is for those of us who remember a few years back,
+when Intel blasted an x87 clone chip in ads, for not producing the same
+results as a 'genuine Intel coprocessor'.  The reason for the differences
+was that the clone chip produced more accurate results!  :-)
+
+-Terje Mathisen (include std disclaimer) <Terje.Mathisen@hda.hydro.com>
+"almost all programming can be viewed as an exercise in caching"
+=============================
+
+The next day, I received the following email from Alex, who seemed to be 
+working on an article about Pentium trancendentals:
+
+=============================
+Date: Wed, 2 Nov 1994 19:52:39 GMT
+From: "AWOLFE@DELPHI.COM" <awolfe@news.delphi.com>
+Message-Id: <199411021952.TAA12343@news.delphi.com>
+To: Terje.Mathisen@hda.hydro.com
+Subject: Re: Pentium fails x87 test
+Newsgroups: comp.sys.intel
+References: <38o0uc$42h@styx.uwa.edu.au> <TOMK.94Oct28232634@gabriel.crhc.uiuc.edu> <3903d7$s4i@vkhdsu01.hda.hydro.com>
+Reply-To: AWOLFE@delphi.com
+
+Mr. Mathisen:
+   I'm a reporter for Electronic Engineering Times. I'm doing a storing
+on floating-point and transcendental-function performance in Pentium.
+Can I quote your post (below)? Also, do you have any comments you'd
+like to add? Thanks.
+P.S. It's interested this thread should come up on comp.sys.intel
+this week. On the Canopus forum in Compuserve, someone yesterday
+posted a message saying that evaluating the expression:
+
+(1/824633702441) * 824633702441 on a 486 machine yields 1.
+But on a Pentium, he claims, the result is 0.99999999627470902.
+(the evaluation was done using the calculator in the Windows accessories
+group, in scientific mode.
+Any comments?
+thanks again for any assistance you can provide!
+Regards,
+Alex Wolfe
+EETimes
+Manhasset, NY
+516-562-7204
+awolfe@delphi.com
+================================
+
+Of course, when I received this note, I assumed that the discrepancy was due
+to a sw problem, but I immediately wrote a test program to check/verify it,
+before replying:
+
+================================
+
+Date: Thu, 3 Nov 94 08:25:54 +0100
+From:  Terje.Mathisen@hda.hydro.com
+To:    AWOLFE@delphi.com
+Cc:    mflagstad@bangate.compaq.com, gcarlet@gomez.intel.com
+Subject: Re: Pentium fails x87 test
+
+>   I'm a reporter for Electronic Engineering Times. I'm doing a storing
+>on floating-point and transcendental-function performance in Pentium.
+>Can I quote your post (below)? Also, do you have any comments you'd
+>like to add? Thanks.
+
+Sure, you could quote me, but I'd be (at least partly) wrong. (See below!)
+The trancendental functions are probably the same or more accurate than on
+a 486, but other parts of the chip have a major problem, as your source on
+CompuServe found out!
+
+>P.S. It's interested this thread should come up on comp.sys.intel
+>this week. On the Canopus forum in Compuserve, someone yesterday
+>posted a message saying that evaluating the expression:
+>...
+>(1/824633702441) * 824633702441 on a 486 machine yields 1.
+>But on a Pentium, he claims, the result is 0.99999999627470902.
+>(the evaluation was done using the calculator in the Windows accessories
+>group, in scientific mode.
+>Any comments?
+
+Lots!
+
+When I got your email, I immediately wrote a small test program using long
+doubles (80-bit reals) to avoid any added conversion errors.
+
+Here are the Pentium results:
+ 8.24633702441000E+0011 = 4026BFFFFFB829000000
+ 1.00000000000000E+0000 = 3FFF8000000000000000
+ 1.21265962489116E-0012 = 3FD7AAAAAADFDB8E4CCB
+ 9.99999996274710E-0001 = 3FFEFFFFFFF000000001
+
+and here are the same operation on a 486-DX:
+ 8.24633702441000E+0011 = 4026BFFFFFB829000000
+ 1.00000000000000E+0000 = 3FFF8000000000000000
+ 1.21265962940867E-0012 = 3FD7AAAAAAEA8638FB73
+ 1.00000000000000E+0000 = 3FFF8000000000000000
+
+
+It looks a _lot_ like a bug in the fp division code, where the results are
+only performed at (approximately) single precision resolution.
+
+-Terje
+
+PS. I'm CC'ing this msg to my engineering contact at Compaq, and directly to
+Gary Carleton at Intel as well.
+
+Terje W Mathisen, Hydro Data, Norsk Hydro. FAX: +47-22739988
+Internet: Terje.Mathisen@hda.hydro.com, BIX: terjem@Bix.com
+"almost all programming can be viewed as an exercise in caching"
+
+Test program, using Extended precision (80-bit) reals.
+
+{$N+,E-,R-,I-,S-}
+Program P87;
+
+FUNCTION HexStr(VAR l; len : INTEGER): STRING;
+Assembler;
+CONST
+  MaxLen = 127;
+ASM
+  push ds
+  cld
+  mov bx,[len]
+  lds si,[l]
+  mov dx,1
+  or bx,bx
+   jz @done
+   jg @positive
+  neg bx
+  neg dx
+  lea si,[si+bx-1]
+@positive:
+  les di,[@result]
+  mov byte ptr [es:di],0
+  cmp bx,MaxLen
+   ja @done
+  mov ax,bx
+  shl ax,1
+  stosb
+  mov cl,4
+@HexLoop:
+  mov al,[si]
+  add si,dx
+  mov ah,al
+  and al,$F
+  daa
+  add al,$F0
+  adc al,$40
+  xchg al,ah
+  shr al,cl
+  and al,$F
+  daa
+  add al,$F0
+  adc al,$40
+
+  stosw
+
+  dec bx
+   jnz @HexLoop
+
+@done:
+  pop ds
+END;
+
+type real = Extended;
+
+var
+  t0, t1, t2, t3 : real;
+
+Procedure Dump(var t : Real);
+begin
+  WriteLn(t,' = ',HexStr(t,-SizeOf(t)));
+end;
+
+begin
+  t0 := 824633702441.0;
+  t1 := 1.0;
+  t2 := t1 / t0;
+  t3 := t2 * t0;
+  Dump(t0);
+  Dump(t1);
+  Dump(t2);
+  Dump(t3);
+end.
+
+Here is an uuencoded version of the p87.exe executable, so you can verify
+the results for yourselves.
+
+[snip: binary removed]
+==========================
+
+The same day, I started the first FDIV UseNet thread:
+
+==========================
+
+Path: hydro.com!usenet
+From: Terje.Mathisen@hda.hydro.com (Terje Mathisen)
+Newsgroups: comp.sys.intel
+Subject: Glaring FDIV bug in Pentium!
+Date: 3 Nov 1994 09:02:09 GMT
+Organization: Hydro Data, Norsk Hydro (Norway)
+Lines: 151
+Message-ID: <39a8uh$i39@vkhdsu01.hda.hydro.com>
+Reply-To: Terje.Mathisen@hda.hydro.com (Terje Mathisen)
+NNTP-Posting-Host: sk08ts.hda.hydro.com
+X-Newsreader: IBM NewsReader/2 v1.02
+
+After my post yesterday about how Intel improved the precision of
+trancendental functions on the Pentium, I got an interesting email from
+Alex Wolfe, who works for EETimes.
+
+It seems someone reported on Compuserve that the Windows calculator gave
+wrong results when used on a Pentium machine, but correct on a 486!
+
+I wrote a tiny test program, p87.pas, in Borland Pascal, using Extended real
+precision (80 bit) for all fp operations to verify this.
+
+It looks to me like the Pentium, both the 60 and the 90MHz models, only
+carry fp divisions to single precision.
+
+The tested expression is (1/824633702441)*824633702441:
+
+Pentium (60 & 90)
+ 8.24633702441000E+0011 = 4026BFFFFFB829000000  824633702441
+ 1.00000000000000E+0000 = 3FFF8000000000000000             1
+ 1.21265962489116E-0012 = 3FD7AAAAAADFDB8E4CCB  1/824...
+ 9.99999996274710E-0001 = 3FFEFFFFFFF000000001  (1/824..)*824...
+
+486DX
+ 8.24633702441000E+0011 = 4026BFFFFFB829000000
+ 1.00000000000000E+0000 = 3FFF8000000000000000
+ 1.21265962940867E-0012 = 3FD7AAAAAAEA8638FB73
+ 1.00000000000000E+0000 = 3FFF8000000000000000
+
+Since the program is so tiny, I'll include it here (source and exe), so you
+can verify if/that the bug exists in all your Pentium PCs.
+
+I've reported these results directly to Intel and Compaq as well.
+
+[binary file removed]
+
+Terje W Mathisen, Hydro Data, Norsk Hydro. FAX: +47-22739988
+Internet: Terje.Mathisen@hda.hydro.com, BIX: terjem@Bix.com
+"almost all programming can be viewed as an exercise in caching"
+
+

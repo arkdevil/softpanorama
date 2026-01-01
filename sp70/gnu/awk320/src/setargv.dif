@@ -1,0 +1,97 @@
+***** setargv.old
+                inc     bx              ; BX = Nb of arguments (at least 1)
+Processing      label   near
+***** setargv.new
+                inc     bx              ; BX = Nb of arguments (at least 1)
+                xor     ah, ah          ; setup for processing
+Processing      label   near
+*****
+
+***** setargv.old
+                call    NextChar
+                ja      NotQuote        ; Not a quote and there are more
+InString        label   near
+                jb      BuildArgv       ; Command line is empty now
+                call    NextChar
+                ja      InString        ; Not a quote and there are more
+NotQuote        label   near
+                cmp     al, ' '
+***** setargv.new
+                call    NextChar
+                jb      BuildArgv       ; Command line is empty now
+                jz      InString        ; Quote found
+                cmp     al, ' '
+*****
+
+***** setargv.old
+                cmp     al, 9
+                jne     Processing      ; \t    is an argument separator
+EndArgument     label   near
+***** setargv.new
+                cmp     al, 9
+                je      EndArgument     ; \t    is an argument separator
+                mov     ah,1
+                jmp     Processing      ; process next character
+EndArgument     label   near
+*****
+
+***** setargv.old
+                xor     al, al          ; Space and TAB are argument separators
+                jmp     short Processing
+
+***** setargv.new
+                xor     al, al          ; Space and TAB are argument separators
+                jmp     Processing      ; process next character
+InString        label   near
+                call    NextChar
+                jb      BuildArgv       ; Command line is empty now
+                jnz     InString        ; Not a quote
+                jmp     Processing      ; process next character
+
+*****
+
+***** setargv.old
+NextChar        PROC    NEAR
+                or      ax, ax
+                jz      NextChar0
+***** setargv.new
+NextChar        PROC    NEAR
+                or      ah, ah
+                jz      NextChar0
+*****
+
+***** setargv.old
+NextChar0       label   near
+                xchg    ah, al
+                xor     al, al
+                stc
+***** setargv.new
+NextChar0       label   near
+                mov     ah, al
+                stc
+*****
+
+***** setargv.old
+                dec     cx
+                sub     al, '"'
+                jz      NextChar2       ; Quote found --> AL = 0 and ZF ON
+                add     al, '"'
+                cmp     al,'\'
+***** setargv.new
+                dec     cx
+                cmp     al, '"'
+                je      NextChar3       ; Quote found
+                cmp     al,'\'
+*****
+
+***** setargv.old
+                ret
+NextChar        ENDP
+***** setargv.new
+                ret
+NextChar3       label   near
+                xor     ah, ah          ; Set ZF on AH = 0 and AL = '"'
+                ret
+NextChar        ENDP
+*****
+

@@ -1,0 +1,49 @@
+{
+}
+
+model tiny
+
+.PrgSiz=(eop-begin+15)/16
+
+begin:
+
+.org 100h
+program execBC
+  sp=offset eop
+  ah=4Ah; bx=PrgSiz; .int 21h
+  CMDs,FCB1s,FCB2s=ds
+  (save es
+    ax=3516h; .int 21h; word ptr old16=bx; (word ptr old16+2)=es
+    ax=2516h; dx=offset new16; .int 21h
+    EnvSeg,es=ax=[ds:2Ch]; cx=di-1=ax=0; .cld
+    .repne scasb (while byte ptr [es:di]<>0h)
+    dx=di=+3
+    .repne scasb
+    di=-4; si=offset Ext; cx=3; .rep movsb
+    ds=ax=es
+  save)
+  ax=4B00h; bx=offset EPB
+  .int 21h
+  ss=ax=cs; sp=offset eop
+  ax=2516h; dx=.lds.cs:old16; .int 21h
+  stop
+
+(proc -new16
+  .pushf
+  (if ah=10h or ah=11h or ah=1 or ah=0
+    call [cs:old16]
+    .pushf
+    if ax=00E0h then ax=240Ah
+    .popf
+    .retf 2
+  if)
+  .popf
+  goto [cs:old16]
+proc)
+
+bytes Ext="EXE"
+data EPB=,EnvSeg,CMDo=80h,CMDs,FCB1o=5Ch,FCB1s,FCB2o=6Ch,FCB2s
+ddata old16
+bytes for_stack(200h)
+
+eop:

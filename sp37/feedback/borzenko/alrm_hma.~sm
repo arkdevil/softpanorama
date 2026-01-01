@@ -1,0 +1,121 @@
+;	Здесь приведен "скелет" программы 
+;	для размещения процедуры TSRint в HMA
+;
+HMA             EQU     0FFFFh
+;       Сегметный адрес High Memory Area (HMA)
+HiOff           EQU     10h
+;       Смещение в HMA
+TSRint		EQU	...
+;	Используемый вектор прерывания
+
+R_TEXT   SEGMENT byte public 'CODE'
+         ASSUME  cs:R_TEXT
+Start:
+	jmp	Install
+HMAofs  	DW      0
+HMAseg  	DW      0
+;       Здесь будут храниться смещение и сегмент
+;       диспетчера HMA
+	...
+TSRPart		Proc 	Far
+		.
+		.
+		.
+TSRPart		Endp
+Install:
+		.
+		.
+		.
+        mov     ax,4300h
+        int     2fh
+;       Проверим наличие драйвера HIMEM.SYS, который
+;       позволяет обращаться к области HMA за пределом
+;       1Mб адресного пространства 
+        cmp     al,80h
+        jz      alloc
+	@DispStr err1
+;       Если драйвер установлен, в регистре AL возвращается
+;       число 80h
+	jmp	no_ok
+alloc:
+        push    es
+        mov     ax,4310h
+        int     2fh
+        mov     HMAofs,bx
+        mov     HMAseg,es
+        pop     es
+;       Подфункция 10h прерывания 2Fh позволяет получить полный
+;       адрес (сегмент:смещение) диспетчера HMA - High Memory
+;       Area. В ES - сегмент, в BX - смещение.
+
+        lea     cx,Install
+        lea     ax,TSRPart
+        sub     cx,ax
+;       Вычислим размер процедуры TSRPart 
+        mov     ah,01
+        mov     dx,HMA
+        call    dword ptr HMAofs
+;       Вызовем функцию диспетчера HMA для резервирования
+;       всей области памяти
+        dec     ax
+        jz      him1
+	@DispStr err2
+;       Если вызов успешный - в AX возвращается 1
+	jmp	no_ok	
+him1:
+        mov     ah,03
+        call    dword ptr HMAofs
+;       Вызовем функцию диспетчера HMA для использования
+;       адресной шины A20 микропроцессора i80286
+        dec     ax
+        jnz     no_ok
+;       Если вызов успешный - в AX возвращается 1
+	...
+	
+        mov     dx,HiOff
+        mov     ax,HMA
+        mov     ds,ax
+;       DS:DX указывают на начало процедуры TSRPart
+;       в области HMA т.е. (ffff:10)hex
+
+        mov     ah,25h
+        mov     al,TSRint
+        int     21h
+;       теперь вектор прерывания TSRint
+;       указывает на процедуру TSRPart в HMA
+
+        mov     ax,HMA
+        mov     es,ax
+;       Регистр ES указывает на сегмент HMA
+        cld
+        push    cs
+        pop     ds
+        lea     si,TSRPart
+        mov     di,HiOff
+;       Пары регистров DS:SI и ES:DI теперь указывают,
+;       соответственно, на начало процедуры TSRPart и
+;       начало области HMA
+        rep     movsb
+;       Пересылка процедуры TSRPart в HMA
+        jmp     ok
+;       Переход на завершение программы
+		.
+		.
+		.	
+
+release_hma:
+        mov     ah,04
+        call    dword ptr hmaofs
+;       Вызовем функцию диспетчера HMA для запрещения
+;       адресной шины A20 микропроцессора i80286
+        mov     ah,02
+        call    dword ptr hmaofs
+;       Вызовем функцию диспетчера для освобождения
+;       памяти в HMA
+		.
+		.
+		.
+		
+R_TEXT   ENDS
+      END Start
+      

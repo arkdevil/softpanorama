@@ -1,0 +1,1341 @@
+'-----------------------------------------------------------------------
+!short: clearwnd()       Clear viewport of current window
+
+   ^Bint far clearwnd(unsigned int charattr);^B
+
+   Fill screen area specified with viewport coodrinates of current window
+ with specified character/attribute combination.
+
+ ^BParameters :^B
+ 
+ charattr   character/attribute combination, 8 hi bits are attribute, 8
+            low bits are character. For example 0x7040 means that you
+            want to fill the window with '@' using black on white colour.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no opened window exists.
+
+ ^BExample :^B
+
+ #include "window.h"
+
+ void main(void)
+ {
+ int i;
+     makewnd(0,0,79,18,SINGLEFRAME,0x0707,80);
+     for (i=0;i<50;i++)
+        clearwnd((((i&1)?0x07:0x70)<<8)+32);
+     closewnd();
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: closewnd()       Close current window
+
+   ^Bint far closewnd(void);^B
+
+   Close current window. Remove the window from screen by restoring
+ screen data and cursor size/position. Deallocate buffer used to save
+ screen image. Note that if you've used pushwnd() without popwnd() all
+ windows on the top of the current one will be lost.
+
+ ^BParameters :^B
+
+ None
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no active windows left.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <stdio.h>
+ #include <bios.h>
+
+ void main(void)
+ {
+ int i;
+ char s[40];
+     for (i=0;i<5;i++) {
+         makewnd(8+i*5,9+i,55+i*5,13+i,SINGLEFRAME,0x020a,80);
+         sprintf(s," Window #%d",i+1);
+         prtcwnd(-1,s,0x02);
+         bioskey(0);
+     }
+     prtwnd(2,0,"Here they are now, let's close this one and",0x0a);
+     prtwnd(0,1,"print some text into one currently under it",0x0a);
+     bioskey(0);
+     closewnd();
+     prtwnd(2,0,"See, the window at the top is gone!",0x0a);
+     prtwnd(0,1,"Let's close remaining ones...",0x0a);
+     bioskey(0);
+     while (closewnd());
+ }
+!seealso: makewnd() prtcwnd() prtwnd()
+'-----------------------------------------------------------------------
+!short: forgetwnd()      Forget current window to screen
+
+   ^Bint far forgetwnd(void);^B
+
+   Deallocate image buffer and remove window structure from the list,
+ but leave the window on the screen.
+
+ ^BParameters :^B
+
+ None
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no active window was found.
+
+ ^BExample :^B
+
+ #include "window.h"
+
+ void main(void)
+ {
+     makewnd(0,0,79,24,FATFRAME,0x7070,80);
+     prtcwnd(12,"We'll leave it here...",70);
+     forgetwnd();
+ }
+!seealso: makewnd() closewnd() prtcwnd()
+'-----------------------------------------------------------------------
+!short: getswnd()        Get string from window
+
+   ^Bint far getswnd(int x,int y,char far *prompt,char far *dest,^B
+                   ^Bchar far *frame,unsigned int pattr,int len,^B
+                   ^Bunsigned int ipad,int far (*scan)(void));^B
+
+   This function creates the window wide enough for prompt and inputted
+ string, outputs prompt into it and waits for input. The window will be
+ closed when the input is completed. The data in destinatio area is used
+ as default string, so if you don't want it, write '\0' into offset 0 of
+ destination string.
+
+ ^BParameters :^B
+
+ x,y        Coordinates for upper-left corner of window. No validation
+            checking is made.
+ prompt     String to be used as prompt, will be printed to left side
+            of the window.
+ dest       Address of the resulting string storage. Must be at least
+            len+1 because of the zero byte (we're using ASCIIZ...).
+ frame      String of 9 characters used to draw the frame around window.
+ pattr      Attributes for window. 8 hi bits are frame attribute, 8 low
+            bits are attribute for prompt.
+ len        Maximum number of characters you want to read, 0-byte is not
+            counted as character.
+ ipad       Character/attribute for input field padding. 8 hi bits are
+            attribute, 8 low bits are character used for padding.
+ scan       Address of you character input function. See ^Ugetwinp()^U for
+            more specific information.
+
+ ^BReturn :^B
+
+ Number of characters read, dest is filled with ASCIIZ string.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+ #include <stdio.h>
+
+ int far mykey(void)
+ {
+     return (bioskey(0)&255);
+ }
+
+ void main(void)
+ {
+ char s[80];
+ int i;
+     *s='\0';
+     i=getswnd(10,5," Let's see how it works : ",s,HMIXFRAME,
+		0x700a,20,0x0120,mykey);
+     printf("Got the string '%s' of %d chars",s,i);
+ }
+!seealso: getwinp()
+'-----------------------------------------------------------------------
+!short: getwinp()        General input routine
+
+   ^Bint far getwinp(int x,int y,unsigned int pad,char far *dest,^B
+                   ^Bint len,int far (*scan)(void));^B
+
+   This is general purpose input function, also used by getswnd() to input
+ string. The input function may return characters directly or convert them
+ as needed. The getwinp() itself recognizes only 3 characters as special :
+
+     ^UBS^U   Removes the  last entered character or does nothing  if 
+          string is empty.
+     ^UESC^U  Flushes all entered characters.
+     ^UCR^U   Terminates input.
+
+  These codes are not stored into input string, all the others are used
+ as ordinary characters and it's users responsibility to filter unwanted
+ characters out. ( only ASCII characters are stored into string, starting
+ from space and ending with '~' ). This function also has "default string"
+ option -- every string in the destination area will be used as "default"
+ when function is entered and if user types CR as first character, it will
+ be returned. So, if you don't want to use this feature, don't forget to
+ write '\0' into offset 0 of the string before using getwinp().
+
+ ^BParameters :^B
+
+ x,y        Input field start coordinates, relative to current viewport.
+ pad        Character/attribute combination used to show unfilled input
+            field. As usual, 8 hi bits are attribute, 8 low ones - character.
+ dest       Area to hold inputted string. Must be at least len+1 bytes.
+ len        Maximum number of characters, not counting 0-byte.
+ scan       Character input function address.
+
+ ^BReturn :^B
+
+ Number of characters entered.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+ #include <string.h>
+
+ int far mykey(void)
+ {
+     return (bioskey(0)&255);
+ }
+
+ void main(void)
+ {
+ char s[58];
+     strcpy(s,"This is default string");
+     makewnd(10,10,69,13,SINGLEFRAME,0x7070,80);
+     prtcwnd(0,"Enter some text here...",0x70);
+     getwinp(1,1,0x0720,s,57,mykey);
+     closewnd();
+ }
+!seealso: getswnd() makewnd() prtcwnd() closewnd()
+'-----------------------------------------------------------------------
+!short: locate()         Position cursor in current viewport
+
+   ^Bint far locate(int x,int y);^B
+
+   Position hardware cursor, does not affect cursor size. No checks
+ made to validate coordinates.
+
+ ^BParameters :^B
+
+ x,y        Viewport relative coordinates.
+
+ ^BReturn :^B
+
+ Always 1.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+ #include <dos.h>
+
+ void main(void)
+ {
+ int i;
+     makewnd(0,0,79,3,SINGLEFRAME,0x0a0a,80);
+     for (i=0;i<78;i++) {
+       locate(i,0);
+       delay(300);
+     }
+     for (i=77;i>=0;i--) {
+       locate(i,1);
+       delay(300);
+     }
+     closewnd();
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: makemenu()       Create pop-up menu
+
+   ^Bint far makemenu(int x,int y,VMENU far *flags,char far *items,^B
+                    ^Bint far (*scan)(int curnt));^B
+
+   This is quite complex function, but it also does a lot. As there's
+ usually no need to change menu layouts during the application, the
+ static structure is good choice, and it also reduces greatly the function
+ call overhead. Makemenu() can handle up to 60 items and creates highlited
+ hotkeys automatically.
+
+ ^BParameters :^B
+
+ x,y        Upper-left corner coordinates of menu window.
+ flags      Address of parameter structure, see VMENU for more
+            specific information.
+ items      Address of string containing menu items. It's actually a
+            row of strings, each one zero terminated. The empty string
+            indicates end of list.
+ scan       Address of input function. Makemenu uses four keys as special
+            ones, all others are available for hotkeys. Four special ones :
+
+            ^UCR^U     Exit menu (positive)
+            ^UESC^U    Exit menu (negative)
+            ^U'+'^U    Move to next item, if no more items, go back to first.
+            ^U'-'^U    Move to previous item, if no more items, jump to last.
+
+            This function will be called with item number currently selected,
+            starting from 1. This number can be used to create context sensi-
+            tive help system.
+
+ ^BReturn :^B
+
+ Item number selected, starting from 1; it may be positive or negative. In
+ first case input was terminated with CR or one of the hotkeys, negative
+ number indicates, that ESC was used to leave the menu.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <dos.h>
+ #include <bios.h>
+
+ char far *menu=
+     "First choice\0"
+     "Second choice\0"
+     "Third choice\0"
+     "4th choice\0"
+     "Yet another choice\0"
+     "The\0"
+     "The\0"
+     "The\0"
+     "23094dfjw efwemf\0"
+     "aklsjh aslfjasld kfjasdf laksdjf lsakdjf lkj lkj\0"
+     "ABC\0"
+     "\0"
+ ;
+
+ VMENU flags;
+
+ int far scan(int item)
+ {
+     prtwnd(2,-1,"´ Use '+' and '-' to move, CR of ESC to leave Ã",0x0a);
+     item=bioskey(0)&255; /* just to avoid warnings about not using item */
+     return item;
+ }
+
+ main()
+ {
+     makewnd(0,0,79,24,"°°°°°°°°°",0x0101,80);
+     flags.frame=SINGLEFRAME;
+     flags.makenew=1;
+     flags.center=1;
+     flags.wndcolor=0x0a07;
+     flags.normcolor=0x07;
+     flags.invcolor=0x70;
+     flags.hicolor=0x0a;
+     flags.leavemenu=1;
+     flags.reserved=4;
+     flags.defchoice=3;
+     flags.defchoice=makemenu(20,6,&flags,menu,&scan);
+     flags.defchoice=makemenu(14,5,&flags,menu,&scan);
+     flags.defchoice=makemenu(7,2,&flags,menu,&scan);
+     flags.center=0;
+     flags.defchoice=makemenu(10,12,&flags,menu,&scan);
+     flags.defchoice=makemenu(5,3,&flags,menu,&scan);
+     bioskey(0);
+     while (closewnd());
+ }
+!seealso: wgvar.ngo:VMENU makewnd() closewnd() prtwnd()
+'-----------------------------------------------------------------------
+!short: makewnd()        Create new window
+
+   ^Bint far makewnd(x1,y1,x2,y2,char far *frame,^B
+                   ^Bunsigned int color,int zoom);^B
+
+   This is the function on which all the others are based. Create a
+ window using specific frame characters, color and zoom step. Add a
+ new structure to window list, save screen data and cursor status,
+ set viewport so, that frames are safe from writes.
+
+ ^BParameters :^B
+
+ x1,y1      Upper-left corner coordinates.
+ x2,y2      Bottom-right corner coordinates.
+ frame      String of 9 characters used to draw a window.
+ color      8 hi bits are attribute for window frame, 8 low bits are
+            attributes for viewport (inside the frames).
+ zoom       Step used to "explode" window, its vertical zoom step, hori-
+            zontal zoom is always 3 times bigger. If you set it to 0
+            only screen data and cursor status will be saved, no window
+            will be made. Be careful with that! If you don't want to zoom,
+            set this constant to something like 80.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if there is no memory to create window structure and save
+ screen data.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <dos.h>
+ #include <time.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <conio.h>
+
+ static char *frames[]={
+     SINGLEFRAME,
+     DOUBLEFRAME,
+     HMIXFRAME,
+     VMIXFRAME,
+     FATFRAME
+ };
+
+ void main(void)
+ {
+ int x1,y1,x2,y2,c1,f,t,zoom,cols,zlim=0,i;
+ unsigned long boxes=1;
+ char s[81];
+     while ((zlim<1) || (zlim>100)) {
+         printf("\nEnter Zoom limit : ");
+         scanf("%d",&zlim);
+     }
+     zlim--;
+     _AH=0x0f;
+     __int__(0x10);
+     cols=_AH-2;
+     cursoroff();
+     randomize();
+     makewnd(0,0,cols+1,24,"°°°°°°°°°",0x0101,80);
+     while (1) {
+         zoom=(zlim) ? random(zlim)+1 : 1;
+         f=random(5);
+         x1=random(cols);
+         x2=random(cols-x1)+x1+2;
+         y1=random(23);
+         y2=random(23-y1)+y1+2;
+         c1=(random(127)+1)*256+random(127)+1;
+         if (x1>x2) { t=x1; x1=x2; x2=t; }
+         if (y1>y2) { t=y1; y1=y2; y2=t; }
+         if (!(makewnd(x1,y1,x2,y2,(char far *) frames[f],c1,zoom)))
+             break;
+         sprintf(s," Window # %lu ",boxes++);
+         prtcwnd(-1,(char far *)s,_curntwnd->color/256);
+         if (bioskey(1))
+             if ((bioskey(0)&255)==27)
+                 break;
+     }
+     while (closewnd());
+ }
+!seealso: wgvar.ngo:WINDOW prtcwnd() wgmacro.ngo:macros closewnd()
+'-----------------------------------------------------------------------
+!short: popwnd()         Move window pointer to next window
+
+   ^Bint far popwnd(void);^B
+
+   Pop back one window level pushed with pushwnd(). Restore cursor position
+ saved into window structure before push. Be careful when using this one,
+ output functions are not able to distinguish between normal and pushed
+ window. If you push window and then print to the one you've pushed to
+ and there's another one on the top of it, the top one will be overwritten
+ "with no questions asked".
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ 1 if popped OK, 0 if there's no active window or the current window is
+ last in the list.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ main()
+ {
+     makewnd(10,10,70,18,DOUBLEFRAME,0x7070,1);
+     prtcwnd(-1," 1st window ",7);
+     locate(0,0);
+     bioskey(0);
+     makewnd(15,12,65,20,FATFRAME,0x0202,1);
+     prtcwnd(-1," 2nd window ",0x70);
+     locate(0,0);
+     bioskey(0);
+     pushwnd();
+     prtcwnd(-1," Pushed to 1st ",7);
+     bioskey(0);
+     popwnd();
+     prtcwnd(-1," Popped back to 2nd ",0x70);
+     bioskey(0);
+     while (closewnd());
+ }
+!seealso: wgvar.ngo:WINDOW pushwnd() makewnd() prtcwnd() locate() closewnd()
+'-----------------------------------------------------------------------
+!short: prtcwnd()        Print string into centre of current viewports line
+
+   ^Bint far prtcwnd(int y,char far *s,int color);^B
+
+   This function will center the string into current viewport's line. If
+ string is too long to fit into viewport, it will be shortened from both
+ ends. Only X-coordinates (string length) is checked, no check is made for
+ line number. If you print to line 0, it'll be on the first line of the
+ viewport, if you print on the line -1, it'll be one line higher.
+
+ ^BParameters :^B
+
+ y          Line number, relative to current viewport.
+ s          Text string to be printed.
+ color      8 low bits are used as attribute when printing.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no active window exists.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(void)
+ {
+     makewnd(20,5,59,10,SINGLEFRAME,0x7070,80);
+     prtcwnd(-1," Window title ",0x70);
+     prtcwnd(1,"This is 2nd line",0x70);
+     prtcwnd(3,"This line is way too long to fit into frames of this window"
+             ,0xf0);
+     bioskey(0);
+     closewnd();
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: prtwnd()         Print string into current viewport
+
+   ^Bint far prtwnd(int x,int y,char far *s,int color);^B
+
+   This function will print a string into current viewport starting at
+ specified location. Only string length is checked and if it goes out
+ of viewport, characters are stripped of from the end. No checks is made
+ to see, if it starts from inside the viewport at all, thus if you use
+ -1 as X-coordinate, your string will be one character out of the current
+ viewport.
+
+ ^BParameters :^B
+
+ x,y        Text staring coordinates, relative to viewport.
+ s          String to be printed.
+ color      8 low bits are used as attribute for text.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no active window exists.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(void)
+ {
+     makewnd(20,5,59,10,SINGLEFRAME,0x7070,80);
+     prtwnd(2,-1," Window title ",0x70);
+     prtwnd(0,0,"This is home",0x70);
+     prtwnd(1,1,"Walking down and right",0x70);
+     prtwnd(2,2,"One more step",0x70);
+     prtwnd(3,3,"This line is way too long to fit into frames of this window"
+             ,0xf0);
+     bioskey(0);
+     closewnd();
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: pushwnd()        Move window pointer back one level
+
+   ^Bint far pushwnd(void);^B
+
+   This function will "push" window pointed down one level. See popwnd()
+ for more information how to use it.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if there's only one active window or no active windows at all.
+
+ ^BExample :^B
+
+ Look popwnd() example.
+!seealso: popwnd()
+'-----------------------------------------------------------------------
+!short: putcwnd()        Teletype output to current viewport
+
+   ^Bint far putcwnd(int character);^B
+
+   Emulate teletype in current window. If cursor is out of viewport, it'll
+ be moved just inside the window. Recognizes CR,LF,BS,BELL,TAB characters
+ as special ones, all others are outputted as they are. Uses the current
+ window color.
+
+ ^BParameters :^B
+
+ character  8 low bits are character to write.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no window exist.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(void)
+ {
+ int c;
+     if (makewnd(10,5,69,19,SINGLEFRAME,0x0707,80)) {
+         do {
+             c=bioskey(0)&255;
+             if (c==27)
+                 break;
+             putcwnd(c);
+         } while (1);
+         closewnd();
+     }
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: rawmenu()        Menu engine
+
+   ^Bint far rawmenu(int items,int def,MEITEM far menu[],int leavebar,^B
+                    ^Bint far (*scan)(int curnt));^B
+
+   Build a raw menu of fields. This function does not save screen
+ contents, if nessecary this must be done before calling rawmenu().
+
+ ^BParameters :^B
+
+ items      Number of fields.
+ def        Default item to be selected (from 1 to items).
+ menu       Array of structures descibing fields.
+ leavebar   When set to nonzero cursor bar will be left onto selected
+            field.
+ scan       Keyboard input function. Just like mkhmenu() it must return
+            character in low 8 bits ( high bits are stripped off ).
+            Rawmenu uses four characters as specials:
+
+            ^UCR^U     Exit menu (positive)
+            ^UESC^U    Exit menu (negative)
+            ^U'+'^U    Move to next item, if no more items, go back to first.
+            ^U'-'^U    Move to previous item, if no more items, jump to last.
+
+            Special care must be taken for '+' and '-' signs, when they
+            appear in the strings as hotkeys, they won't work for moving
+            any more. scan() is called with number of currently selected
+            item.
+
+ ^BReturn :^B
+
+ Positive number in range from 1 to items if CR or highlighted key
+ was pressed, negative number if ESC was used to leave the menu.
+ Zero return means that input parameters were illegel or there is not
+ enough memory for temporary workspace.
+
+ ^BExample :^B
+
+ #include "window.h"
+
+ MEITEM menu[4]= {
+   { 20, 10, 30, "First choice",     0x1f,0x4f,0x70, 2, 0},
+   { 20, 11, 30, "Second field",     0x1f,0x4f,0x70, 2, 0},
+   { 20, 12, 30, "A bit longer one", 0x1f,0x4f,0x70, 2, 2},
+   { 20, 13, 30, "4th",              0x1f,0x4f,0x70, 2, 2}
+ };
+
+ int far keyin(int cur)
+ {
+     cur++;
+     return waitkey();
+ }
+
+ void main(void)
+ {
+     rawmenu(4,1,menu,1,keyin);
+ }
+!seealso: makemenu() wgvar.ngo:MEITEM   
+'-----------------------------------------------------------------------
+!short: scrolldn()       Scroll contents of current viewport down one line
+
+   ^Bint far scrolldn(unsigned int charattr);^B
+
+   Scroll active window's viewport down one line, fill the top line with
+ specified character/attribute combination. Does not affect hardware cursor.
+
+ ^BParameters :^B
+
+ charattr   8 hi bits are attribute, 8 low bits are character.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no active window exists.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <stdio.h>
+
+ void main(void)
+ {
+ int i;
+ char s[80];
+     makewnd(5,1,74,23,DOUBLEFRAME,0x0202,80);
+     for (i=0;i<200;i++) {
+         sprintf(s,"This is line number %d",i);
+         scrolldn(0x7020);
+         prtwnd(0,0,s,0x70);
+     }
+     closewnd();
+ }
+!seealso: makewnd() prtwnd() closewnd()
+'-----------------------------------------------------------------------
+!short: scrollup()       Scroll contents of current viewport up one line
+
+   ^Bint far scrollup(unsigned int charattr);^B
+
+   Scroll active window's viewport up one line, fill the bottom line with
+ specified character/attribute combination. Does not affect hardware cursor.
+
+ ^BParameters :^B
+
+ charattr   8 hi bits are attribute, 8 low bits are character.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no active window exists.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <stdio.h>
+
+ void main(void)
+ {
+ int i;
+ char s[80];
+     makewnd(5,1,74,23,DOUBLEFRAME,0x0202,80);
+     for (i=0;i<200;i++) {
+         sprintf(s,"This is line number %d",i);
+         scrollup(0x7020);
+         prtwnd(0,21,s,0x70);
+     }
+     closewnd();
+ }
+!seealso: makewnd() prtwnd() closewnd()
+'-----------------------------------------------------------------------
+!short: shrnkwnd()       Close current window with "backward zoom"
+
+   ^Bint far shrnkwnd(int step);^B
+
+   This is reverse zoom, it's like closewnd(), but the window like sinks
+ into the screen. I don't encourage you to use this function, because it's
+ too big and does too few. I wrote it just to try it out, but now it's here
+ and maybe you like it. It does everything what closewnd() does, and then
+ removes window from screen by reducing the size of frames. By the way, it
+ uses the closewnd() to release memory and adjust list if it finishes.
+
+ ^BParameters :^B
+
+ step       Vertical zoom step, horizontal is always 3 times bigger. Only
+            reasonable step seems to be 1, else you won't see what's going
+            on.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if no window exists or step is less than 1.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(void)
+ {
+     while (1)
+         makewnd(10,4,69,20,FATFRAME,0x7070,1);
+         shrnkwnd(1);
+         if (bioskey(1))
+             break;
+     }
+     while (bioskey(1))
+         bioskey(0);
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: snowtest()       Activate/deactivate "snow removal" for colour card
+
+   ^Bvoid far snowtest(int flag);^B
+
+   This function will contrl "snow removal" feature when colour card is
+ active. It does not have any effect on Mono or Hercules card or when
+ DesQview environment is active.
+
+ ^BParameters :^B
+
+ flag       Nonzero value forces the "snow removal" on, 0 turns it off.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(int argc,char *argv[])
+ {
+     if (argc>1)
+         snowtest(((*argv[1])=='+')?1:0);
+     while (1) {
+         makewnd(0,0,79,24,FATFRAME,0x0202,80);
+         closewnd();
+         if (bioskey(1))
+             break;
+     }
+     while (bioskey(1))
+         bioskey(0);
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: statwnd()        Create a window into centre of screen and print string
+
+   ^Bint far statwnd(char far *s,char far *frame,unsigned int color);^B
+
+   Create "status window" and print text into it. It is window in the centre
+ of the screen (not viewport!) which will be made wide enough for string and
+ two spaces on both sides of it. After creating window and printing text
+ function will return immediately, leaving window open. It's your respon-
+ sibility to close it.
+
+ ^BParameters :^B
+
+ s          Text to be printed.
+ frame      Frame for makewnd().
+ color      Color for window. 8 hi bits for frame, 8 low bits for text.
+
+ ^BReturn :^B
+
+ 1 if OK, 0 if there isn't enough memory for window.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(void)
+ {
+ char s[80];
+     strcpy(s,"This is a status window .");
+     while (*s) {
+         statwnd(s,DOUBLEFRAME,0x700f);
+         bioskey(0);
+         closewnd();
+         s[strlen(s)-1]='\0';
+     }
+ }
+!seealso: closewnd() makewnd()
+'-----------------------------------------------------------------------
+!short: testkey()        Test for keystroke in keyboard queue
+
+   ^Bint far testkey(void);^B
+
+   Test for keystroke ready using INT 16H. No CTRL-BREAK or ^^C checking.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ -1 if there is keystroke ready in buffer, 0 if no keystrokes waiting.
+!seealso: waitkey()
+'-----------------------------------------------------------------------
+!short: vidmode()        Validate/set video mode
+
+   ^Bint far vidmode(int newmode);^B
+
+   Validate/set video mode.
+
+ ^BParameters :^B
+
+ newmode    -1 if you want to validate or new mode to set.
+
+ ^BReturn :^B
+
+ -1 if unsopported video mode was detected or set, or supported video
+ mode (one of 0,1,2,3 or 7).
+
+ ^BExample :^B
+
+ #include "window.h"
+
+ void main(void)
+ {
+ int i;
+     i=vidmode(-1);
+     if (i==-1)
+         printf("Unsupported video mode");
+     else
+         printf("Vidmode detected mode %i",i);
+ }
+'-----------------------------------------------------------------------
+!short: waitkey()        Wait for next keystroke using INT 16H
+
+   ^Bint far waitkey(void);^B
+
+   Direct interface to INT 16H to get keystroke without CTRL-BREAK or
+ ^^C testing.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+   Keystroke just like BIOS does it. Low 8 bits are character if nonzero
+ (hi 8 bits are scan code in this case). If low 8 bits are zero, 8 hi bits
+ are so-called "extended keystroke".
+!seealso: testkey()
+'-----------------------------------------------------------------------
+!short: wndversio()      Return pointer to version string
+
+   ^Bchar far * far wndversio(void);^B
+
+   Return far pointer to version string. String has no CR or LF chars,
+ length will not exceed 40 characters.
+'-----------------------------------------------------------------------
+!short: _drawbox()       Draw box to screen, with or without filling
+
+   ^Bvoid far _drawbox(int x1,int y1,int x2,int y2,char far *frame,
+                       unsigned int color,int infill);^B
+
+   Used be makewnd() to draw actual window to the screen, but can also
+ draw just an unfilled frame.
+
+ ^BParameters :^B
+
+ x1,y1      Coordinates of upper-left corner (screen, 0 based).
+ x2,y2      Coordinates of bottm-right corner.
+ frame      9 char string used to draw frames. Characters are used in order
+            up-left corner, upper border, up-right corner, left border,
+            fill for inside, right border, bottom-left corner, bottom
+            border, bottm-right corner.
+ color      8 hi bits are used to draw corners and borders, 8 low bits for
+            filling the box, if enabled.
+ infill     Nonzero value enables to fill the box, 0 disables it.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ void main(void)
+ {
+     makewnd(0,0,79,24,SINGLEFRAME,0x7070,80);
+     bioskey(0);
+     _drawbox(0,0,79,24,DOUBLEFRAME,0x0770,0);
+     bioskey(0);
+     closewnd();
+ }
+!seealso: makewnd() closewnd()
+'-----------------------------------------------------------------------
+!short: _fromvid()       Transfer data from screen to memory
+
+   ^Bvoid far _fromvid(int x,int y,int far *data,unsigned int count);^B
+
+   Transfer data from screen to memory.
+
+ ^BParameters :^B
+
+ x,y        Start location of data, 0 based screen relative.
+ data       Destination area for data.
+ count      Number of character/attributes to be moved.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BNote :^B
+
+ Destination may be on the screen, but overlapped buffers are not
+ handled correctly.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+
+ int far *buf;
+
+ void main(void)
+ {
+     buf=_mymalloc(25*160);
+     if (buf) {
+         _fromvid(0,0,buf,25*160);
+         bioskey(0);
+         _vlwrite(0,0,0x0720,25*160);
+         bioskey(0);
+         _tovid(0,0,buf,25*160);
+     }
+ }
+!seealso: _vlwrite() _tovid()         
+'-----------------------------------------------------------------------
+!short: _mycoreleft()    get the amount of memory available
+
+   ^Blong far _mycoreleft(void);^B
+
+   Get size of largest available memory block.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ Size of the largest available block in DOS arena.
+
+'-----------------------------------------------------------------------
+!short: _myfail()        _mymalloc() error handler
+
+   ^Bvoid far _myfail(unsigned int got,unsigned int wanted);^B
+
+   Called by _mymalloc() when memory allocation fails. This is for
+ easier error handling, you can write your own _myfail() to handle
+ memory allocation errors in your application ( linker warns you that
+ this function is overriding the library function, but it does no
+ harm ). In the library _myfail() is dummy return.
+
+ ^BParameters :^B
+
+ got        Number of paragraphs available.
+ wanted     Number of paragraphs requested.
+
+ ^BReturn :^B
+
+ None.
+
+'-----------------------------------------------------------------------
+!short: _myfree()        Free memory block
+
+   ^Bvoid far _myfree(void);^B
+
+   Deallocates memory block aloocated with _mymalloc(). It's direct port
+ to DOS's malloc.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <stdio.h>
+
+ void main(void)
+ {
+ char far *s;
+     s=_mymalloc(1);
+     printf("Got pointer %lx",s);
+     if (s)
+         _myfree(s);
+ }
+!seealso: _mymalloc()
+'-----------------------------------------------------------------------
+!short: _mymalloc()      Allocate memory block from DOS's heap
+
+   ^Bvoid far * far _mymalloc(long nbytes);^B
+
+   Allocates block of memory from DOS's heap. Direct port to DOS's memory
+ allocation function. Tries to allocate block of memory, if fails it
+ first calls _myfail() via far call and then returns NULL pointer.
+
+ ^BParameters :^B
+
+ nbytes     Block size in bytes.
+
+ ^BReturn :^B
+
+ Pointer to allocated block or NULL if not enough memory available.
+
+ ^BExample :^B
+
+ See _myfree() example.
+!seealso: _myfree() _myfail()
+'-----------------------------------------------------------------------
+!short: _recolor()       Change colour of characters
+
+   ^Bvoid far _recolor(int x,int y,int len,int color);^B
+
+ Change colour of character block.
+
+ ^BParameters :^B
+
+ x,y        Beginning coordinates of block.
+ len        Number of successive characters to change.
+ color      New attribute for characters.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ #include <window.h>
+
+ void main(void)
+ {
+ int i;
+     for (i=0;i<256;i++) {
+         _recolor(0,0,25*80,i);
+     }
+ }
+'-----------------------------------------------------------------------
+!short: _scrbase()       Calculate screen base address (segment)
+
+   ^Bint far * far _scrbase(void);^B
+
+   Calculate screen base address. Normally 0xB000 or 0xB800 for MONO and
+ colour cards, but may be any segment when running under DesQview.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ Far pointer to screen buffer.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <stdio.h>
+
+ void main(void)
+ {
+     printf("Screen base address is 0x%08lx\n",_scrbase());
+ }
+'-----------------------------------------------------------------------
+!short: _tovid()         Transfer data from memory to screen
+
+   ^Bvoid far _tovid(int x,int y,int far *s,unsigned int wcount);^B
+
+   Transfer data from memory to screen, reverse of _fromvid().
+
+ ^BParameters :^B
+
+ x,y        Begin coordinates to write.
+ s          Pointer to data.
+ wcount     Number of characters/attributes to transfer.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ See _fromvid() example.
+!seealso: _fromvid()
+'-----------------------------------------------------------------------
+!short: _vgetc()         Read one character/attribute from screen
+
+   ^Bunsigned int far _vgetc(int x,int y);^B
+
+   Read single character/attribute from screen.
+
+ ^BParameters :^B
+
+ x,y        Coordinates of screen location to read.
+
+ ^BReturn :^B
+
+ Character in 8 low bits, attribute in 8 hi bits.
+'-----------------------------------------------------------------------
+!short: _vlwrite()       Write lots of successive characters/attributes to screen
+
+   ^Bvoid far _vlwrite(int x,int y,unsigned int char_attr,^B
+                       ^Bunsigned int wcount);^B
+
+   Write block of characters/attributes.
+
+ ^BParameters :^B
+
+ x,y        Beginning coordinates of block.
+ char_attr  8 low bits are character, 8 hi bits are attribute.
+ wcount     Number of characters/attributes to write.
+
+ ^BExample :^B
+
+ See _fromvid() example.
+!seealso: _fromvid()
+'-----------------------------------------------------------------------
+!short: _vputc()         Write one character/attribute to screen
+
+   ^Bvoid far _vputc(int x,int y,unsigned int char_attr);^B
+
+   Write single character/attribute to screen.
+
+ ^BParameters :^B
+
+ x,y        Coordinates of screen location to write.
+ char_attr  8 low bits are character, 8 hi bits are attribute.
+
+ ^BReturn :^B
+
+ None.
+'-----------------------------------------------------------------------
+!short: _vputs()         Write ASCIIZ string to screen
+
+   ^Bvoid far _vputs(int x,int y,char far *s,int color);^B
+
+   Write ASCIIZ string to screen.
+
+ ^BParameters :^B
+
+ x,y        Coordinates for beginning.
+ s          Pointer to ASCIIZ string.
+ color      8 low bits are used as attribute for string.
+
+ ^BReturn :^B
+
+ None.
+'-----------------------------------------------------------------------
+!short: _inittimer()     Initialize timers
+
+   ^Bvoid far _inittimer(int count,int far *where);^B
+   ^Bvoid interrupt far _timer(void);^B
+
+   _inittimer() initializes timer interrupt to update timer counters every
+ 55ms. Counters will decrease until they reach zero. Actual interrupt hand-
+ ling is done with _timer(). Note that _inittimer() may be called more
+ than once to add or delete timer channels or replace timers with other
+ ones.
+
+ ^BParameters :^B
+
+ count      Number of timer channels you need.
+ where      Pointer to first channels counter.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ #include "window.h"
+ #include <bios.h>
+ #include <dos.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+
+ #define CHANNELS 21
+
+ int clocks[CHANNELS];
+ void interrupt far (*oldvect)();
+
+ void myexit(void)
+ {
+     _deinittimer();
+     while (closewnd());
+     if (oldvect)
+         setvect(0x1b,oldvect);
+ }
+
+ void interrupt far mybreak(void)
+ {
+ }
+
+ void main(void)
+ {
+ int i;
+ char s[80];
+     atexit(myexit);
+     oldvect=getvect(0x1b);
+     setvect(0x1b,mybreak);
+     makewnd(5,0,32,CHANNELS+3,SINGLEFRAME,0x0f0f,80);
+     cursoroff();
+     for (i=0;i<CHANNELS;i++) {
+         sprintf(s,"Timer channel %d",i+1);
+         prtwnd(2,i+1,s,0x0f);
+         clocks[i]=(i+1)*50;
+     }
+     _inittimer(CHANNELS,clocks);
+     while (!bioskey(1)) {
+         for(i=0;i<CHANNELS;i++) {
+             itoa(clocks[i],s,10);
+             strcat(s,"      ");
+             prtwnd(19,i+1,s,0x0f);
+         }
+     }
+     while(bioskey(1))
+         bioskey(0);
+ }
+!seealso: _deinittimer() makewnd() prtwnd() closewnd() wgmacro.ngo:cursoroff()
+'-----------------------------------------------------------------------
+!short: _deinittimer()   Deinitialize timers
+
+   ^Bvoid far _deinittimer(void);^B
+
+   Deinitialize timers. MUST be used before exit if timers were initialized.
+
+ ^BParameters :^B
+
+ None.
+
+ ^BReturn :^B
+
+ None.
+
+ ^BExample :^B
+
+ See _inittimer() example.
+!seealso: _inittimer()
+'-----------------------------------------------------------------------
+!short: _myrand()        Get a pseudo-random number
+
+   ^Bint far _myrand(void);^B
+
+   Generates pseudo-random number using the shift register technique.
+ This can be implemented in hardware as shift register with loopback thru
+ XOR gates. If we want to get full 65535 cycles period, we must have
+ 3 loopback points (from bits 4,13 and 15) plus last bit. The magic
+ numbers are from Horwitz/Hill book 'The Art of Electronics'. In hardware
+ it will look like this
+
+            ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+        ÚÄÄ>³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³10³11³12³13³14³15³16³
+        ³   ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+        ³              ³                          ³     ³  ³
+        ³         ÚÄÄ¿ ³                     ÚÄÄ¿ ³ ÚÄÄ¿³  ³
+        ÀÄÄÄÄÄÄÄÄÄ´=1ÃÄÙ                     ³=1ÃÄÙ ³=1ÃÙ  ³
+                  ³  ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´  ÃÄÄÄ´  ÃÄÄÄÙ
+                  ÀÄÄÙ                       ÀÄÄÙ   ÀÄÄÙ
+
+ The initial seed can be set with
+
+   ^Bint far _myseed(int newseed);^B
+
+ The generator will generate periodic number pattern with period length
+ of 65535 cycles. Zero seed is illegal, generator will generate only zero
+ numbers from it; thus if you call _myseed(0) you will get the old seed
+ number as return value else the newseed will be returned.
+
+'

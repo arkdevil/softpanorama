@@ -1,0 +1,1134 @@
+STRINGS.COM  (Version 2.1)        Copyright (c) 1991, 1992 Douglas Boling
+-------------------------------------------------------------------------
+              First Published in PC Magazine December 22, 1992 (Utilities)
+-------------------------------------------------------------------------
+
+STRINGS:
+
+        The original STRINGS.COM removed the restrictions imposed by the DOS
+batch file language to give your batch files more versatility. This upgraded
+TSR version enhances a number of the original functions and implements more
+than 35 new ones.
+------------------------------------------------------------------------
+Revision History:
+
+       Version 2.0     New version with many more commands.
+       Version 2.1     Fixed READ bug
+                       Fixed Parse bug
+                       Added check for 386Max mem arenas
+                       Changed env search default
+------------------------------------------------------------------------
+
+
+Batch Files Get Even Better With Our STRINGS 2.0
+BY DOUGLAS BOLING
+
+    The new version contains not only the batch file commands of the
+original utility, but 6 enhanced functions and 35 new ones as well.
+In all, as shown in Figure 1 (below) STRINGS now adds about 70 commands
+to the batch file language. (Some of these commands can be used from
+the DOS prompt as well.) Where the original STRINGS let you add a series
+of numbers, read a line from a file, or ask a user a question,
+STRINGS 2.0 includes additional functions that allow batch files to
+query the date and time, get the current country and codepage, and even
+read and write to memory locations.
+
+     Perhaps the outstanding new feature of STRINGS 2.0 is that under
+DOS 3.3 or later it can now act as an extension to the DOS command
+processor, COMMAND.COM.  This required rewriting the program so it could
+become a TSR.
+     Once memory resident, since COMMAND.COM no longer has to search,
+load, and run the program, STRINGS's commands execute with the same speed
+as do such internal COMMAND.COM functions as COPY, RENAME, and DELETE.
+
+     The new program itself bears the same name, STRINGS.COM, as its
+predecessor.  That allows you to upgrade instantly simply by copying the
+new program over the old. To avoid confusion, I will refer to the original
+version of the utility as STRINGS1. If you have never used STRINGS1,
+reading through the original article will be helpful, but I'll try to
+explain enough here to make that unnecessary.
+
+    To assemble the source you will need an assembler compatible with
+Microsoft's MASM 2.0.  The commands to create STRINGS.COM are:
+
+                             MASM STRINGS;
+                             LINK STRINGS;
+                             EXE2BIN STRINGS STRINGS.COM
+
+
+USING STRINGS
+
+     At first sight, the complete syntax for STRINGS.COM may seem
+dauntingly complex:
+
+     STRINGS [/?][/M][/Q][/Pc][/Bn][/I][/U] [env var =] FUNCTION [Params]
+
+But it's a lot easier to use than it looks.  One reason is that, in
+addition to this article, the on-screen help facilities are extensive.
+Simply enter STRINGS at the DOS prompt and you'll get an explanation of
+every item in the syntax line above. Entering STRINGS /? will give you a
+complete list of all the commands denoted by FUNCTION, and
+
+                           STRINGS /? FUNCTION
+
+will spell out the purpose, usage, and Prams (parameters) of each
+individual command.  Note that in both of these last two commands the
+/? can be replaced by /HELP.
+
+    Many STRINGS commands require no arguments; for these you just enter
+
+                           STRINGS FUNCTION
+
+For example, to return the last available drive letter you simply enter:
+
+
+                           STRINGS LASTDRIVE
+
+STRINGS will respond by displaying the last available drive letter on
+your system.
+
+    For commands that do take input parameters, the arguments are
+ separated by commas.  For example, the command LEFT, which returns the
+first n characters (including spaces) of a string, has two parameters:
+the input string and the number of characters to return.  Thus,
+
+
+                           STRINGS LEFT This is a string, 9
+
+will return the left nine characters ``This is a".  Note the comma
+separating the two parameters in the command line.
+
+    The results of any STRINGS command can be assigned to an environment
+variable.  Simply insert the name for the variable and an equals sign
+between STRINGS and FUNCTION.  For example, by changing the previous
+example to
+
+
+                           STRINGS ANSWER =LEFT This is a string, 9
+
+STRINGS will assign the string ``This is a'' to the environment variable
+ANSWER.
+
+    As shown above, STRINGS has seven command line switches:
+/M, /Pc, /Q, /Bn, /I, /U and /?.  The switch must be included on the
+command line before the environment variable or, if no variable is
+specified, before the command.
+
+    By default, STRINGS stores variables in the Active environment,
+which is created by the current copy of COMMAND.COM.  If the /M switch
+is used, however, STRINGS stores variables in the master environment,
+which is created by COMMAND.COM when DOS starts.
+
+    In Windows, while each DOS box has its own Active environment, all
+share the Master environment.  By using the /M switch, variables can be
+read by all programs, including those in individual Windows DOS boxes.
+The /M switch is also useful when you want to preserve a variable
+assignment you make while shelled out from a program, for the local
+environment is lost when you exit from DOS back into your application.
+
+    Reverting to the previous example, to assign the results to the
+environment variable RESULT in the Master environment, the command would
+be
+
+                   STRINGS /M RESULT = LEFT This is a string, 9
+
+    The MASTERVAR command returns the string assigned to a variable in
+the Master environment.  For example, the command
+
+                          STRINGS MASTERVAR RESULT
+
+returns the string assigned to the RESULT environment variable even if
+this command is executed in a different DOS box from the one that was
+used in previous examples!
+
+     The /Pc (or Parse) switch tells STRINGS to use the c character
+rather than the comma to separate multiple parameters.  This switch
+allows you to work with strings that contain commas.
+
+    The /Q (or Quiet) switch, which was added in a maintenance release
+of STRINGS 1.0, prevents STRINGS from writing to the screen. This switch
+is useful if the STRINGS command may produce an error message that you
+don't want displayed on the screen.
+
+    New in STRINGS 2.0 is the /Bn switch, which is used to change the number
+base that STRINGS uses to interpret numbers. STRINGS defaults to base 10
+arithmetic, but by using the /B switch, you can set the base to any number
+from 2 to 16.  Thus, while the statement
+
+                                         STRINGS ADD 9, 1
+
+returns the standard value 10, the statement
+
+                                         STRINGS /B16 ADD 9, 1
+
+returns the ``number'' A, since A in hexadecimal (base 16) is 10 in decimal.
+You'll want to use the /B switch working with several of the new STRINGS
+commands, where it is more appropriate to use hexadecimal than decimal
+numbers.
+
+    If your system is running DOS 3.3 or later, using the /I switch installs
+STRINGS as a resident extension of COMMAND.COM.  (How STRINGS actually
+accomplishes this will be discussed later.) Unlike most TSRs, which are
+installed at startup, STRINGS works best if it is installed only when
+and for as long as needed; it should be removed from memory once the
+batch file has completed in order to avoid wasting valuable system
+memory.  To uninstall STRINGS, you simply use the /U switch.
+
+    Installing STRINGS as a resident extension does not alter the syntax
+of any of its commands. The speed advantage is dramatic. The disadvantage,
+however, is that once installed, STRINGS (like all internal COMMAND.COM
+commands) cannot return an exit code to COMMAND.COM. This means that
+while STRINGS is resident, you can't use the handy IF ERRORLEVEL statement
+in .BAT files to test the result of STRINGS commands.
+
+    If your batch file requires the error level codes returned by STRINGS,
+two solutions are available.  The first and most obvious is simply not
+to install STRINGS at the start of the batch file.  When not installed,
+STRINGS 2.0 returns the same error codes as STRINGS 1.0.
+
+    The second solution is to specify explicitly the full path to the
+STRINGS.COM file.  When a complete path is specified the resident copy
+of STRINGS will ignore the command, thus allowing COMMAND.COM to launch
+a second copy of STRINGS as a transient program.  For example, since I
+keep STRINGS in my UTIL directory, I can force COMMAND.COM to launch a
+second copy of STRINGS with the command:
+
+
+                              C:\UTIL\STRINGS sub 12, 15
+
+     The use of the
+
+                              /?
+
+and
+
+                              /? FUNCTION
+
+switches to obtain on-line help was discussed earlier.  It should be noted
+that on-line help is not available when STRINGS is installed in memory,
+since the help text would take up an additional 4,500 bytes of memory.
+To get help for a specific command while STRINGS is installed, simply
+specify the full path to force execution of a nonresident copy of STRINGS.
+
+STRINGS COMMANDS
+
+     Providing a detailed explanation of the 70 functions shown in
+Figure 1 (see below) is not easy, so I've divided them into 6 groups:
+old commands enhanced for STRINGS 2.0, string handling, programmer's, data
+and time, system memory, and STRINGS management commands.
+The /? FUNCTION help screen will suffice for the functions in STRINGS1 if
+you haven't got access to the original article. (A copy of the original
+article (STRING1.DOC) is included in the archive STRING.ZIP).
+
+    Six commands from STRINGS1 have been enhanced:  CHAR, VAL, ASK,
+ADD, SUB, and MUL.  In STRINGS1, the CHAR command was limited to
+returning the single ASCII character that corresponded to a decimal
+number.  Now in STRINGS, CHAR can take up to ten parameters, so ten
+numbers can be converted into ten ASCII characters.
+For example, the command
+
+                          STRINGS CHAR 65, 66, 67
+
+returns the string ABC.
+
+    The VAL command has been similarly enhanced.  An ASCII string passed
+to VAL will produce the series of up to ten decimal numbers that correspond
+to the characters in the string. The numbers will be separated by spaces.
+For example, the command
+
+                         STRINGS VAL Doug
+
+returns the string
+
+                         68 111 117 103
+
+When appropriate, this format can easily be converted into a series of
+hex bytes by using the /B16 switch.  Note that because the capital and
+small letters have different ASCII values, VAL is inherently case-sensitive.
+
+    The enhanced ASK function prints a string and waits for the user to
+enter a response.  Its full syntax is:
+
+STRINGS [dest var =] ASK [Prompt string][,Max chars][,1=* echo 2=No echo]
+
+   After entering the Prompt string as the first parameter, you specify
+the maximum number of characters the user can use to respond as the second.
+The maximum can be any number between 1 and 127. Although STRINGS works
+with strings up to 127 characters long, remember that DOS programs can only
+accept a command line with a total length of 127 characters.  Thus,
+setting an environment variable to a long length may cause DOS to overflow
+the command line of a program that uses that variable.
+
+    The third and final ASK parameter is a flag that tells STRINGS not
+to echo what the user types to the screen.  This allows a .BAT file to
+prompt for a password without its becoming visible on the screen.
+When the third parameter is a 1, STRINGS echoes asterisks to the screen
+in place of the characters being typed.  If the parameter is 2, STRINGS
+does not echo any characters to the screen. If neither flag is specified,
+the user response is echoed.
+
+    Three of the math functions--ADD, SUB, and MUL--have been revised to
+allow you to add or multiply up to 10 different numbers in one STRINGS
+command.  For the SUB command, up to nine numbers can be subtracted from
+the first number in the series.  Thus, the command
+
+                                 STRINGS SUB 10, 2, 1
+
+returns the value 7, which is computed as 10 - 2 - 1.
+
+STRING HANDLING COMMANDS
+
+        This first set of the new STRINGS commands goes to the root of the
+program's functionality; its ability to manipulate strings.
+
+    The PARSE command separates a string into different sections and
+returns one of those sections.  This command makes it easy to separate
+the different directory strings from the PATH environment variable, for
+example.  The full syntax for PARSE is
+
+STRINGS [dest var =] PARSE String, section number, Separator char
+
+The three PARSE parameters are the string, the section number to return,
+and the separator character to be used to differentiate among sections.
+The small batch file, CHECKEX.BAT, (listed below in Figure 2) uses the
+PARSE command to search the PATH to determine the execution order of the
+program name you provide. This is exactly what COMMAND.COM does when it
+is asked to launch a program. On my machine, the command
+
+                           CHECKEX brief
+
+returned the list
+
+                           C:\UTIL\B.BAT
+                           C:\EDITORS\BRIEF\B.EXE
+
+This return discloses a problem:  If DOS searches the full path, B.BAT
+will execute, but B.EXE never will. It seems I should rename that batch
+file!
+
+    As shown by the STRINGS line in CHECKEX.BAT, the PARSE command here
+uses the PATH environment variable as the starting string. It uses the
+INDEX environment variable to run through the different directories in
+sequence. And it uses the semicolon to tell where one directory ends
+and the next one begins on the PATH statement.
+
+    ADDCOMMAS is a simple command that inserts commas every three digits in
+a number you supply as its argument.  If you enter
+
+                           STRINGS ADDCOMMAS 12345678
+
+STRINGS will return
+
+                           12,345,678
+
+    The REPEAT command simply creates a string that consists of the
+same character repeated n times.  For example, the command
+
+                            STRINGS REPEAT 25, A
+
+will return a string with 25 As.  The maximum value for n is 127.
+
+    The FILEDATE command returns the date on a file. It takes filename
+as its only argument, and the date is returned in a mm-dd-yyyy format.
+The FILETIME command similarly returns the time when a file was last
+written, in a hh:mm:ss am/pm format.
+
+    TRUEVER returns the true DOS version number, regardless of what is
+reported by the normal VER command.  With the introduction of the SETVER
+device driver in DOS 5.0, you can trick programs into believing that they
+are running under a different version of DOS than they actually are.
+There are times, however, when you need to know the real DOS version:
+hence TRUEVER.  The number returned is the major version number times
+100, plus the minor version number.  For example, in DOS 5.0 the number
+returned is 500.
+
+    Although the SETVER device driver is only available on DOS 5.0
+(and later), the TRUEVER command will still work under DOS versions 2.0
+though 4.0; it simply returns the same value as does the STRINGS VER
+command.
+
+    The FILES command returns the maximum number of files that can be
+open on the system at one time.  This number is usually, but not always,
+the number shown in the FILES= statement in your CONFIG.SYS file.
+Programs such as Windows or Jeff Prosise's UMBFILES can change the
+maximum number of files, however, so FILES is a handy way to confirm
+that a program will have enough file handles to run.
+
+    The LASTDRIVE command returns the last drive letter that can be
+assigned to a disk.  This is usually set with the LASTDRIVE= line in
+the CONFIG.SYS file, but again, some programs can modify that value.
+LASTDRIVE is useful when a batch file must perform an action on all
+possible drives in the system.
+
+    The CODEPAGE command allows batch files to determine the currently
+active codepage.  The codepage number determines the character set your
+system uses.  Most US systems use codepage 437, which is the standard
+character set. Codepage 850, on the other hand, replaces some of the
+graphic characters in the 437 codepage with characters used in European
+languages. To query the active codepage, simply enter STRINGS CODEPAGE.
+
+    The COUNTRY command returns the country information for the system.
+	Since DOS 2.0, parameters such as the currency symbol, thousands separator,
+and the date format can be configured for different countries. The table
+in Figure 3 (see below) shows what the COUNTRY command returns for
+different values of the first parameter, assuming you live in the U.S.
+
+    Entering STRINGS BIOSDATE returns a string, normally containing the
+date, from address F000:FFF5h in the BIOS ROM.  The command assumes the
+date will be in the first 8 bytes following the address, as it is in most
+PC compatibles.  The command takes no arguments.
+
+     The GETKEY command waits for the user to press a key then returns
+the ASCII value and its scan code.  While the ASK command is limited to
+returning ASCII characters, GETKEY is also able to return non-ASCII keys
+such as the cursor keys and function keys. The codes are returned with
+the ASCII code first, followed by a space, followed by the scan code.
+It is at this point that you can use the PARSE command to operate separately
+on the ASCII and scan codes returned by the keystroke.
+
+    The next four commands--AND, OR, XOR, and NOT--extend the math commands
+to logical operations.  The AND command returns the logical AND of the
+parameters you supply.  Likewise, the OR and XOR commands return the
+logical OR and exclusive OR of their respective parameters. Like the ADD,
+SUB, and MUL commands, the AND and OR commands can take up to ten
+parameters.  XOR, of course, takes only two. The NOT command returns the
+one's complement of its single parameter.
+
+    The CONVERT command, which converts a number to a different base,
+became necessary once the /B switch was introduced.  This command takes
+two parameters:  the number to be converted and the new number base.
+As with all commands, both the number and new base parameters are
+interpreted in the base specified in the /B switch.  For example, to
+convert the hexadecimal (base 16) number 2FB to decimal, the command
+would be
+
+                        STRINGS /B16 CONVERT 2FB, A
+
+Note here that the second parameter, A, is not the character A, but rather
+the number 10, in hexadecimal.  Going the other way, the command
+
+                        STRINGS CONVERT 763, 16
+
+returns the hexadecimal number 2FB. (Because the default base for STRINGS
+is base 10, the /B switch is not required in this case.)
+
+TIME & DATE COMMANDS
+
+     The next four commands return times and dates.  The DAY function
+returns the current day of the week: STRINGS DAY will return Tuesday if
+today is Tuesday.  As an added feature, if the DAY command is passed
+a number between 1 and 7, it returns the day corresponding to that number.
+STRINGS DAY 6 returns the string Friday, for example.
+
+    The MONTH command is entirely similar to the DAY command, and again,
+if passed a number between 1 and 12, it returns the month corresponding
+to that number.
+
+    The DATE command returns the current date in a mm-dd-yyyy format.
+The Time command similarly returns the current time in a hh:mm:ss am/pm
+format. Users requiring a different format for the time and date can
+easily use the multitude of STRINGS commands to present the data in any
+form they wish.
+
+SYSTEM MEMORY
+
+     The enhanced STRINGS contains a number of commands that deal with
+system memory. MEMTOTAL returns the total conventional (DOS) memory
+available to the system, and MEMFREE returns the amount of conventional
+memory still available for use.  Note, however, that the MEMFREE command
+will respond differently when STRINGS is installed as resident.
+COMMAND.COM does not release its memory when resident commands are
+executed, so if STRINGS is resident when this call is made, the amount
+of free conventional memory indicated will be small or nonexistent.
+
+    The XMSTOTAL command returns the total amount of extended memory in
+the system, and XMSFREE returns the amount of free extended memory.
+Normally, extended memory is managed by an extended memory (XMS) manager,
+such as HIMEM.SYS.  If no XMS manager is present, STRINGS uses a BIOS
+Int 15h call to determine the amount of extended memory. In this case,
+as there is no memory manager present to differentiate between free and
+used extended memory, both the XMSFREE and XMSTOTAL calls will return
+the same number.  XMSVER returns the version of the XMS memory manager
+in use; if none is present, the command returns 0.
+
+    Expanded memory is correspondingly queried with the EMSTOTAL, EMSFREE,
+and EMSVER commands. Again, if no expanded memory manager is installed,
+EMSVER will return 0.
+
+     The final memory command is UMBLARGE.  This command returns the size
+of the largest free upper memory block (UMB).  UMBs are blocks of memory
+that reside between the video memory at A000h and the BIOS ROM at E000h
+or F000h.  This command is useful for determining whether there is room
+in upper memory for TSRs.
+
+PROGRAMMER'S COMMANDS
+
+     The next series of commands are designed for the PC programmer.
+They allow batch files to actually perform functions previously reserved
+for .COM and .EXE files.
+
+     PEEK, the first of these commands, allows a batch file to read a
+series of bytes from memory.  The syntax of the PEEK command is
+
+STRINGS [dest var=] PEEK Segment, Offset [,Number of bytes] [,Word flag]
+
+     The first two command parameters are the segment and offset of the
+memory address to be read.  The optional third parameter is the number
+of bytes to be read; if this parameter absent, STRINGS returns 1 byte.
+The fourth and final parameter is also optional.  If it is 2, STRINGS
+will return the bytes read from memory in a 2-byte, or word, format.
+
+    To illustrate, in order to see which shift keys are pressed, you
+can use the PEEK command to read the keyboard status bytes at 40:17 and
+40:18 hex.  The command would be
+
+                                 STRINGS /b16 PEEK 40, 17, 2.
+
+     The complementary POKE command writes data directly to memory.
+Again, the first parameter is the segment and the second is the offset
+of the address.  The remaining parameters, up to an additional eight,
+are the bytes to write to memory. Note that while these bytes are being
+written, interrupts are disabled so the system doesn't read partially
+written data. The following short batch file uses the PEEK, AND, and
+POKE commands to turn off the keyboard NumLock.
+
+                       STRINGS /b16 shift = PEEK 40, 17
+                       STRINGS /b16 shift = AND %SHIFT%, DF
+                       STRINGS /b16 POKE 40, 17, %SHIFT%
+                       SET shift=
+
+     You could also use the POKE command to overwrite the DOS command
+interrupt vector (Interrupt 21) with zeros, the command would be
+
+                       STRINGS /B16 POKE 0, 84, 0, 0, 0,0
+
+Don't try this example, however, for it will surely lock up your machine!
+As this last example illustrates, POKE--and other programming commands
+that will be discussed shortly--can easily be misused and thereby cause
+harm.  So make sure you fully understand a command before you use it.
+
+    The IN and OUT commands give batch files the ability to read and
+write to system I/O (Input/Output) ports. It is through these ports that
+the system talks to disk drive controllers and to devices connected to
+serial and/or parallel ports. The IN command takes only one parameter,
+namely, the address of the I/O port. This address is the first of the
+OUT command's two parameters, the second being the data byte to write
+to that port.
+
+    An amusing example that demonstrates the use of the IN and OUT
+commands is provided by the batch files NOIZE and MARY, which are listed
+below in Figure 4.  NOIZE.BAT plays a note on the PC speaker by toggling
+the speaker control bits in the keyboard control I/O port (I/O address 61h).
+The proper timing for the note is determined by using PC hardware timer 3.
+MARY.BAT calls NOIZE.BAT to play the familiar ``Mary had a little lamb.''
+My thanks to Neil Rubenking for this entertaining example.
+
+    The INTERRUPT command is easily the most powerful--and therefore
+dangerous--command in the STRINGS repertoire. The command calls an
+interrupt and returns the values of the registers. The ten parameters for
+this command specify the interrupt number and the values of most of the
+processor registers at the time the interrupt is called.  Its syntax is
+the following:
+
+     STRINGS INTERRUPT Int Number, AX, BX, CX, DX, DI, SI, BP, DS, ES
+
+    The string returned is a series of numbers, separated by spaces,
+that represent the value in each of the registers at the time the
+interrupt returns.  The format for the returned string is
+
+                  AX BX CX DX DI SI BP DS ES Flags
+
+    The Flags register contains such flags as Carry, Zero, Sign, and
+Interrupt Enable.  Just as a value is returned for each of the other
+registers, a value is also returned for the Flags register.  It is the
+responsibility of the batch program to examine the value returned for
+the Flags register to determine the state of any flags that might be
+important.  For this purpose, the AND and OR commands often prove useful.
+
+    An example of this complex command in action will be helpful. Suppose
+you want to know the address of the InDOS flag.  The newly documented
+function for getting the InDOS address is Interrupt 21, AH = 34.  The
+STRINGS command to enter would be
+
+        STRINGS /B16 INTERRUPT 21, 3400, 0, 0, 0, 0, 0, 0, 0, 0
+
+    The /B16 switch is used to tell STRINGS to ``talk'' in hexadecimal,
+which is handy because most PC programming is done in base 16.  The 21
+indicates that you want STRINGS to call Interrupt 21h, the DOS command
+dispatcher.  The 3400 indicates that AX is to be loaded with 3400h when
+the interrupt is called.  In fact, you only need to load AH (with 34h),
+but the command has no way of loading the individual byte halves of the
+registers.  Thus, you end up loading AX with 3400, which puts 34 in AH
+and 00 in AL.  The remaining registers for this interrupt are not
+important, and actually they don't have to be included at all. STRINGS
+loads 0 in the registers not specified.
+
+    On my machine running MS-DOS 5.0, the command above returns the
+string
+
+          3400 321 0 0 0 0 0 0 116 7246
+
+The INTERRUPT command always returns a string with ten numbers, each
+separated by a space.  Because the /B16 switch was used, all the values
+are in hexadecimal.  The first number, 3400, is the value of the AX
+register when the interrupt returns.  The important values, however,
+are 321, the value of BX on the return; and 116, which is the returned
+value of ES.  The MS-DOS Programmer's Reference indicates that the address
+of the InDOS flag will be returned in ES:BX.
+
+    You can now use the PEEK command to check the state of the InDOS
+flag.  That command would look like this:
+
+                       STRINGS /B16 PEEK 116 321
+
+    Although knowing the address of the InDOS flag has little use for
+batch file programming, other interrupts can come in quite handy.  The
+undocumented interrupt 21 AX=5200 returns a pointer to DOS's list of
+lists. This pointer is quite useful for checking out the current state
+of the machine.  Shortly I'll present a batch file that uses the list of
+lists to determine the current memory usage for the system.
+
+    The final programmer's command is SCAN. This command searches memory
+for a series of bytes.  The segment to search and the starting offset
+are specified in the first two parameters.  The remaining parameters
+(up to an additional eight) are the bytes to use in the search.
+For example, to search the segment 23h for the byte series 10 20 30 40
+the command would be
+
+STRINGS /B16 SCAN 23, 0, 10, 20, 30, 40
+
+Since SCAN searches only the segment specified, additional SCAN commands
+are needed for any searches beyond the original segment.
+
+    When used in conjunction with the improved VAL command, SCAN can
+search for an ASCII string in memory. An example is shown in the following
+batch code fragment, which searches the DOS kernel for the string ``NUL":
+
+STRINGS /B16 VALSTR = VAL NUL
+STRINGS /B16 /P SCAN 116 0 %VALSTR%
+
+    As previously discussed, the VAL command returns the ASCII numbers
+for each of the characters in the first parameter. In this case, because
+the /B16 switch is used, VAL returns the numbers 4E 55 4C as a series of
+hex bytes.  These bytes are assigned to the VALSTR environment variable.
+The new InDOS command mentioned above starts at offset 0 and uses the
+VALSTR environment variable for its remaining arguments.  On my machine,
+this fragment returns the address 116 52, which is the address for the
+NUL device driver name.  That address is important because the NUL device
+driver is the first in the DOS device driver chain.
+
+    Two additional notes about this batch fragment are in order.  First,
+the lack of commas separating the parameters in the SCAN command is not
+a typo.  The /P switch is used here to change the parse character to a
+space.  This is convenient, since the VAL command returns its numbers
+separated by spaces.
+
+    The second important detail concerns the consistent use of the /B
+switch.  While it may not seem that the /B switch would be needed for
+either command, if it is used in the VAL command it must be used in the
+SCAN command.  Since VAL uses a /B16 switch, it returns its numbers
+in hex.  Because the result from the VAL command is used in the SCAN
+command, SCAN must use the same base.  Why was the /B16 switch used in
+the first place? Remember that the DOS segment returned by the INTERRUPT
+command was returned in hexadecimal, which forced the use of the /B
+switch since we used that number.  Just follow this simple rule:  If
+parameters are shared across STRINGS commands, they should use the same
+base, or you should use the CONVERT command to change the parameters
+to the proper base.
+
+STRINGS MANAGEMENT
+
+     The final group of new STRINGS commands are to manage STRINGS itself.
+STRINGSVER returns the version of STRINGS currently being used.  Since
+this command did not exist in the first version of STRINGS, calling it
+with STRINGS1 will result in an error message and a return code of 1.
+If STRINGSVER returns a nonzero ERRORLEVEL code, then STRINGS 1.x is
+running.  For the present version of STRINGS, the STRINGSVER command
+returns the ASCII string 200 and a return code of 0.
+
+    The INSTALLED command returns a 1 if STRINGS is currently installed
+as a TSR extension to COMMAND.COM. If STRINGS is not installed, a 0 is
+returned.  This command is useful for those situations in which a
+STRINGS command might produce different results if the utility were
+installed.  MEMFREE represents one such case, and the use of return
+codes may be another.
+
+INSIDE STRINGS
+
+     For the most part, the enhanced version of strings simply involved
+adding procedures for the new functions. The main change to the program
+itself was the rewriting of the command parsing routine to use less memory.
+This was necessary so that STRINGS could be turned into a TSR. Of greatest
+programming interest, however, is the hook into COMMAND.COM's internal
+command dispatcher.
+
+    In Undocumented DOS, coauthor Jim Kyle has an informative chapter on
+command interpreters. It describes an undocumented ``back door'' into
+COMAND.COM that allows TSRs to hook into the internal command dispatcher.
+This back door was first included in DOS 3.3 so that DOS's APPEND command
+could check on any subsequent APPEND commands. Fortunately for programmers,
+that door has remained open in all later DOS releases.
+
+    When you enter a command at the DOS command line, COMMAND.COM must
+determine whether the command is an internal function to be executed or
+an external program that must be launched. Before making its decision,
+COMMAND.COM calls the Multiplex Interrupt (Int 2Fh) with AX equal to
+AE00h. At the time of the call, DX is loaded with FFFFh, BX is pointing
+to a buffer that contains an exact replica of the command line just typed,
+and SI points to a buffer that contains the potential command in
+uppercase preceeded by a length byte.
+
+    TSRs such as STRINGS that hook into this call must compare the
+command to which SI points with the command they wish to handle. For
+STRINGS, that means checking to see whether SI is pointing to the ASCII
+string "STRINGS".
+
+    A TSR that wants to claim the command puts 0FFh in AL, copies the
+comand line pointed to by BX into an internal buffer, and returns to
+COMMAND.COM.  Otherwise the TSR must pass the Multiplex request down
+the interrupt chain with all registers unmodified.
+
+    If a TSR claims the command, COMMAND.COM calls the Multiplex
+Interrupt again, this time with AX loaded with AE01h.  Having claimed it,
+the TSR must now execute the command.  While most of the registers during
+this call are the same as in the AE00h call, Kyle recommends that a TSR
+should copy the buffer from the earlier AE00h call because not all the
+registers are explicitly loaded before the AE01h call.  Once the command
+has been completed, the TSR should zero the size byte in the buffer to
+which SI points.  This tells COMMAND.COM that the command has been
+processed.
+
+    While STRINGS doesn't provide every possible function a batch file
+might want, the inclusion of such commands as PEEK, POKE, and INTERRUPT
+allow the programmer to create just about any command.  An an example of
+this power is shown in BATMEM.BAT, which is listed below in Figure 5.
+
+    BATMEM scans the DOS memory blocks and displays the blocks that are
+being used as well as the ones that are free. BATMEM is similar to the
+MEM command that has been included in DOS since version 4.0.  Among the
+STRINGS functions BATMEM uses are INTERRUPT, PARSE, CHAR, PEEK, and
+ADDCOMMAS.
+
+    Notice that in BATMEM, STRINGS is installed with /I at the beginning
+of the batch file and removed with /U at the end. These two switches double
+the execution speed.  If you don't want STRINGS installed and removed,
+simply delete the /I and /U switches; the remainder of the batch file
+will be unaffected.
+
+    Programs like BATMEM give but a taste of the world STRINGS opens to
+enterprising batch file writers.  To supplement STRINGS own commands, you
+may wish to acquire Michael J. Mefford's excellent BATCHMAN utility in
+the January 30, 1990 issue of PC Magazine. Like STRINGS, BATCHMAN is
+available on PC MagNet.
+
+    The ability to perform low-level actions, coupled with the convenient
+features of STRINGS's high-level commands, provide a wealth of new
+opportunities for the once-lowly batch file. Try STRINGS, and your batch
+files will never be the same.
+----------------------------------------------------------------------------
+DOUGLAS BOLING IS A CONTRIBUTING EDITOR TO PC MAGAZINE.
+----------------------------------------------------------------------------
+
+                       STRINGS COMMANDS
+
+
+             FUNCTION AND SYNTAX                 RETURNS
+
+
+New          2FCHECK n or Alias              Returns status of programs hooked
+                                             to the Multiplex Interrupt.
+
+Enhanced     ADD n1, n2[,n3][,n4][,n5]       The sum of the parameters.
+             [,n6][,n7][,n8][,n9][,n10]
+
+New          ADDCOMMAS n                     n parsed with commas every 3
+                                             digits.
+
+New          AND n1, n2[,n3][,n4][,n5]       The logical AND of the
+             [,n6][,n7][,n8][,n9][n10]       parameters.
+
+Enhanced     ASK [Prompt string]
+             [, Max chars][,1=No echo]       A response from a user.
+
+New          BIOSDATE                        The date for the ROM BIOS.
+
+Enhanced     CHAR c[c][c][c][c]
+             [c][c][c][c][c][c]              ASCII number of character.
+
+New          CODEPAGE                        The activecode page.
+                                             Requires DOS 3.3 or later.
+
+New          CONVERT n, New Base             A number with the specified
+                                             base.
+
+New          COUNTRY                         The country code for the
+                                             system.
+
+New          DATE                            The current date in mm-dd-yyyy
+                                             format.
+
+New          DAY [Index (1=Sunday, 2=Mon]    The name of the day of the
+                                             week.
+
+             DIV n, n                        The quotient of two numbers.
+
+New          EMSFREE                         The amount of free expanded
+                                             memory.
+
+New          EMSTOTAL                        The amount of expanded memory.
+
+New          EMSVER                          The version of the expanded
+                                             memory driver.
+
+             ENVFREE                         Bytes free in the environment.
+
+             ENVSIZE                         The size of the environment.
+
+New          FILEDATE Filename               The date of a file.
+
+             FILEDIR Filename                The directory of a filename.
+
+             FILEDRIVE Filename              The drive of a filename.
+
+             FILEEXT Filename                The file extension.
+
+             FILENAME Filename               The filename.
+
+New          FILES                           The total number of files that
+                                             can be open.
+
+             FILESIZE Filename               The size of a file.
+
+New          FILETIME Filename               The time of a file.
+
+             FIND String, Findstring	     The position of Findstring in
+                                             String.
+
+             FINDC String, Findstring        The position of Findstring
+                                             in String. Case sensitive.
+
+New          GETKEY                          The scan code and ASCII value of
+                                             next key pressed.
+
+New          HELP [Strings Command]	     The help text for the specified
+                                             STRINGS command.
+
+New          IN Port number                  A byte from an I/O port.
+
+New          INSTALLED                       A non-zero number if Strings
+                                             installed as TSR.
+
+New          INTERRUPT Int n, AX, BX, CX,
+	     DX, DI, SI, BP, DS, ES	     The registers from an interrupt.
+                                             Dangerous!
+
+             INWIN		             1 if Windows running.
+
+New          LASTDRIVE                       The letter of the last possible
+                                             drive.
+
+             LEFT String, n                  The left n characters.
+
+             LENGTH String                   The String length.
+
+             LINESIZE Filename               The number of lines.
+
+             LOWER String                    The string in all lowercase.
+
+             MASTERENV                       The address of the master
+                                             environment
+
+	     MASTERVAR Variable Name	     A variable from the Master
+                                             environment.
+
+New          MEMFREE                         The largest block of free
+                                             conventional memory.
+
+New          MEMTOTAL                        The amount of conventional
+                                             memory.
+
+             MID String, Start c, Length     The middle n characters.
+
+New          MONTH [Index (1=January)]       The name of the month
+
+Enh          MUL n1, n2[,n3][,n4][,n5]
+             [,n6][,n7][,m8][,n9][,n10]      The product of the parameters.
+
+New          NOT n                           The logical NOT of n.
+
+New          OR n1, n2[,n3][,n4][,n5]
+             [,n6][,n7][,n8][,n9][,n10]      The logical OR of the parameters.
+
+New          OUT Port n, Output byte         Writes a byte to an I/O port.
+
+New          PARSE String, Token n,
+             Token separator char            The nth token from a string.
+
+New          PEEK Segment, Offset
+             [, n bytes [,Word flag]]        A series of bytes from memory.
+
+New          POKE Segment, Offset,
+             b1[,b2][,b3][,b4]
+             [,b5][,b6][,b7][,b8]            Writes up to 8 bytes to memory.
+
+
+             READ Filename, line number      A line from a file.
+
+New          REPEAT n of chars, c            A string of n characters c.
+
+             RIGHT String, n	             The right n characters.
+
+New          SCAN Segment, Starting
+             Offset, b1 [,b2]                The offset of a series of
+                                             bytes in memory.
+
+Enh          SUB n1, n2[,n3][,n4][,n5]
+             [,n6][,n7][,n8][,n9][,n10]      The difference of two numbers.
+
+New          TIME                            The current time.
+
+             TRUENAME Filename               The complete filename.
+
+New          TRUEVER                         The true DOS verison.
+                                             Requires DOS 5.0 or later.
+
+New          UMBLARGE                        The largest block of free
+                                             upper memory.
+
+             UPPER String                    The string in all uppercase.
+
+Enh          VAL n1, n2[,n3][,n4][,n5]
+             [,n6][,n7][,n8][,n9][,n10]      ASCII characters for a number.
+
+             VER                             The DOS version number.
+
+             WRITE Filename, String	     Appends a string to the end
+                                             of a file.
+
+New          XMSFREE                         The amount of free extended
+                                             memory.
+
+New          XMSTOTAL                        The amount of extended memory.
+
+New          XMSVER                          The version of the extended
+                                             memory driver.
+
+New          XOR n, n                        The exclusive OR of two numbers.
+
+Figure 1:
+All commands shown above begin with STRINGS [dest var =].  In the listing, n
+designates a number, c a character, and b a byte.
+----------------------------------------------------------------------------
+
+CHECKEX.BAT
+
+rem----------------------------------------------------
+rem CHECKEX.BAT - Scans the path for a program name.
+rem----------------------------------------------------
+@echo off
+SET index=1
+if exist %1.com echo %1.com
+if exist %1.exe echo %1.exe
+if exist %1.bat echo %1.bat
+:loop
+   STRINGS pdir = PARSE %path%, %index%,;
+   IF . == .%pdir% GOTO exit
+   if exist %pdir%\%1.com echo %pdir%\%1.com
+   if exist %pdir%\%1.exe echo %pdir%\%1.exe
+   if exist %pdir%\%1.bat echo %pdir%\%1.bat
+   STRINGS index = ADD %index%, 1
+GOTO loop
+:exit
+SET index=
+SET pdir=
+
+Figure 2: CHECKEX.BAT shows the execution priority order for a program
+name that might be present on a path in .COM, .EXE, and .BAT forms.
+------------------------------------------------------------------------
+
+                      COUNTRY CODES
+
+==================================================================
+
+First Parameter Value   Returns                  Comments
+--------------------------------------------------------------------
+No parameter            Country Code             Active country code
+0                       Date Format              0 = mm-dd-yyyy
+1                       Currency Symbol          $ for the US
+2                       Thousands Separator      , for the US
+3                       Decimal Separator        . for the US
+4                       Date Separator           - for the US
+5                       Time Separator           : for the US
+6                       Currency Format          0 for the US
+7                       Currency Places          2 for the US
+8                       Time Format              0 = 12-hour format
+9                       Data Separator           , for the US
+
+
+Figure 3: These are the different values returned when 1 is supplied as
+the parameter for the COUNTRY command.
+------------------------------------------------------------------------
+
+
+NOIZE.BAT
+
+@ECHO OFF
+REM ------------------------------------------------------------
+REM NOIZE.BAT - by Neil Rubenking
+REM
+REM Enter a frequency as its command line parameter and it
+REM starts a note of that frequency.  Enter NO parameter and it
+REM shuts the speaker up.
+REM ------------------------------------------------------------
+IF '%1'=='' GOTO Stop
+STRINGS inv=DIV 1193180,%1
+STRINGS inv=CONVERT %inv%,16
+STRINGS inv=RIGHT 0000%inv%,4
+STRINGS Hi=LEFT %inv%,2
+STRINGS Lo=RIGHT %inv%,2
+STRINGS /b16 OUT 43,B6
+STRINGS /b16 OUT 42,%lo%
+STRINGS /b16 OUT 42,%hi%
+STRINGS /b16 AL=IN 61
+STRINGS /b16 AL=OR %AL%,3
+STRINGS /b16 OUT 61,%AL%
+GOTO End
+:Stop
+STRINGS /b16 AL=IN 61
+STRINGS /b16 AL=AND %AL%,FC
+STRINGS /b16 OUT 61,%AL%
+:End
+SET al=
+SET inv=
+SET hi=
+SET lo=
+
+@ECHO OFF
+REM ------------------------------------------------------------
+REM MARY.BAT - by Neil Rubenking
+REM
+REM Plays a familar tune
+REM ------------------------------------------------------------
+STRINGS /I /Q
+CALL NOIZE 330
+CALL NOIZE 294
+CALL NOIZE 262
+CALL NOIZE 294
+CALL NOIZE 330
+CALL NOIZE 330
+CALL NOIZE 330
+CALL NOIZE 330
+CALL NOIZE 294
+CALL NOIZE 294
+CALL NOIZE 294
+CALL NOIZE 294
+CALL NOIZE 330
+CALL NOIZE 392
+CALL NOIZE 392
+CALL NOIZE 392
+CALL NOIZE
+STRINGS /U /Q
+
+Figure 4: NOIZE.BAT and MARY.BAT combine to play "Mary Had a Little Lamb."
+--------------------------------------------------------------------------
+
+BATMEM.BAT
+
+@echo off
+rem -------------------------------------------------------------
+rem
+rem A batch file that returns a memory scan
+rem BATMEM.BAT
+rem Copyright 1992 Douglas Boling
+rem
+rem -------------------------------------------------------------
+rem
+rem First, get the pointer to the list of lists
+rem
+strings /i /b16 iret = interrupt 21, 5200
+strings /b16 lloff = parse %iret%, 2
+strings /b16 llseg = parse %iret%, 9
+set iret=
+
+rem
+rem First memory block kept at ListOfList - 2
+rem
+strings /b16 lloff = sub %lloff%, 2
+strings /b16 memseg = peek %llseg%, %lloff%, 2, 2
+
+echo.
+echo  Block Owner Size Program
+echo  --------------------------------
+
+strings /b16 totalmem = add %memseg%, 1
+set freemem=0
+:loop
+   rem
+   rem Parse the memory arena header
+   rem
+   strings /b16 memtype = peek %memseg%, 0, 1
+   strings /b16 memowner = peek %memseg%, 1, 2, 2
+   strings /b16 memsize = peek %memseg%, 3, 2, 2
+
+   strings /b16 memtemp = peek %memseg%, 8, 8
+   strings /b16 /p  memtemp = char %memtemp%
+
+   strings /b16 memseg = add %memseg%, 1
+   rem
+   rem If block not PSP, don't print block name
+   rem
+   set memname=
+   set diff=-1
+
+   strings /b16 /q diff = sub %memseg%, %memowner%
+   if .%diff% == .0 goto skip1
+   goto skip2
+   :skip1
+      set memname=%memtemp%
+   :skip2
+
+   if NOT %memowner% == 0000 goto skip3
+      set memowner=FREE
+      strings /b16 freemem = add %freemem%, %memsize%
+   :skip3
+   rem
+   rem OK, print the results
+   rem
+   echo  %memseg% %memowner% %memsize% %memname%
+
+   strings /b16 memseg = add %memseg%, %memsize%
+   strings /b16 totalmem = add %memsize%, %totalmem%
+   strings /b16 totalmem = add %totalmem%, 1
+
+if %memtype% == 4D goto loop
+
+echo.
+
+strings /b16 memsize = mul %memsize%, 10
+strings /b16 memsize = convert %memsize%, A
+strings memsize = addcommas %memsize%
+
+strings /b16 totalmem = mul %totalmem%, 10
+strings /b16 totalmem = convert %totalmem%, A
+strings /u totalmem = addcommas %totalmem%
+
+echo  %totalmem% bytes total conventional memory
+echo  %memsize% largest program executable size
+echo.
+rem
+rem Done, clean up all vars
+rem
+set llseg=
+set lloff=
+set memseg=
+set memowner=
+set memsize=
+set memtype=
+set memname=
+set memtemp=
+set freemem=
+set totalmem=
+set diff=
+
+Figure 5: BATMEM.BAT produces a list of the DOS memory segments.
+------------------------------------------------------------------------

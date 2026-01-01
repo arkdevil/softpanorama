@@ -1,0 +1,348 @@
+$macro_file GSV_dict; { версия 1.3 }
+
+{  Словарь   сокращений   часто   употребляемых   слов   или   конструкций:
+   предполагаемое  назначение   -  ускорение   ввода  длинных,   или  часто
+   используемых, идентификаторов,  ключевых слов  и языковых  конструкций в
+   текст программы на каком-либо языке программирования. Помощь по словарю
+   находится в файле gsv_sup.hlp.
+
+   Гурин С.В. Томск, политехнический институт, кафедра электрических станций.
+              Рабочий телефон 49-25-07.
+
+   Multi-Edit 5.00
+
+   Вызов макросов:
+   "gsv_dict"     - получение слова или блока из словаря.
+   "gsv_dict ADD" - добавление слова или блока в словарь.
+}
+
+$macro gsv_dict from EDIT TRANS;
+  def_int(main_window,     {номер основного окна}
+          dic_window,      {номер словарного окна}
+          tmp_insert_mode, {временные значения статусов}
+          tmp_ignore_case,
+          tmp_reg_exp_stat,
+          tmp_style,
+          cur_col          {номер текущей позиции в тексте}
+         );
+  def_str(keyword,         {буфер ключа}
+          sword,           {буфер слова}
+          message,         {завершающее сообщение}
+          title[30],       {заголовок бокса запроса ключа}
+          help_index[3]    {help-индекс для бокса запроса ключа}
+         );
+
+  tmp_insert_mode   := insert_mode;   {сохранение текущих статусов}
+  tmp_ignore_case   := ignore_case;
+  tmp_reg_exp_stat  := reg_exp_stat;
+  tmp_style         := column_move_style;
+  insert_mode       := TRUE;          {установка новых статусов}
+  ignore_case       := FALSE;
+  reg_exp_stat      := TRUE;
+  column_move_style := 1;
+  main_window       := cur_window;    {номер текущего окна}
+  refresh           := FALSE;         {запрет изменения экрана}
+  push_undo;                          {открытие UNDO-записи}
+  return_str := global_str('gsv_path') + '\gsv_dict.dic';
+  run_macro('gsv_load');              {загрузка файла или его создание}
+  if (error_level <> 0) then
+    switch_window(main_window);
+    goto end_prog;
+  end;
+  dic_window  := cur_window;
+  window_attr := 1;                   {окно делается скрытым}
+  tof;
+  if (at_eof) then                    {файл словаря пустой}
+    text('***** словарь gsv_dict *****');
+  end;
+  switch_window(main_window);
+
+  if (caps(mparm_str) = 'ADD') then        {добавление в словарь}
+    help_index := 'ADD';
+    if (block_stat = 2) then               {добавление блока в словарь}
+      sword := '';
+      title := 'Добавление блока';
+      make_message(title);
+      call get_keyword_add;
+      window_copy(main_window);
+      block_off;
+      message := 'В словарь добавлена запись с ключом <' + keyword + '>';
+    elsif (block_stat = 0) then            {добавление слова в словарь}
+      mark_pos;                            {выделение текущего слова}
+      right;
+      word_left;
+      sword := get_word(word_delimits);
+      goto_mark;
+      if (sword = '') then
+        beep;
+        message := 'Нет слова для запоминания в словаре';
+        goto end_prog;
+      end; {if}
+      title := 'Добавление слова';
+      make_message(title + ' <' + sword + '>');
+      call get_keyword_add;
+      text(sword);
+      message := 'В словарь добавлена запись с ключом <' + keyword + '>';
+    else
+      beep;
+      message := 'В словарь можно добавлять только столбцовый блок';
+    end; {if}
+  else                             {получение из словаря}
+    help_index := 'GET';
+    if (c_col = 1) then            {маркер в первой позиции: запрос ключа}
+      call get_keyword_get;
+      call put_word_block;
+      goto end_prog;
+    end; {if}
+    left;                          {анализ предшествующего символа}
+    if (at_eol or at_eof) then     {маркер за концом строки или файла}
+      right;
+      call get_keyword_get;
+      call put_word_block;
+      goto end_prog;
+    end; {if}
+    if ((cur_char = ' ') or (cur_char = '|9')) then {пробел: запрос ключа}
+      right;
+      call get_keyword_get;
+      call put_word_block;
+      goto end_prog;
+    end; {if}
+    right;
+    mark_pos;                              {выделение ключа}
+    word_left;
+    str_block_begin;
+    keyword := get_word(word_delimits);
+    goto_mark;
+    block_end;
+    if (keyword = '') then                 {длина ключа равна 0}
+      beep;
+      message := 'Недопустимый ключ';
+    elsif (svl(keyword) > 5) then          {длина ключа больше 5}
+      beep;
+      message := 'Недопустимый ключ <' + keyword + '>';
+    else                                   {поиск ключа в словаре}
+      switch_window(dic_window);
+      tof;
+      if (search_fwd('%' + keyword + ' ', 0) = TRUE) then
+        switch_window(main_window);        {удаление ключа из текста}
+        delete_block;
+        switch_window(dic_window);
+        call put_word_block;
+      else
+        beep;
+        switch_window(main_window);
+        message := 'В словаре нет записи с ключом <' + keyword + '>';
+      end; {if}
+    end; {if}
+  end; {if}
+  goto end_prog;
+
+view_dict: { просмотр словаря }
+  def_int(flag_continue);
+  switch_window(dic_window);
+  window_attr := 2; { не отображать строку статуса }
+  size_window(40, 3, screen_width, screen_length - 1);
+  tof;
+  block_off;
+  refresh := TRUE;
+  redraw;
+  make_message('Просмотр словаря');
+  push_labels;
+  flabel('Экран',  4, 255);
+  flabel('Поиск',  5, 255);
+  flabel('Поиск',   6, 255);
+  flabel('Поиск*',  7, 255);
+  flabel('Удален',  8, 255);
+  flabel('Откат',  10, 255);
+  flag_continue := TRUE;
+  while (flag_continue) do
+    read_key;
+    mou_check_status;
+    if    (((key1 = 27) and (key2 =   1))  or    { Esc }
+           ((key1 =  0) and (key2 = 251))) then  { Right Mouse }
+      keyword := '';
+      flag_continue := FALSE;
+    elsif (((key1 = 13) and (key2 =  28))  or    { Enter }
+           ((key1 = 0)  and (key2 = 250)   and   { Left Mouse }
+            ( mou_last_x = wherex      )   and   { маркеры совпадают }
+            ( mou_last_y = wherey      ))) then
+      goto_col(1);
+      if (not(at_eof) and (cur_char <> ' ') and (cur_char <> '*')) then
+        keyword := get_word('|255 ');
+        flag_continue := FALSE;
+      end; {if}
+    elsif (key1 = 0) then                        { коды расширенных клавиш }
+      if    (key2 =  72) then up;
+      elsif (key2 =  80) then down;
+      elsif (key2 =  75) then left;
+      elsif (key2 =  77) then right;
+      elsif (key2 =  71) then goto_col(1);       { Home }
+      elsif (key2 =  79) then eol;               { End }
+      elsif (key2 = 119) then tof;               { CtrlHome }
+      elsif (key2 = 117) then eof;               { CtrlEnd }
+      elsif (key2 =  73) then page_up;
+      elsif (key2 =  81) then page_down;
+      elsif (key2 =  59) then run_macro('mehelp^mehelp /F=gsv_sup/LK=DICT_KEY/CX=1');
+      elsif (key2 =  62) then call resize;
+      elsif (key2 =  63) then run_macro('gsv_sup^gsv_search REPEAT');
+      elsif (key2 =  64) then run_macro('gsv_sup^gsv_search');
+      elsif (key2 =  65) then run_macro('gsv_sup^gsv_search WORD');
+      elsif (key2 =  66) then call delete_word_block;
+      elsif (key2 =  68) then undo;
+      elsif (key2 = 250) then run_macro('gsv_mouevent');
+      end; {if}
+    end; {if}
+  end; {while}
+  window_attr := 1;
+  refresh := FALSE;
+  pop_labels;
+  size_window(1, 3, screen_width, screen_length - 1);
+  block_off;
+  switch_window(main_window);
+  refresh := TRUE;
+  new_screen;
+  refresh := FALSE;
+  ret;
+
+resize: { переключение размеров окна }
+  if (win_x1 = 1) then size_window(40, 3, screen_width, screen_length - 1);
+  else                 size_window( 1, 3, screen_width, screen_length - 1);
+  end; {if}
+  new_screen;
+  ret;
+
+delete_word_block: { удаление слова или блока }
+  def_int(flag_del_word);
+  goto_col(1);
+  if (not(at_eof) and (cur_char <> ' ') and (cur_char <> '*')) then
+    push_undo;
+    del_line;
+    while (not(at_eof) and (cur_char = ' ')) do
+      del_line;
+    end; {while}
+    pop_undo;
+    make_message('Удалена запись из словаря');
+  else
+    make_message('При удалении маркер должен указывать на первую строку записи');
+  end; {if}
+  ret;
+
+get_keyword: { запрос ключа }
+  def_int(i);
+  def_char(c);
+  set_global_str('gsvdic_iparm_1', '/T=Ключ :/L=1/C=9/W=5/HISTORY=gsv_dict_hist');
+  run_macro('userin^data_in /#=1/PRE=gsvdic_/H=gsv_sup^DICT_' + help_index +
+            '/T= ' + title + ' /X=' + str(wherex) + '/Y=' + str(wherey));
+  if (return_int = 0) then
+    switch_window(main_window);
+    message := 'Операция со словарем прервана';
+    goto end_prog;
+  end; {if}
+  keyword := global_str('gsvdic_istr_1');
+  if (svl(keyword) <> 0) then
+    i := 1;
+    while (i <= svl(keyword)) do
+      c := str_char(keyword, i);
+      ++i;
+      if (not(((c >= '0') and (c <= '9')) or
+              ((c >= 'A') and (c <= 'Z')) or
+              ((c >= 'a') and (c <= 'z')) or
+              ((c >= 'А') and (c <= 'Я')) or
+              ((c >= 'а') and (c <= 'п')) or
+              ((c >= 'р') and (c <= 'я')) or
+              ( c >= '_'                )
+             )
+         ) then
+        beep;
+        make_message('Ключ может содержать только буквы, цифры и знак _');
+        goto get_keyword;
+      end; {if}
+    end; {while}
+  end; {if}
+  ret;
+
+get_keyword_add: { запрос ключа при добавлении }
+  call get_keyword;
+  if (keyword = '') then {переход к выбору ключа по словарю}
+    call view_dict;
+    if (sword = '') then make_message(title);
+    else                 make_message(title + ' <' + sword + '>');
+    end; {if}
+    goto get_keyword_add;
+  end; {if}
+  switch_window(dic_window);
+  tof;
+  if (search_fwd('%' + keyword + ' ', 0) = TRUE) then
+    beep;
+    make_message('Ключ <' + keyword + '> уже существует');
+    goto get_keyword_add;
+  end; {if}
+  eof; cr;
+  goto_col(1); text(keyword); goto_col(7);
+  ret;
+
+get_keyword_get: { запрос ключа при получении }
+  title := 'Получение из словаря';
+  call get_keyword;
+  if (keyword = '') then {переход к выбору ключа по словарю}
+    call view_dict;
+  end; {if}
+  if (keyword = '') then
+    message := 'Операция со словарем прервана';
+    goto end_prog;
+  end; {if}
+  switch_window(dic_window);
+  tof;
+  if (search_fwd('%' + keyword + ' ', 0) = FALSE) then
+    beep;
+    switch_window(main_window);
+    make_message('В словаре нет записи с ключом <' + keyword + '>');
+    goto get_keyword_get;
+  end; {if}
+  ret;
+
+mark_str: { отметка строки словаря }
+  goto_col(7);
+  str_block_begin;
+  eol;
+  block_end;
+  switch_window(main_window);
+  ret;
+
+copy_next: { копирование строки и переход к следующей }
+  goto_col(cur_col);
+  window_copy(dic_window);
+  switch_window(dic_window);
+  goto_col(1);
+  down;
+  ret;
+
+put_word_block: { копирование слова или блока из словаря в текст }
+  call mark_str;
+  cur_col := c_col;
+  call copy_next;
+  while (not(at_eof) and (cur_char = ' ')) do
+    call mark_str;
+    eol;
+    cr;
+    call copy_next;
+  end; {while}
+  block_off;
+  switch_window(main_window);
+  block_off;
+  goto_col(block_col2);
+  right;
+  message := 'Скопирована запись из словаря c ключом <' + keyword + '>';
+  ret;
+
+end_prog:  switch_window(main_window);
+           refresh := TRUE;
+           new_screen;
+           make_message(message);
+           pop_undo;                              {закрытие UNDO записи}
+           block_off;
+           insert_mode       := tmp_insert_mode ; {восстановление режимов}
+           ignore_case       := tmp_ignore_case ;
+           reg_exp_stat      := tmp_reg_exp_stat;
+           column_move_style := tmp_style;
+end_macro;

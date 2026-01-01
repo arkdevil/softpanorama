@@ -1,0 +1,824 @@
+From: mbelicka@wimsey.com (Miloslav Belicka)
+Newsgroups: comp.lang.clipper
+Subject: [News] Universal pick-up browsing-INTRO (1/3)
+Date: Tue, 14 Nov 95 06:46:15 GMT
+X-title: Настоящее и будущее Clipper (статья из трех частей)
+X-author: Miloslav Belicka
+X-file: clipper
+
+Hi,
+
+The enclosed << universal >> pick-up browsing (2/3) routine is intended
+to be:
+
+   1. a source of new ideas about architecture of Clipper applications and a
+      solution for getting rid of "Does not exist, repeat" messages making
+      users pick their papers to find the corect code(s) - my users have
+      appreciated what Br_check_1() has given them <very> much.
+      (beginning to intermediate level Clipper developers)
+
+   2. (a portion of) pay-off to <great> Clipper community at large for
+      everything (a lot) I have been able to pick/learn on the Net - there
+      is really a lot of amazingly good Clipper software out there.
+
+   3. a starting point for constructive discussion about what it takes to
+      implement / how my design approach could get along with the following
+      tools / 3rd-party libs
+
+149    1. Clipper 5.3 (hopefully 5.4/6.x when available)
+199    2. Artfull II Gold (in contact with Arthur Fuller - one of the original
+          authors, probably ordering this week, after test-driving it),
+249    3. FiveWin (ordering tomorrow) - they have done nice job with it and
+          I hope they will continue work on their version of IDE - alpha/beta
+          version looks very promissing and I count on it to be the bridge
+          (FiveDOS and FiveOS2 are considered, too) leading to CA-VO 2.x
+349    4. Watcom C/C++ v10.5 and its Visual Developer by Blue Sky Software
+          (for Windows resources) - installed already at my PC
+          ==> can Watcom's Wlink be used with FiveWin?
+ 99    5. ED for Windows - installed already at my PC
+600    6. Blinker, Six Driver, MrDebug, R&R when my present pretty short budget
+          allows me (hopefully in 2-3 months)
+ ?     7. Advantage Xbase Server - when the deployment time comes
+1000?  8. CA-VO 2.x (when available and <IF> it offers export/import to/from
+          .DBF's/.PRG's of the all 'binary objects', desirably in two-way)
+?/free 9. (in long-run) (and) FlagShip/Linux port
+======
+$3,500 <<< Once, except AXS, where needed >>> enjoying royalte-free distribution
+
+      (authors of tools/people who have applied/intend to take similar approach)
+
+    NOTE: the above is my bet determined partly and by my present budget - there
+          are so many of other <great> tools/libs in ZacCatalogs, "CA Product
+          directory of app's and solutions 94/95" for CA-Clipper and/or on a
+          number of great Web/FTP sites that I felt
+          like a kid when having to chose a few cookies out of huge and great
+          offer. In other words, the above is <not> intented to be "exaustive,"
+          "ultimate" and/or "definite" toolset list, whatsoever.
+
+   4. a starting point for <constructive> discussion with people who have taken
+      different approach leaving/are to leave Clipper (cost/benefit,
+      multi-platform, deployment cost, performance, easy of use/learn,
+      <language> quality - Clipper is <more> than 'Xbase' language etc. etc.).
+      More details on topic (my point of view) can be found in (3/3).
+
+   5. Personal exposure (I wouldn't mind contract work/any kind of cooperation)
+
+I am the author of a pretty complex/integrated Distribution/Accounting suite
+of nearly 100,000 lines of Clipper 5.x source code (8 modules, all DataDict
+based, said to be very nice/advaanced, 40+ customers  with 10,000+ employees
+in the country where I came from). Implementing what I intend to should
+produce better applications in approximately 50-60,000 lines of source code.
+
+It has been 16 months since my arrival at Canada/N.America and I intend to
+translate my applications into English. It is in a way total rewrite of
+the whole suite (messages, field and variable names plus incorporating
+some a bit more advanced Clipper techniques and making them GUI ones):
+
+  - being very optimistic - 12-18 months of work, working alone
+  - all my participation in great comp.lang.clipper up to now was a pure
+    over-time/voluntary work (I was working with PROGRESS for a while)
+  - the situation has obviously changed
+  - I do have more interest here now than just my wish to share my
+    experience gained during almost 9 years of work with Clipper.
+  - I intend to continue sharing my knowledge and am enclosing an excerpt
+    from my source code (2/3) to confirm that).
+
+
+Best regards. Miloslav.
+
+ -------------------------------------------------------------------------
+Miloslav Belicka,  Home: 1-604-431-6212, Fax: 431-6142, mbelicka@wimsey.com
+
+From: mbelicka@wimsey.com (Miloslav Belicka)
+Newsgroups: comp.lang.clipper
+Subject: [News] Universal pick-up browsing-SOURCE (2/3)
+Date: Tue, 14 Nov 95 06:47:47 GMT
+Organization: Systems Analyst
+
+/*-------------------------------------------------------------------------
+   PRG........  : Br_sampl - a sample of << universal >> pick_up browsing
+   AUTHOR.....  : Miloslav Belicka, 1-604-431-6212,
+                               Fax: 1-604-431-6142 (24 hours)
+                                    mbelicka@wimsey.com
+   DATE.......  : February, 1991; This presentation - November, 1995
+   USES.......  : some of my LIB functions
+   DATA FILES   : ANY, with foreign keys that need to be checked against
+                  primary ones AND/OR with a key value to be picked up as a
+                  reports (do while) parameter (from-to)
+   COMMENTS...  : (more than) welcome
+   PLANS......  : To merge Phill Barnet's routine/approach (PRB_HOTP.ZIP)
+                  with Br_check_1()'s, if Phill does not mind - (soon);
+                  To enable GUI for the above (when I learn enough about
+                  FiveWin - hopefully not so long);
+                  To make all this Public Domain (feel free to incorporate
+                  Br_check_1() as is now - with no warranty etc.)
+-------------------------------------------------------------------------*/
+
+
+#include "Inkey.ch"
+#include "Cursor.ch"
+         // TABLE:  ITEMS.DBF - place of the following definitions, and
+         // other MANIFEST CONSTANTS is in separate "#include" (".ch") file
+         // DBSTRUCT() family of functions is heavily utilized to generate
+         // .ch's - later modified by an editor. I consider renaming all
+         // the .DBF's/.NTX's and fields in my app's instead of present
+         // DBF[1-n].DBF, NTX[1-n].NTX and F[1-nnn] fields.
+#define    iF30_ITEM_CODE         1
+#define    iF31_ITEM_NAME         2
+#define    iF32_INV_UOM           3
+#define    iF33_TAX_CODE          4 // <=== used for M->Array[n]
+#define    iF34_SALE_PRICE_WS     5
+#define    iF35_PRIME_PRICE_WS    6
+
+#define    iF36_PURCH_TERMS_WS    7 // Codes - Relation to .DBF table of
+                                    // TERMS - combination of discounts,
+#define    iF37_PURCH_TERMS_RE    8 // projected profit margins and
+#define    iF38_SALES_TERMS       9 // direct expenses offered by DEFAULT
+                                    // - user may alter
+#define    iF39_ALLOWED_LOS      10
+#define    iF40_MAIN_SUPPL       11
+#define    iF41_PACKAGING        12 // # OF MEAS.UNITS
+#define    iF42_ITEM_TYPE        13 // GOODS, MATERIALS, PRODUCTS
+#define    iF43_PACKAGE_1        14 // BOTTLE, BAG, BOX, CAN ...
+#define    iF44_NORMATIVE_1      15
+#define    iF45_PACKAGE_2        16 // CONTAINER, CRATE, ....
+#define    iF46_NORMATIVE_2      17
+         // ...... shortened list ........
+
+         // TABLE:  TAX_CODE.DBF
+#define    iF45_TAX_CODE          1 // <=== used in (Fieldget(n))
+#define    iF46_SUB_CODE          2
+#define    iF47_DESC              3
+#define    iF48_VALID_FROM_DATE   4
+#define    iF49_GST               5
+#define    iF50_PST_BC            6
+         // ...... shortened list ........
+
+*---------------
+PROC Br_sampl
+*---------------
+
+// alter ARRAY's definition here
+LOCAL aTAX_COD_Fields := {'F45','F46','F47','F48'},;
+      aTAX_COD_Titles := {'TAX CODE','MARK','NAME','FROM DATE '},;
+      Breaked_job := .F.,  aITEMS := {}
+
+SELECT 3
+USE             ITEMS SHARED           // put your .DBF name here
+SET INDEX TO    ITEMS1, ITEMS2         // put your .NTX name(s) here
+SELECT 4
+USE             TAX_CODE SHARED        // put your .DBF name here
+SET INDEX TO    TAX_COD1               // put your .NTX name(s) here
+
+/*-------------------------------------------------------------------------
+I posted my Lan_open() the other day. It or equivalent should be used when
+on network    -----------------------------------------------------------*/
+
+DO WHILE !Breaked_job           // < 1 > - there usually are and other loops
+
+   // ....... processing
+   aITEMS := ITEMS->( scatter("EMPTY") )  // scatter() is enclosed
+
+   @ 10,1  say "SAMPLE BROWSING: "
+   @ 10,18 get aITEMS[iF33_TAX_CODE]  picture "XXXXX" valid Br_check_1(;
+      '4',                                /* 1 - Sel_area  */;
+      aITEMS[iF33_TAX_CODE],              /* 2 - Seek_var1 */;
+      '',                                 /* 3 - Seek_var2 */;
+      'Doesn't exist, pick up one ...',   /* 4 - Mess_F    */;
+      '',                                 /* 5 - Mess_T    */;
+      /* NOTE par_6 can be a PRIVATE var, too */
+      aITEMS,                             /* 6 - Mvar_or_arr_name */;
+      /* below (par_7) can be TAX_CODE->( Fieldpos(F45) ) */
+      iF45_TAX_CODE,                      /* 7 - iTable_field_pos */;
+      iF33_TAX_CODE,                      /* 8 - iArray_pos */;
+      ,,                                  /* 9 - No_char_if_substr */;
+      13, 3, 21, 78,                  /* 10-13 - t, l, b, r */;
+      aTAX_CODE_Fields,                  /* 14 - aDbedit_fields  */;
+      aTAX_CODE_Titles,                  /* 15 - aDbedit_titles  */;
+      .F.                                /* 16 - Ok_empty */;
+      )= .T.
+   // there is a more sophisticated implementation of Clipper Get/Read
+   // Object System in my LIB PRG
+   read;    if lastkey() == K_ESC ; exit ; endif
+   // ; ....... processing
+
+   ITEMS->( gather(aITEMS) )          // gather() is enclosed below
+ENDDO
+
+
+FUNCTION Br_check_1 (   Sel_area, Seek_var1, Seek_var2, Mess_F, Mess_T,;
+                        Mvar_or_arr_name, iTable_field_pos, iArray_pos,;
+                        No_char_if_substr, t, l, r, b,;
+                        aDbedit_fields, aDbedit_titles, Ok_empty )
+
+/*-------------------------------------------------------------------------
+
+Br_check_1() - parameters, description and comments:
+
+   <1> - Sel_area  - SELECT (Sel_area) if desired is not the CURRENT one
+   <2> - Seek_var1 - can be compound value (M->Var_1 + M->Var_2 + M->Var_n)
+   <3> - Seek_var2 - in some special cases it is needed in addition to above
+   <4> - Mess_F    - Message if SEEK fails
+   <5> - Mess_T    - Message if SEEK succeeds; Mess_T is usually empty
+   <6> - Mvar_or_arr_name - which is to be assigned a .DBF value by this ()
+   <7> - iTable_field_pos - in .DBF file.
+         A FIELDPOS() whose VALUE we wish to assign to a Mvar_or_arr_name
+   <8> - iArray_pos - if we are updating an M->array element, this NUM value
+                      tells us to which element of the array we should assign
+                      a value from FIELDPOS() .DBF FIELD. In a way, here
+                      CLIPPER is transformed to a SPREADSHEET
+   <9> - No_char_if_substr- In some only SUBSTR() of the FIELD is needed ..
+<10-13> - t, l, b, r  - DBEDIT() window corners (top, left, bottom, right)
+  <14> - aDbedit_fields - LOCAL array in calling Proc, here as a Dbedit() param
+  <15> - aDbedit_titles - LOCAL array in calling Proc, here as a Dbedit() param
+  <16> - Ok_empty  - in some special cases, we can allow empty variable.
+                     If some value is entered it must exist  in related DBF,
+                     when it is checked by this function
+
+-------------------------------------------------------------------------*/
+LOCAL Get_win, Save_sel
+
+IF Ok_empty
+   IF empty( iif( valtype( Mvar_or_arr_name ) == "A",;
+      Mvar_or_arr_name[ iArray_pos ], Seek_var1 ) ) )
+      RETURN .T.
+   ENDIF
+ENDIF
+
+IF !empty(Sel_area);  Save_sel := Select();   select (Sel_area);  ENDIF
+
+seek IF( empty( Seek_var2 ), Seek_var1, Seek_var1 + Seek_var2 )
+
+IF found()
+   IF !empty(Mess_T)
+      setcursor(SC_NONE)
+      Center_In_Row( Mess_T, MAXROW(), MAXCOL(), 2) - // enclosed
+      setcursor(SC_NORMAL)
+   ENDIF
+   IF !empty(Sel_area);   select (Save_sel);  ENDIF
+   RETURN.T.                    // O.K.; User can go to the next GET_Var
+ENDIF
+
+set SOFTSEEK on // SEEK failed- .NTX pointer to the nearest Seek_Var1/2 value
+seek IIF( empty( Seek_var2 ), Seek_var1, Seek_var1+Seek_var2 )
+set SOFTSEEK off
+
+IF eof()
+Center_In_Row( "Too high value, or no records in target", MAXROW(),MAXCOL(),2)
+   IF !empty(Sel_area);   select (Save_sel);  ENDIF
+   RETURN .F.
+ENDIF
+
+Center_In_Row(Mess_F, MAXROW(), MAXCOL(), 2)          // enclosed
+Get_win := savescreen( 3, 0, MAXROW(), MAXCOL())
+
+// My_box() enclosed below - char(n) used instead of typed character not to
+// trouble your e-mailer.
+My_box(t, l, r, b, .f.,' Please, pick up one of existing values ', 3, 'char(n)')
+
+// dbedit Clipper viewer / browser for .DBF tables; without defined keyboard
+// handler function, it handles internally only browsing keys (arrows, PgUp,
+// PgDn, etc.) and can be interrupted only by <Esc>-Cancel or <Enter>-Select
+// dbedit() will NOT work with FiveWin? - so that Tbrowse should be here
+
+dbedit(++t, ++l, --r, --b, aDbedit_fields, '', '', aDbedit_titles)
+
+IF lastkey() != K_ESC                     // It is K_ENTER then
+   IF valtype( Mvar_or_arr_name ) == "A"  // Array
+      Mvar_or_arr_name[ iArray_pos ] := fieldget( iTable_field_pos )
+   ELSE
+      // Funny thing - this function has worked for me for almost five years
+      // and I have just espied that "&" could be replaced by
+      // @Mvar_or_arr_name in calling proc - S'87 influence was obviously
+      // still pretty strong when writing this function....
+      &Mvar_or_arr_name              := fieldget( iTable_field_pos )
+   ENDIF
+ENDIF
+restscreen( 3, 0, MAXROW(), MAXCOL(), get_win)
+IF !empty(Sel_area);   select (Save_sel);  ENDIF
+
+RETURN .F.         // ==> TIP:   RECURSE  Br_check_1() with O.K. M->Var
+
+
+FUNCTION scatter ( Flag_empty )
+//Returns an ARRAY whose elements contain field values (empty, according to
+//the field type, or existing values; The later is handy when user wants to
+//have previously entered data repeated)
+
+LOCAL num_fields := fcount(), aFvals[fcount()], fnum, s
+
+FOR fnum = 1 TO num_fields
+
+   IF Flag_empty != NIL
+
+      DO CASE
+         CASE type( field(fnum) ) == "C"
+            aFvals[fnum] := space(len(fieldget(fnum)))
+         CASE type( field(fnum) ) == "N"
+            s := str(fieldget(fnum))                  // <== TIP
+            aFvals[fnum] := iif ( "." $ s, 0.00, 0 )
+         CASE type( field(fnum) ) == "D"
+            aFvals[fnum] := ctod('')
+         CASE type( field(fnum) ) == "L"
+            aFvals[fnum] := .f.
+      ENDCASE
+
+   ELSE
+      // handy for copying previous entry. My users have appreciated this.
+      aFvals[fnum] = fieldget(fnum)
+   ENDIF
+
+NEXT fnum
+RETURN aFvals
+
+
+FUNCTION gather ( Ar )
+//  Ar{} - ARRAY variable with prepared elements to update an ACTIVE record
+//  in a .DBF file  Ar[i] == .DBF->FIELDPOS[i]
+
+LOCAL num_fields := fcount(), fnum
+
+r_lock()         // pretty sophisticated record-lock handler (not enclosed)
+                 // The newest versions of Clipper allow for multi-record
+                 // per table locks. The feature should be utilizied when
+                 // doing complex updates. Indeed.
+FOR fnum = 1 TO num_fields
+   fieldput(fnum, Ar[fnum])
+NEXT
+RETURN NIL
+
+
+FUNCTION My_Box (nRow1, nCol1, nRow2, nCol2,;
+                 lBorder, cTitle, nTitle_row, cShadow_char )
+// lBorder = .T./double, .F./single, cTitle = Window title, cShadow = char(n)
+// Multi-purpose; for drawing Menu, Browse, Help, Memoedit etc. windows
+// NOTE: This technique of shadowing will NOT work with LLIBG or FiveWin...
+
+@  nRow1,  nCol1 CLEAR TO  nRow2 , nCol2
+@  nRow1,  nCol1 TO  nRow2,  nCol2  IF( lBorder, DOUBLE, "")
+IF len( cTitle)  > 1
+   @ nTitle_row, (  MAXCOL() / 4 ) say replicate(' ', ( MAXCOL() / 2 ) )
+   @ nTitle_row, ( (MAXCOL() / 2) - (len( cTitle ) / 2) ) say  cTitle
+ENDIF
+IF cShadow_char !=  NIL
+   @  nRow2 +1,  nCol1 +1,  nRow2 +1, nCol2 + 1  BOX  replicate(  shadow, 9)
+   @  nRow1 +1,  nCol2 +1,  nRow2 ,   nCol2 + 1  BOX  replicate(  shadow, 9)
+ENDIF
+RETURN NIL
+
+
+FUNCTION Center_In_Row ( cString, nRow, nWidth, nWait_period )
+// Center (<cString> in <nRow>, width  <nWidth>, and wait for <nWait_period>)
+// the same function is used for printed reports to center their titles
+
+IF pcount() < 4; nWait_period = 0; ENDIF
+IF pcount() = 1                                         // Only String
+   nWidth := MAXCOL(); nRow := MAXROW(); @ MAXROW(),0
+ELSEIF pcount() = 2;   nWidth := MAXCOL();    ENDIF
+
+IF len(cString) >= nWidth /* too long to be centered */; RETURN col(); ENDIF
+
+setcursor(SC_NONE)
+IF nRow = MAXROW(); @ nRow, 0 say space(MAXROW()); tone(300,1); tone(499,1)
+   @ nRow, (int(nWidth/2) - int(len(cString)/2)) say 'chr(n) '+cString+' chr(n)'
+ELSE
+   @ nRow, (int(nWidth/2) - int(len(cString)/2)) say cString
+   IF cString !=  ' ' ; tone(300,0.5) ;  ENDIF // handy for LONG reports
+ENDIF
+IF pcount() = 4
+   inkey(nWait_period)
+   @ nRow, (int(nWidth/2) - int(len(cString)/2)) say space(len(cString)+4)
+   IF nWait_period > 0; setcursor(SC_NORMAL);   ENDIF
+ENDIF
+RETURN NIL
+
+Best regards. Miloslav.
+
+ -------------------------------------------------------------------------
+Miloslav Belicka,  Home: 1-604-431-6212, Fax: 431-6142, mbelicka@wimsey.com
+
+From: mbelicka@wimsey.com (Miloslav Belicka)
+Newsgroups: comp.lang.clipper
+Subject: ...:Tools (3/3); (Q:Why Clipper? A: In)
+Date: Tue, 21 Nov 95 07:05:20 GMT
+Organization: Systems Analyst
+
+
+Hi,
+
+I posted the Universal pick-up browsing 1/3 and 2/3 the other day and this
+is the part "...:Tools (3/3). The delay was caused by my wish not to post
+a kind of "religious,"blindly advocating for Clipper" whatsoever material.
+
+I myself was <very> concerned with the question "is Clipper still the right
+way to go?" regardless of considering myself to be among Clipper lovers and
+having almost 9 (nine) years of so far <very> pleasant experience with it.
+
+I've spent about two months browsing, downloading, installing, evaluating,
+buying, researching, reading, thinking, re-thinking, programming <tons> of
+the newest Clipper related stuff in effort to find the answer to the above
+question and this is a summary of what I've found.
+
+A number of people have asked me the same question in this or that form
+through private e-mail messages and I have decided to prepare as complete
+as possible answer and post it to comp.lang.clipper in hope that this
+material will be really of use to people having the similar dilemma I had.
+Any comments on the hereinafter stated are very welcome.
+
+Everything in my career has been project / customer-driven and I am fond of
+approach "get the tool which can get the job done" and which is the best
+combination of:
+
+I -  Powerfulness, flexibility, cost-effectiveness
+
+     Clipper was simply the best DOS/CHUI/LAN (R)DBMS/language and has been
+     even significantly improved in v.5.3 and thanks to FiveWin / Clip4Win
+     it's gotten GUI, too. (Yes, I know that the competition
+     has not been sleeping - please read the whole article before replying -
+     I intend to compose multi-dimensional and as impartial as possible
+     answer to "why I have decided to go with Clipper and 3rd-party toolset
+     described in my '1/3' post the other day").
+
+     Past:
+     I was the architect and the main developer of Clipper app suite covering
+     virtually all aspects of Wholesale/Retail/Distribution business which
+     allowed for:
+
+     1. Reversible posting from any module to accounting (post, cancel,
+        repeat)
+     2. Raw transaction processing (transactions to temp tables and, on
+        user's request updates to real transaction and summary table(s)).
+     3. Afterward updates to real transaction tables with automatic
+        readjustment of summary tables.
+     4. Multi-level pricing, multi-currency processing, stock/pricing by
+        warehouse, item-category, vendor, customer, sales-rep
+     5. FIFO, LIFO, average pricing/inventory/accounting
+     6. So my customers were up-to-date entering the documentation that were
+        they ready to get up-to-date reports up to the (Trial) Balance Sheet
+        for <any> period of time and more than 500 hundred different reports
+        with virtually unlimited number of query-combinations (financials by
+        accounts, profit/cost centers or for the whole company, <REAL> sales
+        analysis, real-time stock - item<s> in warehouse and/or item by
+        warehouse<s>, real cost analysis etc., etc.
+     7. That app suite was written in Clipper. In other words I do know that
+        1-6 (and much more not mentioned) can be done in Clipper while I am
+        not sure at all if that can be done with some pretty tools for WIN
+        <<< only >>>.
+
+        More precisely, I am getting more convinced that it
+        is almost <impossible> with some other tools when it comes to
+        developing real, heavy-duty app's (see yesterdays's "Delphi, what
+        they don't tell you," for example; VB becomes nightmare when you
+        are at the key, core development stage; the same is valid for other
+        'RAD' tools, when reaching beyond the UI (I have worked with
+        PROGRESS UIB (User Interface Builder) for a while) etc., etc.
+
+     Present (and future)
+     1. MSC 8.0 (Visual C/C++ 1.0) - tremendous move, it seems to me - often
+        overlooked). Personally, I'd rather see, say, Watcom C/C++ 10.5
+        for easier porting to other platforms (Watcom C/C++ does virtually
+        everything, as for PC platforms, except Unix now). Anyway, that port
+        from MSC 5.1 to 8.0 ensures that CA has not been kidding with Clipper
+        and us Clipper lovers. I mean that port was not easy task, for sure.
+
+     2. New language elements (the best has gotten even better) - closer
+        cooperation CA - 3rd-party developers (Comix, mouse support, new
+        and enhanced GET and TBROWSE elements built straight in -
+        previously available only as 3rd-party lib's).
+
+     3. Native protected mode support (Exospace bundled, although Blinker
+        is <the> solution (and) for Clipper)
+
+     4. Graphic mode support (Light Lib built-in, although watered down
+        (just 640x480 mode support) and with poor documentation). I tried
+        LLDEMO.EXE - it looks cool but slow and slows down my mouse - if
+        anybody has different experience with the demo and/or LLIB full,
+        please post - the real capabilities of LLIB are in dark for me as
+        of now.
+
+        IMHO, DOS app's should remain CHUI and I count on FiveWin/DOS and
+        especially FiveOS2 (and Clipper <great> preprocessor) to be able to
+        maintain as painlessly as possible one set of sources for DOS/CHUI
+        and Win/OS2 GUI's. It neither is nor can be an easy task and anyone
+        should be aware of that fact in advance to prevent disappointments.
+
+        NOTE: I did intend to evaluate Clip4Win/DOS/OS2 and I would have
+              done that if the evaluation copies had been available.
+
+        Anyway, Clipper, that is FiveWin or Clip4Win, does do GUI now and
+        does not demand (so) "steep learning curve" as VO does.
+
+        CA is known of cooperating very well with developers of, BTW <great>,
+        3rd-party products/libs and there has been tendency of even improving
+        that cooperation by bundling 3rd-party products into the core Clipper
+        distribution. There has been, too, tendency of closer cooperation
+        among CA-Clipper 3rd-party developers themselves (most notably
+        Extended Systems (AXS) and SuccessWare (Six), but and many others -
+        wondering around the Clipper related sites on the Net, I have found
+        numerous "added support for libs X, Y, Z" sentences stated as to be
+        among the most important features for belonging in-house lib).
+
+        Nothing could make me happier (or less worried) proving that I have
+        made the right decision going with CA-Clipper.
+
+        GUI wish-list / message to CA - bundle FiveWin and merge their IDE
+        with Clipper's Workbench, price it higher and there will be <a lot>
+        of interested parties knocking at the resellers' doors.
+
+     5. The Windows Workbench - the only disappointment due to
+          - not working with OS/2 (10,000,000 copies sold as of 10/95 -
+            and growing - very popular among Clipperheads - CA, should
+            fix that ASAP since OS/2 has become really huge chunk of market
+          - 'Repository'/'Import'/'Export' too many of us have been working
+            with and liking Clipper for too long due to not being limited/
+            driven by anybody's "It will take care of all your needs
+            << internally >>" approach. I've found 'Export'/'Import' to
+            a << single >> .CEF file to be really disastrous approach for
+            product that has been known and liked for an absolute openness.
+
+          - Having the above solved / redesigned would mean that huge effort
+            invested in the Workbench will bring the well deserved and
+            appropriate appreciation from Clipper community and new developers.
+
+        Prototyping / Data Dictionary wish-list / message to CA - integrate
+        Artful Two Gold and make pricier CA-Clipper/FiveWin/Artful Two Gold
+        "Power suite" (the name is unimportant) and there will be <a lot>
+        of interested parties knocking at the resellers' doors.
+
+        NOTE on Artful lib - I downloaded its (old) .ng file from EH-help
+        BBS and was struck by similarity between their and my own approach
+        to Clipper app's development. It utilizes RDBMS paradigm heavily,
+        looks like great, at least, prototyping tool capable of cutting the
+        development time substantially. Moreover, it seems to me that it,
+        unlike my own routines / utilities in pretty scattered (raw) state,
+        integrates many of the most important parts of core development
+        quite well. I am in contact with Mr. Arthur Fuller, the original
+        co-developer, and do look forward to test-driving Artful Two Gold.
+        If there are people who have used it, please post a few sentences
+        about your experience with Artful lib.
+
+II - RAS (Reliability, Availability, Scalability)
+
+     One of the toughest concerns - scalability, which engagement with
+     Clipper << used to >> imply, has been made past concern by appearance
+     of AXS (Advantage Xbase Server) and Six driver.
+
+     I did have a customer with pure Clipper/Blinker app's on a 45 W.St.
+     NetWare LAN and everything worked O.K. due to designing updates first
+     to temp tables, open/close work areas per procedure's need, always open
+     /close ALL indexes per table/work area, use COMMIT; excellent
+     performances were achieved thanks to <segmenting> the LAN.
+
+     Anyone, who has worked successfully with Clipper for a long time, has
+     already found his/her own way to go around reliability issues,
+     particularly possibility of corrupted indexes on a heavily loaded
+     NetWare LAN.
+
+     AXS and Six in cooperation have made reliability a no-issue at all.
+     AXS/Six S/W product line brings the whole new dimension of RAS (and
+     powerfulness/flexibility) approaching the capabilities of 4GL/RDBMS
+     while still remaining very cost-effective (I would not mind seeing
+     a bit, literally a bit, lower prices of the AXS).
+
+     FlagShip is another, great, new dimension of Clipper - Unix. Anyone
+     interested in such a port can visit their FTP site and read a lot
+     of 'why and how' .txt files there. Throwing away "religious" parts,
+     you'll be able to see that FlagShip is still a great product.
+
+III- Multi-platform capability (portability) and GUI
+
+     Clipper for DOS       - Clipper alone has always been the best for DOS
+     Clipper for Windows   - FiveWin / Clip4Win, CA-VO
+     Clipper for OS/2      - FiveOS2 / Clip4OS2, CA-VO(?) <2.x>
+     Clipper for Unix      - FlagShip
+     C/S Clipper, ODBC     - AXS / Six line, CA-VO
+     Clipper RDBMS paradigm- Artful II Gold, AXS, 5.3 Workbench, CA-VO
+
+     All of the above using the <best> language out there - Clipper. I have
+     been working with a number of languages building really major projects
+     and this claim is not from a person who knows only Clipper. You can
+     find 3-4/GL's I've used near the end of this article.
+
+IV - Easiness-to-use / learn,
+
+     I-III is hardly ever accomplished with no-effort. <When> you hit the
+     wall of not being able to do something in so-called RAD tools <AT ALL>,
+     you get persuaded in no-time that it is easier to learn 'harder' tool/
+     language and start appreciating more and more something like Clipper.
+
+     I have been able to program in Clipper whatever I had intended to,
+     except damn :) GUI. Tools/libs mentioned herein have provided me/us
+     with that possibility and I really do not see any reason for dropping
+     Clipper now.
+
+     While on learning, I have decided to learn C/C++ beyond the occasional
+     use of MSC 5.1/6.0 to compile what C/C++ gurus have developed for
+     Clipper. If I have to learn something, as I and many others have, I'll
+     invest my time and efforts in learning C/C++ which is used on virtually
+     anything that is called computer rather than any tool/language that is
+     capable of only Windows. I own Watcom C/C++ 10.5.
+
+     When on Windows, I do use / develop for it, but consider it to be just
+     <one> GUI (not the best for that matter) and refuse to use any tool /
+     language not capable of porting to the other operating systems itself or
+     with 3rd-party multi-platform products providing that capability.
+
+     It was <huge> concern with Clipper, too, but good souls from CA and,
+     especially, Clipper 3rd-party development community have really calmed
+     down such concerns. It is not Nirvana yet, though :).
+
+V  - Market trends
+     Being (mis)led by a huge company, its dreams and 'visions' and a lot of
+     'zines which have started looking like being the said company's
+     subsidiaries, many people and, the worst part, many even large S/W
+     manufacturers have started / are to start
+
+     1.dreaming of <only> enterprise-wide, mission-critical etc. app's/tools
+       in the sense "nothing less than 100+ users WAN exists in the world"
+       and pricing their products accordingly ($$$$$$$) ("well it is <really>
+       serious product it <can> scale etc." - "but, I do not need <that> big
+       suite, I'd like to order 4,5-10 Users licence" - "the price is still
+       $$$$ for that number of users, but might you wish to upgrade ...." etc.
+
+       The reality:
+       - 80-100,000 companies in the N.America have 100+ employees.
+       - 90%+ of all other companies have less than 100 employees
+       - Here in Vancouver, Canada, 85% of businesses have less than 20
+         employees and are doing quite well (number of PC's could probably be
+         reached by dividing the number of employees by 2, 3 or more).
+
+       Those 'small' companies are driven to deal with either poor, developed
+       often with so-called 'RAD' tools, or $$$$$ software applications they
+       cannot afford. They demand, desire and can afford (and deserve,
+       BTW) good, reasonably priced software not capable only of running on
+       486 DX (Pentium recommended) with 8 MB RAM (16 recommended etc,).
+
+       It is amazing how such firm facts can get overlooked and I do not see
+       better development tool than Clipper / belonging add-ons to target
+       that, forgotten !?, market appropriately.
+
+       I mean, it is nice to gain a huge company as your customer, but that
+       market is relatively small and quite crowded (ORACLE, DB/2, PROGRESS
+       Sybase, Informix, mainframes, minis etc.). We can rely on AXS/Six
+       combination now, when/if 'BINGO', quite large customer appears or
+       our present small/middle-sized customer outgrows initial dimensions.
+
+     2.considering that the (near) future, or worse yet present, is <only>
+       GUI, <only> Windoze and <only> MS (TM).
+
+       The reality:
+       DOS    - will not disappear for quite a while
+       Win 3.1- thanks to MS (TM) for everything regarding Win 3.1x; 3.1x's
+                quality being among the least important things.
+       OS/2   - 10,000,000 sold copies as of October, 1995
+       NetWare- I do not know - but installed base is <huge> and v.4.1 has
+                overcome many shortcomings of versions up to 3.12, which
+                were quite O.K. anyway.
+       Unix   - still the main player in C/S arena and is to stay as such
+                for quite a long time. Being engaged with PROGRESS for a
+                while, I was amazed myself by a number of people preferring
+                CHUI Host/Terminal, even DOS/Unix C/S computing to <any> GUI
+                (X/Motif, Windoze, OS/2, whichever)
+       WinNT  - 1,000,000 sold copies as of October, 1995
+       Win95  - no data, but where are those promised "thousands & thousands"
+                of app's for it. Is it just too much dust/over-estimation of
+                its possible influence on <history> of PC industry or
+                something worse?
+
+       I mean, there is a lot to be thankful to MS (TM) for, and MS (TM) is
+       one of the most important players (Eureka! :)) and I do not think of
+       removing Win-OS/2 module or, God forbid, drop using/developing for
+       Windoze, but there are truly numerous and great other options, too.
+       Again, Clipper / 3rd-party toolset seem to fit the bill here very
+       nicely, unlike some <only> Windoze tools.
+
+VI - Employment opportunities
+
+     The more people discover the limitations of 'RAD' tools, the more likely
+     it is for tools like Clipper to gain the momentum again. Whichever
+     language you learn having in mind learning the programming will benefit
+     you when looking for a job. It is especially true for Windows
+     development and FiveWin does the good job in helping newcomers to deal
+     with it. Once you have learned <good> programming in general, it is
+     very easy to switch to whichever other language. For example, I found
+     a PROGRESS job 8 months ago and achieved quite good results while with
+     that company regardless of even never seeing PROGRESS before that, and
+     am starting with the new PROGRESS job on December 1, 1995.
+
+     When you learn Clipper, you can be quite confident that no 3GL/4GL/
+     (R)DBMS could cause you a trouble. CA-Clipper, 3rd-party tools,
+     Clipper community at large, a few but <great> books and resources on
+     the Net and CI$ (shareware and PD) are second to none to make learning
+     the language as easy (painless) as possible.
+
+VII- My background - just to illuminate better the fact that I have always
+     been taking pretty realistic approach in choosing the S/W development
+     and/or H/W platforms and that CA-Clipper is not the only language/tool
+     I know / have been working with.
+
+------------------------------------------------------------------------------
+PROJ.:      Led 5 large ones (trade, manufacturing, taxation); 60+ customers.
+(N)OS:      Unix, NetWare, OS/2, DOS/Win  (installed, supervised);  IBM CICS
+            Administrator; Unisys CTOS (used); Internet (full suite); C/S O.K.
+DBA  :      PROGRESS under Unix and NetWare.
+PROG.:      PROGRESS, and Unisys ADS 4GL/RDBMS, Clipper, C, PL/I, COBOL, CICS.
+------------------------------------------------------------------------------
+
+CUSTOMERS:  Large ind. complex (IBM mainframe PL/I, COBOL, CICS assembly);
+            Large Mfg factory  (SCO Unix/Xenix Cobol, FoxBase);
+            Government         (Unisys mainframe/W.St's, CTOS/BTOS, ADS);
+            Market             (NetWare/DOS, Clipper - was the most
+                                appropriate in the country where I came from)
+            Coming to Canada
+            Volunteer for myself (catching-up with the latest WAN-RDBMS-C/S
+                                researching/learning N.America market trends
+                                (<tons> of books, CD's, 'zines, test-drives)
+            Job for a S/W      (Unix, NetWare, WIN, PROGRESS V6/V7 CHUI/GUI),
+            Manufacturing       <seemed> to be <the> solution since it does
+            Company             everything as the suite below BUT at 15-
+                                20 (and more) times the price - you must pay
+                                really $$$$$$ licence fees whenever deploying
+                                your app's
+                                (about US $10,000.00 for 15-20 users network
+                                <before> any talks about the price of your
+                                S/W);
+                                Entry-level single-user development system
+                                for <a> platform US $4,400.00 (much overpriced);
+                                Much higher H/W requirements ($$$$$);
+                                You <must> buy deployment licencec for
+                                in-house use for <any> platform you intend
+                                to develop for ($$$$$$$);
+
+            Market             (NetWare, DOS, Windows, <OS/2>, <Unix>, Clipper
+                                5.3, <Watcom> C/C++, <Five>Win/DOS/<OS/2>,
+                                Flagship and other already mentioned tools.
+                                This would be the only area of my engagement
+                                (target), if I had a bit higher budget now.
+
+            Job for Mfg, CIO   (PROGRESS V6, Unix/CHUI, Host/Terminal, 2.5GB
+          (not S/W but clasic   database, Business Analysis, starting Dec. 1.)
+           Manufacturing and    This will certainly prolong the appearance
+           Wholesale Distrib.)  of my Clipper app's on the market since I "do
+                                not know" to compromise about my duties at job.
+                                For such a company as my future employer,
+                                PROGRESS is quite O.K for in-house use with
+                                3rd-party business application suite. They
+                                were able to afford ~CAN $350,000, but great
+                                majority of other companies cannot do that.
+
+I have decided to go with Clipper as my own development platform for reasons,
+I hope - clearly, described herein. The following is a repost of the part of
+my previous article with a few new details I've got to know since the post.
+
+[snip]
+ .....
+   3. a starting point for constructive discussion about what it takes to
+      implement / how my design approach could get along with the following
+      tools / 3rd-party libs
+
+149    1. Clipper 5.3 (hopefully 5.4/6.x when available)
+149    2. Artfull II Gold (in contact with Arthur Fuller - one of the original
+          authors, probably ordering this week, after test-driving it),
+249    3. FiveWin (ordered already) - they have done nice job with it and
+          I hope they will continue work on their version of IDE - alpha/beta
+          version looks very promising and I count on it to be the bridge
+          (FiveDOS and FiveOS2 are considered, too) leading to CA-VO 2.x
+349    4. Watcom C/C++ v10.5 and its Visual Developer by Blue Sky Software
+          (for Windows resources) - installed already on my PC
+          ==> can Watcom's Wlink be used with FiveWin? -
+          YES, it can as can Wlib (librarian), Wrc (Windows Resource Compiler)
+          and host of the other, multi-platform tools.
+
+ 99    5. ED for Windows - installed already on my PC
+500    6. Blinker, (Six Driver - comes with AXS SDK), MrDebug, R&R when my
+          present pretty short budget allows me (hopefully in 2-3 months)
+ 99    7. Advantage SDK - comes with Six driver (ordering tomorrow)
+ ?     8. Advantage Xbase (now Database) Server - when deployment time comes
+1000?  9. CA-VO 2.x (when available and <IF> it offers export/import to/from
+          .DBF's/.PRG's of the all 'binary objects', desirably in two-way)
+?/free 10. (in long-run) (and) FlagShip/Linux port
+======
+$3,500 << Once, except AXS, where needed >> enjoying royalty-free distribution
+
+-----------------------------------------------------------------------------
+NOTE: the above is my bet determined partly and by my present budget - there
+      are so many of other <great> tools/libs in ZacCatalogs, "CA Product
+      directory of app's and solutions 94/95" for CA-Clipper and/or on a
+      number of great Web/FTP sites that I felt
+      like a kid when having to chose a few cookies out of huge and great
+      offer. In other words, the above is <not> intended to be "exhaustive,"
+      "ultimate" and/or "definite" toolset list, whatsoever.
+-----------------------------------------------------------------------------
+
+Wow, this is going to be a 6-7 printed pages long article....
+I hope that you will find it useful and forgive me the length.
+
+Any comments are very welcome - even the opposite opinions from mine
+(#include "std_disclaimer.ch"), since it might be possible that I missed
+something important here.
+
+Best regards. Miloslav.
+
+ -------------------------------------------------------------------------
+Miloslav Belicka,  Home: 1-604-431-6212, Fax: 431-6142, mbelicka@wimsey.com
+

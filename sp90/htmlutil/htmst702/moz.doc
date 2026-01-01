@@ -1,0 +1,237 @@
+MOZ.DOC                             1                         Revised: 02-22-97
+
+The MOZ program processes your Netscape Web cache, renaming or copying files so
+their file names correspond to the original names they had on  the  originating
+site.  Features of this program:
+
+  * Renames or copies all of the files in the cache.
+  * Should work for the caches from version 2.0 of Netscape.
+  * Was originally written  to  handle  Mosaic  caches  version  2.0  or  above
+    although I don't use Mosaic anymore so I have no idea if  it  still  works.
+    Someone told me it didn't work with the Spry version.  Sorry!
+  * Renames each file (with  file  names  like  M0OSOSFD.GIF)  to  match  their
+    original names on the originating site as closely as possible (so this file
+    might end up being BATMAN.GIF).
+  * If there are files with duplicate source names, it renames according  to  a
+    sequential system (BATMAN01.GIF, BATMAN02.GIF, etc).
+  * Reads each of the files in the cache and determines  the  file  type.  File
+    types can be any of the following:
+      AU  (sound files)
+      BMP (graphic files)
+      DCR (Shockwave plug-in)
+      EXE (compiled programs)
+      GIF (graphic files)
+      HTM (HTML files)
+      JPG (graphic files)
+      MID (sound files)
+      PDF (Adobe Acrobat)
+      WAV (sound files)
+      ZIP (compressed files)
+    Renames the file extension according to the file type.
+  * Optionally renames what's left as *.WHO files.
+  * Files marked read-only, system, or hidden are ignored during renaming.
+  * When the /RENAME option is used, a fail-safe file called C:\MOZBACK.BAT is,
+    by default, created which contains all of the RENAME commands necessary  to
+    rename everything back the way it was.
+  * Can be used to create an HTML file linked to all of the GIF and  JPG  files
+    in the subdirectory.  In Netscape, you would then use File | Open  File  to
+    load this HTML page and then you would see all  of  the  graphics  in  your
+    cache full size and they would be identified on the screen.
+  * Following up on the latter point, you can use  this  feature  without  even
+    having a cache subdirectory of images.  Just collect some GIF or JPG images
+    in your default subdirectory and then issue the following command:
+       MOZ /SKIP /SLIDE /ALL
+    This will create an HTML document which you can File | Open  File  and  see
+    everything you have.
+  * Pressing escape stops the program early.
+
+Note:  You should not run this command while your Web browser is running as  it
+won't be able to open the necessary cache management  file.   The  /ALL  option
+will still work but none of the external links will be identified.
+
+
+
+MOZ.DOC                             2                         Revised: 02-22-97
+
+Specifying parameters:
+
+Parameters for this program can be set in the following ways.  The last setting
+encountered always wins:
+  - Read from an *.INI file (see BRUCEINI.DOC file),
+  - Through the use of an environmental variable (SET MOZ=whatever), or
+  - From the command line (see "Syntax" below)
+
+
+Syntax:
+
+    MOZ [ path | /Cpath ] { /COPY=path | /RENAME | /SKIP } [ /CREATE ] [ /ALL ]
+      [ /WHO ] [ /-MOZBACK | /MOZBACK | /MOZBACK=filename ]
+      [ /-SLIDE | /SLIDE | /SLIDE=filename ]
+      [ /OVERWRITE | /-OVERWRITE | /OVERASK ]
+      [ /MONO ] [ /DEBUG ] [ /Iinitfile | /-I ] [ /? ]
+
+where:
+
+"path" (or "/Cpath") is where the files are found.  If no path is provided, the
+program defaults to looking in the following locations in sequence:
+
+        default subdirectory
+        C:\NETSCAPE\CACHE
+        C:\MOSAIC\CACHE
+        D:\NETSCAPE\CACHE
+        D:\MOSAIC\CACHE
+
+The  first  subdirectory  that  exists  and  contains  any  files  meeting  the
+specification *.MO* or M0*.* will be the one processed by the command.
+
+"/COPY=path" specifies that the processed files are to be  copied  under  their
+new names to the specified output subdirectory, not  renamed  in  the  existing
+subdirectory.  If no subdirectory is specified (that is, just "/COPY" is passed
+in), you will be prompted for one.  If the subdirectory  does  not  exist,  you
+will be prompted for whether to create it or not based  on  the  value  of  the
+/CREATE parameter.
+
+"/RENAME" specifies that the files are to be renamed instead of  copied.   This
+works great unless you specify it by mistake.  Even  then,  the  /MOZBACK  file
+will allow you to backtrack although the MOZBACK file gets wiped out the second
+time through.
+
+"/SKIP" doesn't bother doing any renaming or  copying  with  the  files.   It's
+mainly used when you want the program to create an HTML page with the  relevant
+graphics.
+
+"/CREATE" automatically  creates  the  output  subdirectory  if  /COPY=path  is
+specified.  The default is "/-CREATE"; if the subdirectory is  not  there,  the
+program prompts whether it should be created or not.
+
+
+MOZ.DOC                             3                         Revised: 02-22-97
+
+"/ALL" renames all files in the  cache,  whether  they're  in  the  Web-created
+directory file (for example, FAT.DB) or not.  Note that  if  your  Web  browser
+GPF'ed or something nasty while you were running it, the  FAT.DB  file  may  be
+incomplete or even missing.  /ALL allows  the  orphan  files  to  be  processed
+somewhat.  Files matching either  *.MO*  (Mosaic's  default  filter)  or  M0*.*
+(Netscape's default filter) will be renamed sequentially starting  with  _000.*
+if /ALL is specified.  Initially, the default is "/-ALL".
+
+"/-ALL" skips processing files that aren't identified in the  cache  directory.
+This is initially the default.
+
+"/WHO" tells the program to rename (if /RENAME used) any unexpected file  types
+as *.WHO.  (The program auto-detects certain file types but not some unexpected
+ones  that  Netscape  might  toss  in  your  cache  subdirectory.)   Otherwise,
+unexpected file types are left with their original extension.  For example, you
+download  a  Netscape's  initialization  file  (NETSCAPE.INI).   If   /WHO   is
+applicable, the file is renamed NETSCAPE.WHO.  If /-WHO is applicable, the file
+is renamed NETSCAPE.INI.  Initially defaults to "/-WHO".
+
+"/-WHO" tells MOZ to not change the file extension  of  files  with  unexpected
+file types when it encounters on..  This is initially the default.
+
+"/-MOZBACK" skips creating a back-out file.  The back-out batch file, available
+only when /RENAME is in effect, consists of a series of  RENAME  commands  that
+reverses the changes that were just made.  The initial default is "/MOZBACK".
+
+"/MOZBACK" creates the back-out file as C:\MOZBACK.BAT and is the same thing as
+specifying /MOZBACK=C:\MOZBACK.BAT.  This file is only created  if  /RENAME  is
+used.  This is initially the default.
+
+"/MOZBACK=filename" creates the back-out  file  under  the  specified  filename
+instead of using the  default  filename  C:\MOZBACK.BAT.   This  file  is  only
+created if /RENAME is used.  If  the  filename  exists  already,  you  will  be
+prompted to  overwrite  it  or  not  depending  on  the  value  of  /OVERWRITE,
+/-OVERWRITE, and /OVERASK.
+
+"/-SLIDE" skips creating an HTML file that  loads  each  of  the  GIF  or  JPEG
+graphic files in the given cache directory.  This is initially the default.
+
+"/SLIDE" creates an HTML file named C:\MOZ.HTM which consists of  a  series  of
+<IMG SRC=filename> specifications for each of the GIF or JPEG graphic files  in
+the given cache directory.  When you view this file using File | Open  File  in
+Netscape (or a similar command in other browsers), all  of  the  graphic  files
+will be loaded onto your screen for you to  view.   "/SLIDE"  is  the  same  as
+entering "/SLIDE=C:\MOZ.HTM".  You can have the program do a slide show for all
+GIF/JPEG's in your subdirectory (whether they were part of the cache or not) by
+saying:
+        MOZ subdir /SLIDE /ALL /SKIP
+where "subdir" is where those files are saved.
+
+"/SLIDE=filename" creates the HTML file under the specified filename instead of
+using the default filename C:\MOZ.HTM.  If the  filename  exists  already,  you
+will be prompted to overwrite it or not depending on the value  of  /OVERWRITE,
+/-OVERWRITE, and /OVERASK.
+
+
+MOZ.DOC                             4                         Revised: 02-22-97
+
+"/OVERWRITE" says that if either of the output files exist  already  (depending
+on the value of /SLIDE and /MOZBACK), don't prompt before overwriting it.
+
+"/-OVERWRITE" says to abort if either of the output files exist already.
+
+"/OVERASK" says to prompt if either of the output files exist already.  This is
+initially the default.
+
+"/MONO" (or "/-COLOR") does not  try  to  override  screen  colors.   Initially
+defaults to "/COLOR".
+
+"/COLOR" (or  "/-MONO")  allows  screen  colors  to  be  overridden.   This  is
+initially the default.
+
+"/DEBUG" tells you what it would rename  everything  but  doesn't  actually  do
+anything.
+
+"/Iinitfile" says to read an initialization file with the file name "initfile".
+The file specification *must* contain a period.  Initfiles are described in the
+BRUCEINI.DOC file.  Initially defaults to "/IMOZ.INI".
+
+"/-I" (or "/INULL") says to skip loading the initialization file.
+
+
+Return codes:
+
+MOZ returns the following ERRORLEVEL codes:
+
+        0 = no problems, all files processed
+      251 = could not find a file to process
+      252 = encountered errors while copying/renaming
+      253 = operation aborted by pressing Escape
+      254 = output files existed already and overwriting not allowed
+      255 = syntax problems, or /? requested
+
+
+
+MOZ.DOC                             5                         Revised: 02-22-97
+
+Author:
+
+This program was written by Bruce Guthrie of Wayne Software.  It  is  free  for
+use and  redistribution  provided  relevant  documentation  is  kept  with  the
+program, no changes are made to the program or documentation,  and  it  is  not
+bundled with commercial programs or charged for separately.  People who need to
+bundle it in for-sale packages must  pay  a  $50  registration  fee  to  "Wayne
+Software" at the following address.
+
+Additional information about this and other  Wayne  Software  programs  can  be
+found in the file BRUCE.DOC which should be included in the original ZIP  file.
+The recent change history for this and the other programs is  provided  in  the
+HISTORY.ymm file which should be in the same ZIP file where "y" is replaced  by
+the last digit of the year and "mm" is the two  digit  month  of  the  release;
+HISTORY.611 came out in November 1996.  This same naming convention is used  in
+naming the ZIP file (HTMSTymm.ZIP) that this program was included in.
+
+Comments and suggestions can also be sent to:
+
+                Bruce Guthrie
+                Wayne Software
+                113 Sheffield St.
+                Silver Spring, MD 20910
+
+                fax: (301) 588-8986
+                e-mail: bguthrie@nmaa.org
+                http://www.geocities.com/SiliconValley/Lakes/2414
+
+Please provide an Internet e-mail address on all correspondence.
+
+

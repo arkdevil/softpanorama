@@ -1,0 +1,209 @@
+<!-- 
+    -------------------------------------------------------------------------
+                OUTLINE STYLE TABLE OF CONTENTS in JAVASCRIPT
+                                Version 2.0
+                    by Danny Goodman (dannyg@dannyg.com)
+                    Analyzed and described at length in
+                             "JavaScript Bible"
+                              by Danny Goodman
+                      (IDG Books ISBN 0-7645-3022-4)
+    
+    This program is Copyright 1996 by Danny Goodman.  You may adapt
+    this outliner for your Web pages, provided these opening credit
+    lines (down to the lower dividing line) are in your outliner HTML document.
+    You may not reprint or redistribute this code without permission from 
+    the author.
+    -------------------------------------------------------------------------
+     21 February 1997  Added intelligence so that clicking on a fully nested
+                       widget icon does not cause the outline to reload. 
+                       
+-->
+<HTML>
+<HEAD>
+<TITLE>Food Selection Outline</TITLE>
+<SCRIPT LANGUAGE="JavaScript1.1">
+<!-- begin hiding
+// ** BEGIN OUTLINE AUTHOR-ADUSTABLE SPECIFICATIONS **//
+
+// size of horizontal indent per level
+var indentPixels = 20
+
+// art files and sizes for three widget styles
+// (all three widgets must have same height/width)
+var collapsedWidget = "plus.gif"
+var expandedWidget = "minus.gif"
+var endpointWidget = "end.gif"
+var widgetWidth = 12
+var widgetHeight = 12
+
+// Target for documents loaded when user clicks on a link.
+// Specify your target frame name here.
+var displayTarget = "Frame2"
+
+// Create array object containing outline content and attributes.
+// To adapt outline for your use, modify this table.
+// Start the array with [1], and continue without gaps to your last item.
+// The order of the five parameters:
+//    1. Boolean (true or false) whether _next_ item is indented.
+//    2. String to display in outline entry (including <FONT> or style tags).
+//    3. URL of link for outline entry; Use empty string ("") for no link
+//    4. Integer of indentation level (0 is leftmost margin level)
+//    5. String for status line during onMouseOver (apostrophes require \\')
+var db = new Array()
+db[1] = new dbRecord(true,  "Peas",      "",0,"")
+db[2] = new dbRecord(false, "Boiled",    "foods.htm#boiled",1,"Mmm, boiled peas...")
+db[3] = new dbRecord(true,  "Canned",    "foods.htm#canned",1,"Check out canned peas...")
+db[4] = new dbRecord(false, "Alaska",    "foods.htm#alaska",2,"Alaska\\'s finest...")
+db[5] = new dbRecord(false, "Low-Sodium","foods.htm#losodium",2,"A healthy treat...")
+db[6] = new dbRecord(true,  "<FONT COLOR=red SIZE=+2>Pickles</FONT>",   "",0,"")
+db[7] = new dbRecord(true,  "Cucumber",  "foods.htm#cucumber",1,"What\\'s new in cukes...")
+db[8] = new dbRecord(false, "Dill",      "foods.htm#dill",2,"Pucker up...")
+db[9] = new dbRecord(false, "Fresh",     "foods.htm#fresh",2,"You\\'d prefer stale?")
+db[10] = new dbRecord(false,"Sour",      "foods.htm#sour",2,"For sweeties...")
+// add more records to complete your outline
+// ** END AUTHOR-ADJUSTABLE SPECIFICATIONS **//
+
+// object constructor for each outline entry
+function dbRecord(mother,display,URL,indent,statusMsg){
+	this.mother = mother   // is this item a parent?
+	this.display = display // text to display
+	this.URL = URL         // link tied to text; if empty string, item appears as straight text
+	this.indent = indent   // how many levels nested?
+	this.statusMsg = statusMsg  // descriptive text for status bar 
+	return this
+}
+
+// pre-load all images into cache
+var fillerImg = new Image(1,1)
+fillerImg.src = "filler.gif"
+var collapsedImg = new Image(widgetWidth,widgetHeight)
+collapsedImg.src = collapsedWidget
+var expandedImg = new Image(widgetWidth,widgetHeight)
+expandedImg.src = expandedWidget
+var endpointImg = new Image(widgetWidth,widgetHeight)
+endpointImg.src = endpointWidget
+
+// ** functions that get and set persistent cookie data **
+// set cookie data
+function setCurrState(setting) {
+	document.cookie = "currState=" + escape(setting)
+}
+
+// retrieve cookie data
+function getCurrState() {
+	var label = "currState="
+	var labelLen = label.length
+	var cLen = document.cookie.length
+	var i = 0
+	while (i < cLen) {
+		var j = i + labelLen
+		if (document.cookie.substring(i,j) == label) {
+			var cEnd = document.cookie.indexOf(";",j)
+			if (cEnd ==	-1) {
+				cEnd = document.cookie.length
+			}
+			return unescape(document.cookie.substring(j,cEnd))
+		}
+		i++
+	}
+	return ""
+}
+
+// **function that updates persistent storage of state**
+// toggles an outline mother entry, storing new value in the cookie
+function toggle(n) {
+	if (n != 0) {
+		var newString = ""
+		var currState = getCurrState() // of whole outline
+		var expanded = currState.charAt(n-1) // of clicked item
+		newString += currState.substring(0,n-1)
+		newString += expanded ^ 1 // Bitwise XOR clicked item
+		newString += currState.substring(n,currState.length)
+		setCurrState(newString) // write new state back to cookie
+	}
+}
+
+// **functions used in assembling updated outline**
+// returns the proper GIF file name for each entry's control
+function getGIF(n) {
+	var mom = db[n].mother  // is entry a parent?
+	var expanded = getCurrState().charAt(n-1) // of clicked item
+	if (!mom) {
+		return endpointWidget
+	} else {
+		if (expanded == 1) {
+			return expandedWidget
+		}
+	}
+	return collapsedWidget
+}
+
+// returns the proper status line text based on the icon style
+function getGIFStatus(n) {
+	var mom = db[n].mother  // is entry a parent
+	var expanded = getCurrState().charAt(n-1) // of rolled item
+	if (!mom) {
+		return "No further items"
+	} else {
+		if (expanded == 1) {
+			return "Click to collapse nested items"
+		}
+	}
+	return "Click to expand nested items"
+}
+
+// initialize 'current state' storage field
+if (getCurrState() == "" || getCurrState().length != (db.length-1)) {
+	initState = ""
+	for (i = 1; i < db.length; i++) {
+		initState += "0"
+	}
+	setCurrState(initState)
+}
+
+// end -->
+</SCRIPT>
+</HEAD>
+
+<BODY>
+<SCRIPT LANGUAGE="JavaScript1.1">
+<!-- start
+// build new outline based on the values of the cookie
+// and data points in the outline data array.
+// This fires each time the user clicks on a control,
+// because the HREF for each one reloads the current document.
+var newOutline = ""
+var prevIndentDisplayed = 0
+var showMyDaughter = 0
+document.write("<CENTER><H3>Composition of Selected Foods</H3><HR></CENTER>")
+// cycle through each entry in the outline array
+for (var i = 1; i < db.length; i++) {
+	var theGIF = getGIF(i)				// get the image
+	var theGIFStatus = getGIFStatus(i)  // get the status message
+	var currIndent = db[i].indent		// get the indent level
+	var expanded = getCurrState().charAt(i-1) // current state
+	// display entry only if it meets one of three criteria
+	if (currIndent == 0 || currIndent <= prevIndentDisplayed || (showMyDaughter == 1 && (currIndent - prevIndentDisplayed == 1))) {
+		newOutline += "<IMG SRC=\"filler.gif\" HEIGHT = 1 WIDTH =" + (indentPixels * currIndent) + ">"
+		newOutline += "<A HREF=\"javascript:history.go(0)\" onMouseOver=\"window.status=\'" + theGIFStatus + "\';return true;\" onClick=\"toggle(" + i + ");return " + (theGIF != endpointWidget) + "\">"
+		newOutline += "<IMG SRC=\"" + theGIF + "\" HEIGHT=" + widgetHeight + " WIDTH=" + widgetWidth + " BORDER=0></A>"		
+		if (db[i].URL == "" || db[i].URL == null) {
+			newOutline += " " + db[i].display + "<BR>"	// no link, just a listed item	
+		} else {
+			newOutline += " <A HREF=\"" + db[i].URL + "\" TARGET=\"" + displayTarget + "\" onMouseOver=\"window.status=\'" + db[i].statusMsg + "\';return true;\">" + db[i].display + "</A><BR>"
+		}
+		prevIndentDisplayed = currIndent
+		showMyDaughter = expanded
+		if (db.length > 25) {
+			document.write(newOutline)
+			newOutline = ""
+		}
+	}
+}
+document.write(newOutline)
+
+// end -->
+</SCRIPT> 
+</BODY>
+</HTML>
+

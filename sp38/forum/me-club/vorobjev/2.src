@@ -1,0 +1,86 @@
+{(C) 1991 by Ol}
+$MACRO 2;
+{Поиск в файле заголовков (например по начальным пробелам) и создание из них
+файла contence с последующей записью на диск (если он не существует).}
+Def_Int(n := 0);
+Def_Str(TSTR);
+Word_Delimits := '';
+TSTR := Global_Str('TSTR');
+Set_Global_Str('ISTR_1',TSTR);
+Set_Global_Str('IPARM_1','/T=Ввод ограничителя заголовка (1 слово): /C=1/L=1/W=10/H=DATABOX');
+RM('USERIN^Data_In /#=1/S=1/A=2/X=10/Y=4/T=ОГЛАВЛЕНИЕ');
+TSTR := Global_Str('ISTR_1');
+Set_Global_Str('TSTR',TSTR);
+Refresh := 0;
+Make_Message('Starting...');
+Tab_Expand := 0;
+	IF svl(TSTR) THEN
+	Create_Window;
+	Switch_Window(1);
+	END;
+Insert_Mode := TRUE;
+Indent_Style := 1;
+TOF;
+WHILE Search_Fwd(TSTR,0) = 1 DO {поиск по первому пробелу (ascii(0;32;255)) или иначе, по умолчанию - отказ}
+	IF ((Str_Char(TSTR,1) = ' ') or (Str_Char(TSTR,1) = '|255') or (Str_Char(TSTR,1) = '|0')) THEN
+IF C_COL = 1 THEN
+First_Word;
+	IF C_COL <> 1 THEN
+	Block_Begin; Block_End;
+	GOTO_COL(1);
+	DOWN;
+	Make_Message('Number of string(s) is ' + str(n));
+	n := n + 1;
+	Switch_Window(2);
+	Window_Copy(1);
+	{Goto_Col(1); Text(str(n) + '. ');} DOWN; {возможна нумерация строк}
+	Switch_Window(1);
+	Block_Off;
+	ELSE
+	GOTO_COL(1);
+	DOWN;
+	END;
+ELSE
+GOTO_COL(1);
+DOWN;
+END;
+	ELSIF svl(TSTR) THEN
+	Mark_Pos;
+	First_Word; Set_Indent_Level; Goto_Mark;
+		IF C_COL = Indent_Level THEN
+	Block_Begin; Block_End;
+	GOTO_COL(1);
+	DOWN;
+	Make_Message('Number of string(s) is ' + str(n));
+	n := n + 1;
+	Switch_Window(2);
+	Window_Copy(1);
+	{Goto_Col(1); Text(str(n) + '. ');} DOWN; {возможна нумерация строк}
+	Switch_Window(1);
+	Block_Off;
+		ELSE
+		GOTO_COL(1); DOWN;
+		END;
+	ELSE
+	GOTO_COL(1);
+	DOWN;
+	END;
+END;
+IF n THEN
+Switch_Window(2);
+File_Name := 'contence';
+	IF File_Exists(File_Name) THEN
+	Make_Message('Attention! File "contence" already exists.'); {файл contence существует (и => не сохраняется)}
+	Delay(1000);
+	ELSE
+	Make_Message('You MAY SAVE this file as "contence".');
+	Delay(1000);
+{	Save_File;}
+		IF Error_Level <> 0 THEN
+		RM('MEERROR');
+		END;
+	END;
+Block_Off;
+END;
+Make_Message('End! The contence includes ' + str(n) + ' string(s).');
+END_MACRO;

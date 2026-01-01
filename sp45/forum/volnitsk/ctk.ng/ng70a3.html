@@ -1,0 +1,205 @@
+<HTML>
+<HEAD><TITLE>Clipper ToolsKit Reference Guide - Long Entry</TITLE></HEAD>
+<BODY>
+
+<A HREF="ng5fea.html">[&lt;&lt;Previous Entry]</A>
+<A HREF="ng1bc.html">[^^Up^^]</A>
+<A HREF="ng86cb.html">[Next Entry&gt;&gt;]</A>
+<A HREF="menu.html" >[Menu]</A>
+<A HREF="info.html">[About The Guide]</A>
+<HR>
+<PRE>
+ Display menu
+ ─────────────────────────────────────────────────────────────────────────────────────
+
+ <B>Syntax</B>
+
+     Menu ([cTitle], [nColor], [aLocation], [aHandleList], aItemList, [nInitRow])
+          --&gt; nChoice
+
+ <B>Arguments</B>
+
+     &lt;cTitle&gt;
+          optional title of menu
+
+     &lt;nColor&gt;
+          optional Color Structure Index which specifies colors of all
+          Menu() elements. See also <U>Color System</U>.
+
+     &lt;aLocation&gt;
+          optional array defining menu location. See also <U>Setwindow()</U>.
+
+     &lt;aHandleList&gt;
+          optional list of structures (handles) consisting of inkey
+          code  and code block executed when this key is pressed (see below).
+          If missed and this is second or more recursive Menu() call then
+          preceding Menu() Handle List assumed as default.
+
+     &lt;aItemList&gt;
+          List of Item structures defining each item of menu.
+
+          <B>Item structure</B>
+          ────────────────────────────────────────────────────────────────
+          CTK.CH         Value     Comment
+          ────────────────────────────────────────────────────────────────
+          MI_NAME         1        Simbolic name displayed in menu
+          [MI_HANDLE]     2        Optional code block associated with
+                                   this menu item, by default
+                                   executed when ENTER is pressed
+                                   on cur item
+
+          [MI_SELECTABLE] 3        Optional selectability logical value
+
+          [MI_COD]        4        Optional value, can be freely used
+
+          MI_MAX          4         Menu item structure maximum dimension
+          ────────────────────────────────────────────────────────────────
+
+     &lt;nInitRow&gt;
+          When menu is activated selection bar located on nInitRow.
+          Default is 1.
+
+
+ <B>Returns</B>
+
+     Selected item no. Selection done by pressing Enter. If
+     ESC pressed then zero returned.
+
+ <B>Description</B>
+
+     Menu() is high level interface function for invoking menu system  which
+     display menu and control its behavior by interpreting Item List
+     and Handle List (if any).
+
+     It do following actions:
+
+     - Display framed box at coordinates defined by aLocation with
+       width equal to maximum length of menu item name and height
+       equal to dimension of Item List. If aLocation not defined then
+       default is {0,0} for first window and following shifted
+       relativly to last (see also <U>Setwindow()</U>).
+
+     - Process pressed key according with default and user defined handles.
+
+ <B>Handles</B>
+
+     You can associate any key with a code block in Handle structure for
+     menu run time.
+
+     <B>Handle structure</B>
+     ────────────────────────────────────────────────────────────────
+     CTK.CH         Value     Comment
+     ────────────────────────────────────────────────────────────────
+     MH_KEY         1         inkey code which activate code block
+     MH_BLOCK       2         code block.
+     ────────────────────────────────────────────────────────────────
+
+     When key defined in handle is pressed the code block from this
+     handle is evaluated with following parameters: current menu
+     Item List, current item position in this Item List and
+     title of menu. All parameter passed by name, so
+     you can change then during evaluation. Returned by handle block
+     value define menu successive actions.
+
+     <B>Menu handles exit codes</B>
+     ────────────────────────────────────────────────────────────────
+     CTK.CH            Value     Comment
+     ────────────────────────────────────────────────────────────────
+     -                  NIL       Continue normal menu execution
+     HE_CONTINUE         0        Continue normal menu execution
+     HE_EXIT             1        Terminate current menu
+     HE_DROW_SELECTED    2        Used if set of selected items changed,
+                                  to change slected item color
+     HE_DROW_ITEMS       3        Used if menu item names changed to
+                                  redrow menu
+     HE_DROW_ALL         4        Used if dimensions of aItem changed to
+                                  redrow menu with reallocation menu
+                                  window
+     ────────────────────────────────────────────────────────────────
+
+     There is set of predefined handles, so you don't need to define
+     the score of navigation and common menu actions handles.
+
+     <B>Predefined handles</B>
+     ──────────────────────────────────────────────────────────────────────
+     Key            Action
+     ──────────────────────────────────────────────────────────────────────
+     Return         Evaluate aItem[&lt;current item&gt;][MI_HANDLE] if it is not NIL
+     Esc            Abort selection, Menu() return 0
+     UpArrow        Go to previous item
+     DnArrow        Go to next item
+     Home           Go to first item in menu
+     End            Go to last item in menu
+     Ctrl-Home      Go to first item in window
+     Ctrl-End       Go to last item in window
+     PgUp           Go to previous page
+     PgDn           Go to next page
+     Ctrl-PgUp      Go to first item in menu
+     Ctrl-PgDn      Go to last item in menu
+     ──────────────────────────────────────────────────────────────────────
+
+     Handles for Return and Esc key you can redifine. See also <U>aChoice()</U>.
+     Include file CTK.CH have definition of macro which help you to create
+     select handle.
+
+ <B>Examples</B>
+
+     Say you need some menu (main menu of application) not terminated
+     by Esc key. Here it is:
+
+     PROC MAIN
+
+          Menu ("main menu",,{K_ESC, {|| HE_CONTINUE}}, {;
+            {"Accounts     ...", {||BrowseAccounts()}},;
+            {"Transactions ...", {||BrowseTransaction()}},;
+            {"Options        ", {||SetOptions()}},;
+            {"Exit to DOS     ", {||EOJ()}};
+          })
+
+     RETURN
+
+     You appreciate it concise table like form if you know how look old
+     stile, pregnant with errors in coding menus. You can nevertheless
+     use Menu() in this old stile if you like it. Our example then will
+     be like this:
+
+     PROC MAIN
+          local Choice
+
+          DO WHILE .T.
+
+               Choice := Menu ("main menu",,{K_ESC, {|| HE_CONTINUE}}, {;
+                    {"Accounts     ..."},;
+                    {"Transactions ..."},;
+                    {"Options        "},;
+                    {"Exit to DOS     "};
+               }
+
+               DO CASE
+                    CASE  Choice == 0
+                         // NOP
+                    CASE  Choice == 1
+                         BrowseAccounts()
+                    CASE  Choice == 2
+                         BrowseTransaction()
+                    CASE  Choice == 3
+                         SetOptions()
+                    CASE  Choice == 4
+                         EOJ()
+               ENDCASE
+
+          ENDDO
+
+     RETURN
+</PRE>
+<HR>
+<B>See Also:</B>
+<A HREF="ng86cb.html">Window System</A>
+<A HREF="ng36c5.html">Color System</A>
+<A HREF="ng43fa.html">InBox()</A>
+<A HREF="ng5fea.html">MsgBox()</A>
+<A HREF="ng4855.html">PromptBox()</A>
+<A HREF="ng70a3.html">Menu()</A>
+
+</BODY>
+</HTML>

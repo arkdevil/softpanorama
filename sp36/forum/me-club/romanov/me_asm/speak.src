@@ -1,0 +1,136 @@
+							 $MACRO_FILE Speak;
+
+{ Multi-Edit 5.00 interface to NOWSpeak 2.00 
+  							-- Text-to-Speech engine from ETLP Publishing. }
+{ Written by Alex Romanov, 1991 }
+
+$MACRO Read;
+	{ Input: Return_Str = string to be recited }
+
+	R_AX := $FBFB;
+	Intr ($2F);
+	If R_AX Then
+		Make_Message (' NOWPWM Text-To-Speech Engine not found in memory.');
+		GoTo exit;
+	End;
+	Def_Int (nowpwm_buffer_addr, i);
+	Return_Int := Memp (R_ES shl 16 + R_BX + 4);
+	nowpwm_buffer_addr := R_ES shl 16 + $01BC;
+	Memw (nowpwm_buffer_addr - 2, Length (Return_Str));
+	i := 0;
+	While i < Length (Return_Str) Do
+		Memb (nowpwm_buffer_addr + i, Ascii (Copy (Return_Str,i+1,1)));
+		++ i;
+	End;
+	R_AX := 7;
+	RM ('Augmenta^Call_Far');
+
+ exit:
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Read_Word TO <CtrlN>;
+	{ Will read word under cursor }
+
+	Refresh := FALSE;
+	Mark_Pos;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	Return_Str := Get_Word (Word_Delimits);
+	Goto_Mark;
+	Refresh := TRUE;
+	RM ('Speak^Read');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Read_Sentence TO <CtrlM>;
+	{ Will read sentence under cursor. Uses block marking. }
+
+	Refresh := FALSE;	{ Mark sentence }
+	Mark_Pos;
+	Make_Message (' Searching...');
+	If Block_Stat Then
+		Block_End;
+	End;
+	Reg_Exp_Stat := TRUE;
+	While Search_Fwd ('[.!@?]', 0) Do
+		{Forward_Till_Not ('.!?');
+		If (Cur_Char <> '''') and (Cur_Char <> '"') Then
+			Str_Block_Begin;
+			GoTo end_found;
+		End;}
+		Str_Block_Begin;
+		GoTo end_found;
+	End;
+	GoTo not_found;
+
+ end_found:
+	Word_Left;
+	While Search_Bwd ('{[.!@?]}||{%$}', 0) Do
+		Right;
+		If (Cur_Char <> '''') and (Cur_Char <> '"') Then
+			If Search_Fwd ('["''(0-9A-Z_-zА-пр-ё]', 0) Then
+				Block_End;
+				GoTo start_found;
+			Else
+				GoTo not_found;
+			End;
+		Else
+			Word_Left;
+			Word_Left;
+		End;
+	End;
+ not_found:
+	Make_Message (' Sentence not found.');
+	Goto_Mark;
+	Refresh := TRUE;
+	GoTo exit;
+
+ start_found:
+	Make_Message (' Sentence marked.');
+	Goto_Line (Block_Line1);
+	If Block_Line1 = Block_Line2 Then
+		Return_Str := Copy (Get_Line, Block_Col1, Block_Col2 - Block_Col1 + 1);
+		Return_Int := Length (Return_Str);
+	Else
+		Return_Str := Copy (Get_Line, Block_Col1, 2048);
+		Return_Int := Length (Return_Str);
+		If Copy (Return_Str, Return_Int, 1) = '-' Then
+			If XPos (Copy (Return_Str, Return_Int - 1, 1), Word_Delimits, 1) Then
+				Return_Str := Return_Str + ' ';
+			Else
+				Return_Str := Str_Del (Return_Str, Return_Int, 1);
+			End;
+		Else
+			Return_Str := Return_Str + ' ';
+		End;
+		Down;
+		While C_Line < Block_Line2 Do
+			First_Word;
+			Return_Str := Return_Str + Get_Word ('');
+			Return_Int := Length (Return_Str);
+			If Copy (Return_Str, Return_Int, 1) = '-' Then
+				If XPos (Copy (Return_Str, Return_Int - 1, 1), Word_Delimits, 1) Then
+					Return_Str := Return_Str + ' ';
+				Else
+					Return_Str := Str_Del (Return_Str, Return_Int, 1);
+				End;
+			Else
+				Return_Str := Return_Str + ' ';
+			End;
+			Down;
+		End;
+		First_Word;
+		Return_Str := Return_Str + Copy (Get_Line, C_Col, Block_Col2 - C_Col + 1);
+		Return_Int := Length (Return_Str);
+	End;
+	Goto_Mark;
+	Refresh := TRUE;
+	Redraw;
+	RM ('Speak^Read');
+ exit:
+
+END_MACRO;

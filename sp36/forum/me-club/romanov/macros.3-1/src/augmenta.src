@@ -1,0 +1,1564 @@
+						   $MACRO_FILE Augmenta;
+{                                                                             }
+{ ╔════════════════════════════════════════════════════════════════════════╗  }
+{ ║                Additional macros for Multi-Edit 5.00                   ║  }
+{ ╟────────────────────────────────────────────────────────────────────────╢  }
+{ ║                      (C) 1990,91 by Alex Romanov                       ║  }
+{ ║                    Moscow University Computer Center                   ║  }
+{ ║                 Sparrow Hills (Vorobyovy Gory), Moscow                 ║  }
+{ ║                            (095) 939-24-71                             ║  }
+{ ╙────────────────────────────────────────────────────────────────────────╜  }
+{																			  }
+{								 Version 3.1								  }
+{					  Wednesday, June 5, 1991, 16:55:47						  }
+{																			  }
+{ **************************************************************************  }
+{                 I. Macros Available from the EDIT Mode.                     }
+{ **************************************************************************  }
+{                                                                             }
+
+{                       A. Cursor movement macros.                          }
+{                       ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀                          }
+
+$MACRO Move_Up;                 { Scroll up and move cursor }
+
+	Refresh := FALSE;
+	Goto_Line (C_Line + 1);
+	Refresh := TRUE;
+	Redraw;
+	Up;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Move_Down;               { Scroll down and move cursor }
+
+	Refresh := FALSE;
+	Goto_Line (C_Line - 1);
+	Refresh := TRUE;
+	Redraw;
+	Down;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Drag_Line_Up;            { Place current line to top of window }
+	Def_Int (i);
+
+	Refresh := FALSE;
+	i := C_Line;
+	While C_Row > 1 Do
+		Up;
+	End;
+	Goto_Line (i);
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+
+{                       B. Block marking macros.                            }
+{                       ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀                            }
+
+$MACRO Markword;                { Mark word under cursor }
+
+	Refresh := FALSE;
+	If Marking Then
+		Block_Off;
+	End;
+	Mark_Pos;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	Str_Block_Begin;
+	Forward_Till (Word_Delimits);
+	Block_End;
+	Goto_Mark;
+	Refresh := TRUE;
+	Make_Message (' Word marked');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Markquo1;                { Mark text between single quotes }
+
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	If Search_Bwd ('''',0) Then
+		If Marking Then
+			Block_Off;
+		End;
+		Str_Block_Begin;
+		Right;
+		If Search_Fwd ('''',0) Then
+			Right;
+			Block_End;
+			Make_Message (' Text between single quotes marked');
+		Else
+			Block_Off;
+			Make_Message (' Matching quote NOT found.');
+		End;
+	Else
+		Make_Message (' Quotes NOT found.');
+	End;
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Markquo2;                { Mark text between double quotes }
+
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	If Search_Bwd ('"',0) Then
+		If Marking Then
+			Block_Off;
+		End;
+		Str_Block_Begin;
+		Right;
+		If Search_Fwd ('"',0) Then
+			Right;
+			Block_End;
+			Make_Message (' Text between double quotes marked');
+		Else
+			Block_Off;
+			Make_Message (' Matching quote NOT found.');
+		End;
+	Else
+		Make_Message (' Double quotes NOT found.');
+	End;
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Markquo3 TRANS;          { Mark text between inverted comma and single quote }
+	Def_Int (disparity);
+
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	Reg_Exp_Stat := TRUE;
+	disparity := 0;
+	If Search_Bwd ('`', 0) Then
+		If Marking Then
+			Block_Off;
+		End;
+		Str_Block_Begin;
+		Right;
+		While Search_Fwd ('[`'']', 0) Do
+			If Cur_Char = '`' Then
+				++ disparity;
+			Else
+				If Not (disparity) Then
+					Right;
+					Block_End;
+					Make_Message (' Text between quotes marked.');
+					GoTo exit;
+				Else
+					-- disparity;
+				End;
+			End;
+			Right;
+		End;
+		Block_Off;
+		Beep;
+		Make_Message (' Your quotes don''t match!');
+	Else
+		Make_Message (' Quotes not found.');
+	End;
+ exit:
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Mark_Entry;              { Mark entry in a table }
+	Def_Int (col);
+
+	If Marking Then
+		Block_Off;
+	End;
+	Reg_Exp_Stat := TRUE;
+	Refresh := FALSE;
+	Mark_Pos;
+	If Format_Stat Then
+		Tab_Left;
+		Col_Block_Begin;
+		col := XPos ('|16', Format_Line, C_Col + 1);
+		If col Then
+			Goto_Col (col - 1);
+		Else
+			Eol;
+		End;
+	Else
+		If Search_Bwd ('[│║]', 1) Then
+			Right;
+		Else
+			Goto_Col (1);
+		End;
+		Col_Block_Begin;
+		If Search_Fwd ('[│║]', 1) Then
+			Left;
+		Else
+			Eol;
+		End;
+	End;
+	Block_End;
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Markspac;                { Mark text between spaces }
+
+	If Marking Then
+		Block_Off;
+	End;
+	Refresh := FALSE;
+	Mark_Pos;
+	Reg_Exp_Stat := TRUE;
+	If Search_Bwd ('[|9|32]', 1) Then
+		Forward_Till_Not ('|9|32|255');
+	Else
+		Goto_Col (1);
+	End;
+	Str_Block_Begin;
+	Forward_Till ('|9|32|255');
+	Block_End;
+	Goto_Mark;
+	Refresh := TRUE;
+	Make_Message (' Text between spaces marked');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Mark_Left_Pare;          { Mark text between parentheses, brackets, braces, or angular brackets }
+	Def_Str (kind[60]);
+	Def_Char (open, close);
+	Def_Int (disparity);
+
+	kind := '/(=parentheses/[=brackets/{=braces/<=angular brackets';
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	Reg_Exp_Stat := TRUE;
+	disparity := 0;
+	If Search_Bwd ('[(<@[@{]', 0) Then
+		If Marking Then
+			Block_Off;
+		End;
+		Str_Block_Begin;
+		open := Cur_Char;
+		If open = '(' Then
+			close := ')';
+		Else
+			close := Char (Ascii (open) + 2);
+		End;
+		Right;
+		While Search_Fwd ('[@' + open + '@' + close + ']', 0) Do
+			If Cur_Char = open Then
+				++ disparity;
+			Else
+				If Not (disparity) Then
+					Right;
+					Block_End;
+					Make_Message (' Text between ' + Parse_Str ('/' + open + '=', kind) + ' marked');
+					GoTo exit;
+				Else
+					-- disparity;
+				End;
+			End;
+			Right;
+		End;
+		Block_Off;
+		Beep;
+		Make_Message (' Your ' + Parse_Str ('/' + open + '=', kind) + ' don''t match!');
+	Else
+		Make_Message (' Parentheses not found.');
+	End;
+ exit:
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Mark_Right_Pare;         { Mark text between parentheses, brackets, braces, or angular brackets }
+	Def_Str (kind[60]);
+	Def_Char (open, close);
+	Def_Int (disparity);
+
+	kind := '/(=parentheses/[=brackets/{=braces/<=angular brackets';
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	Reg_Exp_Stat := TRUE;
+	disparity := 0;
+	If Search_Fwd ('[)>@]@}]', 0) Then
+		If Marking Then
+			Block_Off;
+		End;
+		Str_Block_Begin;
+		close := Cur_Char;
+		If close = ')' Then
+			open := '(';
+		Else
+			open := Char (Ascii (close) - 2);
+		End;
+		Left;
+		While Search_Bwd ('[@' + open + '@' + close + ']', 0) Do
+			If Cur_Char = close Then
+				++ disparity;
+			Else
+				If Not (disparity) Then
+					Block_End;
+					Make_Message (' Text between ' + Parse_Str ('/' + open + '=', kind) + ' marked');
+					GoTo exit;
+				Else
+					-- disparity;
+				End;
+			End;
+			Left;
+		End;
+		Block_Off;
+		Beep;
+		Make_Message (' Your ' + Parse_Str ('/' + open + '=', kind) + ' don''t match!');
+	Else
+		Make_Message (' Parentheses not found.');
+	End;
+ exit:
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Mark_Func_Args;          { Mark function and its arguments }
+	Def_Int (disparity);
+
+	If Marking Then
+		Block_Off;
+	End;
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	Right;
+	Word_Left;
+	Str_Block_Begin;
+	If Search_Fwd ('(',0) Then
+		Right;
+		Reg_Exp_Stat := TRUE;
+		disparity := 0;
+		While Search_Fwd ('[()]',0) Do
+			If Cur_Char = '(' Then
+				++ disparity;
+			Else
+				If Not (disparity) Then
+					Right;
+					Block_End;
+					Make_Message (' Function with arguments marked');
+					GoTo exit;
+				Else
+					-- disparity;
+				End;
+			End;
+			Right;
+		End;
+		Block_Off;
+	End;
+	Make_Message (' Function arguments NOT found.');
+ exit:
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Markarray;               { Mark array and its index expressions }
+	Def_Int (disparity);
+
+	If Marking Then
+		Block_Off;
+	End;
+	Mark_Pos;
+	Make_Message (' Searching...');
+	Refresh := FALSE;
+	Reg_Exp_Stat := TRUE;
+	Right;
+	Word_Left;
+	Str_Block_Begin;
+	If Search_Fwd ('@[',0) Then
+		Right;
+		disparity := 0;
+ loop:
+		While Search_Fwd ('[@[@]]',0) Do
+			If Cur_Char = '[' Then
+				++ disparity;
+				Right;
+			Else
+				If disparity = 0 Then
+					Right;
+					If Cur_Char = '[' Then
+						disparity := - 1;
+						GoTo loop;
+					End;
+					Block_End;
+					Make_Message (' Array with indexes marked');
+					GoTo exit;
+				Else
+					-- disparity;
+					Right;
+				End;
+			End;
+		End;
+		Block_Off;
+	End;
+	Make_Message (' Array indexes NOT found.');
+ exit:
+	Goto_Mark;
+	Refresh := TRUE;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Mark_To_Eol;             { Mark text from cursor position to end of line }
+
+	If Marking Then
+		Block_Off;
+	End;
+	Mark_Pos;
+	Str_Block_Begin;
+	Eol;
+	Block_End;
+	Goto_Mark;
+	Make_Message (' Text to end of line marked');
+
+END_MACRO;
+
+{                       C. Text manipulation macros.                        }
+{                       ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀                        }
+
+$MACRO Capitalize;              { Convert oh_how_nice to Oh_How_Nice }
+	Def_Int (old_insert_mode, i);
+	Def_Str (curr_word);
+
+	Push_Undo;
+	Refresh := FALSE;
+	Mark_Pos;
+	old_insert_mode := Insert_Mode;
+	Insert_Mode := FALSE;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	While TRUE Do
+		If XPos (Cur_Char, Word_Delimits, 1) Then
+			GoTo exit;
+		End;
+		i := Ascii (Cur_Char);
+		If i < 128 Then
+			Text (Caps (Cur_Char));
+		Else
+			If (i >= 160) and (i <= 175) Then
+				Text (Char (i - 32));
+			Else
+				If (i >= 224) and (i <= 239) Then
+					Text (Char (i - 80));
+				Else
+					If i = 241 Then
+						Text (Char (240));
+					Else
+						Right;
+					End;
+				End;
+			End;
+		End;
+		Left;
+		Forward_Till (Word_Delimits + '_.');
+		If (Cur_Char <> '_') and (Cur_Char <> '.') Then
+			GoTo exit;
+		Else
+			Right;
+		End;
+	End;
+ exit:
+	GoTo_Mark;
+	Pop_Undo;
+	Insert_Mode := old_insert_mode;
+	Make_Message (' Word capitalized');
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Drag_Word_Left TRANS;    { Interchange current word with previous word }
+	Def_Int (old_insert_mode);
+	Def_Str (word_no_1, word_no_2);
+
+	old_insert_mode := Insert_Mode;
+	Insert_Mode := TRUE;
+	Refresh := FALSE;
+	Push_Undo;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Make_Message (' Word not found.');
+		GoTo exit;
+	End;
+	word_no_1 := Get_Word (Word_Delimits);
+	Word_Left;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Left;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Make_Message (' Previous word not found.');
+		GoTo exit;
+	End;
+	word_no_2 := Get_Word (Word_Delimits);
+	Word_Left;
+	Del_Chars (Svl (word_no_2));
+	Mark_Pos;
+	Text (word_no_1);
+	Word_Right;
+	If At_Eol Then
+		Word_Right;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	Del_Chars (Svl (word_no_1));
+	Text (word_no_2);
+	Goto_Mark;
+	Pop_Undo;
+	Make_Message (' Words interchanged');
+ exit:
+	Insert_Mode := old_insert_mode;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Drag_Word_Right TRANS;   { Interchange current word with next word }
+	Def_Int (old_insert_mode);
+	Def_Str (word_no_1, word_no_2);
+
+	old_insert_mode := Insert_Mode;
+	Insert_Mode := TRUE;
+	Refresh := FALSE;
+	Push_Undo;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Make_Message (' Word not found.');
+		GoTo exit;
+	End;
+	word_no_1 := Get_Word (Word_Delimits);
+	Word_Left;
+	Del_Chars (Svl (word_no_1));
+	Mark_Pos;
+	Word_Right;
+	If At_Eol Then
+		Word_Right;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Pop_Undo;
+		Pop_Mark;
+		Undo;
+		Make_Message (' Next word not found.');
+		GoTo exit;
+	End;
+	word_no_2 := Get_Word (Word_Delimits);
+	Word_Left;
+	Del_Chars (Svl (word_no_2));
+	Text (word_no_1);
+	Goto_Mark;
+	Text (word_no_2);
+	Word_Right;
+	If At_Eol Then
+		Word_Right;
+	End;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	Pop_Undo;
+	Make_Message (' Words interchanged');
+ exit:
+	Insert_Mode := old_insert_mode;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Tab_Control TRANS;       { Tab operations control panel }
+	Def_Int (operation, tabs_inserted, tab_spacing, first_nonspace, extra, i, num_tab_stop, prev_tab_stop);
+	Def_Str (curr_line[2048], head, new_setting, new_format_line);
+
+	Set_Global_Str ('Tab_Istr_1','/F=No/T=Yes');
+	Set_Global_Int ('Tab_Iint_1', Display_Tabs);
+	Set_Global_Str ('Tab_Iparm_1','/T=Display tabs            /TP=5/C=2/L=1/W=3/H=AUGMENTA.HLP^DISPLTABS');
+	Set_Global_Str ('Tab_Istr_2','/F=Spaces/T=Tabs');
+	Set_Global_Int ('Tab_Iint_2', Tab_Expand);
+	Set_Global_Str ('Tab_Iparm_2','/T=Tab expansion           /TP=5/C=2/L=2/W=6/H=AUGMENTA.HLP^TABEXP');
+	Set_Global_Int ('Tab_Iint_3', XPos ('|16', Format_Line, 1) - 1);
+	Set_Global_Str ('Tab_Iparm_3','/T=Tab spacing             /TP=1/C=2/L=3/W=2/H=AUGMENTA.HLP^TABSPAC');
+	Set_Global_Str ('Tab_Iparm_4','/T=Insert tabs in a table  /KC=<CtrlT>/K1=20/K2=20/TP=11/C=3/L=4/W=24/R=4/H=AUGMENTA.HLP^INS_IN_TABLE');
+	Set_Global_Str ('Tab_Iparm_5','/T=Compress leading spaces /KC=<CtrlL>/K1=12/K2=38/TP=11/C=3/L=5/W=25/R=5/H=AUGMENTA.HLP^COMPRESS');
+	Set_Global_Str ('Tab_Iparm_6','/T=Convert tabs to spaces  /KC=<CtrlS>/K1=19/K2=31/TP=11/C=3/L=6/W=24/R=6/H=AUGMENTA.HLP^TABS_TO_SPACES');
+	RM ('Userin^Data_In /#=6/HT=9/PRE=Tab_/S=1/A=1/X=22/Y=6/T=TAB OPERATIONS/H=AUGMENTA.HLP^TAB_OPERATIONS');
+	operation := Return_Int;
+	Refresh := FALSE;
+	Working;
+	Display_Tabs := Global_Int ('Tab_Iint_1');
+	Tab_Expand := Global_Int ('Tab_Iint_2');
+	If operation = 4 Then
+		Refresh := TRUE;
+		Redraw;
+		Call insert_in_table;
+		GoTo exit;
+	End;
+	If Global_Int ('Tab_Iint_3') < 1 Then
+		Set_Global_Int ('Tab_Iint_3', 1);
+	End;
+	If Format_Stat Then
+		RM ('Userin^Verify /C=22/L=6/T= Modify the format line?/H=AUGMENTA.HLP^MODFMTLIN');
+		If Not (Return_Int) Then
+			GoTo skip_modifying;
+		End;
+	End;
+	If (Global_Int ('Tab_Iint_3') = (Pos ('|16', Format_Line) - 1)) Then
+		GoTo skip_modifying;
+	End;
+	i := 1;
+	new_setting := '';
+	While i < Global_Int ('Tab_Iint_3') Do
+		++ i;
+		new_setting := new_setting + ' ';
+	End;
+	new_setting := new_setting + '|16';
+	num_tab_stop := 2000 / (1 + Global_Int ('Tab_Iint_3'));
+	i := 0;
+	new_format_line := '';
+	While i < num_tab_stop Do
+		++ i;
+		new_format_line := new_format_line + new_setting;
+	End;
+	new_format_line := Str_Ins ('R', new_format_line, Right_Margin - 1);
+	Format_Line := ' ' + new_format_line;
+ skip_modifying:
+	Refresh := TRUE;
+	Redraw;
+	If operation > 4 Then
+		Mark_Pos;
+		Undo_Stat := FALSE;
+		Refresh := FALSE;
+		Working;
+		Tof;
+	End;
+	If operation = 5 Then
+		Call compress_spaces;
+	Else
+		If operation = 6 Then
+			Call convert_to_spaces;
+		End;
+	End;
+	Undo_Stat := TRUE;
+	GoTo exit;
+
+ compress_spaces:
+	tab_spacing := Global_Int ('Tab_Iint_3');
+	Make_Message (' Compressing leading spaces... Processing line');
+	While Not (At_Eof) Do
+		Write (Str (C_Line), 48, Message_Row, 0, Message_Color);
+		Goto_Col (1);
+		Forward_Till_Not ('|9|32|255');
+		first_nonspace := C_Col;
+		curr_line := Get_Word ('');
+		head := '';
+		tabs_inserted := 1;
+		While (tabs_inserted * tab_spacing < first_nonspace) Do
+			head := '|9' + head;
+			++ tabs_inserted;
+		End;
+		extra := (first_nonspace - 1) mod tab_spacing;
+		While extra Do
+			head := head + '|32';
+			-- extra;
+		End;
+		Put_Line (head + curr_line);
+		Down;
+	End;
+	Goto_Mark;
+	Make_Message (' Leading spaces compressed.');
+	Ret;
+
+ convert_to_spaces:
+	Make_Message (' Converting tabs to spaces...  Processing line');
+	While Not (At_Eof) Do
+		Write (Str (C_Line), 48, Message_Row, 0, Message_Color);
+		curr_line := Get_Line;
+		Tabs_To_Spaces (curr_line);
+		Put_Line (curr_line);
+		Down;
+	End;
+	Goto_Mark;
+	Make_Message (' Tabs converted to spaces.');
+	Ret;
+
+ insert_in_table:
+	If Not (Format_Stat) Then
+		Make_Message ('Adjust your format line to your table columns and choose Save format-line... Yes');
+		GoTo exit;
+	End;
+	Mark_Pos;
+	Undo_Stat := FALSE;
+	Refresh := FALSE;
+	Working;
+	Tof;
+	Make_Message (' Inserting tabs in table...  Processing line');
+	While Not (At_Eof) Do
+		Write (Str (C_Line), 46, Message_Row, 0, Message_Color);
+		prev_tab_stop := 2;
+		num_tab_stop := XPos ('|16', Format_Line, 1);
+		Goto_Col (num_tab_stop - 1);
+		While Not (At_Eol) Do
+			If XPos (Cur_Char, '|9|32|255', 1) Then
+				While (C_Col >= prev_tab_stop) and (Pos (Cur_Char, '|9|32|255') > 0) Do
+					Left;
+				End;
+				If ((C_Col > 1) or Not (Pos (Cur_Char, '|9|32|255'))) Then
+					Right;
+				End;
+				Del_Chars (num_tab_stop - C_Col);
+				Text ('|9');
+			End;
+			prev_tab_stop := num_tab_stop;
+			num_tab_stop := XPos ('|16', Format_Line, prev_tab_stop + 1);
+			If num_tab_stop <= prev_tab_stop Then
+				GoTo next_line;
+			End;
+			Goto_Col (num_tab_stop - 1);
+		End;
+ next_line:
+		Down;
+		Goto_Col (1);
+	End;
+	Goto_Mark;
+	Undo_Stat := TRUE;
+	Make_Message (' Tabs inserted in the table.');
+	Ret;
+
+ exit:
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Word_Chg_Case;           { Change case of word under cursor }
+ {  Input parameter: /U -- uppercase word }
+	Def_Str (curr_word, new_word);
+	Def_Int (old_insert_mode, its_length, i);
+
+	Push_Undo;
+	Refresh := FALSE;
+	Mark_Pos;
+	old_insert_mode := Insert_Mode;
+	Insert_Mode := FALSE;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	curr_word := Get_Word (Word_Delimits);
+	its_length := Svl (curr_word);
+	new_word := '';
+	Word_Left;
+	If XPos ('/U', Mparm_Str, 1) Then
+		While its_length Do
+			i := Ascii (Str_Char (curr_word, its_length));
+			If (i >= 97) and (i <= 122) Then
+				new_word := Char (i - 32) + new_word;
+			Else
+				If (i >= 160) and (i <= 175) Then
+					new_word := Char (i - 32) + new_word;
+				Else
+					If (i >= 224) and (i <= 239) Then
+						new_word := Char (i - 80) + new_word;
+					Else
+						new_word := Char (i) + new_word;
+					End;
+				End;
+			End;
+			-- its_length;
+		End;
+	Else
+		While its_length Do
+			i := Ascii (Str_Char (curr_word, its_length));
+			If (i >= 65) and (i <= 90) Then
+				new_word := Char (i + 32) + new_word;
+			Else
+				If (i >= 128) and (i <= 143) Then
+					new_word := Char (i + 32) + new_word;
+				Else
+					If (i >= 144) and (i <= 159) Then
+						new_word := Char (i + 80) + new_word;
+					Else
+						new_word := Char (i) + new_word;
+					End;
+				End;
+			End;
+			-- its_length;
+		End;
+	End;
+	Text (new_word);
+	Goto_Mark;
+	Pop_Undo;
+	Insert_Mode := old_insert_mode;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Accents;                 { Place accents over letters }
+	Def_Int (scancode_pos, target_char_pos, old_insert_mode);
+	Def_Str (target_chars, accents, target_scancodes[26]);
+
+	target_scancodes := '|40|7|39|41|77|72|76|75|51|53|2|12';
+	accents := 'éáúíóyçñÉAUOÇÑ¡¿ßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤÷≈êâûîôyçñEAUOÇÑ¡¿ßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤÷≈ëäüïöÿçñEÄÜÖÇÑ¡¿ßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤÷≈èàùìòyçñEAUOÇÑ¡¿ßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤÷≈';
+	target_chars := 'eauioycnEAUOCN!?bGpSsmgftWd80()=+><-_' + accents;
+	old_insert_mode := Insert_Mode;
+	Push_Labels;
+	Push_Undo;
+	Read_Key;
+	scancode_pos := XPos (Char (Key2), target_scancodes, 1);
+	If Not (scancode_pos) Then
+		GoTo exit;
+	End;
+	If scancode_pos > 4 Then
+		scancode_pos := scancode_pos - 4;
+		If scancode_pos > 4 Then
+			scancode_pos := 4;
+		End;
+	End;
+	-- scancode_pos;
+	target_char_pos := XPos (Cur_Char, target_chars, 1);
+	If Not (target_char_pos) Then
+		Left;
+		target_char_pos := XPos (Cur_Char, target_chars, 1);
+	End;
+	If target_char_pos Then
+		target_char_pos := target_char_pos mod 37;
+		If target_char_pos = 0 Then
+			target_char_pos := 37;
+		End;
+		Insert_Mode := TRUE;
+		Del_Char;
+		Text (Str_Char (accents, 37 * scancode_pos + target_char_pos));
+	Else
+		Right;
+	End;
+ exit:
+	Insert_Mode := old_insert_mode;
+	Pop_Undo;
+	Pop_Labels;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Spaceout TRANS;          { Space out word under cursor }
+	Def_Int (old_insert_mode, startword);
+
+	Push_Undo;
+	Refresh := FALSE;
+	Mark_Pos;
+	old_insert_mode := Insert_Mode;
+	Insert_Mode := TRUE;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	startword := C_Col;
+	If startword = 1 Then
+		Text (' ');
+		startword := 2;
+	End;
+	Forward_Till (Word_Delimits);
+	While C_Col >= startword  Do
+		Text (' ');
+		Left;
+		Left;
+	End;
+	Goto_Mark;
+	Pop_Undo;
+	Insert_Mode := old_insert_mode;
+	Make_Message (' Word spaced out');
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{               D. Special invokes of Multi-Edit's system macros.           }
+{               ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀           }
+$MACRO Special_Calc;            { Scan number from screen and invoke CALC }
+ {  The number is scanned either in hex or in decimal.                      }
+ {  To be scanned as hex, the number must start with "$", or end in "H"     }
+	Def_Str (number, params);
+	Def_Int (numbervalue, asciivalue, i, hex);
+
+	Refresh := FALSE;
+	Mark_Pos;
+	Right;
+	Word_Left;
+	params := '0123456789abcdefABCDEF';
+	While (C_Col > 1 ) and (Pos (Cur_Char, params) > 0) Do
+		Left;
+	End;
+	hex := (Cur_Char = '$');
+	Forward_Till (params);
+	Mark_Pos;
+	Forward_Till_Not (params);
+	hex := hex or (Caps (Cur_Char) = 'H');
+	Goto_Mark;
+	If hex Then
+		number := Get_Word_In (params);
+		Call hex_to_dec;
+	Else
+		number := Get_Word_In ('0123456789');
+	End;
+	Goto_Mark;
+	Refresh := TRUE;
+	params := Global_Str ('Calc_Params');
+	If XPos ('/ACC=',params, 1) Then
+		params := Str_Del (params, XPos ('/ACC=',params, 1)+ 5, XPos ('/ENT=',params, 1) - XPos ('/ACC=',params, 1) - 5);
+		params := Str_Ins (number, params, XPos ('/ACC=',params, 1) + 5);
+		params := Str_Del (params, XPos ('/ENT=',params, 1) + 5, 25);
+		params := Str_Ins (number, params, XPos ('/ENT=',params, 1) + 5);
+		params := Str_Del (params, XPos ('/BASE=',params, 1) + 6, XPos ('/', params, XPos ('/BASE=',params, 1) + 1 ) - XPos ('/BASE=',params, 1));
+		If hex Then
+			params := Str_Ins ('16', params, XPos ('/BASE=',params, 1) + 6);
+		Else
+			params := Str_Ins ('10', params, XPos ('/BASE=',params, 1) + 6);
+		End;
+	Else
+		params := Str_Del (params, XPos ('/BASE=',params, 1) + 6, 2);
+		If hex Then
+			params := Str_Ins ('16', params, XPos ('/BASE=',params, 1) + 6);
+		Else
+			params := Str_Ins ('10', params, XPos ('/BASE=',params, 1) + 6);
+		End;
+		params := params + '/ACC=' + number + '/ENT=' + number;
+	End;
+	Set_Global_Str('Calc_Params', params);
+	RM ('Calc');
+	GoTo exit;
+
+ hex_to_dec:
+	i := Svl (number);
+	number := Caps (number);
+	numbervalue := 0;
+	While i Do
+		asciivalue := Ascii (Str_Char (number, i));
+		If asciivalue >= 65 Then                   { Letter: A-F }
+			numbervalue := (asciivalue - 55) * (1 shl (4 * (Svl (number) - i))) + numbervalue;
+		Else
+			numbervalue := (asciivalue - 48) * (1 shl (4 * (Svl (number) - i))) + numbervalue;
+		End;
+		-- i;
+	End;
+	number := Str (numbervalue);
+	Ret;
+ exit:
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Special_Cr;              { Perform CR but stay in the middle }
+	{   Input parameter:    /R= stay-on row }
+	Def_Int (stay_on_row, i);
+
+	Var_Parse_Int ('/R=', Mparm_Str, stay_on_row);
+	i := Max_Window_Row - Min_Window_Row;
+	If Not (stay_on_row) or (stay_on_row > i) Then
+		stay_on_row := (i - 2) / 2;
+	End;
+	Refresh := FALSE;
+	If C_Row > stay_on_row Then
+		i :=  C_Line;
+		While C_Row > stay_on_row Do
+			Up;
+		End;
+		Goto_Line (i);
+	End;
+	RM ('Mesys^Cr');
+	Left_Offset := 0;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO S_and_Repl_Word;         { Invoke Search-and-Replace with word under cursor as argument }
+
+	Mark_Pos;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	Set_Global_Str ('Search_Str', Get_Word (Word_Delimits));
+	Set_Global_Str ('Replace_Str', Global_Str ('Search_Str'));
+	Goto_Mark;
+	RM ('Meutil2^S_Repl');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Searchword;              { Invoke Search with word under cursor as argument }
+
+	Mark_Pos;
+	Right;
+	Word_Left;
+	If XPos (Cur_Char, Word_Delimits, 1) Then
+		Word_Right;
+	End;
+	Set_Global_Str ('Search_Str', Get_Word (Word_Delimits));
+	Goto_Mark;
+	RM ('Meutil2^Search');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO S_and_Repl_Block;        { Invoke Search-and-Replace with marked block as argument }
+	Def_Str (block_contents);
+
+	Refresh := FALSE;
+	Mark_Pos;
+	If Block_Stat >= 2 Then
+		If Marking Then
+			Block_End;
+		End;
+		Goto_Line (Block_Line1);
+		If (Block_Stat = 3) and (Block_Line1 <> Block_Line2) Then
+			block_contents := Copy (Get_Line, Block_Col1, 255);
+		Else
+			block_contents := Copy (Get_Line, Block_Col1, Block_Col2 - Block_Col1 + 1);
+		End;
+	Else
+		Reg_Exp_Stat := TRUE;
+		If Search_Bwd ('[|9|32]', 1) Then
+			Forward_Till_Not ('|9|32|255');
+		Else
+			Goto_Col (1);
+		End;
+		block_contents := Get_Word ('|9|32|255');
+	End;
+	Goto_Mark;
+	Refresh := TRUE;
+	Set_Global_Str ('Search_Str', block_contents);
+	Set_Global_Str ('Replace_Str', block_contents);
+	RM ('Meutil2^S_Repl');
+
+END_MACRO;
+{                       E. Miscellaneous macros                             }
+{                       ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀                             }
+$MACRO Spelldate FROM ALL DUMP; { Verbalize the date }
+	Def_Int (day, month, year, year1, year2, old_reg_exp_stat);
+	Def_Str (day_str, month_str, date_str);
+
+ {      Expected parameters:                                                }
+ {          /S means that the date is to be scanned from the screen.        }
+ {              The format is dd-mm-yyyy ; the hyphen can be replaced       }
+ {              with any other delimiter (except blank).                    }
+ {          /O means day, month, and year are passed as integers via        }
+ {              /D=, /M=, /Y=, respectively.                                }
+ {          /INS means that the resulting text string should be             }
+ {              inserted into current file at cursor position.              }
+ {          /TI -- insert current time.                                     }
+ {          /MSG means that the resulting text string should be             }
+ {              displayed as a message.                                     }
+ {      If no parameters are specified, then the system date is used.       }
+ {      Return values:  Return_Str contains the verbalized date, e.g.       }
+ {                      Tuesday, November 1, 1989.                          }
+ {                      Return_Int: 0=Sunday, 1=Monday, etc.                }
+	R_AX := $2A00;
+	Intr ($21);
+	day := R_DX and $FF;
+	month := R_DX shr 8;
+	year := R_CX;
+	If XPos ('/O', Mparm_Str, 1) Then
+		day   := Parse_Int ('/D=', Mparm_Str);
+		month := Parse_Int ('/M=', Mparm_Str);
+		year  := Parse_Int ('/Y=', Mparm_Str);
+		If (day = 0) or (month = 0) or (year = 0) Then
+			Return_Int := - 1;
+			GoTo exit;
+		End;
+	End;
+	If XPos ('/S', Mparm_Str, 1) Then
+		old_reg_exp_stat := Reg_Exp_Stat;
+		Reg_Exp_Stat := TRUE;
+		If Search_Bwd ('[|9|32]', 1) Then
+			Forward_Till_Not ('|9|32|255');
+		Else
+			Goto_Col (1);
+		End;
+		date_str := Get_Word ('|9|32|255');
+		Reg_Exp_Stat := old_reg_exp_stat;
+		Right;
+		If Val (day, Copy (date_str, 1, 2)) or Val (month, Copy (date_str, 4, 2)) or Val (year, Copy (date_str, 7, 4)) Then
+			R_AX := $2A00;
+			Intr ($21);
+			day := R_DX and $FF;
+			month := R_DX shr 8;
+			year := R_CX;
+		End;
+	End;
+	day_str := '/0=Sunday/1=Monday/2=Tuesday/3=Wednesday/4=Thursday/5=Friday/6=Saturday';
+	month_str := '/1=January/2=February/3=March/4=April/5=May/6=June/7=July/8=August/9=September/10=October/11=November/12=December';
+	Return_Str := Parse_Str ('/' + Str (month) + '=', month_str) + ' ' + Str (day) + ', ' + Str (year);
+	If month < 3 Then
+		month := month + 10;
+		year  := year - 1;
+	Else
+		month := month - 2;
+	End;
+	year1 := year / 100;
+	year2 := year mod 100;  { Now make use of Zeller's function }
+	day := (day + ((26 * month - 1) / 10) + year2 + (year2 /4) + (year1 / 4) - (2 * year1) + 49) mod 7;
+	Return_Int := day;
+	Return_Str := Parse_Str ('/' + Str (day) + '=', day_str) + ', ' + Return_Str;
+	If XPos ('/INS', Mparm_Str, 1) Then
+		Text (Return_Str);
+	End;
+	If XPos ('/TI', Mparm_Str, 1) Then
+		Text (', ' + Time);
+	End;
+	If XPos ('/MSG', Mparm_Str, 1) Then
+		Make_Message (Return_Str);
+	End;
+ exit:
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO MeKeymap;                { Shows current Multi-Edit's key assignment as a menu screen }
+	Def_Str (macro_name);
+
+	If XPos ('/P', Mparm_Str, 1) Then
+		Def_Str (filename, mekeymap);
+		Def_Int (i);
+
+		filename := Me_Path + Parse_Str('FN=', Global_Str('@KEYMAP_NAME@') + '.DB');
+		If First_File (filename) Then
+			Make_Message (' Cannot find keymap database ' + Me_Path + Parse_Str('FN=', Global_Str('@KEYMAP_NAME@')));
+			GoTo exit;
+		Else
+			i := Last_File_Time;
+		End;
+		mekeymap := Me_Path + 'MEKEYMAP.ME';
+		If (First_File (mekeymap) = 0) Then
+			If Last_File_Time >= i Then
+				GoTo display_menu;
+			End;
+		End;
+		Make_Message (' Creating ' + mekeymap + ' ... Please wait a moment.');
+		S_Create_File (mekeymap,i);
+		S_Close_File (i);
+		macro_name := Global_Str ('Printer_Device');
+		Set_Global_Str ('Printer_Device', mekeymap);
+		RM ('Userin^DB /PR=1/F=' + filename + '/NOALPHA=1');
+		Set_Global_Str ('Printer_Device', macro_name);
+		Make_Message ('');
+ 	display_menu:
+		Refresh := FALSE;
+		i := Window_Id;
+		If Not (Switch_File (mekeymap)) Then
+			Create_Window;
+			Load_File (mekeymap);
+			Window_Attr := $81;
+		End;
+		Set_Global_Str ('KM_Iparm_1','/T=Print/R=6/KC=<F8>/K1=0/K2=66/TP=11/L=1/C=35/H=AUGMENTA.HLP^KEY_ASS');
+    	Set_Global_Str ('KM_Iparm_2','/WIN=' + Str (Cur_Window) + '/TP=15/L=2/C=1/W=' + Str (Screen_Width - 3) + '/H=AUGMENTA.HLP^KEY_ASS');
+		RM ('Userin^Data_In /#=2/S=2/PRE=KM_/X=1/A=0/T=Examining the ' + Parse_Str('KN=',Global_Str('@KEYMAP_NAME@')) + ' keymap. Select a macro to run./H=AUGMENTA.HLP^KEY_ASS');
+		Goto_Col (1);
+		macro_name := Get_Word (' ');
+		Switch_Win_Id (i);
+		If Not (Return_Int) Then
+			GoTo exit;
+		End;
+		If Return_Int = 6 Then
+			RM ('Userin^DB /PR=1/F=' + filename + '/NOALPHA=1');
+			Make_Message ('');
+			GoTo exit;
+		End;
+		RM ('Userin^DB /RR=1/FV=' + macro_name + '/F=' + filename + '/GLO=KEYASS');
+	Else
+		Make_Message (' Processing keymap database... please wait a moment');
+		RM ('Userin^DB /LO=1/ND=1/NC=1/NE=1/NI=1/NDF=1/F=' + Parse_Str('FN=', Global_Str('@KEYMAP_NAME@')) + '.DB/NOALPHA=1/LT=Examining the ' + Parse_Str('KN=',Global_Str('@KEYMAP_NAME@')) + ' keymap. Select a macro to run./GLO=KEYASS');
+		If Not (Return_Int) Then
+			Make_Message ('');
+			GoTo exit;
+		End;
+	End;
+	macro_name := Parse_Str ('MF=', Global_Str ('KEYASS'));
+	If macro_name = 'NOT APPLICABLE' Then
+		Make_Message (Return_Str);
+	Else
+		Make_Message (Parse_Str ('DESCR=', Global_Str ('KEYASS')));
+		Set_Global_Str ('Mac_Run', macro_name + '^' + Parse_Str ('MC=', Global_Str ('KEYASS')) + ' ' + Parse_Str ('PARAM=', Global_Str ('KEYASS')));
+		RM ('Meutil1^Runmac');
+	End;
+ exit:
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO UserScreen;              { Brings up the user screen. Waits for a keystroke to return  to Multi-Edit }
+	Def_Int (old_status_row, old_fkey_row);
+
+	old_status_row := Status_Row;
+	old_fkey_row := Fkey_Row;
+	Status_Row := FALSE;
+	Fkey_Row := FALSE;
+	Refresh := FALSE;
+	Rest_Dos_Screen;
+	Read_Key;
+	Status_Row := old_status_row;
+	Fkey_Row := old_fkey_row;
+	Refresh := TRUE;
+	New_Screen;
+	Insert_Mode := Not (Insert_Mode);
+	Insert_Mode := Not (Insert_Mode);
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Port_IO FROM ALL;        { Read / Write 80x86 i/o ports }
+ {  Expected:
+		Return_Str = port no. (string representation of a hex value)
+		Return_Int = value to send to port (if command = OUTB or OUTW)
+		Macro command line = OUTB, OUTW, INB, or INW -- what to do
+	Output:
+		Return_Str empty -- no error; Return_Int = value read from port
+										(if command = INB or INW)
+		otherwise Return_Str = error message                                }
+
+	Def_Str (port[10], port_io_code[10]);
+	Def_Int (portvalue, value, i);
+
+	port := Caps (Return_Str);
+	i := Svl (port);
+	portvalue := 0;
+	While i Do      { Convert number from hex to dec }
+		value := Ascii (Str_Char (port, i));
+		If (value >= 65) and (value <= 70) Then     { Letter: A-F }
+			portvalue := (value - 55) * (1 shl (4 * (Svl (port) - i))) + portvalue;
+		Else
+			If (value >= 48) and (value <= 57) Then     { Digit: 0-9 }
+				portvalue := (value - 48) * (1 shl (4 * (Svl (port) - i))) + portvalue;
+			Else
+				Return_Str := 'Invalid port number';
+				GoTo exit;
+			End;
+		End;
+		-- i;
+	End;
+	Return_Str := Caps (Mparm_Str);
+	If XPos ('INB', Return_Str, 1) Then
+		port_io_code := '∞2Σ╧';     { in al,dx // xor ah,ah // iret }
+	ElsIf XPos ('OUTB', Return_Str, 1) Then
+		port_io_code := 'ε╧';       { out dx,al // iret }
+	ElsIf XPos ('INW', Return_Str, 1) Then
+		port_io_code := 'φ╧';       { in ax,dx // iret }
+	ElsIf XPos ('OUTW', Return_Str, 1) Then
+		port_io_code := '∩╧';       { out dx,ax // iret }
+	Else
+		Return_Str := 'No command specified';
+		GoTo exit;
+	End;
+	i := $60;
+	While (Memp (i shl 2) <> 0) and (i < $FD) Do { Find an unused user interrupt }
+		++ i;
+	End;
+	Memp (i shl 2, Seg (port_io_code) shl 16 + Ofs (port_io_code) + 4); { Set interrupt vector }
+	R_AX := Return_Int;
+	R_DX := portvalue;
+	Intr (i);
+	Return_Int := R_AX;
+	Return_Str := '';
+	Memp (i shl 2, 0);  { Clear interrupt table entry }
+ exit:
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Call_Far FROM ALL;       { Call far routine }
+ {  Expected:
+		Return_Int = 32 bit address (segment:offset) of far routine.    }
+	Def_Str (call_far_code[10]);
+	Def_Int (i);
+
+	i := Return_Int;
+	call_far_code := '√Ü' + Make_Str (Seg (i), Ofs (i), 4) + '╧'; { sti // call imm32 // iret }
+	i := $60;
+	While (Memp (i shl 2) <> 0) and (i < $FD) Do { Find an unused user interrupt }
+		++ i;
+	End;
+	Memp (i shl 2, Seg (call_far_code) shl 16 + Ofs (call_far_code) + 4);   { Set interrupt vector }
+	Intr (i);
+	Memp (i shl 2, 0);  { Clear interrupt table entry }
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Change_Font FROM ALL DUMP;   { Change RAM-resident screen font table }
+ { Input: /FontPath= path to find available fonts. If not passed, Me_Path is used. }
+	Def_Int (suggested_action, retry, error_count);
+	Def_Int (save_ptr, textmodaux_addr, grmodaux_addr, fontseg, fontofs, bytes_per_char, curs_x, curs_y, filehandle, filelength, old_win_id);
+	Def_Str (filename);
+
+	If Not ((Video_Card = 8) or (Video_Card = 5)) Then
+		Make_Message (' This macro requires EGA or VGA.');
+		GoTo exit;
+	End;
+	curs_x := Wherex;           { Save screen cursor coordinates }
+	curs_y := Wherey;
+	save_ptr := Memp ($4A8);    { Pointer to a table of EGA data block pointers }
+	textmodaux_addr := Memp (save_ptr + $08);
+	grmodaux_addr := Memp (save_ptr + $0C);
+	If Not (textmodaux_addr) Then
+		If Not (grmodaux_addr) Then
+			Make_Message (' RAM font block not found, font change aborted.');
+			GoTo exit;
+		Else
+			fontseg := Memw (grmodaux_addr + 5);
+			fontofs := Memw (grmodaux_addr + 3);
+			bytes_per_char := Memw (grmodaux_addr + 1);
+		End;
+	Else
+		fontseg := Memw (textmodaux_addr + 8);
+		fontofs := Memw (textmodaux_addr + 6);
+		bytes_per_char := Memb (textmodaux_addr);
+	End;
+	Return_Str := Parse_Str ('/FontPath=', Mparm_Str);
+	If Return_Str = '' Then
+		Return_Str := Me_Path + '*.FNT';
+		GoTo look_for_fonts;
+ ask_path:
+		RM ('Userin^Querybox /C=4/L=6/W=20/ML=64/T=Change Screen Font/P=Please specify path and filespec to find fonts: /H=AUGMENTA.HLP^FONTPATH');
+		If Not (Return_Int) Then
+			GoTo exit;
+		End;
+	End;
+ look_for_fonts:
+	If First_File (Return_Str) Then
+		Make_Message (Return_Str + ' : No matching files found.');
+		GoTo ask_path;
+	End;
+	old_win_id := Window_Id;
+	Refresh := FALSE;
+	Create_Window;
+	Put_Line (Last_File_Name);
+	While Not (Next_File) Do
+		Down;
+		Put_Line (Last_File_Name);
+	End;
+	Goto_Line (Global_Int ('Curr_Font'));
+	filename := Get_Path (Return_Str);
+    Set_Global_Str ('Font_Iparm_1','/WIN=' + Str (Cur_Window) + '/TP=15/L=1/C=9/H=AUGMENTA.HLP^CHANGE_FONT');
+	RM ('Userin^Data_In /#=1/S=1/PRE=Font_/A=0/T=SELECT FONT TO INSTALL/H=AUGMENTA.HLP^CHANGE_FONT');
+	Set_Global_Int ('Curr_Font', C_Line);
+	filename := filename + Get_Line + '|0';
+	Delete_Window;
+	Switch_Win_Id (old_win_id);
+	If Not (Return_Int) Then
+		GoTo exit;
+	End;
+	error_count := 0;
+ try_again_1:
+	R_DS := Seg (filename);
+	R_DX := Ofs (filename) + 4;
+	R_AX := $3D00;
+	Intr ($21);                 { Open file with handle }
+	If R_FLAGS and 1 Then       { If carry flag is set, then error occurred }
+		Call error_handling;
+		If retry Then
+			GoTo try_again_1;
+		End;
+	End;
+	filehandle := R_AX;
+	error_count := 0;
+ try_again_2:
+	R_CX := 0;
+	R_DX := 0;
+	R_BX := filehandle;
+	R_AX := $4202;
+	Intr ($21);                 { Move file pointer to end of file }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_2;
+		End;
+	End;
+	filelength := R_DX shl 16 + R_AX;
+	If Not ((filelength = 4096) or (filelength = 3584)) Then
+		Make_Message (' Invalid font file size, font change aborted.');
+		GoTo close_and_exit;
+	End;
+	If (filelength shr 8 <> bytes_per_char) Then
+		Make_Message (' Character size does not match, font change aborted');
+		GoTo close_and_exit;
+	End;
+	error_count := 0;
+ try_again_3:
+	R_CX := 0;
+	R_DX := 0;
+	R_BX := filehandle;
+	R_AX := $4200;
+	Intr ($21);                 { Move file pointer to start of file }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_3;
+		End;
+	End;
+	error_count := 0;
+ try_again_4:
+	R_AX := $3F00;
+	R_BX := filehandle;
+	R_DS := fontseg;
+	R_DX := fontofs;
+	R_CX := filelength;
+	Intr ($21);                 { Read CX bytes from file or device BX }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_4;
+		End;
+	End;
+	R_AX := 3 + 128;            { Don't clear the screen }
+	Intr ($10);
+	Make_Message (' Font loaded from ' + filename);
+	Gotoxy (curs_x, curs_y);
+	Insert_Mode := Not (Insert_Mode);
+	Insert_Mode := Not (Insert_Mode);
+	GoTo close_and_exit;
+ {                                                                        }
+{---------------------  Error handling  ------------------------------------}
+ {                                                                        }
+ error_handling:
+	If (Dos_Version and $00FF) >= 3 Then    { DOS 3.x }
+		R_AX := $5900;
+		R_BX := 0;
+		Intr ($21);             { Get extended error info }
+		suggested_action := R_BX and $00FF;
+		If (suggested_action = 4) or (suggested_action = 5) Then    { Abort }
+			RM ('Doserror /AX=' + Hex_Str (R_AX) + '/BH=' + Hex_Str (R_BX shr 8) + '/CH=' + Hex_Str (R_CX shr 8));
+			GoTo exit;
+		End;
+		If (suggested_action <= 3) and (error_count < 5) Then       { Retry }
+			++ error_count;
+			retry := suggested_action;
+			If suggested_action = 2 Then
+				Delay (600);
+			End;
+			Ret;
+		End;
+		If suggested_action = 6 Then    { Ignore }
+			retry := FALSE;
+			Ret;
+		End;
+		RM ('Doserror /Menu/AX=' + Hex_Str (R_AX) + '/BH=' + Hex_Str (R_BX shr 8) + '/CH=' + Hex_Str (R_CX shr 8));
+		If Return_Int = 1 Then
+			retry := suggested_action;
+			error_count := 0;
+			Ret;
+		Else
+			GoTo exit;
+		End;
+	Else                        { DOS < 3.x }
+		RM ('Doserror /AX=' + Hex_Str (R_AX));
+		GoTo exit;
+	End;
+ {                                                                        }
+{---------------------  Close file and exit --------------------------------}
+ {                                                                        }
+ close_and_exit:
+	error_count := 0;
+ try_again_5:
+	R_AX := $3E00;
+	R_BX := filehandle;
+	Intr ($21);                 { Close file handle BX }
+	If R_FLAGS and 1 Then
+		Call error_handling;
+		If retry Then
+			GoTo try_again_5;
+		End;
+	End;
+ exit:
+	Refresh := TRUE;
+
+END_MACRO;
+{ **************************************************************************  }
+{               II. Macros Available from the DOS_SHELL Mode.                 }
+{ **************************************************************************  }
+{                                                                             }
+{-----------------------------------------------------------------------------}
+$MACRO Rootdirlist FROM DOS_SHELL;
+	Def_Str (root_dir);
+
+	If XPos (':\', Dir_Mask, 1) = 2 Then
+		root_dir := Copy (Dir_Mask,1,1);
+	Else
+		root_dir := Copy (Dir_Path,1,1);
+	End;
+	root_dir := Caps (root_dir) + ':\';
+	Dir (root_dir);
+	RM ('Dirshell^UpdateDir /M=1');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Markfile FROM DOS_SHELL;
+
+	If (Dos_File_Attr <> $10) and (Dos_File_Attr <> $08) Then
+		Mark_File;
+	End;
+	Dos_Right;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Unmark_All FROM DOS_SHELL;
+	Def_Int (curr_item, i);
+
+	Refresh := FALSE;
+	curr_item := Dir_Num;
+	Dos_Home;
+	i := 1;
+	While i <= Dir_Total Do
+		If File_Marked Then
+			Mark_File;
+		End;
+		Dos_Right;
+		++ i;
+	End;
+	While Dir_Num <> curr_item Do
+		Dos_Left;
+	End;
+	Refresh := TRUE;
+	Update_Dir;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Curdirlist FROM DOS_SHELL;
+
+	If Copy (Dir_Path, Length (Dir_Path), 1) = '\' Then
+		Dir (Dir_Path);
+	Else
+		Dir (Dir_Path+'\');
+	End;
+	RM ('Dirshell^UpdateDir /M=1');
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Me_Dirlist FROM DOS_SHELL;
+
+	Dir (Me_Path);
+	RM ('Dirshell^UpdateDir /M=1');
+
+END_MACRO;

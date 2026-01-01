@@ -1,0 +1,96 @@
+From: oraeder@ibm.net
+Newsgroups: comp.lang.rexx
+Subject: Re: rexx and com ports
+Date: 20 Sep 1995 12:35:01 GMT
+
+In <43clfe$4cp@dns.crocker.com>, schlegel@crocker.com (Mark Schlegel) writes:
+>I want to use a rexx file to send text to the com port that has my comm
+>program on it by using charout('com1:', buff) where buff is a string.
+>However charout returns with result = 'unknown'. According to my rexx book
+>"mastering os/2 rexx" the com1 and com2 are valid files in os/2, when I
+>run the test my comm program (livewire 2.2) is up and running, is this a
+>problem?  (is os/2 locking the com ports?).  I notice that
+>echo can pass text to com1 but this would be clunky (or is it?).
+>
+>Second question, I also use  lineout('prn', buff) to send each line
+>of text to the printer.. this works but I need a final form feed
+>char ('0C'x) to get the page to come out.  But I notice that if I
+>do
+>
+>do lines(in_file)
+>   buff = linein(in_file)
+>   lineout('prn', buff)
+>end
+>  lineout('prn','0C'x)     /* '0c' hex is a form feed control character*/
+>
+>that this does not work, what would i need to do to get a FF to go to the
+>printer, do I need a carriage return and a line feed then a FF?
+>
+>Mark
+>
+hi,
+here is a test routine i used to develop a dial-up-program.
+pls. note, my modem (us-robotics) requires cr-lf at the end of an AT-message,
+that's why i use lineout() function.
+
+otto raeder
+
+/* ------------------------------- REXX ---------------------------- */
+/* 95-09-03 or REXX dial via COM1                                    */
+/* ----------------------------------------------------------------- */
+   port  = 'COM1:'
+   time  = '1503'          /* sample get time inquiry                */
+
+   call doito
+   call doit  'AT&FZ'
+   call doit  'ATV1X0Q1M2'
+   call doit  'ATDT1503'
+   pull z
+   call doit  'AT&FZ'
+   call doitc
+
+/* ----------------------------------------------------------------- */
+                                                             exit 0
+/* ----------------------------------------------------------------- */
+   doit:
+         say 'doit ' arg(1)
+         z=lineout(port,arg(1))
+         call wait 2
+   doitr:
+return
+         z=''
+         do while chars(port)>0
+           x=charin(port)
+           if x='0d'x then iterate
+           if x='1a'x then leave
+           if x='0a'x then do
+             say 'doitr' z c2x(z)
+             z=''
+             leave
+             end
+           z=z||x
+           if z='OK'   then leave
+           if z='BUSY' then leave
+           end
+         say 'doitr' z c2x(z)
+                                                             return
+   doits:
+         z=stream(port,'s')
+         say 'doits' z
+                                                             return
+   doito:
+         z=stream(port,'c','close')
+         z=stream(port,'c','open')
+
+                                                             return
+   doitc:
+         z=stream(port,'c','close')
+                                                             return
+   wait: procedure
+         z=time('r')
+         do while time('e')<arg(1); nop; end
+                                                             return
+/* ----------------------------------------------------------------- */
+
+
+

@@ -1,0 +1,62 @@
+@echo off
+:
+:    Enhanced MOVE command. Assume defaults from NC state.
+:    Move current file/directory or marked files in NC to
+:    directory in inactive NC window.
+:
+:    Usage:  MV  [[Source] Destination]
+:
+:    Use: NCA.exe (vertion not less then 5.0)
+:
+:    Limitation: summery length of marked files names must be less then ~100
+:
+:    If Destination not defined then path to inactive NC window assumed.
+:    If Source not defined then if there is any marked files in current
+:    NC window then those files are moved else current file or directory
+:    (with subdirs) moved. If there is two or more argument then it behave
+:    like standard MOVE command.
+:                                            
+:
+iff  "%2"==""  then
+     iff "%1"=="" then
+          nca _MV ~{ } ~T
+      else
+          nca _MV %1 ~T
+     endiff
+else
+              _MV %&
+endiff
+setlocal
+
+rem --------------------- Set up parameters -----------------------------------
+
+iff  "%2"==""  then
+     nca echo ~T   | input %%Destination
+     iff "%1"=="" then
+          rem -------- move current direcrtory/file[s] to inactive panel ----
+          nca echo ~{ } | input %%Source
+     else
+          rem -------- move specified direcrtory/file[s] to inactive panel --
+          set Source=%1
+     endiff
+     goto Begin
+else
+     rem ------- move specified direcrtory/file[s] to specified destination ----
+     set Source=%@substr["%&",1,%@eval[%@len["%&"]-%@len["%[%#]"]]]
+     set Destination=%[%#]
+endiff
+
+:Begin
+echo.
+echo Source      = %Source
+echo Destination = %Destination
+echo.
+if not isdir %@word[0,%Source] (move %Source %Destination^quit)
+if not isdir %Destination (
+     beep
+     echo ERROR: If sourse is dir then destination must be dir too
+     quit
+)
+set Dir=%@name[%Source].%@ext[%Source]
+move /s %Source %Destination\%Dir
+endlocal

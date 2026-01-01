@@ -1,0 +1,135 @@
+rem  UPDSHELL.TXT
+rem
+rem  Sample of a shell update/upgrade batch routine used to upgrade
+rem  workstations to the version/date-stamps specified in the command
+rem  parameter list.
+rem  This batch file (once converted from text), can be called from a
+rem  a login script file or another batch process.
+rem
+rem  As sampled from the original shell update/upgrade routine written
+rem  by Terry Bergman at Toshiba America Info Sys Inc  (714)
+rem
+rem
+rem  Parameter list when calling this batch file
+rem
+rem  1st   =  Minimum IPX version number      ei.   3.10
+rem             batch file will attempt to upgrade workstation if IPX
+rem             version is less than specified IPX version number
+rem  2nd   =  Minimum IPX.COM date stamp      ei.   03/01/92
+rem             batch file will attempt to upgrade workstation if IPX.COM
+rem             file's date stamp is earlier than specified date.
+rem  3rd   =  Minimum NETX version number     ei.   3.22
+rem             batch file will attempt to upgrade workstation if NETX
+rem             version is less than specified NETX version number
+rem  4th   =  Minimum NETX.COM data stamp     ei.   03/01/92
+rem             batch file will attempt to upgrade workstation if NETX.COM
+rem             file's date stamp is earlier than specified date.
+rem
+rem
+
+SET UPGRADE = NONE
+
+Echo Checking IPX and NETX versions.  Please wait ...
+
+IF EXIST C:\NETWORK\IPX.COM GOTO SHELLCHECK
+echo No C:\NETWORK directory
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "No C:\NETWORK directory" /s
+GOTO ERROR
+
+:SHELLCHECK
+IF EXIST C:\NETWORK\SHELL.CFG GOTO NETXCHECK
+echo No C:\NETWORK\SHELL.CFG file
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "No C:\NETWORK\SHELL.CFG file" /s
+GOTO ERROR
+
+:NETXCHECK
+IF EXIST C:\NETWORK\NETX.COM GOTO BATCHECK
+echo No C:\NETWORK\NETX.COM file
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "No C:\NETWORK\NETX.COM file" /s
+GOTO ERROR
+
+:BATCHCHECK
+IF EXIST C:\NETWORK\NETWORK.BAT GOTO IPXVER
+echo No C:\NETWORK\NETWORK.BAT file
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "No C:\NETWORK\NETWORK.BAT file" /s
+GOTO ERROR
+
+rem  Check IPX version in memory.  If the version number is the same or
+rem     greater than specified, skip IPX card checking and goto NETX stuff
+rem
+:IPXVER
+NCMPDRVR %1 IPX >NUL
+IF ERRORLEVEL 1 GOTO NETXVER
+
+echo Analyzing IPX.COM for upgrade.  Please wait...
+
+SET UPGRADE = IPX
+
+:NIC1
+NSTRING "Ungermann-Bass PCNIU/Token Ring  Version 2.4" C:\NETWORK\IPX.COM >NUL
+IF NOT ERRORLEVEL 1 GOTO NIC2
+NCMPDATE C:\NETWORK\IPX.COM %2 >NUL
+IF ERRORLEVEL 1 GOTO IPXERROR
+COPY X:\PUBLIC\NETDRVRS\UBDRVRS\TRING\PCNIU\*.* C:\NETWORK
+GOTO NETXVER
+
+:NIC2
+NSTRING "Olicom Token-Ring 16/4  V1.10" C:\NETWORK\IPX.COM >NUL
+IF NOT ERRORLEVEL 1 GOTO NIC99
+NCMPDATE C:\NETWORK\IPX.COM %2 >NUL
+IF ERRORLEVEL 1 GOTO IPXERROR
+COPY X:\PUBLIC\NETDRVRS\UBDRVRS\TRING\ISA164\*.* C:\NETWORK
+GOTO NETXVER
+
+rem  and so on for the rest of the cards
+rem  For this demonstration, we'll say that there are only 2 different
+rem  cards at this site.
+
+:NIC99
+echo Unknown Network Card.  Cannot complete upgrade.
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "Unknown Network Card" /S
+SET UPGRADE = NONE
+GOTO ERROR
+
+:IPXERROR
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "IPX loaded from different directory" /S
+SET UPGRADE = NONE
+
+:NETXVER
+IF %UPGRADE% == IPX NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "IPX Upgraded" /S
+NCMPDRVR %3 NETX >NUL
+IF ERRORLEVEL 1 GOTO LOGOUT
+
+NCMPDATE C:\NETWORK\NETX.COM %4 >NUL
+IF ERRORLEVEL 1 GOTO NETXERROR
+COPY X:\PUBLIC\NETDRVRS\NETX.COM C:\NETWORK\*.*
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "Upgraded NETX" /S
+SET UPGRADE = NETX
+GOTO LOGOUT
+
+:NETXERROR
+NLOGMSG X:\USER\UPDATE\UPGRADE.LOG "NETX loaded from different directory" /S
+GOTO LOGOUT
+
+:ERROR
+echo
+echo  YOUR WORKSTATION CANNOT BE AUTOMATICALLY UPGRADED !
+echo  PLEASE REPORT THIS TO YOUR LAN ADMINISTRATOR !
+echo
+GOTO END
+
+:LOGOUT
+IF %UPGRADE% == NONE GOTO END
+echo
+echo  YOU MUST REBOOT IN ORDER TO ACTIVATE YOUR NEW DRIVERS.
+echo
+SET UPGRADE=
+SET NIC=
+PAUSE
+LOGOUT
+
+:END
+SET UPGRADE=
+SET NIC=
+
+rem  Finis

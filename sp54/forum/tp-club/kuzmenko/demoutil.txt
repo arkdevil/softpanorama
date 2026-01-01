@@ -1,0 +1,197 @@
+
+Данный текст представляет собой часть документации, поставляемой с
+генератором экранных форм для Turbo Vision (TP & C++) FGEN v2.03. 
+Текст на Pascal является частью демонстрационной программы 
+FGENDEMO.
+
+********************************************************************
+ДЕМОНСТРАЦИОННЫЙ РЕЖИМ В TURBO VISION
+--------------------------------------------------------------------
+
+Благодаря управлению событиями, программа, написанная на Turbo
+Vision, с легкостью может быть превращена в демонстрационную.
+
+Для этого определим переменные
+
+var { должны быть глобальными }
+
+ ShiftState : byte;    { состояние Shift для изменения размеров элементов мышью }
+ Demo       : boolean; { true- читаем события, false- пишем события }
+ Timer      : longint; { время между двумя событиями }
+ BState     : boolean; { кнопки мыши нажаты-true, отпущены-false}
+ SDemo      : PBufStream { поток для чтения-записи событий }
+
+перепишем ядро
+
+procedure MyApplication.Idle;
+ var SS: byte absolute $40:$17; { состояние Shift }
+ begin
+  TApplication.Idle;
+  if Demo then      { демонстрационный режим }
+    Dec(Timer)      { сколько осталось до следующего события }
+  else
+   begin            { запись демонстрации "вручную" }
+    Inc(Timer);     { сколько прошло с момента последнего события }
+    ShiftState:=SS; { запомнить текущее состояние Shift, Ctrl, и пр.} 
+ end; Clock^.Update;    { необязательно, но приятно } Heap^.Update; 
+ end;
+
+и получение событий
+
+procedure MyApplication.GetEvent(var Event: TEvent);
+begin
+  TApplication.GetEvent(Event); { возьмем что дадут }
+  if (Event.What and evMouse) <> 0 then
+   if Event.Buttons <> 0 then
+    BState:=True; { сохранять событие мыши только при первом нажатии-отпускании }
+  if (Event.What = evNothing) and Demo then
+   begin                                    { будем читать }
+    if Timer < 0 then                       { пора взять след. событие }
+     begin
+      SDemo^.Read(ShiftState, SizeOf(byte));{ прочитать Shift }
+      SDemo^.Read(Event, SizeOf(TEvent));   { прочитать событие }
+      SDemo^.Read(Timer, SizeOf(Timer));    { прочитать время до след. события }
+      if SDemo^.Status = stOk then Mem[$40:$17]:=ShiftState;
+      { если действительно демонстрация, то установить ShiftState.
+        несколько грубовато, но без этого не работает изменение
+        размеров окна и прочее ... }
+     end
+   end;
+  if (Event.What <> evNothing) and (not Demo) then
+   if (Event.What = evKeyDown) or                     { клавиатура или }
+      (((Event.What and evMouse) <> 0) and BState) or { нажатие мыши или }
+      ((Event.What = evCommand) and (Event.Command in { команда и }
+        [cmHelp,cmQuit,cmClose, ... ]    { все команды из Вашей статус-строки 
+                                           (она 'глотает' назначенные ей 
+                                           клавиши }
+ {события класса evBroadcast писать и читать не надо ! }
+    begin
+     SDemo^.Write(Timer, SizeOf(Timer));    { сколько времени 'держать' событие }
+     SDemo^.Write(ShiftState, SizeOf(byte));{ записать состояние Shift }
+     SDemo^.Write(Event, SizeOf(TEvent));   { записать событие }
+     Timer:=0;                              { пошел отсчет до след. события }
+     if (Event.What and evMouse) <> 0 then
+      if Event.Buttons = 0 then             { мышиную кнопку отпустили  }
+       BState:=False;
+    end;
+  if (Event.What = evCommand) and (Event.Command = cmHelp) and
+    (not HelpInUse) then {... дальше пошла боработка Help и т.д. }
+
+begin              { программа }
+  BState:=False;
+  Demo:=True;                   { по умолчанию режим демонстрации }
+  if ParamStr(1) = 'write' then { или что угодно }
+   Demo:=False;                 { события будем писать в поток }
+  if Demo then
+   begin
+    SDemo:=New(PBufStream, Init('demo.dat', stOpen, 1024));
+    SDemo^.Read(Timer, SizeOf(Timer));
+   end
+  else
+   begin
+    Timer:=0;
+    SDemo:=New(PBufStream, Init('demo.dat', stCreate, 1024));
+   end;
+  MyApp.Init;                   { и Ваша программа }
+  MyApp.Run;
+  MyApp.Done;
+  Dispose(SDemo, Done); { иначе при записи "демо" не допишется }
+end.
+
+Одна из приятных особенностей в том, что если файл демонстрации удален,
+то программа превращается в нормальную и можно демонстрацию либо смотреть,
+либо попробовать работать с ней самому.
+
+ Единственным неприятным моментом является то, что если Вы записывали
+демонстрацию на XT, а воспроизводите на AT, то воспроизведение
+значительно убыстряется. "Откалибровать" скорость воспроизведения
+можно следующим образом :
+
+Калибровка основана на том, что TClockView каждую секунду выдает
+evBroadcast cmTick (см. дальше "окно координат").
+
+Добавим глобальные переменные:
+const { или var - все равно }
+  FirstTick : boolean = False; { первая команда cmTick}
+  NextTick  : boolean = False; { вторая команда }
+  TCount    : integer = 0;     { количество "прокруток" Idle }
+  KCount    : byte    = 0;     { подождать n секунд до калибровки }
+
+var Kf : real; { коэффициент скорости машины }
+
+затем в самое начало MyApplication.HandleEvent добавить
+
+  if not NextTick then { калибровка не кончилась ? }
+   if (Event.What = evBroadcast) and (Event.Command = cmTick) then
+    begin
+     if KCount > 0 then { подождать с калибровкой 1 секунду }
+      begin
+       if not FirstTick then FirstTick:=True  { начать калибровку }
+       else
+        begin
+         NextTick:=True;   { или закончить }
+         Kf:=TCount/450;   { коэф = число тиков / тиков на Вашей машине}
+                           { вместо 450 должен стоять ВАШ TCount !}
+        end;
+      end
+     else Inc(KCount);  { увеличить счетчик ожидания }
+     ClearEvent(Event);
+     Exit;
+    end;
+
+в Idle приведенный выше текст заменить на следующий
+
+procedure MyApplication.Idle;
+ var SS: byte absolute $40:$17; { состояние Shift }
+ begin
+  TApplication.Idle;
+  if NextTick then    { калибровка кончилась ? }
+   begin             { да }
+    if Demo then      { демонстрационный режим }
+      Dec(Timer)      { сколько осталось до следующего события }
+    else
+     begin            { запись демонстрации "вручную" }
+      Inc(Timer);     { сколько прошло с момента последнего события }
+      ShiftState:=SS;
+     end;
+   end               { нет }
+  else if FirstTick then Inc(TCount); { если началась то увеличить счетчик }
+  Clock^.Update;
+  Heap^.Update;
+ end;
+
+а в GetEvent после чтения события из потока поставить
+
+ .....
+  SDemo.Read(Timer, SizeOf(Timer));
+! Timer:=Round(Timer * Kf); { вычислить для данной машины }
+
+Переменные FirstTick и NextTick используются в качестве триггера.
+KCount вставлен из-за того, что TClockView при инициализации
+может выдать Message cmTick, а цикл Idle еще не начался и число в
+TCount будет неверным. Поэтому лучше подождать 1-2 секуды с начала
+запуска приложения.
+
+ После того, как Вы определите TCount для своей машины (и усредните его),
+Вам прийдется вычислить коэффициент следующим образом:
+(Kf - вещественное число !)
+
+ Kf = TCount/Ваш TCount
+ например для моей машины приращение=TCount/450
+
+Это будет коэффициент приращения переменной Timer, т.е.
+ NewTimer:=Round(Timer * Kf)
+
+Определить TCount для Вашей машины можно так:
+ вставить в MyApplication.HandleEvent, после NextTick:=True;
+  Writeln(TCount); ReadLn;
+ запустить несколько раз программу и усреднить выдаваемое
+ число.
+*************************************************************
+
+                       Россия, 248021, Калуга
+                    ул. Московская, д 214, кв 27
+                        тел. (08422) 2-68-91
+                    Кузьменко Дмитрий Валерьевич
+                         Dimarker's Software
+

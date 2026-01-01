@@ -1,0 +1,168 @@
+     Core War is a computer game played both with and BY  compu-
+ters.  In Core War,  two player-written computer programs operate
+concurrently in a "circular"  memory  array.  A program "loses" 
+when it hits an instruction it cannot execute. 
+
+     Core War is described more fully by A. K. Dewdney in the 
+"Computer Recreations" column of Scientific  American, May 1984.
+A short synopsis follows:
+
+     Core War battle programs are written in a special assembler-
+style  language called Redcode,  which defines only 9  operations.
+Unlike  regular  assembly code,  any arguments  that  an 
+instruction  may  have are considered to be contained in a single 
+memory location,  so addressing is very simple.  For example, 
+the instruction JMP -2 simply means jump back 2 locations  before 
+this  one -- JMP 0 would be an endless loop on that one location, 
+and  JMP 1 simply moves to the next  location  -- essentially,  a 
+"No-operation" Instruction.
+
+     Neither  program originally knows where in memory the  other 
+is,  or even where the program itself has started -- however, the 
+memory array  used by Core War is "circular," and all addressing
+is relative, so absolute memory addresses are not important.
+
+     The nine Redcode instructions are:
+
+     Instr:    Arguments:     Description/Result:
+
+     MOV       A    B         B will equal A (A is unchanged)
+
+     ADD       A    B         B will equal B + A (A unchanged)
+
+     SUB       A    B         B will equal B - A (A unchanged)
+
+     JMP       A              Program will jump to A
+
+     JMZ       A    B         Program will jump to A if B is zero
+
+     JMG       A    B         Program will jump to A if B > 0
+
+     DJZ       A    B         B will equal B - 1; if this is 
+                              zero, program jumps to A
+
+     CMP       A    B         Skip the next instruction unless A = B
+
+     DAT            B         B is data.  A PROGRAM LOSES WHEN IT TRIES
+                              TO EXECUTE A "DAT" STATEMENT.
+                              
+     There  are  also three addressing modes,  or ways  in  which 
+arguments  can  be presented.  They  are  Direct,  Indirect,  and 
+Immediate.  In Direct mode, the argument is taken as an offset to 
+the current address.  This is the default mode.  Thus, the state-
+ment DJZ 12 -1 would decrement the previous location, and if that 
+result  were  zero,  would jump forward 12 locations (or  if  not 
+zero, it would move ahead one, normally).
+
+     In Indirect mode,  denoted by the "@" symbol,  the indicated 
+relative  address contains a further relative  address.  Consider 
+the four-statement sequence:  JMP   @1
+	                          DAT           1
+                              JMP    12
+                              CMP   -10    -11 
+      The first  jump statement will look for its argument in 
+relative address  +1.  In this example, it finds a 1,  which
+RELATIVE TO THAT ADDRESS is 1 -- it points to the statement JMP 12.
+Had it been a 2,  it would have  pointed to the CMP instruction.
+A -1 would have pointed to 
+the original JMP @1, and been an endless loop (assuming the enemy 
+program never changes either location).  Had it been 0,  the pro-
+gram  would  have jumped to the DAT ststement  and  been  halted, 
+having "committed suicide."
+
+     Finally,  Immediate  mode takes the argument as an  absolute 
+number,  and is denoted by the "#" sign.  CMP #2 -3 will check to 
+see  if the value at offset -3 is equal to 2.  Immediate mode has 
+two special cases which are very important to Core Wars -- first, 
+a MOV statement with an Immediate argument in the first  argument 
+will  cause  the  argument addressed in the  second  argument  to 
+become  a  DAT instruction. (Had the argument not been  Immediate, 
+MOV would instead have copied everything,  arguments and instruc-
+tions.  Thus, a battle program can move itself around in memory.)
+This  is a very handy way of planting "bombs" in the  enemy  pro-
+gram's code.
+
+     The  second  important thing to realize is that you can  NOT 
+have an Immediate,  or absolute, address. If the operating system 
+sees an Immediate-mode argument as an offset,  it will automatic-
+ally assume an offset of zero, which can have disastrous results.
+
+     Which argument is which?   The second,  or "B" argument,  is 
+the one that contains data for ADD, SUB, CMP, and the conditional 
+jump  instructions.  Thus,  when  the first  instruction  of  the 
+Redcode sequence ADD #2   1
+                 CMP  3  15 is performed, the second line will be 
+changed to compare locations 3 and 17. The first, or "A" argument 
+is almost never altered by Redcode operations (except for MOV).
+     Both battle programs are executed by the Core War operating 
+system,  MARS.  In  the version presented here,  MARS is also the 
+program  loader;  programs may be loaded either from the keyboard 
+or from disk (when you give the program a name, it will check the 
+directory for that name -- if it finds it,  it will load it  from 
+disk,  assuming the program to be an ASCII file). The MARS inter-
+preter  simply keeps switching its program counter from one  pro-
+gram  to another -- ABABABABABABAB....  until either one  program 
+loses,  some maximum number of instruction cycles have been  per-
+formed  (as a safeguard against endless loops),  or until you hit 
+<ESC> to abort.
+
+     Here is the shortest possible battle program, called "Imp":
+
+                         MOV  0    1
+
+     Imp  just copies the current location to the next  location, 
+then  advances  to the next location,  etc.  While  the  original 
+program  is  short,  it  will eventually gobble up  every  memory 
+location if unchecked,  thus becoming the largest possible battle 
+program as well.  It can even spread to its opponent,  since  any 
+program  that  jumps to a location written by Imp will become  an 
+identical clone of Imp.
+
+     Here is another program, "Anti.Imp":
+
+                         MOV  #0   -5
+                         CMP  #0   -6
+                         JMP  -1
+                         MOV  #0   -5
+                         MOV  #0   -6
+                         MOV  #0   -7
+                         MOV  #0   -8
+                         JMP  -7
+
+     Anti.Imp sets up a "marker" byte at -5 relative to its first 
+byte,  then waits for Imp to come along. When the marker changes, 
+it bombards the area that Imp is movinbg into with DAT 0 instruc-
+tiomns, which Imp can't execute and thus bites it.
+
+     Here is "AntiAnti.Imp":
+
+                         MOV   4   @3
+                         ADD  #1    2
+                         JMP  -2
+                         DAT        2
+                         MOV   0    1
+
+     AntiAnti.Imp writes a block of code that LOOKS like Imp into 
+progressively higher memory locations.  When Anti.Imp senses this 
+"drone" Imp,  it will attack it, but to no avail -- it will still 
+get over-written,  and then become a clone of Imp (at which point 
+it  turns around and wreaks havoc on AntiAnti.Imp,  which has  no 
+protection against Imp itself as shown here....).
+     Other examples are given in Dewdney's article,  such 
+as Dwarf:	dat		-1
+			add	#5	-1
+			mov	#0	@-2
+			jmp	-2
+which fires "Zero Bombs" in a fashion similar to Anti-
+Anti.Imp;  Gemini,  which simply runs away;  or Raidar,  which is 
+able  to "leapfrog" over advancing attacks. 
+
+     COREWARS.C was written by Kevin A. Bjorke 5/25/84, in Small-C 
+version 2.03 (M80),  which is  available  to the public domain
+through RCP/M's as well as MicroCornucopia. The addition 
+of  a few << and >> operations will speed it up a bit. 
+
+	A C86 version of the original Small-C (CPM) program has been 
+written by R. Green for use with MS-DOS, and a DeSmet C version
+with an optional split-screen "picture" of core has been written
+by R. Sawyer.

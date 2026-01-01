@@ -1,0 +1,799 @@
+ {******************************************************************************
+                                 ---  Mult-Edit macros for DBase ---
+ *******************************************************************************}
+
+$MACRO_FILE DBASE;
+
+ {******************************************************************************
+                                                MULTI-EDIT MACRO
+ Name: DBAMTCH
+
+ Description:  This macro will match occurances of
+       IF / ENDIF, CASE / ENDCASE, DO WHILE / ENDDO, TEXT / ENDTEXT, ( / )
+                      (C) Copyright 1988 by American Cybernetics, Inc.
+                                                Contributed by Julius Nadas
+ ******************************************************************************}
+
+$MACRO DBAMTCH TRANS;
+
+   DEF_STR( Str1, Str2, S_var,         { Match strings                        }
+                Xtr2,
+                T_Str, S_str, FStr );
+
+   DEF_INT( Direction,                 { 1 = search forward, 0 = backward     }
+                B_Count,               { Match count.  0 = match found        }
+                I_var,                 { just a temp variable                 }
+                temp_case,             { save ignore_case flag                }
+                S_Res);                { Search result                        }
+
+   Refresh := False;                   { Turn screen refresh off              }
+   temp_case := ignore_case;
+   ignore_case := true;
+
+   Mark_Pos;                           { return here if no find               }
+
+   IF (Cur_Char = '(') THEN            { Setup match for '('                  }
+      Str1 := '(';
+      Xtr2 := ')';
+      Str2 := ')';
+      Direction := 1;
+      S_Str := '(||)||$';
+      GOTO Start_Match;
+   END;
+
+   IF (Cur_Char = ')') THEN            { Setup match for ')'                  }
+      Str1 := ')';
+      Xtr2 := '(';
+      Str2 := '(';
+      Direction := 0;
+      S_Str := Str1+'||'+Str2+'||%';
+      GOTO Start_Match;
+   END;
+
+                                       { go to the first word                 }
+   goto_col(1);
+
+ Match_Construct:
+
+   IF Cur_Char = ' ' THEN         {If we are on a blank space then find a word}
+      Word_Right;
+   END;
+
+   T_Str := copy( Caps( Get_Word(' ') ),1,4);    { Get the current word       }
+
+   IF (T_Str = 'ELSE') or (T_Str = 'IF') THEN
+      Str1 := 'IF';
+      Xtr2 := 'ENDIF';
+      Str2 := 'ENDI';
+      S_Str := '{% *IF}||{% *ENDI}';
+      GOTO Match_Down;
+   END;
+
+   IF T_Str = 'ENDI' THEN
+      Str1 := 'ENDI';
+      Xtr2 := 'IF';
+      Str2 := 'IF';
+      S_Str := '{% *IF}||{% *ENDI}';
+      GOTO Match_Up;
+   END;
+
+   IF (T_Str = 'TEXT') THEN
+      Str1 := 'TEXT';
+      Xtr2 := 'ENDTEXT';
+      Str2 := 'ENDT';
+      S_Str := '{% *TEXT}||{% *ENDT}';
+      GOTO Match_Down;
+   END;
+
+   IF T_Str = 'ENDT' THEN
+      Str1 := 'ENDT';
+      Xtr2 := 'TEXT';
+      Str2 := 'TEXT';
+      S_Str := '{% *TEXT}||{% *ENDT}';
+      GOTO Match_Up;
+   END;
+
+   IF T_Str = 'DO' THEN
+      Word_Right;
+      T_Str := copy( Caps( Get_Word(' ') ),1,4); { Get the current word       }
+   END;
+
+   { check for either a DO WHILE or a simple WHILE or LOOP or EXIT }
+   IF (T_Str = 'WHIL') or (T_Str = 'EXIT') or (T_Str = 'LOOP') THEN
+      Str1 := 'DO WHIL';
+      Xtr2 := 'ENDDO';
+      Str2 := 'ENDD';
+      S_Str := '{% *DO +WHIL}||{% *ENDD}';
+      GOTO Match_Down;
+   END;
+
+   { check for either a DO CASE or  simple CASE or OTHERWISE }
+   IF (T_Str = 'CASE') or (T_str = 'OTHE') THEN
+      Str1 := 'DO CASE';
+      Xtr2 := 'ENDCASE';
+      Str2 := 'ENDC';
+      S_Str := '{% *DO +CASE}||{% *ENDC}';
+      GOTO Match_Down;
+   END;
+
+   IF T_Str = 'ENDD' THEN
+      Str1 := 'ENDD';
+      Xtr2 := 'DO WHILE';
+      Str2 := 'DO WHIL';
+      S_Str := '{% *DO +WHIL}||{% *ENDD}';
+      GOTO Match_Up;
+   END;
+
+   IF T_Str = 'ENDC' THEN
+      Str1 := 'ENDC';
+      Xtr2 := 'DO CASE';
+      Str2 := 'DO CASE';
+         S_Str := '{% *DO +CASE}||{% *ENDC}';
+      GOTO Match_Up;
+   END;
+
+   Make_Message('Looking for the Next Control Word');
+   GOTO_MARK;
+   S_Str := '{% *IF}||{% *ENDI}||{% *DO +WHIL}||{% *DO +CASE}||{% *ENDD}||{% *ENDC}||{% *TEXT}||{% *ENDT}';
+   S_Res := Search_Fwd(S_Str,0);
+   if (S_res = true) then
+      Make_Message('Next Control Word');
+   end else
+      Make_message('no control word found');
+   end;
+   GOTO Macro_Exit;
+
+ Match_Up:
+   Direction := 0;
+   goto_col(1);
+   GOTO Start_Match;
+
+ Match_Down:
+   Direction := 1;
+
+ Start_Match:
+   Reg_Exp_Stat := True;
+   Ignore_Case := True;
+   B_Count := 1;
+   S_Res := 1;
+   Make_Message('Matching...  Hit <ESC> to Stop.');
+   Working;
+
+ MATCH_LOOP:                           { Main loop                            }
+
+                                       { If the <ESC> key is pressed while    }
+                                       { matching then abort the search       }
+   if check_key then
+      if key1 = 27 then
+         GOTO_MARK;
+         Make_Message('Match Aborted.');
+         goto macro_exit;
+      end;
+   end;
+
+   If B_Count = 0 THEN                 { If match count is 0 then success     }
+      GOTO Found_Exit;
+   END;
+
+   If Direction = 1 THEN               { Perform search based on direction    }
+      Right;
+      S_Res := Search_Fwd(S_Str,0);
+   END ELSE
+      Left;
+      S_Res := Search_Bwd(S_Str,0);
+   END;
+
+   If S_Res = 0 THEN                   { If search failed then exit           }
+      GOTO Error_Exit;
+   END;
+
+   FStr := Remove_Space(Caps(Found_Str));
+                                       {Get the found string and capitalize it}
+                                      {If we found the first match string then}
+   IF FStr = STR1 THEN
+      B_Count := B_Count + 1;          { Inc the match count                  }
+   END ELSE
+      IF FStr = STR2 THEN            {If we found the second match string then}
+         B_Count := B_Count - 1;       { decrement the match count            }
+      END;                             { ignore everything else               }
+   END;
+
+   GOTO Match_Loop;
+
+
+ Error_Exit:                           { Go here for unsucessfull match       }
+   GOTO_MARK;
+   Make_Message('Did Not Find '+Xtr2);
+   GOTO Macro_Exit;
+
+ Found_Exit:                           { Go here for successfull match        }
+   POP_MARK;
+   Make_Message('Found '+Xtr2);
+
+ Macro_Exit:
+   ignore_case := temp_case;
+   Refresh := True;
+   Redraw;
+ END_MACRO;                            { of DBAMTCH                           }
+ 
+ {******************************************************************************
+                                                MULTI-EDIT MACRO
+
+ Name: DBA_IND
+
+ Description:  This macro will perform a smart indent when the <ENTER> key is
+   pressed.  This macro is called by the macro CR.
+
+                      (C) Copyright 1988 by American Cybernetics, Inc.
+                                    Contributed by Terry Lovegrove
+ ******************************************************************************}
+
+$MACRO DBA_IND;
+                                       { SMART-отступы по ключевым словам     }
+                                       { 28.03.90 19:16  К.Е.Г.типа DBASE     }
+   DEF_STR(C_STR);                     { Память для проверяемого слова        }
+   DEF_INT(T_COL,                      { Колонка первого слова в строке       }
+           T_COLE);                    { Исходная колонка курсора             }
+   DEF_INT(I_MODE);                    { Текущее значение INSERT_MODE         }
+
+   PUSH_UNDO;                          { Отметка в буфере UNDO - начало     * }
+   REFRESH := FALSE;
+   I_MODE := INSERT_MODE;
+   T_COLE := C_COL;                    { Запомнить текущую колонку            }
+   GOTO_COL(1);                        { На всякий случай - в первую,затем  * }
+   FIRST_WORD;                         { Встать на первое слово в строке      }
+   T_COL := C_COL;                     { Запомнить это место                  }
+   IF T_COLE < T_COL THEN              { Если ENTER был нажат из колонки      }
+      T_COL := T_COLE;                 { до первого слова,то отступ отсчи-    }
+      GOTO_COL(T_COL);                 { тываем от места ENTER,а не от        }
+   END;                                { первого слов в строке                }
+                                       {                                      }
+   IF AT_EOL = FALSE THEN              { Если строка не пустая :              }
+      SET_INDENT_LEVEL;                { то запомнили уровень отступа         }
+   END;                                {                                      }
+   T_COL := C_COL;                     { Запомнили его в переменной           }
+
+                                       { Взять первое слово в строке и        }
+                                       { удалить все излишние пробелы         }
+   C_STR := '.' + REMOVE_SPACE(CAPS(GET_WORD('|9 ;,(){') ) ) + '.';
+   GOTO_COL(T_COLE);                   { Вернуть курсор туда,где он был       }
+
+                                       { Это непонятно что,но оставим пока .? }
+   If XPOS(C_STR,'.PROCEDURE.FUNCTION.DO.CASE.NEXT.OTHERWISE.IF.FOR.',1) AND
+      XPOS('.END',C_STR,1) AND
+      XPOS('.ELSE',C_STR,1) THEN
+      GOTO MAC_EXIT;
+   END;
+
+   if (I_MODE = FALSE) then            { Вынуждены идти на обман, поскольку * }
+      INSERT_MODE := TRUE;             { CR и INDENT здесь не так работают, * }
+      EOL;                             { как должно - поэтому делаем разрыв,* }
+   end;                                { отступ,а потом истребим пустую строку}
+
+   CR;                                 { Выполнить ENTER                      }
+                                       { .........-----........               }
+                                       { Если слово , запомненное в C_STR     }
+                                       { содержится в списке ключевых       * }
+                                       { слов языка , сделать отступ          }
+   IF (T_COL <= T_COLE) AND (LENGTH(C_STR) <> 0 ) THEN
+      IF (POS(CAPS(C_STR),
+         '.PROCEDURE.FUNCTION.DO.CASE.' +
+         'OTHERWISE.IF.FOR.ELSE.PARAMETERS.') > 0 ) THEN
+         INDENT;                       { Сдвиг(отступ) вправо                 }
+ {    ELSE                             { ждать решения-----------------   ??* }
+         IF (POS(CAPS(C_STR), '.NEXT.RETURN.END)') > 0 ) THEN
+            UNDENT;                    { Сдвиг(отступ) влево : можно будет    }
+         END;                          { включить,когда закрывающая скобка    }
+ }    END;                             { на том же отступе,что и "тело".      }
+   END;
+   if (I_MODE = FALSE) then            { Ликвидируем последствия обмана     * }
+      INSERT_MODE := I_MODE;           { при INSERT_MODE = FALSE            * }
+      DEL_LINE;                        { - истребим пустую строку           * }
+   end;
+   POP_UNDO;                           { Отметка в буфере UNDO - конец      * }
+   REFRESH := TRUE;
+ MAC_EXIT:
+ END_MACRO;                            { of DBA_IND                           }
+
+ 
+ {******************************************************************************
+                                                MULTI-EDIT MACRO
+  Name: DBATEMP
+
+  Description: Creates DBase language constructs based on a single character
+                   to the left of the current cursor position.
+  The following constructs are created from the following templates:
+
+         HEADF   creates a complete header for a function
+         HEADP   creates a complete header for a program file
+         f       For/Next
+         c       CLEAR
+         *       *******************************
+         I       If/EndIF
+         IE      If/Else/EndIF
+         D       DO/EndDO
+         DW      DO/While/EndDO
+         DC      DO/Case/CASE/OTHERWISE/EndCASE
+         F       FUNCTION/RETURN .T.
+         FP      FUNCTION/RETURN .T./PARAMETERS
+         U       USE
+         UI      USE  INDEX
+         P       PROCEDURE/RETURN
+         PA      PARAMETERS
+         PR      PRIVATE
+         PU      PUBLIC
+         PP      PROCEDURE/PARAMETERS/RETURN
+         C       CASE
+         @       @ ,
+         @       @ Row()+1,
+         @S      @ ,  SAY
+         @G      @ ,   GET
+         @P      @ ,   PROMPT
+         K       KEYBOARD
+         NORM    SET COLOR TO
+         RS      RESTORE SCREEN
+         RSF     RESTORE SCREEN FROM
+         REV     SET COLOR TO N/W
+         S       SELECT
+         SS      SAVE SCREEN
+         SST     SAVE SCREEN TO
+         SE      SET ESCAPE OFF
+         SC      SET CURSOR OFF
+         SK      SET KEY
+         SKT     SET KEY  TO
+         SW      SET WRAP  OFF
+         SM      SET MESSAGE TO
+         SO      SET ON
+         SF      SET OFF
+
+                      (C) Copyright 1988 by American Cybernetics, Inc.
+                                       Contributed by Terry Lovegrove
+ ******************************************************************************}
+
+$MACRO DBATEMP TRANS;
+
+   DEF_INT(Temp_Col,Temp_Row,
+               Temp_Insert,F_Col,
+               S_Pos,Par_Cnt);
+   DEF_STR(XStr,C_STR);
+   DEF_CHAR(F_CHAR);
+
+   Temp_Insert := Insert_Mode;
+   Insert_Mode := True;
+   Temp_Col := C_COL;
+   FIRST_WORD;
+   F_Char := Caps(Cur_Char);
+   C_STR := Caps(GET_WORD(' '));
+   FIRST_WORD;
+   Set_Indent_Level;
+   F_Col := C_Col;
+
+   If (C_Str = 'HEADF') then
+      GOTO MAKEHEADF;
+   end;
+
+   If (C_Str = 'HEADP') then
+      GOTO MAKEHEADP;
+   end;
+
+                                       { Case sensitive templates             }
+   If (Cur_Char = 'f') Then
+      GOTO MAKEFOR;
+   END;
+   If (Cur_Char = 'c') Then
+      GOTO MAKECLEAR;
+   End;
+
+                                       { Non-Case sensitive templates         }
+   If (F_Char = '*') Then
+      Del_Char;
+      TEXT('*******************************');Cr;
+      Goto End_of_Mac;
+   End;
+
+   If (F_Char = 'I') Then
+      GOTO MAKEIF;
+   End;
+
+   If (F_Char = 'D') Then
+      GOTO MAKEDO;
+   End;
+
+   If (F_Char = 'U') Then
+      GOTO MAKEUSE;
+   End;
+
+   If (F_Char = 'P') Then
+      If (C_Str = 'PA') Then
+          GOTO MAKEPARAM;
+      ELSE
+      If (C_Str = 'PR') Then
+          GOTO MAKEPRIV;
+      ELSE
+      If (C_Str = 'PU') Then
+          GOTO MAKEPUBL;
+      ELSE
+          GOTO MAKEPROCEDURE;
+      END;END;END;
+   End;
+
+   If (F_Char = 'F') Then
+      GOTO MAKEFUNCTION;
+   End;
+
+   If (F_Char = 'C') Then
+      GOTO MAKECASE;
+   End;
+
+   If (F_Char = '@') Then
+      GOTO MAKEAT;
+   End;
+
+   If (F_Char = 'K') Then
+      GOTO MAKEKEYBRD;
+   End;
+
+   If (C_STR = 'NORM') Then
+      GOTO MAKENORM;
+   End;
+
+   If (F_Char = 'R') Then
+      If (C_Str = 'REV') Then
+         GOTO MAKEREV;
+      ELSE
+         GOTO MAKEREST;
+      END;
+   End;
+
+   If (F_Char = 'S') Then
+      If Length(C_Str) > 1 Then
+         If XPos('S',C_Str,2) <> 0 Then
+             GOTO MAKESAVE;
+         Else
+             GOTO MAKESET;
+         End;
+      Else
+         GOTO MAKESELECT;
+      End;
+   End;
+
+                                       { Not a proper template string         }
+   Goto_Col(Temp_Col);
+   GOTO END_OF_MAC;
+
+ MAKEIF:
+   Del_Chars(Length(C_Str));
+   TEXT('If ');
+   EOL;
+   Cr;
+   Cr;
+   TEXT('EndIF');
+   Up;
+   Goto_Col(F_Col);
+   If C_Str = 'IE' then
+      Cr;
+      TEXT('Else ');
+      EOL;
+      Cr;
+      Goto_Col(F_Col);
+      Up;
+      Up;
+   End;
+   Indent;
+   GOTO END_OF_MAC;
+
+ MAKEDO:
+   Del_Chars(Length(C_Str));
+   TEXT('DO ');
+
+   If C_Str = 'DW' Then
+      TEXT('While ');
+
+      EOL;
+   Else
+      If C_Str = 'DC' Then
+         TEXT('Case');
+
+         Cr;
+         Cr;
+         Indent;
+         TEXT('OTHERWISE');
+
+         Cr;
+         Undent;
+         TEXT('EndCASE');
+
+         Goto_Col(F_Col);
+         Up;
+         Up;
+         Indent;
+         TEXT('CASE ');
+
+         GOTO END_OF_MAC;
+      End;
+   End;
+   Cr;
+   Cr;
+   TEXT('EndDO');
+
+   Up;
+   Goto_Col(F_Col);
+   Indent;
+   GOTO END_OF_MAC;
+
+
+ MAKEFOR:
+   Del_Char;
+   TEXT('For ');
+
+   Cr;
+   Cr;
+   TEXT('Next');
+
+   Goto_Col(F_Col);
+   Up;
+   Indent;
+   GOTO END_OF_MAC;
+
+ MAKECLEAR:
+   Del_Char;
+   TEXT('CLEAR');
+
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEUSE:
+   Del_Chars(Length(C_Str));
+   TEXT('USE ');
+
+   EOL;
+   If C_Str = 'UI' then
+      TEXT(' INDEX ');
+   Else
+      Cr;
+   End;
+   GOTO END_OF_MAC;
+
+ MAKEPARAM:
+   Del_Chars(Length(C_STR));
+   TEXT('PARAMETERS ');
+   EOL;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEPRIV:
+   Del_Chars(Length(C_STR));
+   TEXT('PRIVATE ');
+   Eol;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEPUBL:
+   Del_Chars(Length(C_STR));
+   TEXT('PUBLIC ');
+   Eol;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEPROCEDURE:
+   Del_Chars(Length(C_STR));
+   TEXT('PROCEDURE ');
+
+   EOL;
+   Cr;
+   Cr;
+   TEXT('RETURN');
+
+   Goto_Col(F_Col);
+   Up;
+   Indent;
+   If C_STR = 'PP' Then
+      TEXT('PARAMETERS ');
+
+   End;
+   GOTO END_OF_MAC;
+
+ MAKEFUNCTION:
+   Del_Chars(Length(C_STR));
+   TEXT('FUNCTION ');
+
+   EOL;
+   Cr;
+   Cr;
+   TEXT('RETURN .T.');
+
+   Goto_Col(F_Col);
+   Up;
+   Indent;
+   If C_STR = 'FP' Then
+      TEXT('PARAMETERS ');
+
+   End;
+   GOTO END_OF_MAC;
+
+ MAKECASE:
+   Del_Char;
+   TEXT('CASE ');
+
+   EOL;
+   Cr;
+   Indent;
+   GOTO END_OF_MAC;
+
+ MAKEAT:
+   Del_Chars(Length(C_Str));
+   Temp_Col := FALSE;
+   If XPos('R',C_Str,2) <> 0 then
+      TEXT('@ Row()+1,');
+   Else
+      TEXT('@ ,');
+      Temp_Col := C_Col - 1;
+   End;
+
+   If XPos('C',C_Str,2) <> 0 Then
+      CALL GETCOL;
+      TEXT(XSTR);
+   Else
+      TEXT('  ');
+      Temp_Col := C_Col - 1;
+   End;
+   If XPos('S',C_Str,2) <> 0 Then
+      TEXT('SAY ');
+      If Temp_Col = 0 Then
+         Temp_Col := C_Col;
+      End;
+   End;
+   If XPos('G',C_Str,2) <> 0 Then
+      If XPos('S',C_Str,2) Then
+         EOL;
+      End;
+      TEXT (' GET ');
+   End;
+   If XPos('P',C_Str,2) <> 0 Then
+      If XPos('S',C_Str,2) Then
+         EOL;
+      End;
+      TEXT (' PROMPT ');
+   End;
+
+   If Temp_Col Then
+      Goto_Col(Temp_Col);
+   End;
+   GOTO END_OF_MAC;
+
+ GETCOL:
+   MARK_POS;
+   Up;
+   Goto_Col(1);
+   If Search_Fwd('{,}{ *}{(}',1) = 0 Then
+      XStr := ' ';
+   Else
+      Right;
+      S_Pos := C_Col;
+      Par_Cnt := 0;
+      While Search_Fwd('[()]',1) <> 0 do
+         If Cur_Char = ')' Then
+            Par_Cnt := Par_Cnt - 1;
+         Else
+         If Cur_Char = '(' Then
+            Par_Cnt := Par_Cnt + 1;
+         End;End;
+         Right;
+      End;
+      If Par_Cnt = 0 Then
+         XStr := Copy(GET_LINE,S_Pos,C_Col-S_Pos);
+      Else
+         XStr := ' ';
+      End;
+   End;
+   GOTO_MARK;
+   RET;
+
+ MAKEKEYBRD:
+   Del_Chars(Length(C_Str));
+   TEXT('KEYBOARD ');
+   Eol;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEREV:
+   Del_Chars(Length(C_Str));
+   TEXT('SET COLOR TO N/W');
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKENORM:
+   Del_Chars(Length(C_Str));
+   TEXT('SET COLOR TO ');
+   Eol;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEREST:
+   Del_Chars(Length(C_Str));
+   TEXT('RESTORE SCREEN ');
+   If XPos('F',C_Str,3) <> 0 Then
+      TEXT('FROM ');
+   End;
+   Eol;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKESAVE:
+   Del_Chars(Length(C_Str));
+   TEXT('SAVE SCREEN ');
+   If XPos('T',C_Str,3) <> 0 Then
+      TEXT('TO ');
+   End;
+   EOL;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKESET:
+   Del_Chars(Length(C_Str));
+   TEXT('SET');
+   If XPos('E',C_Str,2) <> 0 Then
+      TEXT(' ESCAPE');
+   Else
+   If XPos('C',C_Str,2) <> 0 Then
+      TEXT(' CURSOR');
+   Else
+   If XPos('K',C_Str,2) <> 0 Then
+      TEXT(' KEY ');
+      EOL;
+      If XPos('T',C_Str,2) <> 0 Then
+         TEXT(' TO');
+      End;
+      GOTO END_OF_MAC;
+   Else
+   If XPos('W',C_Str,2) <> 0 Then
+      TEXT(' WRAP ');
+   Else
+   If XPos('M',C_Str,2) <> 0 Then
+      TEXT(' MESSAGE TO ');
+      GOTO END_OF_MAC;
+   End;End;
+   End;End;End;
+   If XPos('O',C_Str,2) <> 0 Then
+      TEXT(' ON');
+   Else
+      TEXT(' OFF');
+   End;
+   Cr;
+   GOTO END_OF_MAC;
+
+
+ MAKESELECT:
+   Del_Chars(Length(C_Str));
+   TEXT('SELECT ');
+   EOL;
+   Cr;
+   GOTO END_OF_MAC;
+
+ MAKEHEADF:
+   Del_Chars(Length(C_Str));
+   TEXT('*******************************');Cr;
+   TEXT('*Function:');Cr;
+   TEXT('*Notes:');Cr;
+   TEXT('*');Cr;Cr;
+   TEXT('*** End of          ***********');Cr;
+   Up;Up;Up;Up;Up;Eol;Right;
+   GOTO End_of_mac;
+
+ MAKEHEADP:
+   Del_Chars(Length(c_Str));
+   TEXT('*******************************');Cr;
+   TEXT('*File:');Cr;
+   TEXT('*Author:');Cr;
+   TEXT('*Date:');Cr;
+   TEXT('*Version:');cr;
+   TEXT('*Notes:');cr;
+   TEXT('*');Cr;Cr;
+   TEXT('*** End of         .PRG *******');Cr;
+   Up;Up;Up;Up;Up;Up;Up;Up;Eol;Right;
+   GOTO End_of_mac;
+
+ END_OF_MAC:
+   Insert_Mode := Temp_Insert;
+
+ END_MACRO;                            { of DBATEMP                           }

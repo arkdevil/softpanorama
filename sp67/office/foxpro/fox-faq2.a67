@@ -1,0 +1,380 @@
+From: kcochran@nyx10.cs.du.edu (Keith "Justified And Ancient" Cochran)
+Newsgroups: comp.databases.xbase.fox,comp.answers,news.answers
+Subject: FoxPro Databases FAQ #2: See Fox.  See Fox Run.  Run, Fox, Run.
+Date: 30 Aug 1994 06:35:55 -0600
+Organization: Get real.  You think I'm organized?
+Message-ID: <33v93b$pcb@nyx10.cs.du.edu>
+
+Archive-name: databases/foxpro/rushmore
+Posting-frequency: Monthly
+
+[This is version 1.0.0.2, last updated 07/03/94. New or altered text
+is marked with ">" in the left hand column.  Please send all comments,
+suggestions, and whatnot to kcochran@nyx.cs.du.edu]
+
+One of the most my mysterious things about FoxPro is the Rushmore
+Technology.  This FAQ deals with Rushmore, and how to use it to get
+every last ounce of power out of your databases.
+
+This FAQ is organized in the following manner:
+
+0.0 What is Rushmore?
+0.1 What isn't Rushmore?
+0.2 Why is it called Rushmore?
+
+1.0 How do I turn on Rushmore?
+1.1 Where can I utilize Rushmore?
+1.2 Where can't I utilize Rushmore?
+1.3 How do I turn off Rushmore?
+
+2.0 Simple indexes and Rushmore.
+2.1 Compound indexes and Rushmore.
+2.2 Complex indexes and Rushmore.
+
+3.0 Using functions in indexes.
+3.1 Using user-defined functions in indexes.
+3.2 Using functions from .plb files in indexes.
+
+4.0 What is an "optimizable expression"?
+4.1 Fully optimizable expressions.
+4.2 Partially optimizable expressions.
+4.3 Non-optimizable expressions.
+
+5.0 Rushmore and the SEEK statement.
+5.1 Rushmore and the LOCATE statement.
+5.2 Rushmore and the SET ORDER TO statement.
+5.3 Rushmore and the SET RELATION TO statement.
+5.4 Rushmore and the SET DELETED statement.
+
+[Note each of these sections is seperate with "******"]
+
+******
+0.0 What is Rushmore?
+    The "simple" answer:  Rushmore is this little bit of magic that allows
+    you main-frame database access speeds on a lowly PC.
+
+    The "more complex" answer:  Rushmore is a data-access method that utilizes
+    binary selection critera and better index-manipulation methods to allow
+    faster resolution of searches.
+
+    [If you want to know what the "more complex" answer is really saying,
+    take a graduate course in database programming.]
+
+    The "correct" answer:  Rushmore is a mountain in South Dakota which has
+    been carved into the faces of several presidents. :]
+
+******
+0.1 What isn't Rushmore?
+    Rushmore has nothing to do with satanism.
+    Rushmore has nothing to do with the power tools.
+    Rushmore has nothing to do with your report layouts.
+    Rushmore has nothing to do with your mouse or keyboard.
+
+******
+0.2 Why is it called Rushmore?
+    Oddly enough, the design team came up with the "code-name" Rushmore
+    after spending a night watching the movie "North By Northwest."
+
+******
+1.0 How do I turn on Rushmore?
+    You don't.  Any time you can include a FOR clause in a statement,
+    Rushmore will try to optimize the expression.
+
+    Some exceptions apply.  For example, Rushmore will not activate if
+    you have a statement with a WHILE clause in it.
+
+    Rushmore works best with .CDX indexes, but it will utilize any open
+    .IDX or compact .IDX indexes that it can get its greedy little hands
+    upon.
+
+******
+1.1 Where can I utilize Rushmore?
+    You can utilize Rushmore in any FoxPro statement that allows a FOR
+    clause, or in an SQL statement.  If you are dealing with databases
+    of any size, you should utilize Rushmore as often as possible.
+
+    Note:  The only way to utilize Rushmore when doing multi-database
+    access is through the SQL SELECT statement.
+
+******
+1.2 Where can't I utilize Rushmore?
+    Basically, if you can't include a FOR clause, you can't use Rushmore.
+
+    Rushmore also can't be used if you have a WHILE clause in your statement,
+    or if you are doing a LOCATE on the child table in a multi-table
+    relation.
+
+    Note that SEEK and GOTO do not utilize Rushmore.
+
+******
+1.3 How do I turn off Rushmore?
+    In some rare instances, you may want to turn off Rushmore so that it
+    doesn't try to optimize your expression.
+
+    In order to do so there are two methods:
+
+    SET OPTIMIZE ON|OFF - This turns Rushmore on/off until the next SET
+    OPTIMIZE statement is executed.  It is probably not a good idea to
+    use this statement.
+
+    There is another way to disable Rushmore.  Any statement that can
+    utilize Rushmore has a NOOPTIMIZE clause.  This clause will disable
+    Rushmore for that statement.  Note that if you have a multi-line
+    statement, such as:
+
+    SELECT db1
+    LOCATE FOR foo=bar NOOPTIMIZE
+    WHILE FOUND()
+       SELECT db2
+       LOCATE FOR date1 = m.mydate
+       WHILE FOUND()
+          [...]
+          CONTINUE
+       ENDWHILE
+       SELECT db1
+       CONTINUE
+    ENDWHILE
+
+    Rushmore will be disabled for the db1 LOCATE, but will be active for
+    the db2 LOCATE.
+
+    NB:  Be very wary of using GOTO, LOCATE, SEEK, SKIP or any other command
+    that may move the record pointer (like APPEND, or SQL - SELECT) in any
+    databases that are linked using SET RELATION TO.  You may not like the
+    results.
+
+******
+For the following discussions, we have the following database structure:
+   fname C(15)
+   minit C(1)
+   lname C(18)
+   dob D
+   ssn N(9,0)
+
+******
+2.0 Simple indexes and Rushmore.
+    A simple index is of the form:
+
+    INDEX ON ssn TAG ssn
+
+    This is the type of index that Rushmore likes using the "best".  In
+    order to utilize Rushmore with this type of tag, all you have to do
+    is:
+
+    LOCATE FOR ssn = 987654321
+
+    Simple indexes are generally only built on numeric, date, or
+    formatted character fields.  For more information on why this is
+    so, see sections 2.2, 3.0, and 4.0.
+
+******
+2.1 Compound indexes and Rushmore.
+    A coumpound index is of the format:
+
+    INDEX ON lname+fname TAG name
+
+    In order to utilize this type of tag with Rushmore, you have to:
+
+    LOCATE FOR lname+fname = "Cochran Keith"
+
+    What's that?  You want to know why you wouldn't use:
+
+    LOCATE FOR name = "Cochran Keith"
+
+    Well, there's a reason for that, and it's even a good one.  The TAG
+    parameter is for your usage. Rushmore understands expressions, not
+    tags.
+
+    In order to get Rushmore to work, the expression on the left side of
+    the expression must match in essence the expression of the INDEX ON
+    statement.  So, the following are things that Rushmore can't utilize
+    with our current INDEX statement:
+
+    LOCATE FOR UPPER(lname+fname) = "COCHRAN KEITH"
+    LOCATE FOR LTRIM(lname)+fname = "COCHRAN KEITH"
+    LOCATE FOR lname+" "+fname = "Cochran Keith"
+
+    For a discussion of how to correctly utilize Rushmore with functions,
+    see sections 2.2 and 3.0.
+
+    NB: Special care must be taken when creating compound or complex indexes
+    with numeric and date fields.  For more information, see the INDEX ON
+    section in the FAQ "Things your Mamma never told you".
+
+******
+2.2 Complex indexes and Rushmore.
+    A complex index is any index that uses math, string, or other functions
+    as part of the index.  Some examples:
+
+    INDEX ON DTOS(date) TAG cdate
+    INDEX ON lname+", "+fname TAG fullname
+    INDEX ON STR(ssn) TAG cssn
+    INDEX ON ssn+DAY(date) TAG mytag
+
+    In order to get Rushmore to work with these indexes, the index expression
+    must match the expression you are locating on.
+
+******
+3.0 Using functions in indexes.
+    As you've seen from the preceeding section, you can utilize any FoxPro
+    function in your index.  The question as far as Rushmore is concerned
+    is - should you?
+
+    In most cases, the answer is yes.  The caveat here is that when you're
+    designing your database, you need to be aware of the trade-off between
+    getting better speed through Rushmore, and taking longer to update your
+    indexes when you change or add records.
+
+    The other major pitfall with using functions in your indexes is how you
+    solve for the solutions later.  Most people, if they have an index on
+    UPPER(lname+fname), and two input fields, m.last and m.first, will
+    attempt to:
+
+    LOCATE FOR UPPER(lname+fname) = UPPER(m.last+m.first)
+
+    This will work, and Rushmore will optimize it, but you won't see any
+    real speed increase.  The reason for this is because the
+    UPPER(m.last+m.first) is evaluated for EVERY RECORD in the database.
+
+    In order to properly utilize this index, you should:
+
+    m.search = UPPER(m.last+m.first)
+    LOCATE FOR UPPER(lname+fname) = m.search
+
+******
+3.1 Using user-defined functions in indexes.
+    Rushmore is able to utilize FoxPro functions in index expressions,
+    and it is also able to utilize user-defined functions (udf's) in
+    its optimization process.  There are several things you have to be
+    aware of, though:
+
+    1) The speed that Rushmore can process is limited by how fast your
+       function executes.
+
+    2) Be extremly careful about what your function does.  Your function
+       should make no guesses about the current operating environment, the
+       value of SET EXACT, SET ORDER, SET RELATION, etc.
+
+    3) Your function ***MUST NOT*** modify any databases.  Doing so can
+       cause everything from "something strange is happening" to "FoxPro
+       must be buggy - it gets stuck in an endless loop."
+
+    4) Be extremly careful about any variables you function may modify.
+       It's extremly easy to get the "wrong" result when your function
+       modifies one of your search variables.
+
+    5) Your function ***MUST NOT*** move the record pointer in any database
+       hooked into the database you're using with SET RELATION.  It ***MUST
+       NOT*** move the record pointer in the current database.
+
+******       
+3.2 Using functions from .plb files in indexes.
+    As long as the function in the .plb is "well behaved", there should be
+    no problems using it.  Remember the points in section 3.1, though.
+
+******
+4.0 What is an "optimizable expression"?
+    An optimizable expression is any expression that Rushmore can attempt
+    to use.  How well Rushmore can work with the expression determines if
+    the expression is fully, partially, or non-optimizable.
+
+    All of the examples used up to now were either fully optimizable, or
+    non optimizable.  Expressions that may be partially optimizable generally
+    take the format of:
+
+    LOCATE FOR lname = "Cochran" AND ssn = 987654321
+
+******
+4.1 Fully optimizable expressions.
+    In order for our last LOCATE statement to be fully optimizable, we
+    would have to:
+
+    INDEX ON lname TAG lname
+    INDEX ON ssn TAG ssn
+
+    This is the "best" solution, and will allow Rushmore to find the records
+    the fastest.
+
+******
+4.2 Partially optimizable expressions.
+    If we had the index on ssn, but no index on lname, then our expression
+    would partially optimizable.  Rushmore would activate to locate the
+    records which matched our ssn, and then treat the rest of the expression
+    as a non-optimizable search.  Note that Rushmore is smart enough that
+    it will solve for the optimizable portions first, and then perform
+    the rest of the search on the subset of records it already has.
+
+******
+4.3 Non-optimizable expressions.
+    A non-optimizable expression is one that Rushmore can't help.  You want
+    to avoid these expressions in all but the most extreme cases.  The
+    reason is that FoxPro will search every record in the database,
+    starting at RECNO() = 1.
+
+
+******
+5.0 Rushmore and the SEEK statement.
+    Basically, the SEEK statement, and the SEEK() function don't interact
+    with Rushmore at all.  This can be both a blessing and a curse.  For
+    simple indexes, you can get faster results out of SEEK than you
+    can out of Rushmore.  But SEEK will not allow you to search on
+    multiple fields...
+
+5.1 Rushmore and the LOCATE and SCAN statements.
+    Rushmore will almost always speed up your queries when using LOCATE FOR
+    or SCAN FOR statements.  To get the best use of Rushmore in these
+    statements, you should build simple indexes on the fields you will
+    most often search through.
+
+5.2 Rushmore and the SET ORDER TO statement.
+
+    [Many thanks to Evan Simpson (evan@access.digex.net) for helping clear
+    up a misconception about the SET ORDER TO statement for me.]
+
+    (1)The speed of the search will be slower.  This is true whether you
+       are using Rushmore or not.
+    (2)The first record Rushmore locates (i.e. LOCATE FOR foo = "bar")
+       will be the lowest numbered record in the database [RECNO()] that
+       matches the search criteria, regardless of the SET ORDER TO clause.
+
+       For example, let's assume we have:
+       RECNO()   FOO BAR
+             1   AAA BBB
+             2   AAA CCC
+             3   AAA DDD
+             4   AAA CCC
+
+       If you:
+       SET ORDER TO BAR
+       LOCATE FOR bar = "CCC"
+
+       Rushmore will locate RECNO() 2, and then RECNO() 4.
+
+       If you:
+       SET ORDER TO bar
+       LOCATE FOR foo = "AAA"
+
+       Then Rushmore will locate records in the following order:
+       RECNO() 1
+       RECNO() 2
+       RECNO() 4
+       RECNO() 3
+
+       Of course, you shouldn't program with this in mind, because Microsoft
+       may change it in future releases.
+
+5.3 Rushmore and the SET RELATION TO statement.
+    Beware of attempting to use Rushmore along with SET RELATION.  Due
+    to the constraints of the SET RELATION statement, Rushmore will
+    either not work at all, or will only work in very limited cases.
+
+5.4 Rushmore and the SET DELETED statement.
+    Rushmore can optimize a query for deleted() IF you index on deleted().
+    If your database contains a large number of deleted records, you
+    can help Rushmore out by either indexing on deleted(), or by using
+    the SET DELETED OFF statement before you invoke Rushmore.
+-- 
+=kcochran@nyx.cs.du.edu | B(0-4) c- d- e++ f- g++ k(+) m r(-) s++(+) t | TSAKC=
+=My thoughts, my posts, my ideas, my responsibility, my beer, my pizza.  OK???=
+=                  "...love is bright, and sweet, but foolish."               =
+

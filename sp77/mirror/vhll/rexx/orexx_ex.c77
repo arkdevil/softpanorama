@@ -1,0 +1,188 @@
+From: rick004@ibm.net   (Rick McGuire)
+Newsgroups: comp.lang.rexx
+Subject: Re: A practical example of ORexx?
+Date: 10 Aug 1995 22:18:09 GMT
+
+In <40bpfa$3ta1@news-s02.ny.us.ibm.net>, kslater@ibm.net writes:
+>Okay Rick (and you other IBM'rs watching this newsgroup):
+>
+>How about a practical example of what orexx can allow us to do. I've been
+>needing to create a Network Printer object from a rexx program, but can't
+>seem to get the job done with classic rexx. Would this be an easy task for
+>orexx? Let's assume that we'd want to create a HP 4 network printer object
+>that will be using a driver that's already on the machine in question. (Figure
+>that it's currently being used to drive an HP IIIsi.)
+>
+Well, creating a printer object is small potatoes...and I don't happen to know off
+the top of my head what the methods required to create one are!  But how about
+some things that do something completely different from what you are used to
+using Rexx for.  For example, we have a function that we ship as one of the samples
+that can search through the desktop for an object by title, so you can access an
+object even if it DOESN'T have an object id assigned.
+
+An example I use frequently in my talks uses the following sequence:
+
+  info = wpfind("Information")     /* get the information folder */
+  info~wpopen(0,0,0)                /* open the folder default view */
+  info~wpswitchto(0)                 /* make it the active window */
+  info~wpclose                          /* now close it                */
+                                              /* change the title  */
+  info~wpsettitle("My Information")
+  do i = 1 to 11                          /* now change it back  */
+     info~wpsettitle(right(left("Information"), i), 11))
+  end
+
+Ok, classice Rexx can open an object, but only if I use the fully resolved path
+name or it has been assigned an object id.  I can also bring an object to the forground
+if I know the trick of issuing SysSetObjectData with OPEN=DEFAULT twice.  However
+there isn't any way I know of in classic Rexx of closing an open object or
+changing the title...let along changing the title in a scrolling new reel style (the
+DO loop).
+
+The folder supports several hundred methods...some with real interesing names.
+Two that might be of interest to this discussion are WpQueryObjectId and
+WpSetObjectId.
+
+Here is another example I demo.  People have been asking for a password
+protected folder for years.  Here is one in Object Rexx created by subclassing the
+Workplace Shell WPFolder class:
+
+/* */
+call RXFuncAdd "VRLoadFuncs", "VROBJ", "VRLoadFuncs"
+call VRLoadFuncs
+environment['WPLOCKFOLDER'] = .WPLockFolder
+
+/* ********************************************************** */
+/* ***                                                    *** */
+/* ********************************************************** */
+::CLASS VXPWPrompts mixinclass object
+::METHOD init
+ expose buttons. default esc
+  self~init:super                      /* let super class initialize.       */
+  self~initButtons
+
+::METHOD initButtons
+ expose buttons. default esc
+  default = 1                          /* Set up some default values for    */
+  esc = 2                              /* the VX-REXX windows....           */
+  buttons.0 = 2
+  buttons.default = 'Ok'
+  buttons.esc     = 'Cancel'
+
+::METHOD displayPrompt
+ expose buttons. default esc
+ use arg prompt, title
+                                       /* Display Password prompt           */
+  rc = VRPrompt('', prompt, 'ENTERPW', title, 'BUTTONS.', default, esc)
+  if rc = esc then                     /* cancel requested?                 */
+   return .nil                         /* Yup, indicate no PW entered       */
+  else
+   return enterPw                      /* Return entered PW.                */
+
+::METHOD displayError
+ expose buttons. default esc
+ use arg title
+                                       /* Display error message for         */
+                                       /*incorrect PW                       */
+  return VRMessage('', 'Incorrect Password Entered !!', title, 'E', 'BUTTONS.', default, esc)
+
+/* ********************************************************** */
+/* ***                                                    *** */
+/* ********************************************************** */
+::CLASS WPLockFolder subclass WPFolder INHERIT VXPWPrompts
+::METHOD wpclsQueryTitle CLASS
+  return 'LockFolder'
+
+::METHOD init
+ expose password
+  self~init:super                      /* let superc lass initialize 1t     */
+                                       /* Create object to allow PW Change  */
+  .smpPwChange~new('Change Password', 'ICONFILE=C:\OBJREXX\PMREXX.ICO', self, 1)
+  if \var('PASSWORD') Then            /* PW initialized via SetupString?    */
+    password = ''                     /* Nope, give default ''              */
+
+::METHOD wpOpen
+ expose password
+ use arg handleContainer, view, params
+ if password == '' then                /* no password set?                  */
+                                       /* go ahead and open this            */
+   return self~wpOpen:super(handleContainer, view, params)
+                                       /* Ask user for password.            */
+  enterpw = self~displayPrompt('Enter Password ...','Locked Folder Password')
+  if password = enterPw then Do        /* Was correct password entered      */
+                                       /*Yup, forward to WPFolder top Open  */
+   return self~wpOpen:super(handleContainer, view, params)
+  End
+  else Do                              /* Incorrect pw entered.             */
+   reply .false                        /* Return failure, and return to WPS */
+   guard off
+                                       /* Now display error to user.        */
+   self~displayError('LockFolder Error' password)
+  End
+
+::METHOD wpSetup
+ use arg setupString
+ strLength = .WPDLFULong~new(256)      /* Will allow for up to 256 cahr PW  */
+                                       /* Get INOUT String parm             */
+ str = .WPDLFString~new~~_set_maxSize(strLength)
+                                       /* see if setup strings has PW       */
+ if self~wpScanSetupString(setupString, 'PASSWORD', str, strLength)  then
+   self~password = str~asString        /* Yup, set password.                */
+                                       /* Superclass does remainder.        */
+ return self~wpSetup:super(setupString)
+
+::METHOD scrollTitle unguarded         /* unguarded, want to rn concurrently*/
+ title = self~wpQueryTitle             /* Get current title                 */
+ do 2                                  /* Will scroll twice.                */
+   do i = 1 to title~length            /* For length of title.              */
+                                       /* display 1st 1 chars of title      */
+      self~wpSetTitle(right(left(title, i), title~length))
+   end                                 /* iincrement i.                     */
+ end
+
+::METHOD password ATTRIBUTE            /* set/retrieve methods for password */
+::METHOD wpSaveState
+                                       /* Save the password data            */
+ self~wpSaveString(self~somGetClassName, 1, self~password)
+ return self~wpSaveState:super         /* Let parent save any state.        */
+
+::METHOD wpRestoreState
+ self~initButtons                      /* make sure OREXX side initialized. */
+ size = .WPDLFULong~new                /* Get DLFUlong for size query.      */
+                                       /* Retrive size of string for restor */
+ self~wpRestoreString(self~somGetClassName, 1, .nil, size)
+                                       /* Create DLFString large enough to  */
+                                       /*  contain the string, plus NULL    */
+ str = .WPDLFString~new~~_set_maxSize(size+1)
+                                       /* Now get saved password.           */
+ self~wpRestoreString(self~somGetClassName, 1, str, size)
+ self~password = str~asString          /* Save password state value.        */
+                                       /* let parent restore state.         */
+ return self~wpRestoreState:super(arg(1))
+
+/* ********************************************************** */
+/* ***                                                    *** */
+/* ********************************************************** */
+::CLASS SMPPWChange subclass WPAbstract
+::METHOD wpOpen
+ use arg handleContainer, view, params
+ if view \= 2  & view \= 3 then Do     /* Opening Default view? Dbl-click   */
+   lockf = self~wpQueryFolder          /* Get our conatining lock folder    */
+                                       /* Ask for new password              */
+   newpw = lockf~displayPrompt('Enter New Password', 'New LockFolder Password')
+   if newpw \= .nil Then Do            /* Get a new password?               */
+     lockf~password = newpw            /* Yup, set new pw.                  */
+     lockF~wpSaveImmediate             /* Save object state (PW)            */
+   End
+   return 0
+ End
+ else                                  /* Forward wpOpen to super class     */
+                                       /*  to handle.                       */
+   return self~wpOpen:super(handleContainer, view, params)
+
+
+Rick McGuire, IBM Object REXX Development
+
+- Drag me, drop me, treat me like the Rexx object that I am!
+
+

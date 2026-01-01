@@ -1,0 +1,315 @@
+$MACRO Int10 ;
+{**************************************************************************
+Из заданного числа линий (начиная от текущей ) делает в окне  <FILE>.I10
+строки в виде :
+	char attr char attr ..... char attr ,
+где
+	char - символ по порядку,
+	attr -аттрибут цвета который задается пользоателем в процессе диалога.
+***************************************************************************}
+DEf_Int(sl,ns,mc,mb,mf,wc,y,scol,sline, old_cur, old_i,
+		ok := True, w,Shft, x := True  );
+DEf_Str(s1,s2,fn);
+DEf_Char(c);
+
+	old_i := Insert_Mode;
+	old_cur := OVR_CURSOR;
+	OVR_CURSOR := 0;
+	Refresh := 0;
+    fn := Truncate_Extension(File_Name )+'.I10';
+    w := Window_ID;
+	wc := Window_Count;
+	WHILE ( wc > 0) DO
+		Switch_Window(wc);
+        IF ( File_Name = fn ) THEN
+			x := False; GoTo FIND;
+		Else wc := wc-1;
+		END;
+	END;
+    IF ( File_Exists(fn)) THEN
+        RM('VERIFY /C=10/L=4/T=Использовать существующий файл?/BL=Файл INT16.TMP уже есть');
+        IF ( Return_Int ) THEN
+            Refresh := 0;
+            Create_Window;
+                IF ( Error_Level <> 0) THEN
+                    Run_Macro('Meerror');
+                    GoTo CONEC;
+                END;
+            Load_File( fn );
+            IF Error_Level <> 0 THEN    {If Error_Level not=0, then}
+                Run_Macro( 'MEERROR' );     {then run the error macro}
+                GoTo CONEC;
+            END;
+            eof;
+            ns := C_Line;
+            sl := (C_COL -1)/2;
+            Tof;
+            ok := False;
+            Right;
+            mc := ASCII(Cur_Char);
+            Left;
+            goto RIS;
+        END;
+    END;
+    GoTo ZAPRO;
+FIND:
+	RM('VERIFY /C=10/L=4/T=Использовать существующее окно?/BL=Окно INT16.TMP уже есть');
+	IF ( Return_Int ) THEN
+		eof;
+		ns := C_Line;
+		sl := (C_COL -1)/2;
+		Tof;
+		ok := False;
+		Right;
+		mc := ASCII(Cur_Char);
+		Left;
+		goto RIS;
+	else
+		Erase_Window;
+        File_Name := fn;
+	END;
+ZAPRO:
+Refresh := 1;
+Return_int := Screen_Width ;   {80}
+Run_Macro('USERIN^Querybox /N=1/C=3/w=35/ml=31/L=4/P=Введите длину строк :/MAX=80');
+IF ( Return_STR = 'FALSE' )
+	THEN    goto CONEC;
+	ELSE    sl := Return_int ;
+	END;
+Return_int := Screen_length ;
+Run_Macro('USERIN^Querybox /N=1/C=3/w=35/ml=31/L=4/P=Введите число строк :/MAX='
+			+ Str(Screen_length));
+IF ( Return_STR = 'FALSE' )
+	THEN    goto CONEC;
+	ELSE    ns := Return_int;
+	END;
+	IF ( ( ns = 0 ) OR ( sl = 0 )) THEN
+	   goto CONEC;
+	END;
+	mc := M_T_COlor;
+	mb := mc / 16;
+	mf := mc - (mb * 16);
+PB:
+	Make_Message('Выберите цвет по умолчанию  - Foreground  Background  F:'
+	+ Str(mb) + ' B:' + Str(mf));
+
+	put_Box(30,4,50,6,0,mc,' Основной цвет ',True);
+RK:
+	Read_Key;
+	IF ( key2 = 28 ) then Kill_Box; goto Ris; End;
+	IF ( key2 = 1 ) then Kill_Box; goto CONEC; End;
+	IF ( key2 = 72 ) then mf := mf + 1;
+		if( mf > 15 ) then mf := 0; end;
+		goto CH; End;
+	If ( Key2 = 80 ) THEN mf := mf - 1;
+			if( mf < 0 ) then mf := 15; end;
+		goto CH; End;
+	IF ( key2 = 77 ) then mb := mb + 1;
+		if( mb > 15 ) then mf := 0; end;
+		goto CH; End;
+	If ( Key2 = 75 ) THEN mb := mb - 1;
+		if( mb < 0 ) then mb := 15; end;
+		goto CH;
+	Else
+				Sound(1000);
+				delay(7);
+				Sound(0);
+				goto RK;
+	End;
+	CH:
+		mc := mb * 16 + mf;
+	Kill_Box;
+	Goto PB;
+
+Ris:
+	Refresh := 0;
+	IF( ok ) Then
+		IF( x ) Then
+			Create_Window;
+			IF ( Error_Level <> 0) THEN
+				Run_Macro('Meerror');
+				GoTo CONEC;
+			END;
+            File_Name := fn ;
+			wc := Cur_Window;
+		end;
+		Tof;
+		insert_mode := true;
+		ok := 0;
+		WHILE ( ok < 40 ) DO
+			Text('');
+			++ok;
+		END;
+		Format_Line := Get_line;
+		Del_Line;
+		ok := 0;
+		Switch_Win_ID(w);
+		Mark_pos;
+		while( ok < ns  ) do
+			GOto_Col(1);
+			s1 := Get_Line;
+			down;
+			ok := ok + 1;
+			if( s1 = '' ) then
+				s2 := ' ';
+			else
+				Tabs_To_Spaces(s1);
+				s2 := copy(s1,1,sl);
+			end;
+			Put_Line_to_Win(s2,ok,wc,False) ;
+			{write(s2,1,ok,0,mc);}
+		End;
+		Switch_Window(wc);
+		ok := 0;
+		while( ok < ns  ) do
+			GOto_Col(1);
+			mf := sl;
+				WHILE (mf) DO
+					c := cur_Char;
+					if(  C = '|255' ) then
+					text('|32');
+				Else
+					Right;
+				END;
+				text(Char(mc));
+				--mf;
+				End;
+			down;
+		Make_Message('Создание окна - '+ Str((ok-ns)*100/ns + 100) +'%');
+		++ok;
+		End;
+		insert_mode := False;
+		ok := 0;
+		Tof;
+		while( ok < ns  ) do       { Уберем оставшиеся знаки табуляций }
+			c := Cur_Char;
+			if(  Cur_Char = '|9' ) then
+				text('|32');
+				Left;
+			END;
+			down;
+			++ok;
+		End;
+	END;
+ { заполнение экрана }
+	insert_mode := False;
+	Make_Message('');
+	Status_Row := 0;
+	Message_Row := 0;
+	FKey_Row := 0;
+	Size_Window(1,1, Screen_Width, Screen_Length);
+	IF ((mc/16) > 0) THEN
+		clear_screen(15);
+		else
+		clear_screen(31);
+	END;
+	scol := (Screen_Width - sl)/2;
+	sline := (Screen_Length - ns)/2;
+	Tof;
+	GotoXY(Scol+1, Sline+1 );
+	ok := 0;
+	while( ok < ns  ) do
+		s1 := Get_Line;
+		down;
+		call INT;
+		ok := ok + 1;
+	end;
+	TOF;
+	IF (ns < Screen_length ) THEN
+	Write( ' Ctrl - Цвет, Ctrl - Фон,  Shift  - Раскраска текущим цветом ',6,Screen_length ,0,FKey_Color);
+	Write( '■',1,Screen_length ,0,mc);
+	END;
+	ok := 0;
+
+REK:
+	Read_Key;
+	R_AX := $0200;
+	INTR($16);
+    Shft := (R_AX and $0003);
+	IF ( Key1 = 27) THEN
+	Goto FINAL;
+	END;
+	IF ((Key2 = 72) or (Key2 = 80 ) or (Key2 = 75 )or (Key2 = 77 ))  THEN
+            if( Peek(0,$417) AND $20) then
+            Key1 := 0;
+            end;
+            IF ( ( Key2 = 80 ) and ( Wherey <( ns + Sline ) )) THEN
+				Down;  ++ok;
+				GOTOXY(Wherex,Wherey + 1);
+			end;
+			IF ((Key2 = 77 ) and ( Wherex < ( sl + Scol))) THEN
+				Right; Right; GOTOXY(Wherex + 1,Wherey);
+			end;
+			IF ((Key2 = 72 ) and (Wherey > (Sline+1))) THEN
+				Up;  GOTOXY(Wherex,Wherey - 1);
+				--ok;
+			end;
+			IF ((Key2 = 75 ) and (Wherex > ( Scol + 1 ))) THEN
+				Left; Left; GOTOXY(Wherex - 1,Wherey);
+			end;
+			c := Cur_Char;
+				IF (ns < Screen_length ) THEN
+				Write( C,Screen_Width,Screen_length ,0,FKey_Color);
+				END;
+			IF ( Shft = False) THEN goto REK;
+			   else Right; goto WR1;  End;
+
+{**************************************************}
+	Else
+		IF ((Key2 = 141) or (Key2 = 145 ) or (Key2 = 115 )or (Key2 = 116 ))  THEN
+			Right;
+			mc := ASCII(Cur_Char);
+			mb := mc / 16;
+			mf := mc - (mb * 16);
+			IF ( key2 = 141 ) then mf := mf + 1;
+				if( mf > 15 ) then mf := 0; end;
+				goto WR; End;
+			If ( Key2 = 145 ) THEN mf := mf - 1;
+				if( mf < 0 ) then mf := 15; end;
+				goto WR; End;
+			IF ( key2 = 116 ) then mb := mb + 1;
+				if( mb > 15 ) then mf := 0; end;
+			goto WR; End;
+			If ( Key2 = 115 ) THEN mb := mb - 1;
+				if( mb < 0 ) then mb := 15; end;
+			goto WR; End;
+		else goto REK;
+		end;
+	end;
+	WR:
+		mc := mb * 16 + mf;
+		if( mc = 0 ) then mc := 1; end;
+		if( mc = 255 ) then mc := 254; end;
+	WR1:
+		Text(Char(mc));
+		Left; Left;
+		Write(C,WhereX,WhereY,0,mc);
+		IF (ns < Screen_length ) THEN
+		Write( '■',1,Screen_length ,0,mc);
+		End;
+		{ s1 := get_line; call INT; }
+		GoTO REK;
+{*************************************************}
+{-------------- SUBROUT ---------------------------}
+INT:
+		R_CX := sl;     { длина строки }
+		R_AX := 4866;   { 4864 + AL-код подфункции -
+			2 не трогать курсор, формат строки: char,attr, char,attr, ..... }
+		R_BX := 0;           { BH-номер видеостр. BL - атрибут }
+		R_DX := (sline+ok)*256+scol;{ DH-строка DL-колонка начала выв.}
+		r_bp := OFS(s1) + 4 ;
+		r_es := SEG(s1);
+		intr( 16 );
+		Ret;
+{-------------- END SUBROUT -----------------------}
+FINAL:
+	RM('XZoom');
+	RM('XZoom');
+	Refresh := 1;
+	{ Format_Line := old_Fline;}
+	insert_mode := old_i;
+	OVR_CURSOR := old_cur;
+	Display_Tabs := True;
+	New_Screen;
+CONEC:
+END_MACRO;

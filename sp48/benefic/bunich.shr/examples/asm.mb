@@ -1,0 +1,74 @@
+--
+-- Меню для Norton Commander -- вызывается нажатием ENTER на файле *.ASM
+-- Copyright (c) 1992 L.G.Bunich, Russia, Moscow
+--
+  N = 1;  Listing = 0
+  F = FILE(NC h)
+  Name = Name(%F)
+  Cls;  Color black on white;  Cursor Off
+  Box 16,50 double at 4,12;  L = Cline()
+  put %L,18 red " Выберите операцию (файл %F): "
+  put +2,15 red "C"  "...."
+  put +2    red "D"  "...."
+  put +2    red "E"  "...."
+  put +2    red "M"  "...."
+  put +2    red "U"  "...."
+Start:
+  put %L,1
+  Clr1 = "black on white";  Clr2 = "%Clr1"
+  Clr3 = "%Clr1";  Clr4 = "%Clr1"; Clr5 = "%Clr1"
+  Clr%N = "white+ on blue"
+
+  put +2,20 %Clr1 " компиляция для создания COM-файла "
+  put +2    %Clr2 " компиляция для отладки "
+  put +2    %Clr3 " компиляция для создания EXE-файла "
+  put +2    %Clr4 " вызов редактора Multi-Edit "
+  put +2    %Clr5 " вызов редактора UniEd "
+  put +2,12 "╟────────────────────────────────────────────────╢"
+
+  if "%Listing" = "1";                  -- листинг нужен
+    Csw = ",,%Name";  Lsw = "%Name"
+    put +1,20 "Листинг " red "будет выводиться   "
+  else;                                 -- листинг не нужен
+    Csw = "";  Lsw = "NUL"
+    put +1,20 "Листинг " red "не будет выводиться   "
+  endif
+  put +1,20 "F2 - переключение режима листинга"
+  C = Getch(/U/N/)
+
+  if "%C" = "ESC"  Cls white on black
+    goto Finish;  endif
+  if "%C" = "#80"  N = (%N # 5) + 1;            -- клавиша "вниз"
+    goto Start;  endif
+  if "%C" = "#72"  N = ((%N + 3) # 5) + 1;      -- клавиша "вверх"
+    goto Start;  endif
+  if "%C" = "#60"  Listing = 1 - %Listing;      -- F2
+    goto Start;  endif
+  if "%C" = "ENTER"  C = Sub(%N,1,"CDEMU");  endif
+  if Not "%StrPos("%C","CDEMU")" = 0
+    Cls white on black
+    if "%C" = "C"
+      c:\asm\tasm /m2/c %Name%%Csw
+      if %_ErLev = 0  tlink /t %Name,%Name,%Lsw;  endif
+    endif
+    if "%C" = "D"
+      c:\asm\tasm /m2/c/zi %Name%%Csw
+      if %_ErLev = 0  tlink /v %Name,%Name,%Lsw;  endif
+    endif
+    if "%C" = "E"
+      c:\asm\tasm /m2/c %Name%%Csw
+      if %_ErLev = 0  tlink %Name,%Name,%Lsw;     endif
+    endif
+    if "%C" = "M"
+      me.exe %Name%.ASM
+    endif
+    if "%C" = "U"
+      ued %Name%.ASM
+    endif
+    goto Finish
+  endif
+  goto Start
+
+Finish:
+  W=File(Delete %Name%.OBJ)
+  Cursor 6,7

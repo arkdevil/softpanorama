@@ -1,0 +1,78 @@
+;;***************************************************************
+;; Программа делает простые вещи:
+;;    тестирует ячейку памяти по адресу 0:0917h (Shift Status),
+;;    и выводит сообщение  о нажатии на ту или иную shift`овую
+;;    клавишу. Если нажаты одновременно две или три shift`овые
+;;    клавиши, то работа программы пристанавливается. Выход из
+;;    программы осуществляется при одновременном нажатии на все
+;;    четыре shift`овые клавиши: Left Shift, Right Shift, Ctrl и Alt.
+
+code SEGMENT
+ASSUME cs:code, ds:code
+ORG 100h
+
+start:
+   ; cursor off
+   mov ah,0fh
+   int 10h
+   mov ah,3
+   int 10h
+   push cx
+   mov ah,1
+   mov ch,20h
+   int 10h
+   ;---------
+
+   mov ax,040h
+   mov es,ax
+.SHORT
+   $WHILE(ah NE 0fh)
+      mov ah, es:[17h]
+      and ah,0fh
+      push ax
+      $SWITCH(ah)
+         $CASE 0
+            mov dx,OFFSET none
+            $BREAK CASE
+         $CASE 01h
+            mov dx,OFFSET rs
+            $BREAK CASE
+         $CASE 02h
+            mov dx,OFFSET ls
+            $BREAK CASE
+         $CASE 04h
+            mov dx,OFFSET ctrl
+            $BREAK CASE
+         $CASE 08h
+            mov dx,OFFSET alt
+            $BREAK CASE
+         $DEFAULT
+            mov dx,OFFSET sTop
+      $ENDCASE
+      mov ah,9
+      int 21h
+      pop ax
+   $ENDWHILE
+   mov dx,OFFSET quit
+   mov ah,9
+   int 21h
+
+   ;cursor on
+   pop cx
+   mov ah,1
+   int 10h
+   ;--------
+
+   int 20h
+  
+ls   DB 'Left_Shift pressed       ',13,'$'
+rs   DB 'Right_Shift pressed      ',13,'$'
+ctrl DB 'Ctrl pressed             ',13,'$'
+alt  DB 'Alt pressed              ',13,'$'
+sTop DB 'Pressed two or three keys',13,'$'
+none DB 'None                     ',13,'$'
+quit DB 'Programm terminated      ',7,13,'$'
+
+code ENDS
+END start
+

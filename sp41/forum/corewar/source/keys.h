@@ -1,0 +1,24 @@
+#define UP		0x48
+#define RIGHT		0x4d
+#define DOWN		0x50
+#define LEFT		0x4b
+#define HOME		0x47
+#define END		0x4f
+#define PgUp		0x49
+#define PgDn		0x51
+#define CTRL_LEFT	0x73
+#define CTRL_RIGHT	0x74
+
+#define F1		0x3b
+#define F2		0x3c
+#define F3		0x3d
+#define F4		0x3e
+#define F5		0x3f
+#define F6		0x40
+#define F7		0x41
+#define F8		0x42
+#define F9		0x43
+#define F10		0x44
+#define CR		0x0d
+#define BACK		0x08
+#define ESC		0x1b

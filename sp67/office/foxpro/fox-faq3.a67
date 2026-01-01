@@ -1,0 +1,534 @@
+From: kcochran@nyx10.cs.du.edu (Keith "Justified And Ancient" Cochran)
+Newsgroups: comp.databases.xbase.fox,comp.answers,news.answers
+Subject: FoxPro Databases FAQ #3: Things Your Mamma Never Told You.
+Date: 30 Aug 1994 06:36:38 -0600
+Organization: Get real.  You think I'm organized?
+Message-ID: <33v94m$pfn@nyx10.cs.du.edu>
+
+Archive-name: databases/foxpro/misc
+Posting-frequency: monthly
+
+[This is FAQ version 1.0.0.4 - Last Updated 07/03/94.  New sections or
+altered text are marked with ">" in the left hand column.]
+
+This FAQ assumes that you have anything from a passing knowledge of xBase
+languages in general to an intense knowledge of FoxPro event programming
+in C.
+
+Sections in this FAQ are seperated with "*****", but are not numbered,
+because the FAQ itself is in alphabetical order based on title.  If
+you have discovered a new trick in FoxPro, feel free to submit it to
+me at kcochran@nyx.cs.du.edu.
+
+EDITORIAL DISCLAIMER:  I have taken the liberty of editing the entries
+in this FAQ slightly.  Mostly, I have reworded the occasional awkward
+sentence, and done such cosmetic changes as putting all FoxPro commands
+in ALL CAPS, reworded them into FoxPro format (i.e SELECT - SQL instead
+of an SQL SELECT statement), and other such stuff.
+
+POLICY DISCLAIMER:  Most of the information in this FAQ is unsupported
+by Microsoft.  I make no guarantees of any sort about the information
+contained in this FAQ.  If you use something you find here and wind up
+clobbering all your data, it's your problem, not mine.
+
+WHAT'S IN THIS FAQ:
+
+Abnormal Program Termination in Extended FoxPro
+   kruckenb@sal.cs.utah.edu (Joseph Kruckenberg)
+
+Diagonal Lines In FoxPro/Windows
+   blank@silver.ucs.indiana.edu (Doug Blank)
+
+Generating Complex Indexes On Numeric Fields
+
+Getting Rid Of The Microsoft FoxPro Screen And Title
+
+Outer Joins In FoxPro
+   davec@wsti.demon.co.uk (David Churcher)
+
+Source Code Wanted - Only Singles Need Apply
+   martin@convext.csd.uwm.edu (Martin A. Miller)
+
+Unsupported Trick To Get Blank (Not Zero) Fields
+   wsd@world.std.com (Rorschach)
+
+Writable SQL Cursors!
+   lotridge@charlie.ccd.bnl.gov (Charlie Lotridge)
+
+*****
+Abnormal Program Termination in Extended FoxPro
+   kruckenb@sal.cs.utah.edu (Joseph Kruckenberg)
+
+So, you're running along in the Extended Version of FoxPro when all
+of a sudden you see:
+
+abnormal program termination: page fault. cs:eip=000ch:0007791fh
+
+(Note:  cs:eip may point to pretty much anywhere.  If you don't know
+386 assembler, don't worry about what the numbers mean.)
+
+Now what?  You can fire FoxPro back up and hope and pray that it doesn't
+happen again, or you can add the following line to your AUTOEXEC.BAT
+file:
+
+SET FOXPROX=-saveregs
+
+(Note:  No spaces between the equals and minus signs.)
+
+This command tells FoxPro to preserve any registers in use and not to
+overwrite them while running (given the limited explanation I recieved).
+
+*****
+Diagnoal Lines In FoxPro/Windows
+   blank@silver.ucs.indiana.edu (Doug Blank)
+
+Is there any way to draw lines that are neither horizontal or vertical in
+FoxPro?  I am trying to make line graphs from data without using Microsoft
+Graph. Any ideas?
+
+Yes, it is sad but true: you cannot draw a diagonal line. I did try
+dropping down to the windows API, and you can in fact draw any thing
+that you want in the fox window --- but Fox doesn't "know" about it.
+Therefore, if you close the window and reopen it your line is gone.
+Any time that you cover your line, it won't be redrawn.
+
+So, I finally ended up with the solution below. It does a pretty good
+job on arbitrary lines. You may have to adjust x and y dotsize. These
+parameters exist because of translation problems from real-valued
+points to screen coordinates (welcome to the world of GUI's!)
+
+To use, call with:
+
+=drawline(1,5,11,30,.T.) && to produce a color line from @ 1,5 to 11,30 or
+=drawline(1,5,11,30)     && to produce a black line 
+
+Using this method, you can draw circles, splines, etc. Put the
+function below in your program, or comment out the first line and
+place in a file named DRAWLINE.PRG. It's not real fast nor smooth,
+but it works. You probably can't make the line any thinner due to
+related problems with real-valued vs. screen coordinates, so pensize
+and penlength probaly can't be changed. You can change the RGB()
+funtion to make any colors you want, or even add a CASE statement to
+do them all, add shadows, etc.
+
+FUNCTION drawline
+PARAMETER x1,y1,x2,y2,color
+PRIVATE x,y,B,slope
+#DEFINE xdotsize (.2)
+#DEFINE ydotsize (.5)
+#DEFINE pensize (3)
+#DEFINE penlen (.7)
+IF m.y1 = m.y2 && vertical line
+   IF x1 < x2
+      IF color
+         @m.x1,m.y1 to m.x2,m.y1 pen pensize color ;
+            RGB(0,255,0,255,255,255) style "T"
+      ELSE
+         @m.x1,m.y1 to m.x2,m.y1 pen pensize color ;
+            RGB(255,0,255,255,255,255) style "T"
+      ENDIF
+   ELSE
+      IF color
+         @m.x2,m.y1 to m.x1,m.y1 pen pensize color ;
+            RGB(0,255,0,255,255,255) style "T"
+      ELSE
+         @m.x2,m.y1 to m.x1,m.y1 pen pensize color ;
+            RGB(255,0,255,255,255,255) style "T"
+      ENDIF
+   ENDIF
+ELSE
+   m.slope = (m.x1 - m.x2)/(m.y1 - m.y2)
+   m.B = m.x1 - (m.slope * m.y1)
+   IF ABS((m.x1 - m.x2) / xdotsize) > ABS((m.y1 - m.y2) / ;
+      ydotsize)
+      FOR m.x = m.x1 TO m.x2 STEP xdotsize * ;
+         IIF( m.x1 > m.x2, -1, 1)
+            m.y = (m.x - m.B) / m.slope
+            IF color
+               @m.x,m.y to m.x,m.y+penlen pen ;
+                  pensize color RGB(0,255,0,255,255,255) ;
+                  style "T"
+            ELSE
+               @m.x,m.y to m.x,m.y+penlen pen ;
+                  pensize color RGB(255,0,255,255,255,255) ;
+                  style "T"
+            ENDIF
+      ENDFOR
+   ELSE
+      FOR m.y = m.y1 TO m.y2 STEP ydotsize * IIF( m.y1 > ;
+         m.y2, -1, 1)
+         m.x = (m.slope * m.y) + m.B
+         IF color
+            @m.x,m.y to m.x,m.y+penlen pen ;
+               pensize color RGB(0,255,0,255,255,255);
+               style "T"
+         ELSE
+            @m.x,m.y to m.x,m.y+penlen pen ;
+               pensize color RGB(255,0,255,255,255,255) ;
+               style "T"
+         ENDIF
+      ENDFOR
+   ENDIF
+ENDIF
+RETURN
+
+*****
+Generating Complex Indexes On Numeric Fields
+
+There's an interesting "feature" that the FoxPro manuals don't tell
+you about in the information on indexes.  Let's say you have a database:
+ACCOUNT N(6,0)
+SSN N(9,0)
+
+On first glance, if you wanted to sort the database by social security
+number, and then account, you can just:
+
+INDEX ON SSN+ACCOUNT TAG myorder
+SET ORDER TO myorder
+
+This, of course, doesn't work.  What happens is that FoxPro just adds
+the values together, causing:
+
+SSN = 076541111 ACCOUNT = 999999 (Key value = 77541110)
+
+To appear AFTER
+
+SSN = 076541122 ACCOUNT = 000333 (Key value = 76541455)
+
+Note:  Microsoft assures me that this problem doesn't occur if you are
+working with N(x,y > 1) fields, date fields, or logical fields.
+
+What can you do to sort properly?  There are several schools of thought:
+
+(1)You can add a digit after the decimal point.  Microsoft assures me
+   that this will solve the problem.
+
+(2)If you're working with fixed length fields, you can shift one set
+   of digits over so that your math is correct.  In the above example,
+   you would want to:
+   INDEX ON ssn*1000000+account TAG myorder
+
+(3)Convert the numerics into strings, and concatenate them:
+   INDEX ON STR(ssn)+STR(account) TAG myorder
+
+   or:
+
+   INDEX ON TRANSFORM(ssn,"#########")+TRANSFORM(account,"######") TAG myorder
+
+*****
+Getting Rid Of The Microsoft FoxPro Screen And Title
+
+The first thing to do if you're tired of seeing "Microsoft FoxPro"
+every time you start your application is to use the -T command line
+option to prevent it from showing up.  This looks like this:
+
+FOX -T
+
+If you're using FoxPro/Windows or FoxPro/MAC, and want to get rid of
+the "Microsoft FoxPro" title in the bar of the main screen, you can
+do several things.  After your application starts, you can
+
+MODIFY WINDOW ... TITLE "My Title"
+
+(Anybody know what the window's called?)
+
+and the window name will change to whatever your title is.
+
+You can also put the following line in your config.fpw/config.fpm
+file:
+
+Title=My Title
+
+Note the lack of quotes.  This will cause the main window to be listed
+as "My Title" as soon as FoxPro starts up.  For some reason, there are
+differences in the way this works depending on whether you are running
+your application from the development kit or the distribution kit.
+
+*****
+Outer Joins In FoxPro
+   davec@wsti.demon.co.uk (David Churcher)
+
+I give up, I RTFM (and I got FAQ'd) and did not find the syntax.
+
+Using the foxpro Select command, I wish to join two or more tables 
+inclusivley. By this I mean :
+
+        To join Table A and B, if there is no join then include the
+        records from table A and place blanks in the fields from table B.
+
+In previous versions of foxpro I would have used "Set relation to" and 
+it would have just happened.
+
+Oh no, it's the dreaded Left Outer Join! This is an SQL construct which 
+FoxPro doesn't currently support, so you have to simulate it using a 
+UNION of two selects: one for all the records with matches in table B, 
+and one for all the records without. Here's an example:
+
+SELECT a.keyfield, ;
+       a.datafield1, ;
+       b.datafield2, ;
+       b.datafield3 ;
+   FROM a,b ;
+   WHERE a.keyfield = b.keyfield ;
+   UNION ;
+      SELECT a.keyfield, ;
+             a.datafield1, ;
+             000.00, ;
+             000.00 ;
+         FROM a ;
+         WHERE a.keyfield NOT IN ;
+            (SELECT b.keyfield ;
+                FROM b)
+
+Couple of points:
+
+1. The numeric and string constants in the second SELECT (000.00 in this
+example) have to exactly match the length of the fields in the second
+database, because FoxPro requires both sides of a UNION to exactly the
+same structure.
+
+2. SET RELATION TO and SET SKIP TO may be faster and easier if it's only
+a simple query.
+
+****
+Source Code Wanted - Only Singles Need Apply
+   martin@convext.csd.uwm.edu (Martin A. Miller)
+
+There are two companies who provide software to generate source code
+from compiled Fox* applications/programs.
+
+1) Xitech Inc. 
+   Toledo, Ohio (407) 292-8629; FAX: (407) 292-8652
+   Product name: ReFox
+   Restores FoxBASE, FoxBASE+, FoxPro 1.x, FoxPro 2.0,
+   FoxPro 2.5 (including Windows).
+   Cost: $299 + S&H
+
+2) HILCO Software
+   Sebastopol, CA (707) 829-5011; FAX: (707) 829-5710
+   Product Names: dCRYPTR for dBASE III Run-Time
+                  DECODE for dBASE II Run-Time
+                  deFOX for FoxBase II (early dBASE II compatible)
+                  OutFOX for Foxbase+
+   Cost: $149.95 + $5.00 S&H
+
+*****
+Unsupported Trick To Get Blank (Not Zero) Fields
+   wsd@world.std.com (Rorschach)
+
+I been pulling my hair out for hours trying to figure this out.  Is is
+possible to exclude records from an average that are blank?
+
+DOCUMENT:Q97647  14-DEC-1993  [B_WFOXPRO]
+TITLE   :INF: How Exclude Blanks, but Not Zeros, from an Average
+PRODUCT :FoxPro For Windows
+PROD/VER:2.50 2.50a | 2.00 2.50 2.50a
+OPER/SYS:WINDOWS    | MS-DOS
+KEYWORDS:
+
+--------------------------------------------------------------------
+The information in this article applies to:
+
+ - Microsoft FoxPro for Windows, versions 2.5 and 2.5a
+ - Microsoft FoxPro for MS-DOS, versions 2.0, 2.5, and 2.5a
+--------------------------------------------------------------------
+
+SUMMARY
+=======
+
+FoxPro's AVERAGE command sums numeric fields and divides the summed result
+by the number of records summed. In some cases, you may want to determine
+the AVERAGE only for fields that are not blank. Since there is no command
+in the FoxPro language that can distinguish between a numeric field that is
+blank and one that contains a zero, you must write a user-defined function
+similar to the one below in order to accomplish this task.
+
+MORE INFORMATION
+================
+
+The following function requires two parameters, the database name and field
+name. An example of calling this function is as follows:
+
+  ave = ave_nobl("test","num")
+
+The above command shows "test" as the name of the database file and "num"
+as the numeric field to be averaged.
+
+Sample Code
+-----------
+
+   FUNCTION ave_nobl
+
+   PARAMETERS dbfname,fld_name
+   PRIVATE blank,skipbytes,i,numofblanks
+   skipbytes=0
+   numofblanks=0
+
+   IF USED(dbfname)
+      SELECT (dbfname)
+   ELSE
+      SELECT 0
+      USE (dbfname)
+   ENDIF
+
+   headersize = HEADER(dbfname)
+   no_records = RECCOUNT()
+   rec_size   = RECSIZE()
+   fld_width  = FSIZE(fld_name)
+
+   * Place the database structure information in an array to
+   * determine the field's position. The position is equal to
+   * the row number of the field in the array, which is returned
+   * by ASUBSCRIPT().
+
+   =afields(afld_pos)
+   fld_pos = ASUBSCRIPT(afld_pos,ASCAN(afld_pos,UPPER(fld_name)),1)
+
+   FOR i=1 TO (fld_pos-1)
+      skipbytes=skipbytes+FSIZE(FIELD(i))
+   ENDFOR
+   USE
+
+   blank = REPLICATE(" ",fld_width)
+
+   m.file = FOPEN(dbfname+".dbf")
+
+   IF m.file<0
+      RETURN "Error opening database "+dbfname+"."
+   ELSE
+      * The numeric field begins on the first byte following the
+      * header and any preceding fields (headersize+skipbytes+1).
+
+      m.move = FSEEK(m.file,headersize+skipbytes+1)
+
+      * Read the value of the numeric field and compare it to
+      * the variable blank.
+
+      m.num  = FREAD(m.file,fld_width)
+
+      DO WHILE .NOT. FEOF(m.file)
+         IF m.num = blank
+            numofblanks = numofblanks+1
+         ENDIF
+
+         * Move to the beginning of the numeric field in the next
+         * record, read the next value, and compare it to the variable
+         * blank.
+
+         m.move = FSEEK(m.file,(rec_size-fld_width),1)
+         m.num  =   FREAD(m.file,fld_width)
+      ENDDO
+      m.move = FCLOSE(m.file)
+
+      USE (dbfname)
+      SUM EVAL(fld_name) TO sub_result
+      USE
+
+      * Divide the sum by the number of records that are not blank.
+
+      result = sub_result/(no_records-numofblanks)
+
+      * Return the result to the program that called ave_nobl().
+
+      RETURN result
+   ENDIF
+
+Additional reference words: 2.00 2.50 2.50a null blank
+
+=============================================================================
+
+THE INFORMATION PROVIDED IN THE MICROSOFT KNOWLEDGE BASE IS
+PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND.  MICROSOFT DISCLAIMS
+ALL WARRANTIES, EITHER EXPRESS OR IMPLIED, INCLUDING THE WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  IN NO
+EVENT SHALL MICROSOFT CORPORATION OR ITS SUPPLIERS BE LIABLE FOR
+ANY DAMAGES WHATSOEVER INCLUDING DIRECT, INDIRECT, INCIDENTAL,
+CONSEQUENTIAL, LOSS OF BUSINESS PROFITS OR SPECIAL DAMAGES, EVEN IF
+MICROSOFT CORPORATION OR ITS SUPPLIERS HAVE BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES.  SOME STATES DO NOT ALLOW THE EXCLUSION
+OR LIMITATION OF LIABILITY FOR CONSEQUENTIAL OR INCIDENTAL DAMAGES
+SO THE FOREGOING LIMITATION MAY NOT APPLY.
+
+Copyright Microsoft Corporation 1993.
+		
+*****
+   Writable SQL Cursors!
+      By Charlie Lotridge (lotridge@charlie.ccd.bnl.gov)
+
+   We've all had this problem:  You go to extract some temporary
+   data from a few tables using a SELECT - SQL statement.  You
+   set up the SELECT to output into a cursor so that you have
+   the flexibility and efficiency of a table without having to
+   be concerned about cleaning up after yourself.  THen you decide
+   you'd like to add a record to this cursor or change a value in
+   it and BOOM! - "Cannot Write To A Read-Only File".
+
+   So what do you do?  In one of their FastTips, Microsot suggests
+   that you first do your SELECT into an array, then create your
+   cursor with the same structure, and finally use the APPEND FROM
+   ARRAY command to move the data into the cursor.  For example:
+
+   SELECT cust_name ;
+      FROM customers ;
+      INTO ARRAY temp
+   CREATE CURSOR cust_curs ;
+      (cust_name C(30))
+   SELECT cust_curs
+   APPEND FROM ARRAY temp
+   RELEASE temp
+
+   But this solution is less than ideal for at least two reasons
+   that I can think of.  First, the cost in memory for the array
+   can be quite large if the SELECT - SQL statement generates a
+   lot of data.
+
+   The second reason is more substantial - you must know the exact
+   structure of the data being generated by the SELECT; both the
+   order of the fields and their respective sizes.  This is at
+   best an inconvenience, since if you change the structure of any
+   of the source DBF's, you may also have to change the program
+   code, and at worst impossible if you're trying to write some
+   generalized routine which doesn't know much about the data
+   it is operating on.
+
+   [Question from the peanut gallery:  Can't you COPY STRUCTURE TO
+    ARRAY, and then create your cursor from that array?]
+
+   So what's the solution?  It's simple, really.  I came upon this
+   idea when I was trying to change the alias of a cursor (don't
+   ask why).
+
+   At the temporary expense of an extra work area, you can rename
+   the alias of your cursor (or any open table for that matter) and
+   at the same time make it writable!!!  For example:
+
+   PROCEDURE rename_table
+   PARAMETERS m.fromalias, m.toalias
+      * Open the table in another work area. *
+      USE (dbf(m.fromalias)) IN 0 ALIAS (m.toalias) AGAIN
+
+      * Close the old alias. *
+      USE IN (m.fromalias)
+
+      * And you're done! *
+   RETURN
+
+   And that's all there is to it.  The beauty of this solution is that
+   your cursor's new alias has all the appearances of a regular DBF
+   (it shows up in all caps in the View Window, and you can even use
+   the SETUP button on it), yet it retains that most attractive quality
+   of a cursor - it goes away when you close it!
+
+   If the original alias or workarea of the cursor is important for some
+   reason, with a little extra work rename_table can be make to preserve
+   these characteristics with no loss of functionality.
+
+   ***WARNING*** In some circumstances, the cursor you create is actually
+   ***WARNING*** just a view of the table, not a seperate table in itself.
+   ***WARNING*** In this case, appending, deleting, or altering records
+   ***WARNING*** in your "cursor" will also alter data in the database.
+-- 
+=kcochran@nyx.cs.du.edu | B(0-4) c- d- e++ f- g++ k(+) m r(-) s++(+) t | TSAKC=
+=My thoughts, my posts, my ideas, my responsibility, my beer, my pizza.  OK???=
+=                  "...love is bright, and sweet, but foolish."               =
+

@@ -1,0 +1,554 @@
+                        ╔═════════════════════════╗
+════════════════════════╣  @Compare, version 1.6  ╠════════════════════════
+════════════════════════╣     Brian C. Madsen     ╠════════════════════════
+                        ╚═════════════════════════╝
+
+
+
+COPYRIGHTS AND DISCLAIMERS:  ══════════════════════════════════════════════
+
+@Compare is copyright 1988-1994 by Brian C. Madsen.  This copyright applies
+to the source code, the executable program, and this documentation, and to
+all past and future versions of this program which have been or will be
+produced by the author.  All rights are reserved, including the right to
+market this product for profit.  Although @Compare is copyrighted, it may
+be freely distributed, so long as it is accompanied by this documentation,
+and so long as neither the program nor this documentation is altered in any
+way.  The author will not be held legally responsible for unforseen side
+effects arising from the use of this program, and your use of this program
+constitutes your agreement to this copyright notice and disclaimer.
+
+
+
+DESCRIPTION:  ═════════════════════════════════════════════════════════════
+
+@Compare works on Ascii files which are roughly similar to each other (for
+example, a .PAS and its .BAK file; a document and an earlier version of
+the same document; or data created via double data entry.)  Files to be
+compared may be of unlimited length.
+
+@Compare matches up the two files, displaying them side by side, and dis-
+playing the similarities and differences between them.  Equal lines are
+marked by an equal sign on both sides of the screen; discrepancies in
+similar but unequal lines are highlighted; and lines which exist in one
+file and which have no corresponding counterpart in the other file are
+displayed as such.
+
+
+
+CHANGES SINCE VERSION 1.5 ═════════════════════════════════════════════════
+
+The following features have been added, and problems resolved, since the
+last release of @Compare.  Feel free to skip this section if you are new
+to @Compare.
+
+1.  A bug has been fixed which caused range check errors when very large
+    files were @Compared, or when very long stretches occurred between
+    differences in files.
+
+2.  My address has changed.
+
+3.  Version number and copyright dates have been updated throughout.
+
+
+
+OPERATION:  ═══════════════════════════════════════════════════════════════
+
+    At a glance:  @Compare [-PFMTHARCLEBQ] [filename.one [filename.two]]
+
+@Compare accepts an options parameter and the names of one or two files as
+command line arguments.  The options parameter, if it is present, must be
+the first in the list of command line parameters, and it must begin with a
+/ or -.  If none of these parameters is given, a usage reminder is printed
+and the program prompts for them.
+
+Legal options are as follows:
+
+    P -- directs output to the printer.
+
+    F -- directs output to a file.  The program prompts for the name of
+         this file, which defaults to @Compare.@@@. The file will be over-
+         written if it already exists. The F parameter takes precedence
+         over the P parameter if both are specified.
+
+    M -- writes to the screen in black and white, instead of the default
+         colors.  This is intended for use with monochrome monitors.
+
+    T -- suppresses the printing of the program's title.
+
+    H -- suppresses highlighting of discrepancies in unequal lines.  This
+         highlighting is done on a character by character basis.  It shows
+         up as underlining on the printer, and does not show up in the
+         @Compare.@@@ file.
+
+    A -- replaces all occurrences of extended Ascii graphics characters
+         (┼, ╬, ║, ╒, and so on) with standard Ascii characters (|, =,
+         +, *).  This is designed for use with printers which can't print
+         the graphics characters, although the A option takes effect
+         whether output is directed to the printer, to a file, or to the
+         screen.  This option only affects the graphics characters
+         produced by @Compare: if the files being compared contain
+         extended Ascii graphics characters, they will not be translated
+         when printed.
+
+    R -- sends reports of discrepancies to two files.  The program prompts
+         for the names of these files, which default to @Compare.@R@ and
+         @Compare.@S@, and which will be overwritten if they already
+         exist.  This option was designed to be used on files containing
+         data in fields and columns, and it is probably most useful in
+         that case, but it works well when used on other files.  This op-
+         tion is described more fully in a later section of this document.
+
+    C -- overrides the page breaks which occur whenever the screen in full
+         of output, resulting in a continuous scroll of information on the
+         screen.  This parameter is only meaningful if P and F parameters
+         are not specified, or in other words, it only takes effect if
+         output is directed to the screen.
+
+    L -- does a longer search than usual to find matching lines.
+    E -- does an extra long search to find matching lines.
+         These more thorough searches slow down execution of the program,
+         and shouldn't be necessary for most operations.
+
+    B -- suppresses direct video writes, and uses BIOS calls to write to
+         the screen.  BIOS calls are slower, but sometimes necessary, such
+         as in the case where DESQview requires them to prevent bleeding.
+
+    Q -- quits the program.  If you invoke the program without command
+         line parameters, and all you want to do is view the usage
+         reminder, enter Q at the options prompt.
+
+
+Examples of operation:
+
+Two versions of an Ascii document can be compared by typing:
+@Compare Ascii1.doc Ascii2.doc
+
+This comparison may be directed to a file by typing:
+@Compare /f Ascii1.doc Ascii2.doc
+
+The comparison may be directed to the printer, with the title and high-
+lighting suppressed, with the command:
+@Compare -PTH Ascii1.doc Ascii2.doc
+
+If only one filename is specified on the command line, it will be
+assumed that the second filename is the corresponding .BAK file, if one
+exists.  In other words, the following two commands are equivalent:
+@Compare Ascii.doc
+@Compare Ascii.doc Ascii.bak
+
+If you issue the command "@Compare Ascii.doc", and @Compare can't find
+the Ascii.bak file, @Compare will prompt for a second file name.
+
+
+
+THE @COMPARE ENVIRONMENT VARIABLE:  ═══════════════════════════════════════
+
+Some of the information in the previous section is modified by the DOS
+environment variable @COMPARE, if it exists.  This variable is absolutely
+optional, and @Compare will function just fine without it.  However, you
+may want to use it to customize @Compare's operation.
+
+It is outside the scope of this document to explain environment variables.
+For more information, consult your DOS manual.  Because @Compare doesn't
+require the @COMPARE environment variable, you can safely skip this
+section if you don't know about the DOS environment.
+
+If @Compare finds the @COMPARE variable in the environment, the environ-
+ment string is used to modify @Compare's operation in two ways.
+
+FIRST OF ALL, part of the environment string, as explained below, sup-
+plants "bak" as the backup file extension.  As explained in the previous
+section, the command "@Compare Ascii.doc" is equivalent to the command
+"@Compare Ascii.doc Ascii.bak".  That is, if the user does not specify a
+second file name, @Compare assumes that the second file name should be the
+backup version of the first file name, and acts accordingly.
+
+Now, let's say your editor creates backup files with an extension other
+than .BAK, say .BCK, or .BKP, etc.  Or, let's say you're comparing doubly-
+entered data with the report option, and that your first dataset is called
+DATA.001 and your second is called DATA.002.  With the @COMPARE environ-
+ment variable, you can tell @Compare what to look for as a default second
+file extension. In this way, "@Compare Ascii.doc" would mean the same
+thing as "@Compare Ascii.doc Ascii.bck" (or "@Compare Ascii.doc Ascii.bkp",
+or whatever). Similarly, you could use this feature to set up @Compare
+such that "@Compare DATA.001" becomes equivalent to "@Compare DATA.001
+DATA.002".
+
+SECOND OF ALL, another part of the environment string, as explained below,
+is prefixed to the user's options list; or, if the user doesn't provide an
+options list, the second part of the environment string becomes the
+options list.  In this way, if your monitor is monochrome, and you don't
+want to enter the -M option all the time, you can set the environment
+variable to always prefix the M option before whatever other options you
+specify.  Or, for example, if you don't like seeing my name in the title
+header, you can put the -T option in the environment string, and from then
+on, @Compare will operate with the title header off, whether you enter -T
+on the command line or not.
+
+So, on with the gritty details about how to define the environment string.
+The environment string comes in three formats -- which is really only one
+format, with two optional parts.
+
+If your text editor creates .BK! backups (and I'm told WordPerfect does
+this), put the following line in your AUTOEXEC.BAT file:
+
+SET @COMPARE=BK!
+
+If you always want to run in continuous mode, on a monochrome monitor, and
+convert graphics characters to ASCII graphics, put the following line in
+your AUTOEXEC.BAT file:
+
+SET @COMPARE=/CMA
+
+or
+
+SET @COMPARE=-CMA
+
+If you want to do both of these at the same time, combine both parts in
+the environment string, as follows:
+
+SET @COMPARE=BK!/CMA
+
+or
+
+SET @COMPARE=BK!-CMA
+
+Note that the backup extension MUST come first.  Note that the options
+must be preceded by either a slash or a hyphen.  Note that if you specify
+an empty filename extension (in other words, if you only specify options,
+such as SET @COMPARE=-M), @Compare will look for .BAK backup files, as
+explained in the previous section.
+
+
+
+THE DOS ERRORLEVEL:  ══════════════════════════════════════════════════════
+
+@Compare sets the DOS ERRORLEVEL upon completion.  This allows programmers
+to write batch files to compare files or sets of files, and to behave in
+various ways depending on the equality or inequality of the files being
+compared.
+
+It is beyond the scope of this document to explain the DOS ERRORLEVEL.
+For more information, consult your DOS manual's section on batch files.
+
+@Compare keeps track of the number of differences encountered between the
+two files being compared.  This is reported upon completion in a message
+like the following:
+
+File SanDiego.doc has 414 lines.
+File SanDiego.bak has 410 lines.
+The files contain 37 mismatches.
+
+The ERRORLEVEL is set to the number of mismatches, in this case 37.  If
+both files are equal, the ERRORLEVEL is set to 0.  Thus, batch files can
+test two files for equality by testing the ERRORLEVEL for zero or nonzero
+values.
+
+(In case it is of interest, the ERRORLEVEL is set to 255 if the user
+specifies the Q option on the command line or at the usage reminder
+prompt.  The ERRORLEVEL is set to 254 if the user specifies an invalid
+first or second file name.  Otherwise, the ERRORLEVEL is never set to any
+value greater than 253.)
+
+
+
+THE REPORT OPTION:  ═══════════════════════════════════════════════════════
+
+The report option was designed to be used with data which is stored as
+several rows (cases) of fields (variables).  Suppose, for example, that
+you have several rows of data in which columns 1 through 9 represent a
+patient's social security number, columns 10 through 19 represent the
+surname, column 20 represents gender, and columns 21 through 26 represent
+the birthdate.  With the R option, you can specify these field ranges, and
+@Compare will create a summary of the discrepancies found within each of
+these fields.  If, in the birthdate field, your first file gives 043064
+and your second file gives 043164, the R option will print information
+about the case in question, including the variable name and the differing
+values.  This process will be described in more detail below.  If this
+option is not of interest to you, skip this section and the following one.
+
+When the program is first invoked, the program will open the two files to
+be compared and read them into memory.  If the R option is specified, it
+will then ask you to enter the fields to be reported.  The format to use
+is:  variable name, starting column, length of variable.  Using the
+example of the last paragraph, this information would be entered as
+follows, where # is the prompt issued by @Compare:
+
+# SSN,1,9
+# Last Name,10,10
+# Sex,20,1
+# Birth Date,21,6
+# $Endfile
+
+You can enter as many variable fields as you like.  They need not be in
+any order, and they can freely overlap.  The list of variable fields is
+terminated by the string "$Endfile" or the string "%EOF".  These strings
+are not case sensitive.
+
+Since you may have scores of variable fields in your dataset, an
+alternative to such extensive typing has been provided.  The command
+file=filename.ext specifies a file containing this information, or a
+subset of it.  If the file specified is found, the program will echo the
+variable field definitions contained in the file, which will continue
+until the end of the file, or until an error is found in the file.  If an
+end of file string ("$endfile" or "%eof") is not included in the file, the
+program will return to interactive mode and wait for more input.
+
+When entering the variable field lists, the following cautions should be
+kept in mind.  First, the comma is the delimiter, and there must be two of
+them unless the line is an end of file string.  There can be no spaces
+before the commas, and the numeric fields must be numeric and positive.
+Any of these errors will cause an "invalid entry" message, and will prompt
+the user for more input.  If the "length of variable" field is zero, this
+variable will be ignored.
+
+The first entry in your list of variables has a special meaning.  Since
+this option was designed for use on data sets where one of the variables
+would be a case number or a social security number which should match
+across both files, the first entry in your list is called a "key
+variable."  The key variable value should match between the two files
+(after all, it doesn't make any sense to compare different cases), and if
+it does, that value is the first of six columns printed in the report. If
+it doesn't, then a warning message to that effect is printed.
+
+Because the first variable is the key variable, if your key value (say,
+the social security number variable) should be other than the first of
+several variables reading sequentially from left to right, you should
+enter it first anyway, even though it may be out of sequence.
+
+If your key variable is defined to be of length zero, then the first
+column will contain blanks, and no warning messages will be printed.  This
+has the effect of turning off key variable error checking, since key
+variables of length zero will *always* match.
+
+If the only variable in your list is an end of file string ("$endfile" or
+"%eof"), then the default values for this feature will be enabled.  The
+default values are columns 1-10, columns 11-20, etc., with the key vari-
+able turned off as described above.
+
+Once the field definitions have been entered, the program will then prompt
+you for two more filenames.  The first of these, which defaults to
+@Compare.@R@, will contain the report of discrepancies in order from top
+to bottom and left to right.  The second of these, which defaults to
+@Compare.@S@, will contain the report of discrepancies in order as they
+were given in your list of field definitions.  @R@ stands for "report" and
+@S@ stands for "sorted report."
+
+
+
+EXAMPLES OF THE REPORT OPTION:  ═══════════════════════════════════════════
+
+Consider three files, called Example1.dat, Example2.dat, and Example.fil.
+
+Example1.dat contains:
+
+123456789Madsen    M043064
+234567890Kopotic   F071662
+345678901Knepper   M092465
+456789012Roman     F050764
+567890123Kley      F030364
+678901234Na        M102664
+
+Example2.dat contains:
+
+123456789Madsen    M043164
+234567890Kopotic   F071662
+456789012Roman     F050764
+567899123Clay      M030364
+678901234Arthur    M120664
+
+And Example.fil contains:
+
+SSN,1,9
+Last Name,10,10
+Sex,20,1
+Birth Date,21,6
+$Endfile
+
+I issue the command:
+@Compare -rt Example1.dat Example2.dat
+
+The program asks me for variable field definitions, to which I respond:
+file=example.fil
+
+It then asks me for a report file name and a sorted report file name, to
+which I respond by hitting the carriage return to accept the defaults.
+
+The program then responds as usual, and when it is done, the file
+@Compare.@R@ contains the following report:
+
+┌───────────────╥───────────────╥──────────────────────╥──────────────────────┐
+│   Key Value   ║   Var Name    ║     Example1.dat     ║     Example2.dat     │
+├───────────────╫───────────────╫──────┬───────────────╫──────┬───────────────┤
+│               ║               ║ Line │     Value     ║ Line │     Value     │
+╞═══════════════╬═══════════════╬══════╪═══════════════╬══════╪═══════════════╡
+│     123456789 ║    Birth Date ║    1 │        043064 ║    1 │        043164 │
+├───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┤
+│                            ! ! ! WARNING ! ! !                              │
+│            Line    3 of Example1.dat not found in Example2.dat.             │
+├───────────────╥───────────────╥──────┬───────────────╥──────┬───────────────┤
+│     567890123 ║           SSN ║    5 │     567890123 ║    4 │     567899123 │
+├───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┤
+│                            ! ! ! WARNING ! ! !                              │
+│               Key values in files (shown above) do not match!               │
+│                  Any discrepancies reported may be caused                   │
+│                     by different cases being compared.                      │
+├───────────────╥───────────────╥──────┬───────────────╥──────┬───────────────┤
+│     567890123 ║     Last Name ║    5 │    Kley       ║    4 │    Clay       │
+│     567890123 ║           Sex ║    5 │             F ║    4 │             M │
+│     678901234 ║     Last Name ║    6 │    Na         ║    5 │    Arthur     │
+│     678901234 ║    Birth Date ║    6 │        102664 ║    5 │        120664 │
+└───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┘
+
+The file @Compare.@S@ contains the following report:
+
+┌───────────────╥───────────────╥──────────────────────╥──────────────────────┐
+│   Key Value   ║   Var Name    ║     Example1.dat     ║     Example2.dat     │
+├───────────────╫───────────────╫──────┬───────────────╫──────┬───────────────┤
+│               ║               ║ Line │     Value     ║ Line │     Value     │
+╞═══════════════╬═══════════════╬══════╪═══════════════╬══════╪═══════════════╡
+│     567890123 ║           SSN ║    5 │     567890123 ║    4 │     567899123 │
+│     567890123 ║     Last Name ║    5 │    Kley       ║    4 │    Clay       │
+│     678901234 ║     Last Name ║    6 │    Na         ║    5 │    Arthur     │
+│     567890123 ║           Sex ║    5 │             F ║    4 │             M │
+│     123456789 ║    Birth Date ║    1 │        043064 ║    1 │        043164 │
+│     678901234 ║    Birth Date ║    6 │        102664 ║    5 │        120664 │
+└───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┘
+
+Note that each of the discrepancies was reported.  Note that the @R@ file
+lists them in order by line number, and that the @S@ file lists them in
+order by variable name, in the order in which they were defined in the
+Example.fil file.
+
+Next, suppose Example.fil contains:
+
+Blank, 1, 0
+SSN, 1, 9
+Last Name, 10, 10
+Sex, 20, 1
+Birth Date, 21, 6
+$Endfile
+
+Then the resulting report in @Compare.@R@ is identical to the one shown
+above, except that the Key Value column is blank, and the message about
+the Key Values not matching is gone.  The report in @Compare.@S@ is also
+identical to the one shown above, except that the Key Value column is
+blank.
+
+Finally, suppose Example.fil contains field definitions which are out of
+sequence, or which overlap other definitions, or which leave gaps, or
+which do not account for some discrepancy which might be encountered, as
+follows:
+
+Last Name,      10,  10
+Area Number,     1,   3
+Birth Year,     25,   2
+SSN,             1,   9
+Group Number,    4,   2
+Birth Month,    21,   2
+Birthdate,      21,   6
+Serial Number,   6,   4
+Birth Day,      23,   2
+$Endfile
+
+Note that in this case, Last Name becomes the Key Variable.
+
+Then the resulting report is as follows:
+
+┌───────────────╥───────────────╥──────────────────────╥──────────────────────┐
+│   Key Value   ║   Var Name    ║     Example1.dat     ║     Example2.dat     │
+├───────────────╫───────────────╫──────┬───────────────╫──────┬───────────────┤
+│               ║               ║ Line │     Value     ║ Line │     Value     │
+╞═══════════════╬═══════════════╬══════╪═══════════════╬══════╪═══════════════╡
+│    Madsen     ║     Birthdate ║    1 │        043064 ║    1 │        043164 │
+│    Madsen     ║     Birth Day ║    1 │            30 ║    1 │            31 │
+├───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┤
+│                            ! ! ! WARNING ! ! !                              │
+│            Line    3 of Example1.dat not found in Example2.dat.             │
+├───────────────╥───────────────╥──────┬───────────────╥──────┬───────────────┤
+│    Kley       ║     Last Name ║    5 │    Kley       ║    4 │    Clay       │
+├───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┤
+│                            ! ! ! WARNING ! ! !                              │
+│               Key values in files (shown above) do not match!               │
+│                  Any discrepancies reported may be caused                   │
+│                     by different cases being compared.                      │
+├───────────────╥───────────────╥──────┬───────────────╥──────┬───────────────┤
+│    Kley       ║           SSN ║    5 │     567890123 ║    4 │     567899123 │
+│    Kley       ║ Serial Number ║    5 │          0123 ║    4 │          9123 │
+│    Na         ║     Last Name ║    6 │    Na         ║    5 │    Arthur     │
+├───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┤
+│                            ! ! ! WARNING ! ! !                              │
+│               Key values in files (shown above) do not match!               │
+│                  Any discrepancies reported may be caused                   │
+│                     by different cases being compared.                      │
+├───────────────╥───────────────╥──────┬───────────────╥──────┬───────────────┤
+│    Na         ║   Birth Month ║    6 │            10 ║    5 │            12 │
+│    Na         ║     Birthdate ║    6 │        102664 ║    5 │        120664 │
+│    Na         ║     Birth Day ║    6 │            26 ║    5 │            06 │
+└───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┘
+
+Then the resulting sorted report is as follows:
+
+┌───────────────╥───────────────╥──────────────────────╥──────────────────────┐
+│   Key Value   ║   Var Name    ║     Example1.dat     ║     Example2.dat     │
+├───────────────╫───────────────╫──────┬───────────────╫──────┬───────────────┤
+│               ║               ║ Line │     Value     ║ Line │     Value     │
+╞═══════════════╬═══════════════╬══════╪═══════════════╬══════╪═══════════════╡
+│    Kley       ║     Last Name ║    5 │    Kley       ║    4 │    Clay       │
+│    Na         ║     Last Name ║    6 │    Na         ║    5 │    Arthur     │
+│    Kley       ║           SSN ║    5 │     567890123 ║    4 │     567899123 │
+│    Na         ║   Birth Month ║    6 │            10 ║    5 │            12 │
+│    Madsen     ║     Birthdate ║    1 │        043064 ║    1 │        043164 │
+│    Na         ║     Birthdate ║    6 │        102664 ║    5 │        120664 │
+│    Kley       ║ Serial Number ║    5 │          0123 ║    4 │          9123 │
+│    Madsen     ║     Birth Day ║    1 │            30 ║    1 │            31 │
+│    Na         ║     Birth Day ║    6 │            26 ║    5 │            06 │
+└───────────────╨───────────────╨──────┴───────────────╨──────┴───────────────┘
+
+Note that the sex variable discrepancy was not reported because there was
+no field definition which enclosed the twentieth column.  Note also that
+some discrepancies are repeated (in both the Birth Day and Birthdate
+fields) because several variables were defined which enclosed those
+columns.  Note that the @S@ sorted report file lists variables in the
+order in which they were defined.
+
+By the way, the three parts of your social security number are known as
+the area, group, and serial numbers, respectively.  See "The Social
+Security Number," Pub. No. 05-10633, from the Federal Government.
+
+
+
+SHAREWARE NOTICE:  ════════════════════════════════════════════════════════
+
+@Compare is shareware, and is not in the public domain.  If you use
+@Compare and find it useful and valuable, please register by sending me a
+postcard with your name and address.  My address is at the end of this
+document.  I'm not asking for any money, although I won't turn you down if
+you're feeling generous.  Mainly, I'm just interested in seeing how far
+this thing spreads, and who's using it for what.
+
+By registering, you'll be the first to receive news of any updates to
+@Compare, and you'll receive instantaneous fixes for any bugs you might
+happen to discover.
+
+
+
+FINAL COMMENTS:  ══════════════════════════════════════════════════════════
+
+This program began as an intellectual and educational exercise, but has
+since grown to become a useful tool for many people, which I have found
+deeply satisfying.  I welcome comments, suggestions for improvement, and
+bug reports.  I have received and incorporated many good suggestions for
+improvement, and I suspect that this will continue.
+
+Please feel free to contact me:
+
+Brian C. Madsen
+5948 Madison Drive
+The Colony, Texas  75056-4487
+
+
+
+FINIS:  ═══════════════════════════════════════════════════════════════════
+

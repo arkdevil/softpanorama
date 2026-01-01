@@ -1,0 +1,815 @@
+From: bjaspan@cam.ov.com (Barry Jaspan)
+Newsgroups: comp.protocols.kerberos,comp.answers,news.answers
+Subject: Kerberos Users' Frequently Asked Questions 1.10
+Date: 25 Aug 1994 15:55:54 -0400
+Organization: OpenVision Technologies
+Message-ID: <kerberos-faq/user_777844553@cam.ov.com>
+
+Archive-name: kerberos-faq/user
+Version: 1.10
+
+Kerberos Users' Frequently Asked Questions
+August 25, 1994
+Compiled by: Barry Jaspan, <bjaspan@cam.ov.com>
+             OpenVision Technologies
+
+     Kerberos; also spelled Cerberus.  n.  The watch dog of
+     Hades, whose duty it was to guard the entrance--against
+     whom or what does not clearly appear; . . . it is known
+     to have had three heads. . .
+
+        -Ambrose Bierce, The Enlarged Devil's Dictionary
+
+This document answers Frequently Asked Questions about the Kerberos
+authentication system.  It is freely distributable.  Direct all
+responses and questions to bjaspan@cam.ov.com.  Most of the
+information presented here has been collected from postings to the
+comp.protocols.kerberos newsgroup (gatewayed to the mailing list
+kerberos@athena.mit.edu).
+
+DISCLAIMER: OpenVision Technologies makes no representations about the
+suitability of this information for any purpose.  It is provided "as
+is" without express or implied warranty.  In particular, this document
+is not intended as legal advice for exporting Kerberos, DES, or any
+other encryption software.
+
+Release Notes: Answer 1.7 has been updated with information from Joe
+Pato.  There is a new entry for TGV, Inc. in the Kerberos vendor list.
+
+Questions addressed in this release:
+
+1.  Kerberos and its Many Incarnations
+----------------------------------------------------------------------
+
+(1.1)	What is Kerberos?  What is it good for?
+(1.2)	Where can I get Kerberos version 4 or 5?
+(1.3)	What is the current status of version 4?
+(1.4)	What is the current status of version 5?
+(1.5)	Are version 4 and version 5 compatible?
+(1.6)	How/why is Transarc's Kerberos different from MIT Kerberos V4?
+	Can they interoperate?
+(1.7)	How/why is OSF DCE Security different from MIT Kerberos V5?
+	Can they interoperate?
+(1.8)	How/why is DEC Ultrix Kerberos different from MIT Kerberos V4?
+	Can they interoperate?
+(1.9)	What is Bones?  What is it for?
+
+2.  Using and Administering Kerberos
+----------------------------------------------------------------------
+
+(2.1)	Can I use Kerberos for local password validation?
+(2.2)	What is the export status of Kerberos?
+(2.3)	How can I delete a principal from the database?
+(2.4)	What are the officially assigned Kerberos port numbers?
+(2.5)	Are there Kerberos versions of telnet and ftpd?
+	What other Kerberos clients exist?
+(2.6)	Why does rlogin print "Warning: No Kerberos tickets obtained"?
+(2.7)	What operating systems has Kerberos been ported to?
+	What vendors provide commercial support for Kerberos?
+
+3.  Building and Installing Kerberos
+----------------------------------------------------------------------
+
+(3.1)	Why do I get an error message from ld when make_commands is
+	executed?
+(3.2)	Why doesn't KRB5_defs.h exist when I build version 5?
+(3.3)	What is libkrb.a, and why can't ld find it?
+
+4.  Miscellaneous
+----------------------------------------------------------------------
+
+(4.1)	List references for Kerberos and network security in general.
+(4.2)	Where are archives of comp.protocols.kerberos (a.k.a 
+	kerberos@athena.mit.edu)?
+
+======================================================================
+
+1.  Kerberos and its Many Incarnations
+----------------------------------------------------------------------
+
+(1.1)	What is Kerberos?  What is it good for?
+
+Kerberos is a network authentication system for use on physically
+insecure networks, based on the key distribution model presented by
+Needham and Schroeder.[3] It allows entities communicating over
+networks to prove their identity to each other while preventing
+eavsdropping or replay attacks.  It also provides for data stream
+integrity (detection of modification) and secrecy (preventing
+unauthorized reading) using cryptography systems such as DES.
+
+Kerberos works by providing principals (users or services) with
+/tickets/ that they can use to identify themselves to other principals
+and secret cryptographic keys for secure communication with other
+principals.[1] A ticket is a sequence of a few hundred bytes.  These
+ticket can then be embedded in virtually any other network protocol,
+thereby allowing the processes implementing that protocol to be sure
+about the identity of the principals involved.
+
+Practically speaking, Kerberos is mostly used in application-level
+protocols (ISO model level 7), such as TELNET or FTP, to provide user
+to host security.  It is also used, though less frequently, as the
+implicit authentication system of data stream (such as SOCK_STREAM) or
+RPC mechanisms (ISO model level 6).  It could also be used at a lower
+level for host to host security, in protocols like IP, UDP, or TCP
+(ISO model levels 3 and 4), although such implementations are
+currently rare, if they exist at all.
+
+It is important to realize that Kerberos is a one-trick pony.  It
+provides for mutual authentication and secure communication between
+principals on an open network by manufacturing secret keys for any
+requestor and providing a mechanism for these secret keys to be safely
+propagated through the network.  Kerberos does not, per se, provide
+for authorization or accounting, although applications that wish to
+can use their secret keys to perform those functions securely.
+Kerberos also does not provide password validation for individual
+workstations unless care is taken; see question 2.1.
+
+It is also important to understand the using Kerberos on time-sharing
+machines greatly weakens its protections, since a user's tickets
+are then only as secure as the 'root' account (read: not very).
+Furthermore, dumb terminals and most X terminals do not understand the
+Kerberos protocol and as a result their cable connections remain
+insecure.
+
+(1.2)	Where can I get Kerberos version 4 or 5?
+
+In the United States and Canada (*), Kerberos is available via
+anonymous FTP from athena-dist.mit.edu (18.71.0.38).  For specific
+instructions, cd to pub/kerberos and get the file README.KRB4 (for
+version 4) or README.KRB5_BETA4 (for version 5).  Note that *YOU WILL
+NOT BE ABLE TO RETRIEVE KERBEROS WITHOUT READING THIS FILE*.
+
+Outside the United States, you can get Bones via anonymous ftp from
+ftp.funet.fi (128.214.6.100) in pub/unix/security/kerberos.  A DES
+library is available from the same place.  See question 1.9 for
+information on Bones.
+
+(*) Kerberos and DES can be exported to Canada.  See question 2.2.
+
+(1.3)	What is the current status of version 4?
+
+With the release of patch level 10 on December 10, 1992, MIT Kerberos
+4 is now in its final form.  MIT does not anticipate ever making a new
+Kerberos 4 release.
+
+Several vendors provide their own versions of Kerberos which may
+contain improvements or extensions; see question 2.7.
+
+(1.4)	What is the current status of version 5?
+
+The newest version of MIT Kerberos V5 is beta 4 patchlevel 2, released
+10 August 1994.  It contains numerous bug fixes, a new build system
+based on autoconf rather than imake, hand-coded ASN.1 parsers so that
+ISODE is not required, and many other additions and improvements.  MIT
+tested it on Ultrix, SunOS, Solaris, and Linux, and it has already
+been ported to other platforms.  
+
+See question 1.2 for instructions on acquiring it.
+
+(1.5)	Are version 4 and version 5 compatible?
+
+No.  Versions 4 and 5 are based on completely different protocols.
+The MIT Kerberos V5 distribution contains some compatibility code,
+however: (a) there is a library which converts Kerberos V4 library
+calls into Kerberos V5 requests, so you can run many V4 programs in a
+V5 environment by relinking; (b) the Kerberos server can optionally
+service V4 requests; (c) there is a program to convert a V4 format
+Kerberos database to a V5 format database.  The names used by the V5
+library have a prefix "krb5_" so they do not conflict with the V4
+library.
+
+(1.6)	How/why is Transarc's Kerberos different from MIT Kerberos V4?
+	Can they interoperate?
+
+This is a fairly complex question, and this answer is known to be
+incomplete.  The issue is regularly discussed on the
+info-afs-kerberos@transarc.com mailing list; send mail to the -request
+list for subscriptions.
+
+Years ago, the designers of AFS decided to implement their own
+security system based on the Kerberos specification instead of using
+the (then, not yet publicly available) MIT Kerberos V4.  As a result,
+Transarc's AFS Kerberos speaks a different protocol but also
+understands the MIT Kerberos V4 protocol.  They can, in principal,
+talk to each other; however, there are a sufficient number of annoying
+details and an insufficient number of advantages such that it may not
+be practical.
+
+The two versions use a different string-to-key function (the algorithm
+that turns a password into a DES key); the AFS version uses the realm
+name as part of the computation while the MIT version does not.  A
+program that uses a password to acquire a ticket (e.g.  kinit or
+login) will only work with one version, unless it is hacked up to try
+both string-to-key algorithms.
+
+The two versions also use a different method of finding Kerberos
+servers.  MIT Kerberos uses krb.conf and krb.realms to map hostnames
+to realms and realms to Kerberos servers.  AFS kaservers for a realm,
+by definition, are located on the AFS database servers and can
+therefore be located using /usr/vice/etc/CellServDB.  This means that
+a program built using the MIT Kerberos libraries will look in one
+place for the information while a program built using the AFS Kerberos
+libraries will look in another.  You can certainly set up all three
+files and use both libraries, but be sure that everything is
+consistent.
+
+The two versions have a different password changing protocol, so you
+must use the correct 'kpasswd' program for the server you are talking
+to.  In general, AFS clients that talk directly to the kaserver use an
+Rx-based protocol, instead of UDP as with MIT Kerberos, so those AFS
+clients cannot talk to an MIT server.
+
+In summary, AFS Kerberos and MIT Kerberos can interoperate once you've
+acquired a ticket granting ticket, which you can do with kinit (MIT)
+or klog (AFS).  With a tgt, Kerberos applications such as rlogin can
+talk to an MIT or AFS Kerberos server and achieve correct results.
+However, it is probably best to pick one implementation and use it
+exclusively
+
+(1.7)	How/why is OSF DCE Security different from MIT Kerberos V5?
+	Can they interoperate?
+
+DCE Security is based on Kerberos V5, and uses the same wire protocol.
+However, applications from two systems use the protocol in different
+ways, so the actual interoperability is limited.  Furthermore, DCE
+Security started from an early alpha release of V5 and the two
+versions have developed independently; there are therefore some minor
+incompatibilities that MIT and the OSF have agreed to resolve.  [Time
+frame?]
+
+The DCE Security Server, secd, listens on UDP port 88 for standard
+Kerberos requests and responds appropriately.  Therefore, clients of
+MIT Kerberos can operate in a DCE environment without modification,
+assuming the DCE Security database contains the appropriate principals
+with the correct keys.
+
+An MIT Kerberos V5 server cannot replace the DCE Security Server,
+however.  First, DCE applications communicate with secd via the DCE
+RPC.  Second, the DCE security model includes a Privilege Server (PS)
+that fills in the authorization field of a principal's ticket with
+DCE-specific data, and the DCE Security Server has a PS built in.  In
+order for the MIT Kerberos V5 server to support DCE clients it would
+need to talk to a stand-alone PS and, although the necessary
+information is available, no such PS presently exists.
+
+As an additional complication, the DCE does not officially export the
+Kerberos V5 API; it only exports a DCE Security-specific API.
+Individual vendors are capable of providing the Kerberos V5 API if
+they wish, but unless they all do (which seems unlikely) Kerberos V5
+API applications will not be compile-time portable to pure DCE
+environments; only binaries will continue to work.
+
+[Does secd provide all features of the MIT Kerberos server?  Is it
+guaranteed to do so?]
+
+(1.8)	How/why is DEC Ultrix Kerberos different from MIT Kerberos V4?
+	Can they interoperate?
+
+DEC ULTRIX contains Kerberos for a single reason, namely, to provide
+authenticated name service for the ULTRIX enhanced security option.
+It does not support user-level authentication in the normal manner.
+
+DEC's version is essentially the same as (and derived from) MIT
+Kerberos V4 with a few changes.  The most significant change is that
+the ability to perform any kind of end-to-end user data encryption has
+been eliminated in order to comply with export restrictions.  Minor
+changes include the placement of ticket files (/var/dss/kerberos/tkt
+vs. /tmp) and the principal names used by some standard Kerberos
+services (e.g.: kprop vs. rcmd); there are probably other minor
+changes as well.
+
+These changes make it annoying but not impossible to use DEC ULTRIX
+Kerberos in the normal way.  However, there is no reason at all to do
+so, because the MIT distribution supports ULTRIX directly.  [This may
+not be completely true.  I imagine that using ULTRIX Kerberos for
+enhanced security and MIT's Kerberos at the same time would cause
+problems.  Has anyone tried this?]
+
+(1.9)	What is Bones?  What is it for?
+
+Bones is a system that provides the Kerberos API without using
+encryption and without providing any form of security whatsoever.  It
+is a fake that allows the use of software that expects Kerberos to be
+present when it cannot be.
+
+Why does it exist?  Kerberos is a network security system which relies
+on cryptographic methods for its security.  Since Kerberos' encryption
+system, DES, is not exportable, Kerberos itself cannot be exported or
+used outside of the United States in its original form.  (See question
+2.2 for more information.)
+
+As a partial solution to this problem, the Kerberos source code was
+modified by the addition of #ifdef NOENCRYPTION around all calls to
+DES functions.  Compiling this version with the symbol NOENCRYPTION
+defined results in a system that looks like Kerberos from an
+application's point of view but that does not require DES libraries
+(and, as a result, does not speak the real Kerberos protocol and does
+not provide any security).
+
+The final piece in this puzzle is a program called "piranha" which
+takes the Kerberos sources and removes all of the calls to the
+encryption routines, replacing it with the code which was under #ifdef
+NOENCRYPTION, producing the system known as Bones.  Bones has the
+property that there is absolutely no question about whether or not it
+is legal to transport its sources across national boundaries, since it
+neither has any encryption routines nor any calls to encryption
+routines.
+
+#ifdef NOENCRYPTION was not documented, and it was only intended to be
+used in the above manner.  Someone who tries compiling Kerberos with
+that #define has in some sense "voided the warranty", and will get
+something which is both (a) not secure and (b) not Kerberos.
+
+2.  Using and Administering Kerberos
+----------------------------------------------------------------------
+
+(2.1)	Can I use Kerberos for local password validation?
+
+Yes, but only under certain circumstances and only if you are
+careful.
+
+Requests for Kerberos ticket granting tickets (tgts) (e.g. from kinit
+or login) are sent in plaintext to the Kerberos server, which then
+responds with credentials encrypted in the requesting principal's
+secret key.  The program then attempts to decrypt the data with the
+supplied password and considers the authentication "successful" if the
+decryption appears to yield meaningful results (such as the correct
+principal name).
+
+The problem here is that the requesting program cannot know for sure
+whether the decryption succeeded or, more importantly, whether the
+response actually came from the Kerberos server.  An attacker could,
+for example, walk up to an unattended machine and "log in" as a
+non-existent user.  Kerberos will eventually respond with an
+appropriate error, but the attacker can arrange for another program to
+deliver a fake response to login first; he then types the correct
+password (which he knows because he created the fake response in the
+first place) and succeeds in spoofing login.
+
+The solution to this problem is for login to verify the tgt by using
+it to acquire a service ticket with a known key and comparing the
+results.  Typically, this means requesting an rcmd.<hostname> ticket,
+where <hostname> is the local hostname, and checking the response
+against the key stored in the machine's /etc/srvtab file.  If the keys
+match then the original tgt must have come from Kerberos (since the
+key only exists in the srvtab and the Kerberos database), and login
+can allow the user to log in.
+
+The solution works only so long as the host has a srvtab containing an
+rcmd.<hostname> (or any other standard principal) entry.  This is fine
+for physically secure or single-user workstations, but does not work
+on public workstations in which anyone could access the srvtab file.
+
+(2.2)	What is the export status of Kerberos?
+
+[ This answer was written by John Gilmore of Cygnus Support.  It is
+not intended as legal advice and may contain errors. ]
+
+The export status of Kerberos is unclear, largely because the export
+regulations are unclear in general.  There's an overview of cryptography
+export cases in http://www.cygnus.com/~gnu/export.html .
+
+Export of technology is controlled by both the State Department and by
+the Commerce Department.  The two agencies' jurisdictions don't
+actually legally overlap, but nobody really knows which agency has
+jurisdiction over which products.  So there is a process by which you,
+as a potential exporter, can ask the State Department which agency
+controls your particular export.  It's called a Commodity Jurisdiction
+Request or CJR.  There is a "CJR Kit" for helping you to file CJR's
+available at ftp://ftp.cygnus.com/pub/export/cjr.kit .
+
+The State Department has the power to regulate exports of even
+publicly available (published) materials, in apparent contradiction to
+the First Amendment.  The Commerce Department regulations (Commerce
+Control List) specifically exempts publicly available materials from
+export controls (section 779.3), allowing their export under `General
+License' GTDA, which requires no paperwork and is usable by everyone
+except a few hundred people or companies who have abused export
+controls in the past.  The State Department regulation (International
+Traffic in Arms Regulations, or ITAR) exempts `public domain
+information' (22 CFR 120.11) but fails to define `information'.  The
+State Department takes the position that software is not
+`information'.
+
+Kerberos is an authentication system, and export of authentication
+software and hardware is controlled by the Commerce Department.
+However, the State Department has never formally said where the line
+between authentication and encryption is, so they are also apparently
+interested in Kerberos.
+
+Cygnus Support filed a CJR for the Kerberos Bones software, and got
+back a formal notification that it was controlled by the Commerce
+Dept.  We then filed a CCATS request with the Commerce Department, and
+eventually found out that it is exportable to all destinations without
+paperwork under the GTDA license (because it is `publicly available'
+without charge on the Internet).  The formal documents are in
+ftp://ftp.cygnus.com/pub/export .  This just confirms what we all
+suspected anyway -- if you take the crypto out of Kerberos (which is
+how the Bones were generated), it's exportable.  The Bones are
+available at ftp://athena-dist.mit.edu/pub/kerberos; look at
+README.ftp for instructions.
+
+Several companies, including DEC, have apparently gotten export
+licenses for *binaries* of Kerberos.  The DECathena product is
+licensed this way.  However, they had to make unspecified changes to
+the code, removing entry points that would allow people to do
+arbitrary encryption.
+
+As for the exportability of full strength Kerberos in source code,
+nobody has apparently applied for this.  (Please let us know if
+you know of a case.)
+
+I believe that the best bet for threading the export maze is to define
+and defend Kerberos as an authentication product, to get it past the
+State Department, and then to show that it is publicly available, to
+get it past the Commerce Department.  To do this, you actually have to
+be trying to export a publicly available version of Kerberos, though.
+
+There is a bill pending in U.S. Congress, HR 3627, by Rep. Maria
+Cantwell, which would make export of Kerberos (and all other mass
+market and publicly available crypto software) legal.  Statements of
+support sent by email to `cantwell@eff.org' will be forwarded to Ms.
+Cantwell.  So far more than 5,000 such statements have been forwarded.
+More info on the bill is available at
+ftp://ftp.eff.org/Alerts/berman_cantwell.alert .  See also
+ftp://ftp.eff.org/eff/Issues/Crypto and Issues/Export .
+
+Canada is considered a part of the United States for export control
+purposes so Kerberos can be exported to Canada without problems.
+
+As for other countries besides the U.S., few countries control the
+export of encryption software, and even fewer control the import or
+use of encryption inside their countries.  Most of the countries that
+signed the COCOM treaty, before it was dissolved, controlled
+cryptography as a ``dual use'' item, meaning that commercial products
+that use crypto are fine, but military products are controlled as
+weapons.  There is a master list of crypto export control regulations
+compiled by George Washington University researchers, available from
+the Software Publishers' Association.
+
+Copies of the Kerberos Bones with DES routines and calls added back in
+by foreign programmers are called `eBones', and are available by
+anonymous FTP from machines in Sweden, Germany, Israel, Finland,
+Australia, and France (so far); check with "archie".
+
+(2.3)	How can I delete a principal from the database?
+
+MIT Kerberos V4 does not include a single command to delete a Kerberos
+principal.  This was an intentional omission based on the assumption
+that by making deletion difficult, accidents were less likely to
+happen.  If you want to delete a principal, do "kdb_util dump", edit
+the ASCII dump with an editor, and do a "kdb_util load".  Obviously,
+you can write a shell script to make this more convenient.
+
+The admin tools for AFS Kerberos, MIT Kerberos V5, and the DCE
+Kerberos have a simple delete request.
+
+(2.4)	What are the officially assigned Kerberos port numbers?
+
+The file src/prototypes/services.append in the MIT Kerberos
+distribution contains the commonly used port assignments.  This file
+is not the whole story, however.
+
+"kerberos" has officially been moved to port 88, although people will
+have to listen on port 750 for some time to come, and assume
+that many servers won't be converted to listen to port 88 for some
+time.
+
+"kerberos_master" and "krb_prop" have not been reserved, but they are
+only used for intra-site transactions so having them reserved probably
+isn't necessary.  Furthermore, both of their port numbers have already
+been assigned to other services, so requesting an official assignment
+will force them to change.
+
+"eklogin", "kpop", and "erlogin" have not been officially reserved,
+but probably should be.  Their ports are not currently assigned to
+other services, so hopefully they will not have to change if an
+official assignment is requested.
+
+(2.5)	Are there Kerberos versions of telnet and ftpd?
+
+(a) TELNET.  An experimental Telnet Authentication Option has been
+defined, and is described in RFC1416.  A separate document, RFC1411,
+describes how that option is to be used with Kerberos V4, but no RFC
+exists for its use with Kerberos V5.  These RFC's only define how
+/authentication/ is to be performed; the standard for full encryption
+is still under development.
+
+An implementation of Kerberos V4 telnet is available via anonymous ftp
+from ftp.uu.net, in /networking/telnet.91.03.25.tar.Z, but it predates
+both of the above-mentioned RFCs and is therefore almost certainly not
+compliant with them.  A Kerberos V5 telnet implementation, based on
+the 4.4BSD telnet/telnetd, also exists but has been temporarily
+removed from the MIT V5 beta 2 release (probably because it also does
+not comply with the proposed standards).
+
+(b) FTP.  The IETF Common Authentication Technology (CAT) Working
+Group has published the Internet Draft "FTP Security Extensions"
+<draft-ietf-cat-ftpsec-05.txt> which defines Kerberos V4 and GSS-API
+authentication systems.  Source code for a Kerberos V4 ftp/ftpd with
+the extensions is available via anonymous FTP:
+
+	thumper.bellcore.com:pub/lunt/ftp_ftpd.tar.Z
+
+Please note that the extensions are still in the Draft stage and may
+change at any time, in incompatible ways.
+
+(2.6)	Why does rlogin print "Warning: No Kerberos tickets obtained"?
+
+Kerberos rlogin uses a standard Kerberos exchange to prove the
+identity of the user to the remote host, after which it uses the
+/etc/passwd and a .klogin file to determine whether the user is
+authorized to log in.
+
+Since the user never types a password, klogind on the remote host
+cannot obtain a new ticket granting ticket.  The user's existing tgt
+cannot be used on the remote host, because MIT Kerberos V4 tickets are
+host-specific.  Therefore, even though the user has logged in to the
+remote host, there is no ticket granting ticket for the user available
+on the remote host.  The warning message is merely a reminder of this
+fact.
+
+The most recent release of MIT Kerberos V4 (patchlevel 10) contains a
+system called "rkinit" that allows a user to obtain a ticket granting
+ticket on a remote machine.  Using this system, it is possible first
+to obtain a tgt on a machine and then log into it with Kerberos
+rlogin, thereby achieving a secure remote login with tickets.
+Alternatively, you use Kerberos V5 which has forwardable tickets.
+However, forwardable tickets do not seem to work in the current
+release of MIT Kerberos V5.
+
+(2.7)	What operating systems has Kerberos been ported to?
+	What vendors provide commercial support for Kerberos?
+
+The Kerberos vendor's list is maintained as a public service and is
+not intended as advertising.  Any vendor can submit an entry.  Entries
+will be edited for form and style.  Obviously, all of the "Added
+value" sections are incomplete; call the vendor for details.
+
+NOTE: The current author of this list works for OpenVision
+Technologies, Inc.
+
+----------------------------------------
+
+Vendor:		Cygnus Support
+Product:	Cygnus Network Security (CNS)
+Contact:	Simon Elphick
+		+1 415 903 1400  voice
+		+1 415 903 0122  fax
+		network-security@cygnus.com
+Last update:	4/20/94
+
+Base version:	MIT Kerberos 4
+Added value:
+
+	o technical support
+	o easier configuration and building
+	o much improved documentation
+	o many bug fixes
+	o full source code and easy-to-install binaries provided
+	o still freely available sourceware -- not proprietary
+
+Availability:
+
+	SPARC / SunOS 4.1.3:		available
+	SPARC / Solaris 2.3:		available
+	Sun-3 / SunOS 4.x		available
+	DECstation / Ultrix 4.2a	available
+	IBM RS/6000 / AIX 3.2		available
+	SGI / IRIX 4 and 5		available
+	i386 / SCO 3.2v4		available
+	HPPA / HPUX 8.07		available
+
+	PC / Windows 3.1		beta test July '94 (client only)
+	Macintosh / System 7		beta test July '94 (client only)
+
+Free availability of the CNS software:
+
+	To obtain a copy of Cygnus Network Security, fax a request to:
+		+1 415 903 0122
+
+	To satisfy export restrictions, the fax should state that you are a
+	U.S./Canadian citizen or permanent resident, and that the software is
+	exclusively for use in the United States/Canada.
+
+	Cygnus will reply with information on how to access the CNS source,
+	binaries and documentation through anonymous ftp.
+
+Future plans:
+	o MIT Kerberos 5 in December 94
+
+----------------------------------------
+
+Vendor:		Digital Equipment Corporation
+Product:	DECathena
+Contact:	Susanna Wood
+		(508) 952-4399
+		wood@athena.tay.dec.com
+Last update:	4/11/94
+
+Base version:	MIT Kerberos 4
+
+	o integration into DECathena
+	o available world-wide
+
+Availability:
+
+	Alpha AXP OSF/1		available
+	DECstation Ultrix 4.x	available
+	VAXstation Ultrix 4.x	available
+	SunOS 4.x		available
+	HP-UX			available (client only)
+	RS/6000 AIX		available (client only)
+	MS-DOS			available (client only)
+	Windows			available (client only)
+
+Notes:
+	o requires INGRES/SQL
+	o requires PC-NFS with MS-DOS or Windows
+
+Future plans:
+	o MIT Kerberos 5
+
+----------------------------------------
+
+Vendor:		OCSG, CyberSAFE Corporation
+Product;	OCSG Kerberos
+Contact:	Gene Egan
+		(206) 883-8721
+		genee@ocsg.com
+Last update:	4/1/94
+
+Base version:	MIT Kerberos 5
+Added value:
+
+	o forwardable tickets from rlogin, rcp, and rsh
+	o Kerberos 4 compatibility for rlogin, rcp, and rsh
+	o installation system
+	o administration GUI
+	o token card integration (Security Dynamics SecureID Card)
+	o DEC GSS-API
+
+Availability:
+
+	SunOS 4.x:		available
+	Solaris 2.3:		available
+	IBM RS/6000 AIX 3.2.5:	available
+	HP 9000 HP-UX 9.0:	available
+	NEXTSTEP 3.2 for Intel:	available
+	DEC Ultrix 4.3:		available
+
+	Microsoft Windows 3.1:	available
+	MS-DOS 6.0:		available
+	Macintosh System 7:	available
+	OS/2:			available in May '94
+	NT:			available in June '94
+
+Future plans:
+	o Support for additional platforms
+	o Kerberos Telnet, FTP, and AFS
+
+----------------------------------------
+
+Vendor:		OpenVision Technologies, Inc.
+Product:	OpenV*Secure
+Contact:	Gregg Lebovitz
+		(617) 374-3700 (voice)
+		(617) 374-3715 (fax)
+		gregg@cam.ov.com
+Last update:	4/20/94
+
+Base version:	MIT Kerberos 5
+Added value:
+
+	o administration server (not based on Sandia's kadmin)
+	o easy-to-use remote administration GUI
+	o security policies (password minimum and maximum lifetime,
+	expiration, minimum length, character class mix, and history)
+	o Kerberos 4 compatibility
+	o OpenVision GSS-API (now part of the standard MIT release)
+	o Full documentation set
+	o 24x7 support
+
+Availability:
+	
+	SunOS 4.1.3:	available
+	Solaris 2.3:	available
+	HP-UX 9.01:	available
+	AIX 3.2:	available
+
+Future plans:
+	o FTP security with GSS-API
+	o Authorization
+	o Integration with other OpenVision products
+
+----------------------------------------
+
+Vendor:		TGV, Inc.
+	  	101 Cooper Street
+	  	Santa Cruz, CA  95060
+Product:	MultiNet V3.3
+Contact:	(408) 457-5200
+		sales@tgv.com, info@tgv.com
+Last update:	7/15/94
+
+Base version:	MIT Kerberos 4
+
+Availability:
+	
+	DEC OpenVMS (VAX and Alpha AXP): available
+
+3.  Building and Installing Kerberos
+----------------------------------------------------------------------
+
+(3.1)	Why do I get an error message from ld when make_commands is
+	executed? 
+
+The make_commands program (from the file util/ss/make_commands.c,
+around line 101) spawns ld as part of its normal operation.  The
+arguments to ld are hard-coded into the exec() call and are not
+correct for all systems.  To fix the problem, examine the call and
+determine the correct arguments for your environment; once you know
+the correct arguments, the change to the source code will be obvious.
+
+(3.2)	Why doesn't KRB5_defs.h exist when I build version 5?
+
+KRB5_defs.h, and other files like KRB5_tables.c, KRB5-types.h, and
+KRB5_pre_defs.h are created by the ISODE ASN.1 compiler, pepsy, from
+KRB5.py.  You therefore need to have ISODE built and you have to
+configure your site.def file so that the Makefiles know how to run the
+pepsy compiler.
+
+Note that there's a bug in Sun's imake/cpp setup, so the Makefile that
+is generated in lib/asn.1 is broken.  KRB5-types.h is generated by the
+ISODE program pepsy; look in the makefile just before pepsy is called.
+It's fairly obvious where a tab character is missing.
+
+(3.3)	What is libkrb.a, and why can't ld find it?
+
+The MIT Kerberos V5 server (krb5kdc) can operate in a V4 compatibility
+mode in which it accepts and responds to standard V4 requests (see
+question 1.5).  In order to do so, it needs the V4 Kerberos library,
+libkrb.a.  That library is not part of the V5 distribution.  It is
+assumed that if you want V4 compatibility you already have V4 built
+and installed; see question 1.2 for information on obtaining V4.
+
+To get krb5kdc to link properly, set the KRB4LIB variable in site.def
+to the path of your V4 library.  If you do not need V4 backwards
+compability, comment out the definition of Krb4KDCCompat in site.def.
+(Be sure to run "make clean" after changing anything in site.def to
+make sure everything is rebuilt correctly according to the new
+parameters.)
+
+4.  Miscellaneous
+----------------------------------------------------------------------
+
+(4.1)	List references for Kerberos and network security in general.
+
+See the bibliography at the end of this document.
+
+(4.2)	Where are archives of comp.protocols.kerberos (a.k.a 
+	kerberos@athena.mit.edu)?
+
+Archives are available via anonymous FTP from athena-dist.mit.edu in
+the directory pub/kerberos/krb-mail.  The kerberos@athena.mit.edu
+archives prensently extend up to the end of 1992.  Some archives of
+the kerberos protocol mailing list are also available.
+
+----------------------------------------------------------------------
+
+BIBLIOGRAPHY
+
+The FTP site for a reference, when known, is listed in square brackets
+following the entry.  Yes, I know that these are not in Officially
+Blessed Bibliography Format.  Sue me.
+
+[1] Jennifer G. Steiner, Clifford Neuman, Jeffrey I. Schiller.
+"Kerberos: An Authentication Service for Open Network Systems", USENIX
+Mar 1988.  [athena-dist.mit.edu:pub/kerberos/doc/usenix.PS]
+
+[2] S. P. Miller, B. C. Neuman, J. I. Schiller, and J. H. Saltzer,
+"Kerberos Authentication and Authorization System", 12/21/87.
+
+[3] R. M. Needham and M. D.  Schroeder, "Using Encryption for
+Authentication in Large Networks of Computers," Communications of the
+ACM, Vol.  21(12), pp. 993-999 (December, 1978).
+     
+[4] V. L. Voydock and S. T. Kent, "Security Mechanisms in High-Level
+Network Protocols," Computing Surveys, Vol.  15(2), ACM (June 1983).
+
+[5] Li Gong, "A Security Risk of Depending on Synchronized Clocks",
+Operating Systems Review, Vol 26, #1, pp 49--53.
+
+[6] S.M. Bellovin and M. Merritt, "Limitations of the Kerberos
+Authentication System," USENIX Jan 1991.
+[research.att.com:dist/internet_security/kerblimit.usenix.ps]
+
+[7] Refik Molva, Gene Tsudik, Els Van Herreweghen, and Stefano Zatti,
+"KryptoKnight Authentication and Key Distribution System."
+[jerico.usc.edu:pub/gene/kryptoknight.ps.Z]
+
+[8] C. Neumann and J. Kohl, "The Kerberos Network Authentication
+Service (V5)," RFC 1510, September 1993.
+-- 
+Barry Jaspan, bjaspan@security.ov.com
+OpenVision Technologies

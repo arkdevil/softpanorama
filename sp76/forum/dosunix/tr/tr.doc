@@ -1,0 +1,177 @@
+TR.C  - Translate Characters 
+
+Copyright 1985: Ian Ashdown
+                byHeart Software
+                1089 West 21st Street
+                North Vancouver, B.C. V7P 2C2
+                Canada
+
+Updates by:     Tom Harris
+                932 NW 16th St.
+                Oklahoma City, OK 73106
+                CIS: 72126,3374
+
+Version 1.00    May 5th, 1985   IA
+        1.01    Feb 16th, 1990  TH
+        1.10    Feb 10th, 1991  TH
+        1.11    Oct 12th, 1992  TH
+        1.12    Nov 13th, 1992  TH
+
+This program may be copied for personal, non-commercial use only,
+provided that the above copyright notice is included in all
+copies of the source code. Copying for any other use without
+previously obtaining the written permission of the author is
+prohibited.
+
+USAGE: tr [-cdns] [string_1 [string_2]]
+
+Notes:
+
+This is a full implementation of the UNIX "tr" utility. It copies
+input from "stdin" to "stdout" with substitution or deletion of
+selected characters. Input characters of "string_1" are mapped
+into the corresponding characters of "string_2". When "string_2"
+is shorter than "string_1", the last character of "string_2" is
+repeatedly mapped into the remaining characters of "string_1".
+
+The options are:
+
+    c   COMPLEMENT option. All input characters except
+        those of "string_1" are translated to the first
+        character of "string_2". Any remaining characters
+        of "string_2" are ignored.
+
+    d   DELETE option. All input characters matching
+        those in "string_1" are deleted from the output
+        to "stdout". "String_2" is not used. 
+
+    n   NUL TRANSLATION option (v1.12). works only in
+        combination with the COMPLEMENT option.  Enables
+        translation of NUL characters to the character
+        in "String_2".
+
+    s   SQUEEZE option. All sequences of repeated
+        characters in the input from "stdin" that match
+        characters in "string_1" are each converted to a
+        single character (their "string_2" translations).
+
+Note that the COMPLEMENT and SQUEEZE options may be used
+in combination.  However, if the NUL option is used, the
+COMPLEMENT option must be present and String_1 and String_2
+set accordingly.  If the DELETE option is specified, only
+the delete action will take place.
+
+In either string, the notation "x-y" means the range of
+characters from 'x' to 'y' in increasing ASCII order.
+
+The following "\x"-style escape sequences are supported: 
+
+    \a      alarm (BEL)             (ANSI)
+    \b      backspace               (non-UNIX)
+    \e      escape character        (non-ANSI)
+    \f      form feed               (non-UNIX)
+    \n      newline                 (non-UNIX)
+    \r      carriage return         (non-UNIX)
+    \t      horizontal tab          (non-UNIX)
+    \z      MS-DOS EOF control Z    (non-UNIX)
+    \ddd    string representation of a constant
+            with decimal, octal or hexidecimal digits
+                \ddd  - decimal
+                \0ddd - octal
+                \0xdd - hexidecimal
+            A rear marker character '*' is provided for
+            if the next character in the translate strings
+            won't stop strtoul().
+    \c      c (where 'c' is anything else)
+
+BUGS:
+
+The ASCII NUL character is always deleted from the output - it
+cannot be specified in either string.
+
+Some operating system command processors will not pass lowercase
+characters and certain other reserved characters to a program in
+command-line arguments (e.g. - CP/M). All that can be done is to
+either specify these characters by their numeric equivalents
+(e.g. - 'a' is \97, 'z' is \122), or modify this program such
+that it specifically asks for the two strings after the program
+has been invoked (which makes the utility incompatible with the
+UNIX version of "tr").
+
+TH (16 Feb 90) (v 1.01)
+I noticed that the ASCII NUL character was, contrary the note above,
+still present in the output stream.  I'll save this for another day.
+Changes at this point are cosmetic (mine) and ANSIfing the source.
+Added code to supply a null string for missing command line
+parameters: 'str_1' and 'str_2', rather than worry about whether
+they're eventually used.  At this point, my tinkering with the source
+has been extensive, so I'm maintaining the original for reference.
+My apologies to Mr Ashdown, a lot of the changes came about because
+I am Me, and not for any functional reason.
+
+TH (10 Feb 91) (v 1.10)
+Long time.  No see.  Here's what I did for NUL character deletion:
+First was to separate the delete option from the others, so the
+'translate array could be loaded differently for delete as follows:
+Characters specified in 'string_1' are stored in translate like
+this; (translate[ch] = ch).  The remainder of translate is left
+as NUL characters.  The compare at the 'delete' process ~line #180
+was changed to !=, and the putc changed to output the current input.
+The effect is to output only those extended ascii characters whose
+representation in translate[] is unequal.  Regardless of the state
+of 'string_1', missing, empty or full, NUL == NUL and it will be
+scrubbed, but only under the influence of the '-d' (delete) option.
+
+TH (12 Oct 92) (v 1.11)
+Changed all relevant and some irrelevant (I wasn't real picky),
+character operations to use 'unsigned char' typedef'ed to UChr,
+allowing transliteration of character values above '\127'.
+
+And
+
+Literal_sw() now uses strtoul() to allow for Hexidecimal and Decimal
+constants as well as Octal.  Further, it allows the use of the '*'
+as a rear marker in the translate strings to stop strtoul() forcibly,
+when the next character would have allowed it to continue.  Remember
+strtoul() produces unsigned long, so it will take in BILLIONS and
+BILLIONS, even though we only want values from 1 to 255!  This, of
+course, means that IF the next character to be translated is a '*',
+it will have to be preceded by a '*'.
+
+eg:     str_1       str_2 
+        "\32*1"     "\tA"
+means   translate constant 32 decimal (space) to tab
+and     translate character 1 to character A
+
+while   "\321"      "\tA"
+means   translate constant 321 decimal to tab
+        note \321 will fold to \65, 'A'
+and     ignore A in str_2
+
+        "\13**"     "\10~"
+means   translate constant 13 decimal to 10 decimal
+and     character '*' to character '~'
+
+while   "\13*"     "\10~"
+means   translate constant 13 decimal to 10 decimal
+and     ignore '~' in str_2
+
+You get the drift.
+
+TH (13 Nov 92) (v 1.12)
+Fix version 1.11
+    Improper interpretation of multiple options in on argument
+    eg: tr -c -s ... results in only -s
+        tr -cs ... ok
+    changed line 103 to read: Upsi |= OFLAG;
+
+Added new option 'n':
+    to enable translation of NUL characters
+    can only be used in combination with the 'c' (COMPLEMENT)
+    option
+    eg:  tr -cn "\1-\255" "\0x20" ...
+         this will result in translation of the NULL characters
+         to space characters
+         tr -n -c "\1-\255" "\0x20" ... works also NOW
+    also tr -cns "\1-\255" "\0x20" ... will squeeze strings of
+         NUL's down to one space

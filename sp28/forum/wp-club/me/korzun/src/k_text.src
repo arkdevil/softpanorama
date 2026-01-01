@@ -1,0 +1,998 @@
+$MACRO_FILE Text;
+ {             (R) Changed 23.02.90 16:56 by Korzun E.G.   {R*}              }
+$macro chngcase trans;
+ {*******************************MULTI-EDIT MACRO******************************
+               (C) Copyright 1988 by American Cybernetics, Inc.
+ Name:  CHNGCASE
+.Description:  Changes the case of a block of text.
+ Parameters:  /U=1       Uppercase
+               =0       Lowercase
+             /T=0       Line
+               =1       Word
+               =2       Block
+ *****************************************************************************}
+   def_int( jx, tc, ti, casetype, blocktype, tb1, tbs, tb2, tbl1, tbl2, tbc1, tbc2 );
+   def_str( tstr );
+   def_int(o_rfrsh);                    { {R*}                                 }
+
+   push_undo;
+   o_rfrsh := refresh ;                 { {R*}                                 }
+   refresh := false;
+   ti := insert_mode;
+   insert_mode := true;
+   casetype := parse_int('/U=', mparm_str);
+   blocktype := parse_int('/T=', mparm_str);
+
+   if blocktype = 0 then
+      if casetype then
+         put_line( caps(get_line));
+      else
+         put_line( lower(get_line));
+      end;
+   end;
+   if blocktype = 1 then
+      if not(at_eol) and (xpos(cur_char,word_delimits,1) <> 0) then
+         word_right;
+      else
+         if c_col > 1 then
+            left;
+            if xpos(cur_char,word_delimits,1) then
+               right;
+            else
+               right;
+               word_left;
+            end;
+         end;
+      end;
+      tc := c_col;
+      tstr := get_word(word_delimits);
+      if casetype then
+         tstr := caps(tstr);
+      else
+         tstr := lower(tstr);
+      end;
+
+     goto_col(tc);
+      del_chars( svl(tstr) );
+      text( tstr );
+   end;
+   if (block_stat <> 0) and (blocktype = 2) then
+      block_end;
+      tbl1 := block_line1; tbl2 := block_line2;
+      tbc1 := block_col1; tbc2 := block_col2;
+      tbs := block_stat;
+      mark_pos;
+      jx := block_line1;
+      while jx <= tbl2 do
+         goto_line(jx);
+         if tbs = 1 then
+            if casetype then
+               put_line( caps(get_line));
+            else
+               put_line( lower(get_line));
+            end;
+         end;
+         if tbs = 2 then
+            goto_col(tbc1);
+            tstr := copy(get_line, tbc1, tbc2 - tbc1 + 1);
+            del_chars( svl(tstr) );
+            if casetype then
+               tstr := caps(tstr);
+            else
+               tstr := lower(tstr);
+            end;
+            text( tstr );
+         end;
+         if tbs = 3 then
+            goto_col(1);
+            tb1 := 1;
+            tstr := get_line;
+            tb2 := svl( tstr );
+            if jx = tbl1 then
+                goto_col(tbc1);
+                tb1 := tbc1;
+            end;
+            if jx = tbl2 then
+               tb2 := tbc2;
+            end;
+            del_chars( tb2 - tb1 + 1);
+            tstr := copy( tstr, tb1, tb2 - tb1 + 1);
+            if casetype then
+               tstr := caps(tstr);
+            else
+               tstr := lower(tstr);
+            end;
+            text(tstr);
+         end;
+         ++jx;
+         down;
+      end;
+      if tbs = 3 then
+         goto_line(tbl1);
+         goto_col(tbc1);
+         str_block_begin;
+         goto_line(tbl2);
+         goto_col(tbc2 + 1);
+         block_end;
+      end;
+      goto_mark;
+   end;
+   insert_mode := ti;
+   pop_undo;
+   refresh := o_rfrsh;                 { {R*}                                 }
+   redraw;
+ end_macro;
+ {-------------------------- -------------------------------------------------}
+$MACRO TextSort trans;                 { 19.02.90 13:19 К..Е.Г. {R*} - замена }
+ {*******************************MULTI-EDIT MACRO******************************
+ Name: TextSort
+.Description:   Sorts lines of text.
+ Parameters :   /C=nn       Starting column of sort field.
+                /L=nn       # of characters in sort field.
+                /CASE       Ignore case of field.
+                /D          Sort in descending order.
+                /B          Sort the marked line block.
+ CALL       :   RUN_MACRO('TEXT^TextSort /C=../L=..[/CASE][/D][/B]');
+ ******************************************************************************}
+
+      Def_Int( IX, SX, SL, NC, C, L, Caps_On, Descending, jx, O_inmode ,
+               Sort_Mode, old_block_stat );
+      Def_Str( DP1, DP2, DX1, DX2 );
+      def_char( tc, dc );
+      def_int(o_rfrsh);                { {R*}                                 }
+      o_rfrsh := refresh ;             { {R*}                                 }
+      O_inmode := Insert_Mode;         { {R*}                                 }
+
+      push_undo;
+      refresh := false;
+      working;
+      sl := C_LINE;                    { Номер текущей строки-когда нет блока!}
+      old_block_stat := 0;
+      goto_col(1);
+      set_indent_level;                { Чтобы после CR; выйти на 1-ую кол.   }
+     EOF;
+      NC := C_Line;                    { Номер последней строки файла         }
+      TOF;
+      sx := 1;
+      Descending := xpos( '/D', MParm_Str, 1 ) <> 0;
+      Caps_On := Xpos( '/CASE', MParm_Str, 1 ) <> 0;
+      c := parse_int( '/C=', MParm_Str );
+      l := parse_int( '/L=', MParm_Str );
+      if c = 0 then
+         c := 1;
+      end;
+      if l = 0 then
+         l := 254;
+      end;
+
+      if xpos( '/B', MParm_Str, 1 ) <> 0 then    { Заказан блок               }
+         if Block_Stat <> 1 THEN
+            Make_Message( 'Нет строчного блока.');
+            BEEP;
+            RUN_MACRO('USERIN^VERIFY /C=3/L=5/T=Сортируем Becь файл ?');
+            If (Return_Int) then
+               old_block_stat := 0;
+               block_off;
+               GOTO NO_BLK;
+            end;
+            Make_Message('Сортировка отменена');
+            goto exit;
+         end;
+         old_block_stat := block_stat;
+         sx := block_line1;
+         nc := block_line2;
+         block_off;
+      end;
+  NO_BLK:
+      sl := sx;
+
+      sort_mode := ((nc - sx) > 100);
+
+      Make_Message( 'Sorting...' + STR((nc - sx) + 1));
+
+      { We're going to do this with 2 different loops, depending on the
+         options, for speed's sake }
+
+
+      if sort_mode then
+         jx := 0;
+         while jx < 254 do
+            ++jx;
+            set_global_int( char(jx) + 'SORT', sx );
+         end;
+      end;
+
+      If Descending then
+         goto DESCEND;
+      end;
+
+ ASCEND:
+      while sx < nc do
+         ++sx;
+         put_line_num(sx);
+         GOTO_LINE(SX);
+         dp1 := Get_Line;
+         dx1 := (Copy( dp1, c, l ));
+         If Caps_On then
+            dx1 := caps(dx1);
+         end;
+         del_line;
+         if sort_mode then
+            dc := str_char(dx1,1);
+            ix := global_int( dc + 'SORT' );
+         else
+            ix := sl;
+         end;
+         while ix < sx do
+            goto_line(ix);
+            put_col_num(ix);
+            dx2 := (Copy( get_line, c, l ));
+            If Caps_On then
+               dx2 := caps(dx2);
+            end;
+            If ( dx1 < dx2 ) then
+    do_insert2:
+               goto_col(1);
+               Insert_Mode := TRUE;    { {R*}                                 }
+               cr;
+               up;
+               put_line(dp1);
+               if sort_mode then
+                  up;
+                  goto_col(c);
+                  tc := cur_char;
+                  if caps_on then
+                     tc := caps(tc);
+                  end;
+                  if tc < dc then
+                     set_global_int( dc + 'SORT', c_line );
+                  end;
+               end;
+               goto ascend;
+            END;
+            ++ix;
+         END;
+         down;
+         goto do_insert2;
+    loopb:
+      END;
+      goto done;
+
+ DESCEND:
+      while sx < nc do
+         ++sx;
+         put_line_num(sx);
+         GOTO_LINE(SX);
+         dp1 := Get_Line;
+         dx1 := (Copy( dp1, c, l ));
+         If Caps_On then
+            dx1 := caps(dx1);
+         end;
+         del_line;
+         if sort_mode then
+            dc := str_char(dx1,1);
+            ix := global_int( dc + 'SORT' );
+         else
+            ix := sl;
+         end;
+         while ix < sx do
+            goto_line(ix);
+            put_col_num(ix);
+            dx2 := (Copy( get_line, c, l ));
+            If Caps_On then
+               dx2 := caps(dx2);
+            end;
+            If ( dx2 < dx1 ) then
+    do_insert3:
+               goto_col(1);
+               Insert_Mode := TRUE;    { {R*}                                 }
+               cr;
+               up;
+               put_line(dp1);
+               if sort_mode then
+                  up;
+                  tc := cur_char;
+                  if caps_on then
+                     tc := caps(tc);
+                  end;
+                  if tc > dc then
+                     set_global_int( dc + 'SORT', c_line );
+                  end;
+               end;
+               goto descend;
+            END;
+            ++ix;
+         END;
+         down;
+         goto do_insert3;
+    loopc:
+      END;
+      goto done;
+
+ done:
+      Make_Message( 'Sorting complete.' );
+ exit:
+      if sort_mode then
+         jx := 0;
+         while jx < 254 do
+            ++jx;
+            set_global_int( char(jx) + 'SORT', 0 );
+         end;
+      end;
+      if old_block_stat > 0 then
+         goto_line(sl);
+         block_begin;
+         goto_line(nc);
+         block_end;
+      end;
+      pop_undo;
+   Insert_Mode := O_inmode;             { {R*}                                 }
+   refresh := o_rfrsh;                  { {R*}                                 }
+      goto_line( sl );
+      redraw;
+ END_MACRO;
+
+ {-------------------------- -------------------------------------------------}
+$macro center trans;
+ {******************************************************************************
+                                 MULTI-EDIT MACRO
+ Name: CENTER
+.Description: Centers the line the cursor is on between column 1 and the right
+                      margin.
+
+ ******************************************************************************}
+  Def_Int(jx);
+  Def_Str(tstr);
+   def_int(o_rfrsh);                    { {R*}                                 }
+   o_rfrsh := refresh ;                 { {R*}                                 }
+  refresh := false;
+  Goto_Col(1);
+  Push_Undo;
+  Insert_Mode := True;
+                                       { Delete leading spaces                }
+  While NOT(At_EOL) and (XPOS(Cur_Char,'|255|9|32',1) <> 0) Do
+    Del_Char;
+  End;
+                                       { Store line into variable             }
+  Tstr := Get_Line;
+  jx := length(Tstr);
+  If jx > 0 THEN
+    jx := (Right_Margin / 2) - (jx / 2);
+                                       { Blank out existing line              }
+    Put_line('');
+    Goto_Col(jx);
+                                       { Put line at new position.            }
+                                       { Works with tabs as spaces, or tabs.  }
+    Text(TStr);
+  END;
+   refresh := o_rfrsh;                  { {R*}                                }
+  redraw;
+  Pop_Undo;
+ end_macro;
+
+                                       { ---------------------                }
+$macro openln;
+ {*****************************************************************************
+                                MULTI-EDIT MACRO
+ Name: openln
+.Description: Opens a line below the current line, without moving the cursor.
+
+ ******************************************************************************}
+
+   def_int( temp_ins );
+   push_undo;
+   temp_ins := insert_mode;
+   insert_mode := true;
+   Mark_Pos;
+   CR;
+   Goto_Mark;
+   Make_Message('Line opened.');
+   insert_mode := temp_ins;
+   pop_undo;
+ end_macro;
+ 
+                                       { ---------------------                }
+$macro reformat trans;
+ {*****************************************************************************
+ Name: REFORMAT                  MULTI-EDIT MACRO
+.Description: Reformats the current paragraph from the current cursor position
+                   down.
+                   Parameters:
+              /NR      Don't restore position
+
+ ******************************************************************************}
+
+   Def_Str( RStr );
+   Def_Int( rp );                      { set true if we are not               }
+                                       { to restore the position              }
+
+   rp := XPOS( '/NR', MParm_Str, 1 ) = 0;
+
+   Push_Undo;
+   word_wrap_line;
+   if rp then
+      mark_pos;
+   end;
+   down;
+   REFORMAT_LOOP:
+      RStr := Get_Line;
+      If (length( RStr ) > 0) and (XPOS(Page_Str,RStr,1) = 0) THEN
+         word_wrap_line;
+         down;
+         GOTO REFORMAT_LOOP;
+      END;
+   if rp then
+      Goto_Mark;
+   end;
+   Pop_Undo;
+   Make_Message('Paragraph reformatted from current line.');
+ end_macro;
+
+                                       { ---------------------                }
+$macro justify trans;
+ {*****************************************************************************
+                                MULTI-EDIT MACRO
+ Name: JUSTIFY
+.Description: Justifies the current paragraph from the current cursor position
+                   down.
+
+ ******************************************************************************}
+   def_int( jx,jy,rr,jk, ti );
+   def_int(o_rfrsh);                    { {R*}                                 }
+   o_rfrsh := refresh ;                 { {R*}                                 }
+
+   push_undo;
+   ti := insert_mode;
+   insert_mode := true;
+   refresh := false;
+   mark_pos;
+   IF Right_Margin > 132 then
+      Goto_Mark;
+      Make_Message('Right Margin too big.');
+      Goto Exit2;
+   END;
+   Make_Message('Justifying paragraph...');
+   Working;
+ MAIN_LOOP:
+   down;
+   goto_col(1);
+   if AT_EOL then
+      goto EXIT;
+   end;
+   if Xpos(page_str,get_line,1) then
+      goto exit;
+   end;
+   up;
+ M2:
+   first_word;
+                                       { remove trailing spaces               }
+  put_line( Shorten_Str(Get_Line) );
+   jx := 0;
+
+                                       { Count existing spaces                }
+ SPACE_LOOP:
+   if cur_char = ' ' then
+      jx := jx + 1;
+   end;
+   right;
+   if NOT( AT_EOL ) then
+      goto space_loop;
+   end;
+   eol;
+   left;
+   jy := Right_Margin - c_col;
+   IF (jy <= 0) OR (jX <= 0) then
+      goto NEXT_LINE;
+   end;
+   rr := jx / jy;
+   first_word;
+   jx := 0;
+   jk := 0;
+                                       { Add in extra spaces until            }
+                                       { desired line length is reached       }
+   while NOT( AT_EOL ) do
+      if cur_char = ' ' then
+         jx := jx + 1;
+         if jx >= rr then
+            if jk < jy then
+               jk := jk + 1;
+               text(' ');
+               right;
+            end;
+            jx := 0;
+         end;
+      end;
+      right;
+   end;
+
+                                       {Repeat until at end of paragraph}
+   IF c_col > Right_Margin then
+      goto NEXT_LINE;
+   END;
+   GOTO M2;
+ NEXT_LINE:
+   down;
+   eol;
+   if c_col = 1 then
+      goto EXIT;
+   end;
+   GOTO MAIN_LOOP;
+
+ EXIT:
+   goto_mark;
+   Make_Message('Paragraph justified.');
+ EXIT2:
+   refresh := o_rfrsh;                  { {R*}                                 }
+   pop_undo;
+   redraw;
+   insert_mode := ti;
+ end_macro;
+ 
+$macro unjustif trans;
+ {*****************************************************************************
+                                MULTI-EDIT MACRO
+ Name: UNJUSTIF
+.Description: Unjustifies the current paragraph from the current cursor position
+                   down.
+
+ ******************************************************************************}
+   def_int(o_rfrsh);                    { {R*}                                 }
+   o_rfrsh := refresh ;                 { {R*}                                 }
+   push_undo;
+   mark_pos;
+   refresh := false;
+
+   Make_Message('Unjustifying paragraph...');
+   Working;
+ main_loop:
+   first_word;
+                                       { Check for end of paragraph           }
+   if AT_EOL then
+      goto EXIT;
+   END;
+   while NOT( AT_EOL ) do
+                                       { Skip over end of sentences, etc.     }
+      if pos(cur_char,'.!?:') then
+         right;
+         right;
+      end;
+                                       { Otherwise, remove occurances         }
+                                       { of more than one space               }
+      if cur_char = ' ' then
+         right;
+         while cur_char = ' ' do
+            del_char;
+         end;
+      end;
+      right;
+   end;
+   down;
+   goto Main_Loop;
+ EXIT:
+   Make_Message('Paragraph Unjustified...');
+   pop_undo;
+   refresh := o_rfrsh;                  { {R*}                                 }
+   goto_mark;
+   redraw;
+
+ end_macro;
+ { -------------------------------------------------------------------------- }
+$Macro K_QSRT TRANS ;
+  { ------------------------------------------------------------------------- }
+{ ----- Алгоритм "Быстрой Сортировки" - по Б.МЕЙР К.БОДУЭН т.2 стр.167  ----- }
+  { -----   21.02.90 10:32  Корзун Е.Г.  v.m. 27.02.90 13:00 ---------------- }
+  { ------------------------------------------------------------------------- }
+  { --- Состоит из ГОЛОВНОЙ программы MAIN и следующих подпрограмм :    ----- }
+  {   - DIVIDE(I,J)    - нахождение "главного" элемента в подмассиве I : J ,  }
+  {                     результат: индекс IGL главного элемента;              }
+  {                     частично отсортрованный подмассив I : J ;             }
+  {   - COMPARE(CI,CJ) - сравнение ключей элементов CI и CJ ,                 }
+  {                     результат: IKEY : - 1 при K(CI) < K(CJ)               }
+  {                                     :   0 при K(CI) = K(CJ)               }
+  {                                     : + 1 при K(CI) > K(CJ) ;             }
+  {   - CHANGE(CI,CJ)  - поменять местами элементы CI и CJ ;                  }
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  { ------------------------------------------                                }
+  {    КОНСТАНТЫ :                                                            }
+  {   - POROG        - порог для перехода к ENDSORT ( 8 - 20; 15)             }
+  { ------------------------------------------------------------------------- }
+  { !!! Результаты могут показаться странными,т.к. символьное-строковое  !!!  }
+  { !!! сравнение в ME 4.0 работает своеобразно (см K_COMP_S.SRC).       !!!  }
+  { ------------------------------------------------------------------------- }
+   Def_Str(Message);
+   Def_Int(Start_Line, End_Line, CH_LINE, CUR_LINE, SORT);
+   Def_Int( c_start, keylen, BL1, BL2, Caps_On, Descending,
+            BC1, BC2, Old_Block_Stat, O_MARKING );
+   Def_Int(O_SAVE,O_RFRSH,O_IM ,O_UNDO);
+   Def_Int(N);                         { Количество элементов                 }
+
+   Def_Int(Porog);                     { Значение "порога"                    }
+   Porog := 15;
+   Def_Int(IGL)  ;                     { Результат DIVIDE                     }
+   Def_Int(IKEY) ;                     { Значение сравнения в COMPARE         }
+
+   Def_Int(I,J ) ;                     { Текущие значения границ  массива     }
+   Def_Int(IS,JS);                     { Текущие значения границ - в стэк     }
+   Def_Int(CI,CJ);                     { Значения индексов для COMPARE        }
+   Def_Int(Nstek);                     { Глубина стэка                        }
+
+   Def_Int(Midle,MI,MJ);               { DIVIDE : "середина",левый,правый     }
+   Def_Str(KI,KJ);                     { COMPARE: ключи сравниваемых эл-ов    }
+                                       { CHANGE: собственно строки            }
+   Def_Str(SI [2048], SJ [2048] , CSJ [2048]);
+   Def_Int(K,L);
+
+ START:
+                                       { Подготовительные действия            }
+   O_IM := Insert_Mode;                { На самом деле не нужно               }
+   O_UNDO := UNDO_STAT;
+   UNDO_STAT := 0;                     { Отключаем ведение статистики UNDO    }
+   O_SAVE := AUTOSAVE;
+   AUTOSAVE := 0;                      { Отключаем автоматическое сохранение  }
+   O_RFRSH := REFRESH;
+   PUSH_UNDO;                          { Отметка в буфере UNDO - начало     * }
+   REFRESH := FALSE;
+   working;
+   Descending := xpos( '/D', MParm_Str, 1 ) <> 0;
+   Caps_On := Xpos( '/CASE', MParm_Str, 1 ) <> 0;
+   c_start := parse_int( '/C=', MParm_Str );
+   keylen  := parse_int( '/L=', MParm_Str );
+   if c_start = 0 then                 { Колонка начала ключа                 }
+      c_start := 1;
+   end;
+   if (keylen <= 0) OR (Keylen > 254) then       { Длина ключа - не более  254}
+      keylen := 254;
+   end;
+
+   SORT := 0;
+   CUR_LINE := C_LINE;                 { Номер текущей строки-когда нет блока!}
+
+   Old_Block_Stat := 0;
+   If (Block_Stat <> 0) Then
+      Old_Block_Stat := Block_Stat;    { Запомним кто он такой                }
+      O_MARKING := MARKING ;
+      BL1 := block_line1;
+      BL2 := block_line2;
+      BC1 := block_col1;
+      BC2 := block_col2;
+      block_off;                       { Выключим его, чтобы не отсвечивал    }
+   End;                                { -- If ..                             }
+
+   if xpos( '/B', MParm_Str, 1 ) <> 0 then       { Заказан блок               }
+      if Old_Block_Stat <> 1 THEN
+         BEEP;
+         RUN_MACRO('USERIN^VERIFY /C=3/L=5'
+            + '/T=Нет строчного блока.Сортируем Becь файл ?');
+         If (Return_Int) then          { Cказали сортировать все              }
+            GOTO NO_BLK;
+         end;
+         Message := 'Сортировка отменена';
+         Goto_Line(CUR_LINE);          { Вернемся где были                    }
+         goto exit;
+      end;
+      Start_Line := BL1;               { Это при сортировке строчного блока   }
+      End_Line   := BL2;
+      GOTO MAIN;
+   end;
+ NO_BLK:
+   Old_Block_Stat := 0;                { Всякие блоки теряют смысл            }
+   Start_Line := 1;
+   EOF;
+   End_Line := C_LINE;
+
+ MAIN:
+   EOF;
+   CH_Line := C_LINE;                  { Для проверки все ли O.KEY с заказом  }
+   If (End_line > CH_Line) Then        { Недоразумение - поправим             }
+      End_line := CH_Line;
+   End;                                { -- If ..                             }
+   I := Start_Line;
+   J := End_Line  ;
+   N := (J - I) + 1;
+   If (N < 2) Then                     { Недоразумение - делать нечего        }
+      GoTo End_ALL;
+   End;                                { -- If ..                             }
+   Nstek := 0;
+   SORT := TRUE;                       { И в действительности сортируем       }
+   Make_Message('K_QSRT 27.02.90 12:59 - MAIN =' + STR(N) + ' ' );
+                                       { Основной цикл - деление с главным .. }
+   While ((J - I) > Porog) OR (Nstek > 0 )Do
+      Call DIVIDE { (I , J ) } ;
+      If (IGL - I) < (J - IGL) Then    { Еслм слева меньше, то переходим влево}
+         IS := IGL + 1;
+         JS := J;
+         J  := IGL - 1;
+      Else                             { Иначе - вправо                       }
+         IS := I;
+         JS := IGL - 1;
+         I  := IGL + 1;
+      End;
+
+      If (JS - IS) > Porog Then        { Отложенный кусок больше порга-спрячем}
+         Nstek := Nstek + 2;           { Глубина одного шага - 2              }
+         WRITE( '    Стэк=' + STR(NSTEK/2) + '     ',17,1,0,EOF_COLOR);
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek   ),IS);
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek -1),JS);
+      End;
+
+      If ((J - I) < Porog) AND (Nstek > 0) Then  { Пора вынимать из стека     }
+         I := Global_Int('K_SRT_STEK' + STR(Nstek   ) );
+         J := Global_Int('K_SRT_STEK' + STR(Nstek -1) );
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek   ),0);
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek -1),0);
+         Nstek := Nstek - 2;
+      End;                             { -- If ..                             }
+   End;                                { -- Do .. While                       }
+                                       { -- Конец MAIN                        }
+  { ------------------------------------------------------------------------- }
+   Make_Message('K_QSRT-ENDSORT =' + STR(N) + ' ' + Mparm_Str);
+   Call ENDSORT;                       { "Досортировка" массива               }
+  { ----- Подпрограммы   ---------------------------------------------------- }
+  GoTo END_ALL;
+
+                                       { ------------------------------------ }
+ DIVIDE:
+  {   - DIVIDE(I,J)  - нахождение "главного" элемента в подмассиве I : J ,    }
+  {                     результат: индекс IGL главного элемента,              }
+  {                     частично отсортрованный подмассив I : J ;             }
+                                       { ------------------------------------ }
+   IGL := I;
+   If (J <= I) Then                    { Делать уже нечего                    }
+      Ret;
+   End;                                { -- If ..                             }
+                                       { Инициализация "среднего"             }
+   Midle := (I + J) / 2;
+   CI := J;
+   CJ := Midle;
+   Call COMPARE    { (CI , CJ ) } ;
+   If (IKEY < 0 ) Then                 { Cреднмй > Правого - меняем местами   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- If ..                             }
+
+   CJ := I;
+   Call COMPARE    { (CI , CJ ) } ;
+   If (IKEY < 0 ) Then                 { Левый   > Правого - меняем местами   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- If ..                             }
+
+   CI := I;
+   CJ := Midle;
+   Call COMPARE    { (CI , CJ ) } ;
+   If (IKEY < 0 ) Then                 { Средний > Левого  - меняем местами   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- If ..                             }
+
+                                       { ------------------------------------ }
+                                       { Теперь Слева - средний по значению 3 }
+                                       { а      Справа- MAX     по значению 3 }
+                                       { ------------------------------------ }
+   MI := I;
+   MJ := J + 1;                        { За границу не выйдем,т.к. начинаем   }
+                                       { все действия с MJ - 1 и MI + 1       }
+   CJ := I;
+   Call COMPARF    { (CI , CJ ) } ;
+
+   While (MI < MJ) Do                  { Перестановки вокруг "среднего"       }
+
+      IKEY := 1 ;
+      CI := MI;
+      While IKEY Do                    { Поиск слева >= "среднего"            }
+         ++CI;
+         Call COMPARL    { (CI , CJ ) } ;
+      End;                             { -- While слева <  "среднего"         }
+      MI := CI;                        { Вот этот - нарушитель ! (слева)      }
+                                       { У него ключ >=  "среднего"           }
+      IKEY := 1 ;
+      CI := MJ;
+      While IKEY Do                    { Поиск справа <= "среднего"           }
+         --CI;
+         Call COMPARG    { (CI , CJ ) } ;
+      End;                             { -- While справа > "среднего"         }
+      MJ := CI;                        { Вот этот - нарушитель ! (справа)     }
+
+                                       { Приводим в соотвествие-переставляем  }
+      CJ := MI;                        { В CI Уже MJ - номер правого злодея   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- Do .. While . MJ < MI             }
+
+   Call CHANGE  { (CI , CJ ) } ;       { Т.К. переусердствовали -> назад      }
+                                       { Возвращаемый индекс "середины"       }
+   IGL := MJ;                          { индекс "середины" должен быть MIN    }
+
+   CJ := I;                            { т.к. в CI осталось MJ                }
+   Call CHANGE  { (CI , CJ ) } ;       { Осталось вставить на место среднего  }
+   Ret;                                { -- of DIVIDE                         }
+                                       { ------------------------------------ }
+ COMPARE:
+  {   - COMPARE(CI,CJ) - сравнение ключей элементов CI и CJ ,                 }
+  {                     результат: IKEY : - 1 при K(CI) < K(CJ)               }
+  {                                     :   0 при K(CI) = K(CJ)               }
+  {                                     : + 1 при K(CI) > K(CJ) ;             }
+                                       { ------------------------------------ }
+   PUT_LINE_NUM(CJ);
+   PUT_COL_NUM(CI);
+   Goto_Line(CI);
+   KI := COPY(GET_LINE,c_start,keylen);
+   Goto_Line(CJ);
+   KJ := COPY(GET_LINE,c_start,keylen);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+      KJ := CAPS(KJ);
+   End;                                { -- If ..                             }
+   IKEY := KI > KJ;
+   If (NOT(IKEY)) Then
+      If (KI < KJ) Then
+         IKEY := -1;
+      End;                             { -- If ..                             }
+   End;                                { -- If ..                             }
+   If Descending  Then
+      IKEY := - IKEY;
+   End;                                { -- If ..                             }
+   Ret;                                { -- of COMPARE                        }
+                                       { ------------------------------------ }
+ COMPARF:
+  {   - COMPARF(CJ) - запомнить в CJ ключ, а в CSJ - собственно строку    }
+                                       { ------------------------------------ }
+   PUT_LINE_NUM(CJ);
+   Goto_Line(CJ);
+   CSJ := GET_LINE;
+   KJ := COPY(GET_LINE,c_start,keylen);
+   If (Caps_On) Then
+      KJ := CAPS(KJ);
+   End;                                { -- If ..                             }
+   Ret;                                { -- of COMPARF                        }
+ COMPARS:                              { Сравнение текущего с буфером         }
+  {                     результат: IKEY : - 1 при K(CI) < K(CJ)               }
+  {                                     :   0 при K(CI) = K(CJ)               }
+  {                                     : + 1 при K(CI) > K(CJ) ;             }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   KI := COPY(GET_LINE,c_start,keylen);
+   PUT_COL_NUM(CI);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+   End;                                { -- If ..                             }
+   IKEY := KI > KJ;
+   If (NOT(IKEY)) Then
+      If (KI < KJ) Then
+         IKEY := -1;
+      End;                             { -- If ..                             }
+   End;                                { -- If ..                             }
+   If Descending  Then
+      IKEY := - IKEY;
+   End;                                { -- If ..                             }
+   Ret;                                { -- of COMPARS                        }
+                                       { ------------------------------------ }
+ COMPARG:                              { Сравнение текущего с буфером  на >   }
+  {                     результат: IKEY :   TRUE  при K(CI) >  K(CJ)          }
+  {                                     :   FALSE при K(CI) <= K(CJ)          }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;                     { Запомним это значение                }
+   KI := COPY(GET_LINE,c_start,keylen);
+   PUT_COL_NUM(CI);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+   End;                                { -- If .. нет разницы загл./строчные  }
+   If Descending  Then
+      IKEY := KI < KJ;
+   Else
+      IKEY := KI > KJ;
+   End;                                { -- If ..  наоборот                   }
+   Ret;                                { -- of COMPARG                        }
+                                       { ------------------------------------ }
+ COMPARL:                              { Сравнение текущего с буфером  на <   }
+  {                     результат: IKEY :   TRUE  при K(CI) <  K(CJ)          }
+  {                                     :   FALSE при K(CI) >= K(CJ)          }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;                     { Запомним это значение                }
+   KI := COPY(GET_LINE,c_start,keylen);
+   PUT_COL_NUM(CI);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+   End;                                { -- If .. нет разницы загл./строчные  }
+   If Descending  Then
+      IKEY := KI > KJ;
+   Else
+      IKEY := KI < KJ;
+   End;                                { -- If ..  наоборот                   }
+   Ret;                                { -- of COMPARL                        }
+                                       { ------------------------------------ }
+ CHANGF:
+  {   - CHANGE(CI,CJ)  - поменять местами элементы CI и CJ - запомненное      }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;
+   PUT_LINE(CSJ);
+   Goto_Line(CJ);
+   PUT_LINE(SI);
+   Ret;                                { -- of CHANGF                         }
+                                       { ------------------------------------ }
+ CHANGE:
+  {   - CHANGE(CI,CJ)  - поменять местами элементы CI и CJ ;                  }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;
+   Goto_Line(CJ);
+   SJ := GET_LINE;
+   PUT_LINE(SI);
+   Goto_Line(CI);
+   PUT_LINE(SJ);
+   Ret;                                { -- of CHANGE                         }
+                                       { ------------------------------------ }
+ ENDSORT:
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  {                    метод - "включением"                                   }
+                                       { ------------------------------------ }
+   K := 1;
+   While (K < N ) Do
+      CJ := Start_Line + K ;           { Включаемая запись                    }
+      CI := CJ - 1;                    { Начало отсортированного куска снизу  }
+      Call COMPARF    { ( CJ ) } ;
+      Call COMPARG    { (CJ , CJ - 1 ) } ;
+      While (CI >= Start_Line) Do
+         If IKEY Then                  { здесь Включаемый  <  Левого   ?      }
+                                       { С этим уже можно менять              }
+            Call CHANGF     { (CJ , CJ - 1 ) } ;
+            CJ := CI;
+            --CI;
+            Call COMPARG    { (CJ , CJ - 1 ) } ;
+         Else
+            CI := 0;                   { Признак выхода из цикла              }
+         End;                          { -- If .Правый  <  Левого . Else .. }
+      End;                             { -- Do .. While L > 0 AND K.L > K.L+1 }
+      ++K;
+   End;                                { -- Do .. While K < N                 }
+   Ret;                                { -- of ENDSORT                        }
+                                       { ------------------------------------ }
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  END_ALL:
+  { ----- Подпрограммы   - конец -------------------------------------------- }
+
+   EOF;
+   I := C_LINE ;
+   J := CH_Line;
+   If (J <> I) Then
+      BEEP;
+      Message := 'Ошибка K_QSRT - было строк: '+ STR(J)
+                  + '=до сортировки, ' + STR(I) + '= после';
+   Else
+      Message := 'K_QSRT - Сортировка закнчена. ' + STR(N) + ' строк';
+   End;                                { -- If ..                             }
+   TOF;                                { В начало файла                       }
+ EXIT:
+   if Old_Block_Stat <> 0 THEN         { Был блок                             }
+      goto_line(BL1);
+      If (Old_Block_Stat = 1) Then
+         Block_Begin;
+         goto_line(BL2);
+      Else                             { Поточный или колонный                }
+         goto_col(BC1);
+         If (Old_Block_Stat =2) Then   { Колонный                             }
+            Col_Block_Begin;
+         Else
+            Str_Block_Begin;
+         End;                          { -- If .. Else ..                     }
+         goto_line(BL2);
+         goto_col(BC2 + 1);
+      End;                             { -- If .. Восстановления типа блока   }
+      If (O_MARKING >= 0) Then         { Был закрыт  -нет - все равно         }
+         block_end;
+         Goto_Line(CUR_LINE);
+      End;
+   End;
+   If (SORT) Then
+      Goto_Line(Start_Line);
+   End;                                { -- If .. сортировка была             }
+   POP_UNDO;                           { Отметка в буфере UNDO - конец      * }
+   UNDO_STAT := O_UNDO;
+   AUTOSAVE := O_SAVE;
+   Insert_Mode := O_IM ;
+   O_SAVE := AUTOSAVE;
+   REFRESH := O_RFRSH ;
+   NEW_SCREEN;
+   If (SVL(Message) > 0) Then
+      Make_Message(Message);
+   End;
+ End_macro;                            { -- K_QSRT -                          }

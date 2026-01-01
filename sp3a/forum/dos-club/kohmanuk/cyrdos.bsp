@@ -1,0 +1,301 @@
+
+					Include	Utils.Asi
+;-------------------------------------------------------------
+;
+;       CyrDos.ASM -- a 'DOS Cyrilizer' program
+;
+;	Purpose: to patch internal DOS tables for character
+;	capitalization and sorting. Permits full use of
+;	cyrillic character set in filenames, etc.
+;
+;	(C) 1991 Compact Soft
+;	Written by: cs:dk
+;
+;-------------------------------------------------------------
+
+		ProductName	'CyrDos'
+		Version		1 0
+
+.model tiny, pascal
+
+.code
+
+assume	nothing
+assume	cs: DGROUP, ds: DGROUP
+
+org	100h
+
+start:
+	jmp	Install
+
+.data
+
+Title$		label	byte
+		db	_Name, '  Version '
+		db_ver
+		db	'  (C)',255,' Compact Soft, 1991'
+		db_line
+		db_line
+		db	'$'
+
+		db	0
+Success$	db	_Name, ': DOS cyrilized successfully.'
+		db	13, 10, '$'
+
+		db	2
+BadDos$		db	_Name, ': DOS version 3.30 or higher required.'
+		db	13, 10, '$'
+
+		db	1
+CannotPatch$	db	_Name, ': cannot patch internal DOS table.'
+		db	13, 10, '$'
+
+
+
+CollatingSequenceTableSize	equ	256
+CollatingSequenceTable		label	byte
+
+		dw	CollatingSequenceTableSize
+
+		char	= 0
+		REPT	CollatingSequenceTableSize
+			upperchar = char
+			IF	(char GE 'a') AND (char LE 'z')
+				upperchar = char - 32
+			ELSEIF	(char GE 0a0h) AND (char LE 0afh)
+				; russian 'а' to 'п'
+				upperchar = char - 32
+			ELSEIF	(char GE 0e0h) AND (char LE 0efh)
+				; russian 'р' to 'я'
+				upperchar = char - 80
+			ELSEIF  (char EQ 0f1h) OR (char EQ 0f3h) \
+				OR (char EQ 0f5h) OR (char EQ 0f7h)
+				; 'ё', 'є', 'ї', 'ў'
+				upperchar = char - 1
+			ENDIF
+			db	upperchar
+			char	= char + 1
+		ENDM
+
+
+UpperCaseTableSize	equ	128
+UpperCaseTable		label	byte
+
+		dw	UpperCaseTableSize
+
+		char	= 128
+		REPT	UpperCaseTableSize
+			upperchar = char
+			IF	(char GE 0a0h) AND (char LE 0afh)
+				; russian 'а' to 'п'
+				upperchar = char - 32
+			ELSEIF	(char GE 0e0h) AND (char LE 0efh)
+				; russian 'р' to 'я'
+				upperchar = char - 80
+			ELSEIF  (char EQ 0f1h) OR (char EQ 0f3h) \
+				OR (char EQ 0f5h) OR (char EQ 0f7h)
+				; 'ё', 'є', 'ї', 'ў'
+				upperchar = char - 1
+			ENDIF
+			db	upperchar
+			char	= char + 1
+		ENDM
+
+
+.code
+
+proc	Int23h	far
+	iret
+endp	Int23h
+
+
+MsgExit	macro	msg
+	lea	dx, msg
+	call	PrintMsgExit
+endm
+
+proc	PrintMsgExit
+; IN:
+;	ds:dx -> $-message, preceeded by exit code
+
+	mov	bx, dx
+	DOS	9
+	mov	al, [bx - 1]
+	DOS	4ch
+
+endp	PrintMsgExit
+
+
+.data?
+
+CountryBufferSize	equ	5
+CountryBuffer		db	CountryBufferSize dup (?)
+
+.code
+proc	PatchCountryTable
+; IN:
+;	al = country info id
+;	ds:si  -> new table to substitute
+; OUT:
+;	CF = 1 if failed
+
+	uses	ax, bx, dx, di, cx, es
+
+	mov	bx, 0ffffh	; current code page
+	mov	dx, bx		; current country ID
+	lea	di, CountryBuffer
+	mov	cx, CountryBufferSize
+	DOS	65h
+	jc	@@error
+
+	cmp	cx, CountryBufferSize
+	jne	@@error
+
+	les	di, dword ptr [di + 1]
+
+	mov	cx, [si]		; table size
+	cmp	word ptr [es:di], cx
+	jne	@@error
+
+	add	si, 2
+	add	di, 2
+	cld
+	rep	movsb
+
+	clc
+@@exit:
+	ret
+@@error:
+	stc
+	jmp	@@exit
+endp	PatchCountryTable
+
+
+proc	Install
+
+	lea	dx, Title$
+	DOS	9
+
+	set_vector	23h
+
+	DOS	30h
+	xchg	al, ah
+	cmp	ax, (3 SHL 8) + 30
+	$IF	B
+		MsgExit	BadDos$
+	$ENDIF
+
+	mov	al, 2
+	lea	si, UpperCaseTable
+	call	PatchCountryTable
+	$IF	C
+		MsgExit	CannotPatch$
+	$ENDIF
+
+	mov	al, 4
+	lea	si, UpperCaseTable
+	call	PatchCountryTable
+	$IF	C
+		MsgExit	CannotPatch$
+	$ENDIF
+
+	mov	al, 6
+	lea	si, CollatingSequenceTable
+	call	PatchCountryTable
+	$IF	C
+		MsgExit	CannotPatch$
+	$ENDIF
+
+	MsgExit	Success$
+
+endp	Install
+
+end	start
+
+
+comment	# the theory behind this program follows
+
+Source: Interrupt List	Release 27 (v91.4)	Last change 9/1/91
+
+----------2165-------------------------------
+INT 21 - DOS 3.3+ - GET EXTENDED COUNTRY INFORMATION
+	AH = 65h
+	AL = info ID
+	    01h get general internationalization info
+	    02h get pointer to uppercase table
+	    04h get pointer to filename uppercase table
+	    05h get pointer to filename terminator table
+	    06h get pointer to collating sequence table
+	    07h (DOS 4+) get pointer to Double-Byte Character Set table
+	BX = code page (-1=global code page)
+	DX = country ID (-1=current country)
+	ES:DI -> country information buffer (see below)
+	CX = size of buffer (>= 5)
+Return: CF set on error
+	    AX = error code (see AH=59h)
+	CF clear if succesful
+	    CX = size of country information returned
+	    ES:DI -> country information
+Notes:	AL=05h appears to return same info for all countries and codepages; it
+	  has been documented for DOS 5.0, but was undocumented in ealier
+	  versions
+	NLSFUNC must be installed to get info for countries other than the
+	  default
+	subfunctions 02h and 04h are identical under OS/2
+SeeAlso: AH=38h,INT 2F/AX=1401h,INT 2F/AX=1402h
+
+Format of country information:
+Offset	Size	Description
+ 00h	BYTE	info ID
+---if info ID = 01h---
+ 01h	WORD	size
+ 03h	WORD	country ID
+ 05h	WORD	code page
+ 07h 34 BYTEs	country-dependent info (see AH=38h)
+---if info ID = 02h---
+ 01h	DWORD	pointer to uppercase table (see below)
+---if info ID = 04h---
+ 01h	DWORD	pointer to filename uppercase table (see below)
+---if info ID = 05h---
+ 01h	DWORD	pointer to filename character table (see below)
+---if info ID = 06h---
+ 01h	DWORD	pointer to collating table (see below)
+---if info ID = 07h (DOS 4+)---
+ 01h	DWORD	pointer to DBCS lead byte table (see below)
+
+Format of uppercase table:
+Offset	Size	Description
+ 00h	WORD	table size
+ 02h 128 BYTEs	uppercase equivalents (if any) of chars 80h to FFh
+
+Format of collating table:
+Offset	Size	Description
+ 00h	WORD	table size
+ 02h 256 BYTEs	values used to sort characters 00h to FFh
+
+Format of filename terminator table:
+Offset	Size	Description
+ 00h	WORD	table size (not counting this word)
+ 02h	BYTE	??? (01h for MSDOS 3.30-5.00)
+ 03h	BYTE	lowest permissible character value for filename
+ 04h	BYTE	highest permissible character value for filename
+ 05h	BYTE	??? (00h for MSDOS 3.30-5.00)
+ 06h	BYTE	first excluded character in range \ all characters in this
+ 07h	BYTE	last excluded character in range  / range are illegal
+ 08h	BYTE	??? (02h for MSDOS 3.30-5.00)
+ 09h	BYTE	number of illegal (terminator) characters
+ 0Ah  N BYTES	characters which terminate a filename:	."/\[]:|<>+=;,
+Note:	partially documented for DOS 5.0, but undocumented for earlier versions
+
+Format of filename uppercase table:
+Offset	Size	Description
+ 00h	WORD	table size
+ 02h 128 BYTEs	uppercase equivalents (if any) of chars 80h to FFh
+
+Format of DBCS lead byte table:
+Offset	Size	Description
+ 00h	WORD	length
+ 02h 2N BYTEs	start/end for N lead byte ranges
+	WORD	0000h	(end of table)
+#######
+

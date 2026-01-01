@@ -1,0 +1,290 @@
+(****************************************************************************)
+(*                       MPENTRY.MOD 2.00                                   *)
+(*                    Modula Tools Plus 2.00                                *)
+(*                  Copyright (c) Holofax 1992.                             *)
+(*              All rights reserved. Ukraine. Kiev.                         *)
+(****************************************************************************)
+
+(*$G+*)
+DEFINITION MODULE MpEntry;
+(*╔════════════════════════════════════════════════════════════════════════╗*)
+(*║               Модуль работы с шаблонными экранами.                     ║*)
+(*╚════════════════════════════════════════════════════════════════════════╝*)
+FROM MpWindow IMPORT pWindow;
+
+TYPE  (* Строковые типы *)
+   String    = ARRAY[0..255] OF CHAR; (* строка *)
+   pString   = POINTER TO String;
+
+
+
+TYPE(* Множествo символов *)
+   CHARSET = SET OF CHAR;
+
+CONST(* Множества допустимых символов *)
+   AnyCharSet   = CHARSET{0C..255C};
+   NameCharSet  = CHARSET{' '..'п','р'..'я'};
+   CardCharSet   = CHARSET{'0'..'9', ' '};
+   IntCharSet    = CHARSET{'0'..'9', ' ','-','+'};
+   DigitOnlySet  = CHARSET{'0'..'9', ' ', '-', '.','+'};
+   YesNoSet      = CHARSET{'Y','N','y','n','Д','д','Н','н'};
+
+
+(*==================== Основные структуры данных ===========================*)
+CONST
+  AnyCh       = '$';  (* любые символы           *)
+  NumCh       = '#';  (* символы от 0..9, + , -  *)
+  ChCh        = '@';  (* фиксированная строка    *)
+
+TYPE
+  (*  Типы переменных *)
+  DataType = (NoneType,
+              ChType,        (* строка *)
+              ShCardType,    (*        *)
+              ShIntType,
+              IntType,
+              CardType,
+              LnIntType,
+              LnCardType,
+              RealType,
+              LnRealType,
+              BooleanType);
+
+  CommandEntry =
+    (Enone,      (*  *)
+     Eenter,     (* присвойть значение записи *)
+     Erestore,   (* не присваивать значения   *)
+     Enext,      (* на следующую запись       *)
+     Eprev,      (* на предыдущую запись      *)
+     Ehome,      (* на первую запись          *)
+     Eend,       (* на последнюю запись       *)
+     EpgUp,      (* на предущий экран         *)
+     EpgDn,      (* на следующий экран        *)
+     EcloseEnter,(*                           *)
+     EexitEnter, (*                           *)
+     Eclose,     (* закрыть экран и закончить *)
+     Eexit);     (* закончить                 *)
+   CommandEntrySet = SET OF CommandEntry;
+
+   Command = ARRAY[0..255] OF CommandEntrySet;
+
+
+  EntryColors = RECORD (* Цвета *)
+    HideFore   : CARDINAL;(* Цвет текста защищенной записи                  *)
+    HideBack   : CARDINAL;(* Цвет фона защищенной записи                    *)
+    RecFore    : CARDINAL;(* Цвет текста записи                             *)
+    RecBack    : CARDINAL;(* Цвет фона записи                               *)
+    ActivFore  : CARDINAL;(* Цвет текста активной записи                    *)
+    ActivBack  : CARDINAL;(* Цвет фона   активной записи                    *)
+  END;
+
+TYPE  (* Редактируемая запись *)
+  pEdRecord  = POINTER TO EdRecord;
+  EdRecord  =
+    RECORD
+      ID           : CARDINAL; (* идентификатор записи                     *)
+      Enable       : BOOLEAN;  (* разрешена запись ? TRUE - HET            *)
+      Picture      : pString;  (* указатель на маску редактирования        *)
+      X,Y          : CARDINAL; (* координаты строки редактирования         *)
+      Len          : CARDINAL; (* длина строки редактирования              *)
+      pEditStr     : pString;  (* указатель на строку редактированния      *)
+      HiEdStr      : CARDINAL;  (* максимальная длина редактируемой строки  *)
+      ChSet        : CHARSET;  (* множество допустимых символов            *)
+      CASE VarType : DataType OF(* тип переменной и границы ее значений    *)
+      | ChType     : Char                   : CHARSET;
+      | ShCardType : ShCardLo,   ShCardHi   : SHORTCARD;
+      | ShIntType  : ShIntLo,    ShIntHi    : SHORTINT;
+      | IntType    : IntLo,      IntHi      : INTEGER;
+      | CardType   : CardLo,     CardHi     : CARDINAL;
+      | LnIntType  : LnIntLo,    LnIntHi  : LONGINT;
+      | LnCardType : LnCardLo,   LnCardHi : LONGCARD;
+      | RealType   : RealLo,     RealHi     : REAL;
+                     Precesion              : CARDINAL;(* мантисса *)
+      | LnRealType : LongRealLo, LongRealHi : LONGREAL;
+      END;
+      Var          : ADDRESS;  (* указатель на актуальную переменную       *)
+      PrevRec      : pEdRecord;(* ссылки на следующую и предыдущую записи *)
+      NextRec      : pEdRecord;
+    END;
+
+TYPE
+  EntryProcType = PROCEDURE ((*ID*)CARDINAL); (* Help процедура *)
+
+TYPE  (* Экран редактирования *)
+  pEntry  =  POINTER TO Entry;
+  Entry   =
+    RECORD
+      Win        : pWindow;    (* определитель окна                         *)
+      FirstRec   : pEdRecord;  (* первая запись                             *)
+      LastRec    : pEdRecord;  (* последняя запись                          *)
+      CurrentRec : pEdRecord;  (* текущая запись                            *)
+      CountRec   : CARDINAL;   (* количество записей                        *)
+      Activ      : BOOLEAN;    (* активен ли экран                          *)
+      Colors     : EntryColors;(* цвета                                     *)
+      Keys       : Command;(* множество разрешенных комманд         *)
+      PrevEntry  : pEntry;     (* следующий экран                           *)
+      NextEntry  : pEntry;     (* предыдущий экран                          *)
+      HelpProc   : EntryProcType;(* вызывается при подсказке            *)
+      PrevProc   : EntryProcType;(* вызывается перед редактированием строки *)
+      NextProc   : EntryProcType;(* вызывается после редактирования строки  *)
+      ErrorProc  : EntryProcType;(* вызывается после возникновения ошибки   *)
+    END;
+
+VAR
+  CurrentEntry : pEntry;
+  InsertMode : BOOLEAN;
+
+                  (* -------------------------------- *)
+                  (* Основные процедуры работы с Entry*)
+                  (* -------------------------------- *)
+
+PROCEDURE MakeEntry(ax,ay,bx,by,                 (* Координаты окна       *)
+                   ctext,cback,                  (* Цвет текста в окне    *)
+                   cacttext,cactback : CARDINAL; (* Цвет активной записи  *)
+                   expl : BOOLEAN) : pEntry;      (* Сохранять под окном ? *)
+(* Создать шаблон.                                                          *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE ShowEntry(entry : pEntry);
+(* Открыть шаблон для работы.                                               *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE UseEntry(VAR key : CHAR);
+(* Работа с шаблоном.                                                       *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE SetColorEntry(entry : pEntry; prFore,prBack,recFore,recBack : CARDINAL);
+(* Установить цвета шаблона.                                                *)
+(* ------------------------------------------------------------------------ *)
+
+
+PROCEDURE HideEntry(entry : pEntry);
+(* Закрыть шаблон.                                                          *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE KillEntry(VAR entry : pEntry);
+(* Удалить шаблон из памяти (уничтожить).                                   *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE ShowAllRecords(entry : pEntry);
+(* Отобразить все поля редактирования.                                      *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE AllEditToVar(entry : pEntry);
+(* Преобразовать все строки редактирования в переменные.                    *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE AllVarToEdit(entry : pEntry);
+(* Преобразовать переменную в строку редактирования.                        *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE DrawRec(entry : pEntry; rec : pEdRecord; activ : BOOLEAN);
+(* Отобразить запись шаблона.                                               *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE SetEntryHelpProc(entry : pEntry; proc : EntryProcType);
+(* Установить процедуру Help                                                *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE SetEntryErrorProc(entry : pEntry; proc : EntryProcType);
+(* Установить процедуру обработки ошибок преобразования.                    *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE SetEntryPrevProc(entry : pEntry; proc : EntryProcType);
+(* Установить процедуру выполняющуюся перед каждым радактированием записи   *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE SetEntryNextProc(entry : pEntry; proc : EntryProcType);
+(* Установить процедуру выполняющуюся после каждого радактирования записи   *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryStr(entry : pEntry;
+                   x,y : CARDINAL;   (* координаты                          *)
+                   len   : CARDINAL; (* длина поля                          *)
+                   var   : ADDRESS;  (* адрес переменной                    *)
+                   hivar : CARDINAL; (* найбольшая длина переменной         *)
+                   id    : CARDINAL);(* идентификатор                       *)
+(* Создать строковый шаблон                                                 *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryCard(entry : pEntry;
+                    x,y   : CARDINAL;
+                    len   : CARDINAL;
+                    var   : ADDRESS;
+                    lo,hi : CARDINAL;
+                    id    : CARDINAL);
+(* Создать челочисленный шаблон.                                            *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryShCard(entry : pEntry;
+                    x,y   : CARDINAL;
+                    len   : CARDINAL;
+                    lo,hi : SHORTCARD;
+                    var   : ADDRESS;
+                    id    : CARDINAL);
+(* Создать короткий челочисленный шаблон.                                   *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryLnCard(entry : pEntry;
+                    x,y   : CARDINAL;
+                    len   : CARDINAL;
+                    lo,hi : LONGCARD;
+                    var   : ADDRESS;
+                    id    : CARDINAL);
+(* Создать длинный челочисленный шаблон.                                    *)
+(* ------------------------------------------------------------------------ *)
+
+
+PROCEDURE EntryInt(entry : pEntry;
+                    x,y   : CARDINAL;
+                    len   : CARDINAL;
+                    lo,hi : INTEGER;
+                    var   : ADDRESS;
+                    id    : CARDINAL);
+(* Создать знаковый челочисленный шаблон.                                   *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryShInt(entry : pEntry;
+                    x,y   : CARDINAL;
+                    len   : CARDINAL;
+                    lo,hi : SHORTINT;
+                    var   : ADDRESS;
+                    id    : CARDINAL);
+(* Создать короткий знаковый челочисленный шаблон.                          *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryLnInt(entry : pEntry;
+                    x,y   : CARDINAL;
+                    len   : CARDINAL;
+                    lo,hi : LONGINT;
+                    var   : ADDRESS;
+                    id    : CARDINAL);
+(* Создать длинный знаковый челочисленный шаблон.                           *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE InclEntryCommand(entry : pEntry; comand : CommandEntry; ch : CHAR);
+(* Добавить команду к шаблону.                                              *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE ExclEntryCommand(entry : pEntry; comand : CommandEntry; ch : CHAR);
+(* Убрать команду шаблону.                                                  *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE VarToEdit(rec : pEdRecord) : BOOLEAN;
+(* Преобразовать переменную в строку редактирования.                        *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EditToVar(rec : pEdRecord) : BOOLEAN;
+(* Преобразовать строку редактирования в переменную                         *)
+(* ------------------------------------------------------------------------ *)
+
+PROCEDURE EntryWin(entry : pEntry) : pWindow;
+(* Возвращает указатель на дескриптор окна                                 *)
+(* ----------------------------------------------------------------------- *)
+
+PROCEDURE FindEntryRec(entry : pEntry; id : CARDINAL) : pEdRecord;
+(* Найти запись с идентификатором id.                                       *)
+(* ------------------------------------------------------------------------ *)
+
+END MpEntry.
+

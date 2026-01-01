@@ -1,0 +1,204 @@
+ {INW 19.11.90
+ Макрокоманда редактора Multi-edit (Л.З.А.)
+ Пересылка слов в текущую строку
+ }
+ $macro inw;
+  def_int(i,wi,ww);
+  def_str(c);
+  if global_int('inw_inw') = 1 then goto qq; end;
+  set_global_int('inw_inw',1);
+  set_mark(1); {Запомнили положение курсора}
+  c := inq_key(13,28,edit);
+  set_global_str('inw_enter',c);
+  c := inq_key(13,224,edit);
+  set_global_str('inw_grenter',c);
+  c := inq_key(27,1,edit);
+  set_global_str('inw_esc',c);
+  c := inq_key(0,244,edit);
+  set_global_str('inw_btm0',c);
+  macro_to_key(<enter>,'inw_break',edit);
+  macro_to_key(<GreyEnter>,'inw_break',edit);
+  macro_to_key(<esc>,'inw_esc',edit);
+  macro_to_key(<btn0>,'inw_break',edit);
+  wi := cur_window;
+  set_global_int('inw_wind_i',wi);
+  left;
+  if ((ascii(cur_char) < 33) or (at_eol = 1)) then { пробел 1}
+     c := '';
+  else
+     i := 0; {не буква но не пробел}
+     while ((i = 0) and (c_col > 1)) do
+        left;
+        if (ascii(cur_char) < 33) then
+           i := 1; right;
+        end;
+     end;
+     set_global_int('inw_c_col',c_col);
+     set_global_int('inw_c_line',c_line);
+     c := ' ' + get_word(' ');
+  end;
+
+  set_global_str('inw_wind_c',c);
+  ww :=  global_int('inw_wind_w');
+  if ww <> 0 then
+     switch_window(ww);
+  end;
+  if c <> '' then
+     goto_line(1); goto_col(1);
+ qq: c := global_str('inw_wind_c');
+     if search_fwd(c,0) = 0 then
+        make_message ('INW  Нет слова: "'+ c + '" в файле ' + file_name);
+        run_macro('inw_esc /n=1');
+        goto t;
+     else
+        right;
+        if ((wi = cur_window)                   and
+            (global_int('inw_c_line') = c_line) and
+            (global_int('inw_c_col')  = c_col)) then
+            goto qq;
+         end;
+     end;
+  end;
+ make_message (' INW Файл ' + file_name + ', Состояние подкачки слов - '+c);
+t:
+end_macro;
+ { ********************************************}
+ { Реакция на Enter }
+ $macro inw_break;
+  def_int(i,insertmo);
+  def_str(c);
+     if ((ascii(cur_char) < 33) or (at_eol = 1)) then { пробел 1}
+        goto t;
+     end;
+     refresh := false;
+     insertmo := insert_mode;
+     insert_mode := 1;
+
+     set_global_int('inw_wind_w',cur_window);
+     i := 0; {не буква но не пробел}
+     while ((i = 0) and (c_col > 1)) do
+        left;
+        if (ascii(cur_char) < 33) then
+           i := 1; right;
+        end;
+     end;
+
+     col_block_begin;
+     while ((ascii(cur_char) > 32) and (at_eol = 0)) do
+        right;
+     end;
+     block_end;
+
+     if  global_int('inw_wind_i') = cur_window then
+        call word;
+        copy_block;
+     else
+        switch_window(global_int('inw_wind_i'));
+        call word;
+        window_copy(global_int('inw_wind_w'));
+     end;
+     block_off;
+     while ((ascii(cur_char) > 32) and (at_eol = 0)) do
+        if cur_char = '$' then
+           del_char; text(' ');
+        else
+           right;
+        end;
+     end;
+     run_macro('inw_esc /n=2');
+     refresh := true;
+     insert_mode := insertmo;
+     goto t;
+{----------------------------------------------------------}
+word:
+        get_mark(1);
+        if c_col > 1 then
+           left;
+           if (ascii(cur_char) > 32) then
+              i := 0; {не буква но не пробел}
+              while ((i = 0) and (c_col > 1)) do
+                 left;
+                 if (ascii(cur_char) < 33) then
+                    i := 1; right;
+                 end;
+              end;
+              while ((ascii(cur_char) > 32) and (at_eol = 0)) do
+                 del_char;
+              end;
+           else
+              right;
+           end;
+        end;
+     ret;
+{----------------------------------------------------------}
+ t:
+ end_macro;
+ { **********************************************************}
+ { Реакция на Escape }
+ $macro inw_esc;
+     def_int(i,n);
+     def_str(c);
+     block_off;
+     set_global_int('inw_inw',0);
+     c := global_str('inw_enter');
+     if c <> '' then
+        macro_to_key(<enter>,c,edit);
+     else
+        macro_to_key(<enter>,'inw_enter',edit);
+     end;
+     c := global_str('inw_grenter');
+     if c <> '' then
+        macro_to_key(<GreyEnter>,c,edit);
+     end;
+     c := global_str('inw_esc');
+     if c <> '' then
+        macro_to_key(<esc>,c,edit);
+     end;
+     c := global_str('inw_btm0');
+     if c <> '' then
+        macro_to_key(<btn0>,c,edit);
+     end;
+     n := parse_int('/n=',mparm_str);
+     if n < 2 then
+        set_global_int('inw_wind_w',cur_window);
+     end;
+     i := global_int('inw_wind_i');
+     if i > 0 then switch_window(i); end;
+     if n < 2 then
+        get_mark(1);
+     end;
+     if n <> 1 then make_message (' '); end;
+   end_macro;
+ { **********************************************************}
+ { Пополнение словаря заготовок }
+ $macro inwt;
+  def_str(c);
+  def_int(insertmo);
+  def_int(i,wi,ww);
+  ww :=  global_int('inw_wind_w');
+  wi := cur_window;
+  set_mark(1); {Запомнили положение курсора}
+  if ww = wi then goto t; end;
+  {if ((ascii(cur_char) < 33) or (at_eol = 1)) then
+     goto t;
+  end;}
+  insertmo := insert_mode;
+  insert_mode := 1;
+  i := 0; {не буква но не пробел}
+  while ((i = 0) and (c_col > 1)) do
+     left;
+     if (ascii(cur_char) < 33) then
+        i := 1; right;
+     end;
+  end;
+  c := ' ' + get_word(' ');
+  switch_window(ww);
+  goto_line(1); goto_col(1); cr; up;
+  put_line(c);
+  switch_window(wi);
+  get_mark(1);
+  insert_mode := insertmo;
+t:
+ end_macro;
+ $macro inw_enter;  cr;  end_macro;
+ { **********************************************************}

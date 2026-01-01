@@ -1,0 +1,115 @@
+```
+             Электронный бюллетень  С О Ф Т П А Н О Р А М А
+                   Vol.2, No. 10 (14) - декабрь 1990 г.
+
+                          С О Д Е Р Ж А Н И Е
+
+!readme.1st - Условия распространения, цена подписки, информация для авторов
+content ----- Cодержание текущего выпуска СОФТПАНОРАМЫ
+foreword ---- Колонка редактора
+\FEATURES\ - ЕЖЕМЕСЯЧНЫЕ РУБРИКИ
+        chronicl - Повестка дня и текущего и уточненная повестка дня предыдущего семинара 
+        humor ---- Юмоp
+        news ----- Панорама новостей
+        reviews -- Панорама компьютерной прессы
+\FORUM\ - ЗАМЕТКИ УЧАСТНИКОВ СЕМИНАРА
+\FORUM\CPP-CLUB\ - Турбо-Си 3.0: краткий справочник
+        tc3ide.doc, tc3lang.doc
+\FORUM\DOS-CLUB\ - Клуб пользователей DOS
+\FORUM\DOS-CLUB\BUNICH\ - Бунич для клуба пользователей DOS
+        nortut.doc     - Спpавочник по Ноpтон-утилитам v.5.0
+        shezref.doc    - Диалоговый архивариус SHEZ 5.5 -- краткий справочник
+\FORUM\DOS-CLUB\SLUTSKI\ - BTM-файлы для 4DOS
+        d, dial.btm,doc, dircount.exe
+\FORUM\ME-CLUB\BUNICH\ - Макросы Бунича для клуба пользователей MultiEdit
+        dump.mac,src   - Шестнадцатиричный дамп текущей строки
+        maxlen.mac,src - Выяснение длины самой длинной строки
+        rcorr.mac,src  - Корректировка слова, ошибочно набранного не на том
+                         регистре
+\ANTIVIR.90\ - МАТЕРИАЛЫ КОНКУРСА АНТИВИРУСНЫХ ПРОГРАММ
+        virconf.prg  --- ПРОГРАММА КОНФЕРЕНЦИИ
+        vinner90.txt --- РЕЗУЛЬТАТЫ ВТОРОГО КОНКУРСА АНТИВИРУСНЫХ ПРОГРАММ
+        virconf.sum  --- ЗАКЛЮЧИТЕЛЬНOE ОБРАЩЕНИЕ
+\ANTIVIR.90\VINNERS\ -- ПРОГРАММЫ-ПОБЕДИТЕЛИ И УЧАСТНИКИ КОНКУРСА
+\ANTIVIR.90\VINNERS\INTERCOM\ - Пакет антивирусных программ Касперского -
+        обладатель спец.премии журнала "Интеркомпьютер". Включены только
+        обновленные программы. Старые можно найти в СОФТПАНОРАМАХ 2-7 и 2-8.
+        -d-d3.doc, find_res.com, read.me, -int.com,doc
+\ANTIVIR.90\VINNERS\NOVINTEC\ - бутовый ревизор Свиридова - обладатель
+        спец.премии киевского филиала СП НОВИНТЕХ (тестировалась другая
+        версия)
+        avb.com,man, readme.1st
+\ANTIVIR.90\VINNERS\MASTER\DET&REVI\SUSLIKOV.I\ - Самообучающийся детектор
+        Сусликова - обладатель первой премии в классе детекторов и ревизоров
+        (тестировалась другая версия)
+        ld.exe,bit, ld!read.me
+\ANTIVIR.90\VINNERS\MASTER\DET&REVI\MOSTOVOY.II\ - ревизор Мостового -
+        обладатель второй премии в классе детекторов и ревизоров (данная
+        версия была написана Мостовым и Ладыгиным. Тестировалась другая
+        версия)
+        dinf.pgm,doc, dinfread.me
+\ANTIVIR.90\VINNERS\MASTER\DET&REVI\SHEHOVTS.III\ - Полидетектор А.Шеховцова
+        - обладатель третьей премии в классе детекторов и ревизоров
+        (Маскоискатель для детектоpа ищи в СОФТПАНОРАМЕ 2-7. Тестировалась
+        другая версия из СОФТПАНОРАМЫ 2-7)
+        ml.doc, read.me, rvl.exe,doc, vl.exe,doc,hlp,msk,cmp, vl1.dsc, vl2.dsc
+\ANTIVIR.90\VINNERS\MASTER\FAGS\SYSLIKOV.I\ - самоизлечивающийся фаг
+        Сусликова - обладатель первой премии в классе фагов (тестировалась
+        другая версия)
+        sos.com, sos!read.me
+\ANTIVIR.90\VINNERS\MASTER\FAGS\KASPERSK.II\ - Фаг Касперского - обладатель
+        второй премии в классе фагов (участвовавшую в конкурсе версию можно
+        найти в СОФТПАНОРАМЕ 2-7. Новая версия приведена в демонстрационном
+        варианте)
+        -v-demo.exe, -viruses.doc,tbl
+\ANTIVIR.90\VINNERS\MASTER\FAGS\GRINFELD.III\ - ревизор и фаг бутовых вирусов
+        Гринфельда - обладатель третьей премии в классе фагов (тестировалась
+        другая версия)
+        systest.com,doc
+\ANTIVIR.90\VINNERS\MASTER\GUARDS\KUPCHE.I\ - обладатель первой премии в
+        классе вакцин и сторожей (тестировалась другая версия)
+        mvt.com,doc
+\ANTIVIR.90\VINNERS\MASTER\GUARDS\SESSA.II\ - вакцина против бутовых вирусов
+        Сессы - обладатель второй премии в классе вакцин и сторожей
+        (Тестировалась другая версия из СОФТПАНОРАМЫ 2-8)
+        a_cecca.doc, vitaminb.exe,txt
+\ANTIVIR.90\VINNERS\MASTER\GUARDS\PONOMARE.III\ - Pезидентная вакцина
+        Пономаренко В. - обладатель третьей премии в классе вакцин и сторожей
+        neatvac.com,doc
+\ANTIVIR.90\PLUS\ - ПРОГРАММЫ-УЧАСТНИКИ КОНКУРСА
+\ANTIVIR.90\PLUS\CERBER\ - система вакцинирования и очистки программ
+\ANTIVIR.90\PLUS\CERBER\DOC\
+        quick.ref, read.me
+\ANTIVIR.90\PLUS\CERBER\SYSTEM\
+        cerbdrv.sys, cerberus.exe, initsafe.exe, install.bat, safe.exe
+\ANTIVIR.90\PLUS\CERBER\TEST\
+        2113.exe, talker.com
+\ANTIVIR.90\PLUS\SOUDLENK\ - Файловый ревизор/доктор
+        check.exe, readme.rev, revzr.dat, det_new.exe
+\BBS\FIDOMAIL\  - СЕТЕВАЯ ПОЧТА
+        MFISH.507,    VIR-WRT.474,  VIR-WRT.484,  VIRBOOKS.514, VIRBOOKS.454,
+        COPYWRT.515,  DANGCDET.504, DARK-AVE.466, NEATDESC.490, NEATDESC.491,
+        NEATDESC.492, NEATDESC.497, FLUSHOT.480,  FREEMEM.475,  FRODO.467,
+        HARDWARE.531, LAW.493,      MFISH.450,    MFISH.465,    MFISH.470,
+        MFISH.471,    ONE-TRIC.489, POLISH-V.527, SCANV66B.453, SIGN.533,
+        SPEED.525,    STONED.488,   VB-AD.481,    VB-AD.482,    VB-FS.483,
+        VB-KG.477,    VB-PF.476,    VIR-SCAN.460, VIR-SCAN.463, VIR-SCAN.478,
+        VIR-SCAN.479, VIR-SWAP.486, VIR-SWAP.494, VIR-WRT.485,  WILDCARD.521,
+        WRT-PROT.464, WRT-PROT.487, NEATDESC.503
+\MARKET\ - РЕКЛАМА
+\MARKET\BLACKLOG\ - черный список
+\MARKET\SOFT\     - реклама программного обеспечения
+\MARKET\HARD\     - реклама аппаратного обеспечения
+\SHRWARE\ - ПОЛЕЗНЫЕ ПРОГРАММЫ, СУБСИДИРУЕМЫЕ ПОЛЬЗОВАТЕЛЕМ
+\SHRWARE\MCAFEE.V67\ - Очередная версия пакета Макафи (продолж. в след.номере)
+        register.doc  - Условия распространения и регистрации
+        validate.com,doc,crc - Контроль целостности программ по CRC коду
+        virlist.txt   - Список характеристик вирусов
+\SHRWARE\MCAFEE.V67\CLEANP67\ - Фаг CLEAN_UP
+        clean.exe, clean67.doc
+\SHRWARE\MCAFEE.V67\SCANV67C\ - Детектор SCAN
+        scan.exe, scanv67c.doc
+\SHRWARE\TBSCAN\ - пакет антивирусных программ TURBO-SCAN
+       (не путать с TNTVIRUS - неудачным детектором с красивым интерфейсом)
+        register.doc, tbdir.com,doc, tbscan.com,dat,doc,new, tbscanx.com,doc
+```

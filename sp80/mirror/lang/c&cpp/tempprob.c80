@@ -1,0 +1,107 @@
+From: vlad@gramercy.ios.com (Vlastimil Adamovsky)
+Newsgroups: comp.lang.c++
+Subject: Re: Strange template behavior with Borland C++
+Date: Wed, 31 Jan 1996 21:14:48 GMT
+
+Ali Lattunen <Ali.Lattunen@vtt.fi> wrote:
+
+
+>Hello all!
+
+>Has anyone else had problems with using templates with Borland C++ 4.5x
+>compiler? I still haven't got the idea of how templates are treated by
+>the compiler.
+
+>I have done everything according to the rules mentioned in the manuals:
+>included both my template class declarations and member function
+>implementations in the header files and compiled the whole project using
+>the -Jg switch (smart templates).
+
+>However, the compiler is able to create only one instance of each member
+>function. The link-time error occurs if member functions of several types
+>of template classes are called.
+
+>If I have, for example, template class TemplClass<class T> with member
+>function TemplClass<T>::Foo(), and have template instancies
+>TemplClass<MyClass1> C1 and TemplClass<MyClass2> C2, calling foo as
+>C1.Foo() works fine. But the C2.Foo() causes a linker error:
+
+>Undefined symbol TempClass<MyClass2>::Foo() in module...
+
+>What the heck? The problem is avoided if Foo is defined inline!?
+>But why? What is the point in this?
+
+I have not seen your code. But I have some code that maybe can help
+you. I am using Symantec ver. 7.2 . I don't even know what switches I
+used. I don't care as far it works:
+
+************************************pokus.h****************************************
+template <class T> class A
+{
+  T x;
+  public:
+  A(T i) : x(i) {}
+  operator float() ;
+  operator int() ;
+  operator short();
+  operator double();
+  A(A<int> & i): x((T)i) {}
+};
+
+template <class T> A<T>::operator float()
+   {
+    return (float) x;
+   }
+
+template <class T> A<T>::operator int()
+   {
+    return (int) x;
+   }
+
+template <class T> A<T>::operator short()
+   {
+    return (short) x;
+   }
+
+template <class T> A<T>::operator double()
+   {
+    return (double) x;
+   }
+
+
+void doItInAnotherSourceFile(A<float> & a);
+******************************end of *********************************
+*
+**************pokus.cpp**************************
+
+#include "pokus.h"
+
+void main()
+{
+  A<int> a(6);
+  A<float> x = a;
+  doItInAnotherSourceFile(x);
+  A<short> i = x;
+  A<double> z = i;
+};
+****************end of pokus.cpp*******
+
+******pokus2.cpp******
+#include "pokus.h"
+
+void doItInAnotherSourceFile(A<float> & a)
+ {
+   A<short> i = a;
+   A<double> z = i;
+ }
+*************************
+
+NO PROBLEM!!!
+
+
+*******************************************
+*    Vlastimil Adamovsky                  *
+* Smalltalk, C++ and Envelop development  *
+*******************************************
+
+

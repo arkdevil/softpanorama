@@ -1,0 +1,173 @@
+Newsgroups: comp.os.ms-windows.misc,alt.winsock,lobby
+From: hpham@eskimo.com (Hoang Pham)
+Subject: Win95 Gold: SLIP/PPP/TIA Dial-Up Networking
+Date: Mon, 17 Jul 1995 02:41:00 GMT
+
+The following is a comprehensive start-to-finish instructions on getting
+Win95 to work with SLIP/PPP (with consideration for TIA).  This is
+specific to the Win95 950 builds, including the gold release (950r6).
+
+These instructions assume that you are using a standalone system (i.e.
+not hooked to a LAN) and that you have a modem and have an Internet
+account with an ISP (Internet Service Provider).
+
+Info needed:  Your IP address (if static IP); your ISP's name, domain
+names, and IP addresses.
+
+Components needed:  Dial-Up Networking; TCP/IP; DSCRIPT.
+
+**Always select OK to close a settings screen and not the Close (X)
+  button, or otherwise the changes you made will be ignored.
+
+To add Dial-Up Networking,
+   Open Start | Settings | Control Panel | Add/Remove Programs |
+      Windows Setup | Communications.
+   Enable the Dial-Up Networking checkbox.  Click OK.
+   Win95 will ask to restart system, don't restart just yet.
+   Open Control Panel | Network.  The Dial-Up Adapter should now be
+      present in the window.
+   Delete all other entries in the window (aside from the Dial-Up
+      Adapter), by selecting them and clicking Remove.
+
+To add TCP/IP,
+   Open Start | Settings | Control Panel | Network.
+   Open Add | Protocol | Add | Microsoft | TCP/IP.  Click OK.
+   You should now have the Dial-Up Adapter and TCP/IP icons in the
+      Network window.
+   Win95 will ask to restart system.  Restart.
+
+To add DSCRIPT,
+   Open Start | Settings | Control Panel | Add/Remove Programs
+      | Windows Setup | Have Disk.
+   Enter [CD drive]:\ADMIN\APPTOOLS\DSCRIPT and press OK.
+
+----------
+
+When Win95 restarts, you need to enter some data into TCP/IP Properties:
+
+Open Start | Settings | Control Panel | Network | TCP/IP | Properties
+   [IP Address]
+      If dynamic IP address, select 'Obtain...automatically'.
+      If static IP address, select 'Specify an IP address' and enter
+         your IP address & subnet mask, as provided to you by your ISP.
+      If TIA, select 'Specify an IP address' and enter:  192.0.2.1
+         for IP address, and 255.255.255.0 for subnet mask.
+   [Gateway]
+      Enter  1.0.0.1, and press the Add button.
+   [DNS Configuration]
+      Select Enable DNS.
+         Host  -  enter name of ISP (ex: Eskimo North)
+         Domain  -  enter ISP domain name (ex: eskimo.com)
+         DNS Server Search Order  -  enter the IP addresses of the
+            various domains of the ISP (if more than one).  Press Add
+            after each entry.  Usually there are the main server, news
+            server, mail server, etc.  There is a limit of 3 entries.
+            (Ex: for Eskimo, enter 204.122.16.13 for main server,
+            204.122.16.40 for tia server)
+         Domain Suffix Search Order  -  ignore
+   [WINS Configuration / Advanced / Bindings]
+      ignore
+   Press OK's until you've closed the Network screen.
+
+After rebuilding its driver database, Win95 will then prompt you to
+restart the system.  Select No to keep on going.
+
+----------
+
+Now you need to make a dialing connection to the ISP:
+
+Open Start | Programs | Accessories | Dial-Up Networking.  Win95 will
+   activate the Make New Connection wizard.  Press Cancel for now.
+Select Connections (in the Dial-Up Networking folder) | Settings.
+Enable 'Redial' (retry = 99, 0 min 1 sec between retries).
+Select 'Don't prompt to use Dial-Up Networking'.
+Press OK.
+
+Double-click on the Make New Connection icon.
+Enter name of the ISP for the top box (ex: Eskimo North).
+Select your modem from the list, or let Win95 autoselect your modem
+   (if modem is not already set up).
+Select 'Configure' (modem)
+   [General]
+      Select max speed (I use 57600 for 28.8K, for typical 2:1
+         compression ratio)
+   [Options]
+      Enable 'Bring up terminal window after dialing'
+Click OK, then click Next, then enter the ISP's telephone access number
+   when prompted (no area code, unless it is a long-distance call.)
+Select Finish.  A connect icon for the ISP will now appear in the folder.
+Right-click on the connect icon.  Select Properties | Server Type.
+   Select SLIP (use this for TIA), CSLIP or PPP from the drop-down menu.
+   Disable 'Log on to network'.
+[For TIA users only]  Click on 'TCP/IP Settings'.  Select 'Specify an IP
+   address'.  Type in 192.0.2.1 into the IP address box.  The reason you
+   need to hardcode in the IP address is to prevent Win95 from prompting
+   you for the IP address each time you logon (since tia does not give
+   the IP address, so the 'set ipaddr' script function does not work.)
+   This may be a problem if you are on a network using TCP/IP.  If so,
+   you may want to use RoboDUN instead, which can use a hardcoded
+   address within the script file.
+
+You can drag the ISP icon you've just made out onto the desktop for
+quicker access.
+
+----------
+
+You've just made a dialing connection icon for the ISP, but you need to
+have a script to get past the login and start SLIP/PPP.  DSCRIPT will
+handle this chore.
+
+Open Start | Programs | Accessories | Dial-Up Scripting Tool
+
+The dialing connection you've just made should be presented as an entry
+inside the Connections window.  Since it's the only entry, it should
+already be highlighted.  Click on 'Browse', and select one of the
+sample script (SCP) files for modification.  Then click on 'Edit' to
+modify the file to fit your ISP login.  Below is a sample script for
+Eskimo North:
+-----
+; Eskimo North login script
+proc main
+   transmit "^M"
+   waitfor "Selection ==>"
+   transmit "4^M"
+   waitfor "login:"
+   transmit "YourName^M"   ; replace with your login name
+   waitfor "Password:"
+   transmit "YourPasswd^M" ; replace with your password
+   waitfor "bash$"         ; replace with your prompt
+   transmit "tia^M"
+   ;set ipaddr getip 2       if you are using SLIP/PPP where the ISP
+   ;                         assigns you your IP address here, then
+   ;                         un-REM this command; tia users don't
+   ;                         need to use it.
+endproc
+-----
+Save the script.
+
+----------
+
+Testing the setup:  Double-click on the dialing-connection icon for the
+ISP, and click Connect (you don't have to enter your name/passwd, since
+you've already hardcoded it into the script file; be aware, however,
+that the scripts are saved in plain ASCII which may pose a security
+problem for multi-user setups).  If everything goes smoothly, you will
+get a Connect message.  Minimize the window, and open up a DOS box.
+Enter 'telnet [ISP domain name]' (ex: telnet eskimo.com), to connect to
+your ISP.  If telnet is successful, then the setup is good, and you are
+in business.
+
+Win95 also has some other command-line TCP/IP utils, the most important
+of which is FTP.EXE.  Between telnet and ftp, you have the tools to
+acquire other winsock apps from the net to add to your stable.
+-----------
+
+Note:  The SCRIPTER util has a bug/problem, in that its help file does
+not have an accompanying .CNT (contents listing) file, so there is no way
+to access the file's Topics listing--meaning that you can't access the
+help page with the scripting command syntax.  What I finally had done was
+to run SCRIPTER.HLP though CHK4BOMB, and filter all the ASCII text
+strings and redirect them into a file.  With a little reformatting, I was
+able to reconstruct the command syntax listing in ASCII form.
+
+

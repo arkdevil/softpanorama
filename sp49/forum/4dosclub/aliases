@@ -1,0 +1,35 @@
+:
+:
+: Простой калькулятор
+calc  echo %& = %@eval[%&]
+:
+:
+: к сожалению пару pushd/popd нельзя использовать в разных копиях 4dos.com,
+: (например при работе в NC). Пара алиасов _pushd/_popd лишена этого
+: недостатка, так как хранит данные во временном файле.
+_pushd    echo @cdd %_cwd>!%temp%\ret_cd.btm^if not "%1"=="" cdd %1
+_popd     if exist %temp%\ret_cd.btm call %temp%\ret_cd.btm>nul
+:
+:
+: Вариант команды CD.
+: Если текущий директорий FOO, то последовательный вызов:
+:   C BAR   => перход в директорию BAR
+:   C       => перход в директорию FOO
+:   C       => перход в директорию BAR
+:   C       => перход в директорию FOO
+:   ...
+c iff "%1"=="" then^set CurDir=%_cwd^_popd^echo @cdd %CurDir>!%temp%\ret_cd.btm^unset CurDir^else^_pushd %&^endiff
+:
+:
+:
+: Простой секундометр.
+: Вызов TG AnyCommand, ваполняет команду AnyCommand и время ее выполнения.
+: Вызов TG PAUSE, сделает из вашей PC настоящий секундометр:)
+tg  timer on>nul^%&^timer|input %%ti^echo.^scrput %_row %@eval[%_columns-10] bri whi on bla %@word[-0,%ti]^unset ti^beep
+:
+: Переклычатель внешних редакторов NC по расширению (пример).
+: Вам необходимо определить внешний редактор как "nc_f4 !.!".
+: В NC, при вызове внешних редакторов (по F4), ncmain выгружаеться из
+: памяти (но не при вызове внешних вьюеров по F3) и становиться доступно
+: дополнительных 180к
+nc_f4  iff %@index[.arj.zip.lzh.ice.pak.arc.,.%@ext[%1].] ne -1 then^shez %1^else^edit %1^endiff

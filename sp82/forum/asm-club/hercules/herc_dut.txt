@@ -1,0 +1,245 @@
+                               
+             Documentatie bij de Hercules-routines
+                               
+               Copyright 1994 door Jannes Faber
+                               
+             Hercules.inc      ASM     18-12-1994
+                 Microsoft Macro Assembler 6.0
+
+
+Hercules.inc
+Hercules.inc bevat een aantal routines om het Hercules scherm
+te gebruiken. Geen van de routines roept interrupt (DOS / BIOS)
+aan, zodat ze eenvoudig in TSR's te gebruiken zijn en bovendien
+een stuk sneller dan DOS / BIOS routines. Deze documentatie
+bevat een volledige omschrijving van alle routines in
+Hercules.inc.
+
+Video-adres
+Deze routines zijn voornamelijk bedoeld om debug-informatie op
+het scherm te zetten zonder het scherm van het programma (of
+van het onderliggende programma bij TSR's) te wijzigen. Een
+tweede monitor is dan dus nodig: een Hercules. De routines
+gebruiken dan ook adres 0B000h (hercules video-geheugen) en
+proberen niet eerst uit te zoeken welke adapter geïnstalleerd
+is. Dit adres is wel te wijzigen door de eerste regel te
+wijzigen in:
+    VideoSeg   EQU   0B800h ; VGA
+
+Opmerkingen
+Let op: regelnummers zijn allemaal 0-based: dus regels 0 t/m 24
+! Hetzelfde geldt voor kolomnummers: 0 t/m 79 !
+De include file is nu nog alleen voor COM-files !
+Het programma moet .386 bevatten, er worden 386 instructies
+gebruikt.
+Geen enkele routine controleert de geldigheid van de
+parameters, oppassen dus !
+
+De routines
+Hieronder eerst een korte omschrijving van alle routines in
+Hercules.inc, daarna een volledige.
+
+Instellingen voor andere routines:
+*   HsetBack     Stelt het teken en de kleur van de
+                 achtergrond in
+*   HsetStart    Stelt de regel in waar Hscroll moet
+                 beginnen met scrollen
+*   Hlocate      Stelt de positie van de cursor in
+
+Scherm wijzigen:
+*   Hcls          Wist het (gehele) Hercules scherm met de
+                  huidige achtergrond (HsetBack)
+*   Hcll          Wist de opgegeven regel met de huidige
+                  achtergrond (HsetBack)
+*   Hscroll       Scrollt het scherm v.a. de startregel
+                  (HsetStart) 1 regel omhoog
+*   Hstr0         Zet een string (afgesloten met NULL) op het
+                  scherm op opgegeven positie
+*   Hstr$         Zet een string (afgesloten met een $) op
+                  het scherm op opgegeven positie
+*   Hchar         Zet een byte op het scherm op de opgegeven
+                  positie
+*   Hprint0       Zet een string (afgesloten met NULL) op het
+                  scherm op de huidige cursorpositie
+*   Hprint$       Zet een string (afgesloten met $) op het
+                  scherm op de huidige cursorpositie
+
+Omrekenen van getallen:
+*   Hval          Rekent een getal in EDX, DX of DL om in
+                  een hexadecimale string
+
+Lokaal gebruikte routines, niet zelf aanroepen:
+*   Hstr          Wordt aangeroepen door Hstr0 en Hstr$
+*   Hprint        Wordt aangeroepen door Hprint0 en Hprint$
+
+
+HsetBack
+Oms.:             Stelt de door Hcls, Hcll en Hscroll te gebruiken
+                  achtergrond in (teken + kleurcode).
+Standaard:        teken: NULL, kleur: 7
+Invoer:           AL  Teken van de achtergrond
+                  AH  Kleurcode
+Uitvoer:          Geen
+Registers:        Allen behouden
+Opmerking:        Geen
+
+HsetStart
+Oms.:             Stelt de regel in waar Hscroll moet starten met
+                  scrollen. De opgegeven regel zal dan worden
+                  overschreven met de inhoud van de volgende regel.
+Standaard:        0
+Invoer:           BH  Regelnummer
+Uitvoer:          Geen
+Registers:        Allen behouden
+Opmerking:        Met deze routine kunnen de bovenste regels
+                  beschermd worden tegen wegscrollen. Bovendien kunnen
+                  de routines Hprint0 en Hprint$ er niet meer printen
+                  (Hstr0 en Hstr$ nog wel!).
+
+Hlocate
+Oms.:             Stelt de cursorpositie voor Hprint0 en Hprint$ in.
+Standaard:        (0, 0)
+Invoer:           BL  X-coördinaat
+                  BH  Y-coördinaat
+Uitvoer:          Geen
+Registers:        Allen behouden
+Opmerking:        De bedoelde cursorpositie is niet de echte
+                  cursorpositie (van de hardware cursor), die wordt
+                  niet verplaatst! Indien de cursorpositie voor de
+                  startpositie ligt (zie Hsetstart), dan zal deze
+                  automatisch op die startpositie gezet worden.
+
+
+Hcls
+Oms.:             Wist het gehele Hercules scherm
+Standaard:        n.v.t.
+Invoer:           Geen
+Uitvoer:          Geen
+Registers:        Allen behouden
+Opmerking:        Het gehele (ook de regels voor de startpositie
+                  (HsetStart) !) scherm wordt gevuld met de achtergrond
+                  ingesteld met HsetBack.
+
+
+Hcll
+Oms.:             Wist de opgegeven regel
+Standaard:        n.v.t.
+Invoer:           BH  te wissen regelnr
+Uitvoer:          Geen
+Registers:        Allen behouden
+Opmerking:        Ook regels voor de startpositie (HsetStart) zijn
+                  hiermee te wissen. De regel wordt opgevuld met de
+                  huisdige achtergrondinstelling (HsetBack).
+
+
+Hscroll
+Oms.:             Scrollt het scherm een regel omhoog
+Standaard:        n.v.t.
+Invoer:           Geen
+Uitvoer:          Geen
+Registers:        Allen behouden
+Opmerking:        Het scrollen start op de regel opgegeven met HsetStart.
+                  De laatste regel (24) wordt gewist m.b.v. Hcll.
+
+Hstr0
+Oms.:             Zet een string op scherm
+Standaard:        n.v.t.
+Invoer:           DS:SI    Startadres van string
+                  AH  Kleurcode
+                  BL  X-coördinaat
+                  BH  Y-coördinaat
+Uitvoer:          Geen
+Registers:        Allen behouden behalve: SI, AX, BX
+Opmerking:        De string moet zijn afgesloten door een NULL.
+                  Ook op regels voor de startpositie (HsetStart) kan
+                  worden geschreven. Deze routine roept eigenlijk
+                  alleen de routine Hstr aan.
+
+
+Hstr$
+Oms.:             Zet een string op scherm
+Standaard:        n.v.t.
+Invoer:           DS:SI    Startadres van string
+                  AH  Kleurcode
+                  BL  X-coördinaat
+                  BH  Y-coördinaat
+Uitvoer:          Geen
+Registers:        Allen behouden behalve: SI, AX, BX
+Opmerking:        De string moet zijn afgesloten door een $. Ook
+                  op regels voor de startpositie (HsetStart) kan worden
+                  geschreven. Deze routine roept eigenlijk alleen de
+                  routine Hstr aan.
+
+
+Hchar
+Oms.:             Zet een byte op scherm
+Standaard:        n.v.t.
+Invoer:           AL  Teken
+                  AH  Kleurcode
+                  BL  X-coördinaat
+                  BH  Y-coördinaat
+Uitvoer:          Geen
+Registers:        Allen behouden behalve: BX
+Opmerking:        Geen
+
+
+Hprint0
+Oms.:             Zet een string op scherm, op de huidige cursorpositie
+Standaard:        n.v.t.
+Invoer:           DS:SI    Startadres van string
+                  AH  Kleurcode
+Uitvoer:          Geen
+Registers:        Allen behouden behalve: AX
+Opmerking:        De string moet zijn afgesloten door een NULL.
+                  Deze routine roept eigenlijk alleen de routine Hprint
+                  aan. Deze routine herkent ook ASCII-code 13 (CR) en
+                  scrollt automatisch indien nodig. De cursorpositie is
+                  niet van de echte hardware cursor.
+
+
+Hprint$
+Oms.:             Zet een string op scherm, op de huidige cursorpositie
+Standaard:        n.v.t.
+Invoer:           DS:SI    Startadres van string
+                  AH  Kleurcode
+Uitvoer:          Geen
+Registers:        Allen behouden behalve: AX
+Opmerking:        De string moet zijn afgesloten door een $. Deze
+                  routine roept eigenlijk alleen de routine Hprint aan.
+                  Deze routine herkent ook ASCII-code 13 (CR) en
+                  scrollt automatisch indien nodig. De cursorpositie is
+                  niet van de echte hardware cursor.
+
+
+Hval
+Oms.:             Rekent een getal in EDX, DX of DL om in een
+                  hexadecimale string
+Standaard:        n.v.t.
+Invoer:           EDX/DX/DLGetal
+                  CX      Aantal nibbles om om te rekenen (1 t/m 8 dus)
+Uitvoer:          SI      Adres van geproduceerde string
+Registers:        Allen behouden behalve: CX, SI
+Opmerking:        De geproduceerde string is afgesloten met een
+                  NULL. Na deze routine kan (bijna) direct Hstr0 of
+                  Hprint0 aangeroepen worden om de string op het scherm
+                  te zetten. Het aantal nibbles hoeft niet precies een
+                  byte, word of double-word te vormen. Achter het
+                  hexadecimale getal is een 'h' geplaatst.
+
+
+Hstr
+Oms.:             Niet zelf gebruiken, alleen voor intern gebruik
+Standaard:        n.v.t.
+Invoer:           n.v.t.
+Uitvoer:          n.v.t.
+Registers:        n.v.t.
+Opmerking:        Wordt aangeroepen door Hstr0 en Hstr$.
+
+
+Hprint
+Oms.:             Niet zelf gebruiken, alleen voor intern gebruik
+Standaard:        n.v.t.
+Invoer:           n.v.t.
+Uitvoer:          n.v.t.
+Registers:        n.v.t.
+Opmerking:        Wordt aangeroepen door Hprint0 en Hprint$.

@@ -1,0 +1,465 @@
+From: micrdr@unidhp.uni-c.dk (Roger De Reus)
+Newsgroups: comp.lang.rexx
+Subject: Sollicitation: beta testers for DCD.CMD
+Date: 9 Aug 1995 13:56:42 GMT
+
+Anyone feeling he/she/it wants to try this smart change directory, please do
+so. DCD works for me under OS/2 (v2+3) with REXX.
+Before bothering a broad audience with DCD.CMD I would like some response
+on the following:
+- does it work and is it useful?
+- is the documentation clear enough?
+- did you find bugs?
+- do you have suggestions for or did you made any improvements?
+
+The following contains two files: DCD.DOC and DCD.CMD.
+
+Oops! All lines ar at maximunm 80 characters, but maybe the
+mailer/newsreader truncated these lines to 78 characters. Please drop a
+note if this fails.
+________________________________________________________________/\_____
+Roger de Reus (REUS@MIC.DTU.DK)                                 \/
+                                 Mikroelektronik Centret  /\ /\ /\  '==
+(+45) 45 25 57 64 (direct)           DTU, bldg. 345-east  == == == ====
+(+45) 45 93 46 10 (desk)                 DK--2800 Lyngby  == == == ====
+(+45) 45 88 77 62 (fax)                          Denmark  == == ==  `==
+_______________________________________________________________________
+                                      Andreas not walking, but running.
+---
+==============================================================================
+DCD.DOC - Disk Change Directory                      Roger de Reus 09-AUG-1995
+==============================================================================
+DCD (disk change directory) is yet another smart  change  directory.  You  ask
+why? Well, because I could not find a program which does what I want. So, here
+is my version, which I donate to the public domain.
+
+Disclaimer: the author of this program is not responsible for any damage (loss
+            of data etc.) caused by the use of this program.
+
+OK, let's get down to it. DCD.CMD requires OS/2 and REXX and should be located
+somewhere in your path. First you build a  file  DCD.LST  which  contains  the
+directory structure of your drives. This file  will  be  placed  in  the  same
+directory as where DCD.CMD is located. (If you  saved  DCD.CMD  under  another
+name, say MYCD.CMD, a file named MYCD.LST will be created.) Then you  can  use
+DCD to hop around from one directory to another across drives ad libitum.
+
+Usage:
+
+   DCD [-?|-help] [-scan <drives>] [-global|-fullmatch|-next] <[dir]>
+
+The "[dir]" part of the input is required when you want  to  move  to  another
+directory. [dir] is the partial or full directory name. The input is not  case
+sensitive, but may contain leading as well as trailing blanks, drive  letters,
+and path names.
+
+   Examples:
+   dcd c:\foo   match occurrences of "\foo" on drive "c:"
+   dcd fo       match occurrences of "fo" on current drive
+   dcd  foo     match occurrences of " foo" on current drive
+   dcd  foo bar match occurrences of " foo bar" on current drive
+   dcd foo\bar  match occurrences of "foo\bar" on current drive
+   dcd d:..\..  go to `grandparent' of current directory on drive "d:"
+   dcd e:       change to drive "e:"
+
+The default behavior of  DCD  can  be  changed  by  using  options.  Arguments
+starting `-' or `/' are recognized as options. Options may be abbreviated  and
+are not case sensitive. Full list of options  (the  capitalized  part  of  the
+options is the minimum required to recognize the option):
+
+   -?            short help
+   -Help         long help
+   -Global       global change directory: match directories on all drives
+   -Local        local change directory: stay on current drive (default)
+   -SElect       user select mode: query for multiple matches (default)
+   -Next         round-robin mode: do not query, jump to next match
+   -RR           synonymous for -next
+   -ROundrobin   synonymous for -next
+   -Scan         scan <drives>
+                 <drives>: one or more drives separated by whatever you want;
+                 all drives must be accessible or in use
+   -REscan       synonymous for -scan
+   -Partialmatch require partial match of directory name (default)
+   -Fullmatch    require full match of directory name
+   -Version      display version number
+
+By default, DCD will try to match a directory on the current disk, if no drive
+is specified in the input.  If  multiple  matches  exist,  the  user  will  be
+prompted for her/his/its choice. The maximum number of choices is  limited  to
+36 (0-9,A-Z) or one less than the number of rows on the  screen,  whatever  is
+smaller. If the maximum number of choices is exceeded, DCD will issue  warning
+messages, but these will most likely scroll off your  screen.  Anyway,  if  so
+many possibilities exist, you should specify your directory more  precise,  or
+use the -next mode. If no match to your directory is found,  a  suggestion  to
+rescan your disk drives is made.
+
+   Examples:
+   dcd foo             change to *foo* on current drive, prompt if necessary
+   dcd -f foo          change to foo (and only foo) on current drive, prompt
+   dcd -g foo          change to *foo* on all drives, prompt if necessary
+   dcd -n foo          change to next *foo* on current drive, do not prompt
+   dcd -n -g foo       change to next *foo* on all drives, do not prompt
+   dcd -n d:foo        change to next *foo* on drive d:, do not prompt
+   dcd -g d:foo        change to *foo* on drive d:, global setting overridden
+   dcd -s c:D: e; f.g  scan drives c: d: e: f: g:
+
+User settings: if you are not satisfied with the default settings (local drive
+instead of global, select choice instead of round-robin  mode,  partial  match
+instead of full match), then you want to  consider  changing  the  DCD.Global,
+DCD.Next, or DCD.FullMatch variables near the beginning of the command file.
+
+For comments, improvements, bug fixes, or aob, feel free to  send  e-mail  to:
+Roger de Reus (reus@mic.dtu.dk).
+==============================================================================
+Known bugs:
+- REXX gets stuck on AFS mounted directories with recursive links (MOT)
+==============================================================================
+Improvements I can think of (any volunteers?):
+- handling of input of form "\..\name"
+- wildcards such as "\usr\*\bin" or "\usr\?in"
+- include hidden directories?
+- faster scanning drives using C-code
+- case sensitivity for linked Unix drives required?
+==============================================================================
+History:
+09Aug95: decided we are at beta test level
+08Aug95: echo user input
+18Jul95: proposal best match wrong (if then if else if --> added do; end)
+17Jul95: alpha  version  V0.1
+=============================== end of DCD.DOC ===============================
+--- DCD.CMD below
+/*
+   @ECHO OFF
+   ECHO DCD Error: OS/2 Procedures Language 2/REXX not installed.
+   pause
+   exit
+==============================================================================
+DCD - Disk Change Directory
+For usage type 'DCD', 'DCD -?', 'DCD -help', or read DCD.DOC.
+Roger de Reus (reus@mic.dtu.dk)
+==============================================================================
+*/
+DCD.Version='DCD disk change directory V0.1; 09Aug95 (reus@mic.dtu.dk)'
+
+/* ---- Initialize some variables (which the user may want to change): ---- */
+DCD.Global=0                   /* default to local drive (0=local,1=global) */
+DCD.Next=0          /* default user selects possibilities (0=select,1=next) */
+DCD.FullMatch=0      /* default partial match (0=partial match,1=fullmatch) */
+/* ------------------------------------------------------------------------ */
+
+call RxFuncAdd 'SysLoadFuncs', 'RexxUtil', 'SysLoadFuncs'
+call SysLoadFuncs
+
+trace 'off'
+signal on halt name DCD_Halt
+
+parse arg DCD.CmdLin
+if DCD.CmdLin=''; then call DCD_Exit 1 /* Missing input */
+
+
+/* Do some stuff */
+do until DCD.CmdLin = ''
+   if substr(DCD.CmdLin,1,1)='-'|substr(DCD.CmdLin,1,1)='/'; then do /* Opt */
+      call DCD_Option
+      if DCD.CmdLin=''; then call DCD_Exit 1               /* missing input */
+      end
+   else do                                    /* try to find and change dir */
+      DCD.CurDir=translate(directory())            /* uppercase current dir */
+      DCD.CurDrv=filespec('D',DCD.CurDir)                  /* current drive */
+      DCD.Dir=translate(DCD.CmdLin)            /* wanted dir, including ' ' */
+      DCD.Drv=filespec('D',DCD.Dir)                         /* wanted drive */
+      if DCD.Drv<>''; then
+         DCD.Global=0                   /* drive specified, override Global */
+      else;
+         if \DCD.Global; then DCD.Drv=DCD.CurDrv     /* must be local drive */
+      if \DCD.Global&\Valid_Drive(DCD.Drv); then call DCD_Exit 4 DCD.Drv
+      DCD.Dir=filespec('P',DCD.Dir)||filespec('N',DCD.Dir) /* path and name */
+      DCD.Drv.Dir=DCD.Drv||DCD.Dir                  /* drive, path and name */
+      DCD.FullDir=''                   /* initialize full dir for changedir */
+      call Test_Dots                    /* check if DCD.Dir is of .\.. form */
+      if DCD.FullDir<>''; then call Change_Dir(DCD.FullDir)
+      /* time to make a match with the list file... */
+      DCD.List=DCD_List('EXIST')    /* Check existence of directory listing */
+      call DCD_Match
+      if DCD.FullDir<>''; then
+         call Change_Dir(DCD.FullDir)
+      else do
+         say "I wouldn't expect you to end here... I'll try "DCD.Drv.Dir
+         call Change_Dir(DCD.Drv.Dir)
+      end
+   end
+end
+return
+
+/* ===========================================================================
+DCD_Option: procedure to check command line options.
+Usage: call DCD_Option
+       Input:  DCD.CmdLin
+       Output: DCD.CmdLin (without first argument)
+=========================================================================== */
+DCD_Option: procedure expose DCD.
+parse upper var DCD.CmdLin Opt DCD.CmdLin
+Opt = translate(substr(Opt,2))                /* throw away first character */
+select
+   when abbrev('?',Opt,1);           then call DCD_Help
+   when abbrev('HELP',Opt,1);        then call DCD_Help VERBOSE
+   when abbrev('GLOBAL',Opt,1);      then DCD.Global=1
+   when abbrev('LOCAL',Opt,1);       then DCD.Global=0
+   when abbrev('NEXT',Opt,1);        then DCD.Next=1
+   when abbrev('RR',Opt,2);          then DCD.Next=1
+   when abbrev('ROUNDROBIN',Opt,2);  then DCD.Next=1
+   when abbrev('SELECT',Opt,2);      then DCD.Next=0
+   when abbrev('SCAN',Opt,1);        then call DCD_Scan
+   when abbrev('RESCAN',Opt,2);      then call DCD_Scan
+   when abbrev('FULLMATCH',Opt,1);   then DCD.FullMatch=1
+   when abbrev('PARTIALMATCH',Opt,1);then DCD.FullMatch=0
+   when abbrev('VERSION',Opt,1);     then say DCD.Version
+   otherwise; call DCD_Exit 2 '-'Opt
+end
+return
+
+/* ===========================================================================
+Test_Dots: procedure to test if directory consists of dots and (back)slashes
+Usage: call Test_Dots
+       Input:  DCD.Dir     path and name of directory
+               DCD.Drv.Dir drive, path and name of directory
+       Output: DCD.FullDir will bet set to DCD.Drv.Dir on success
+=========================================================================== */
+Test_Dots: procedure expose DCD.
+do I = 1 to length(DCD.Dir)
+   if verify(substr(DCD.Dir,I,1),'.\/')<>0 then return /* exit if not '.\/' */
+end I
+select /* test a few invalid combinations */
+   when pos('...',  Dir)<>0; then call DCD_Exit 9 Dir
+   when pos('....', Dir)<>0; then call DCD_Exit 9 Dir
+   when pos('\\',   Dir)<>0; then call DCD_Exit 9 Dir
+   when pos('//',   Dir)<>0; then call DCD_Exit 9 Dir
+   when pos('/\',   Dir)<>0; then call DCD_Exit 9 Dir
+   when pos('\/',   Dir)<>0; then call DCD_Exit 9 Dir
+   otherwise DCD.FullDir=DCD.Drv.Dir
+end
+return
+
+/* ===========================================================================
+DCD_Match: procedure to test DCD.Drv and DCD.Dir against directories in
+           DCD.List file.
+Usage: call DCD_Match
+       Input:  DCD.Drv, DCD.Dir: both expected in uppercase
+               DCD.List: file with directory list
+               DCD.Global, DCD.Next, DCD.FullMatch: logical variables.
+       Output: DCD.FullDir: full directory name desired or empty string
+               DCD.Match: directory name for (last) full match.
+=========================================================================== */
+DCD_Match: procedure expose DCD.
+if SysFileSearch(DCD.Dir, DCD.List, Match1)<>0; then call DCD_Exit 10 RC
+DCD.Match=''
+J=0
+do I = 1 to Match1.0
+   Match1.I=translate(Match1.I)
+   if \DCD.Global; then                                /* drive must match: */
+      if DCD.Drv <> filespec('D',Match1.I); then iterate
+                        /* always require partial match of directory names: */
+   if pos(filespec('N',DCD.Dir),filespec('N',Match1.I))=0; then iterate
+   if filespec('N',DCD.Dir)<>filespec('N',Match1.I); then  /* no full match */
+      do; if DCD.FullMatch; then iterate; end
+   else                                                       /* full match */
+      if \DCD.FullMatch; then DCD.Match=Match1.I          /* set best match */
+   J=J+1; Match2.J=Match1.I
+end I
+if J=0 then; call DCD_Exit 11 DCD.Drv.Dir                       /* no match */
+if J=1 then; do; DCD.FullDir=Match2.1; return; end            /* single hit */
+/* more hits if we get here */
+if \DCD.Next; then do;                                      /* user selects */
+   parse value SysTextScreenSize() with ScrnRows .           /* screen size */
+   if J>ScrnRows-1; then
+      say "Read quickly: more choices than I can show!"
+   if J>36; then
+      say "More choices than I can handle! Use -n option or specify better."
+   J=min(36,ScrnRows-1,J)
+   NumAlph='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'             /* 36 choices */
+   do I = 1 to J; say substr(NumAlph,I,1)' 'Match2.I; end I /* show choices */
+   if DCD.Match=''; then call charout , "Hit choice or Esc: "     /* prompt */
+   else call charout , "Hit choice, Esc, or Enter|Space for "DCD.Match": "
+   Key=translate(SysGetKey())                                  /* get reply */
+   if Key='1B'x; then; call DCD_Exit 0                         /* 1B=Escape */
+   if (Key='0D'x|Key='20'x) & DCD.Match<>''; then do  /* 0D=Enter, 20=Space */
+         DCD.FullDir=DCD.Match; return; end
+   /* if we get here, real selection was made */
+   Choice=pos(Key,NumAlph)                                /* check if valid */
+   if Choice>0 & Choice<=J; then DCD.FullDir=Match2.Choice
+   else do; say ''; call DCD_Exit 12 Key; end   /* any other key is invalid */
+end /* do user selects */
+else do                                                 /* round robin mode */
+   Choice=1                            /* default first entry in match list */
+   do I = 1 to J                   /* check if current dir is in match list */
+      if DCD.CurDir=Match2.I; then do                             /* if so, */
+         if I=J then Choice=1; else Choice=I+1         /* pick next in list */
+         leave                         /* and leave loop to set DCD.FullDir */
+      end
+   end I
+   DCD.FullDir=Match2.Choice
+end
+return
+
+/* ===========================================================================
+Change_Dir: try to change directory and then exit (with or without error msg).
+Usage: call Change_Dir(directory)
+=========================================================================== */
+Change_Dir: procedure
+parse arg Dir
+if directory(Dir)='' then call DCD_Exit 8 Dir /* error   */
+call DCD_Exit 0                               /* success */
+return
+
+/* ===========================================================================
+DCD_List: function which returns file name of .LST file
+Usage: File.LST=DCD_List('MODE');
+       Input:  MODE = EXIST: check if File.LST exists
+               MODE = DELETE: delete File.LST
+       Result: File.Lst on success, otherwise exit
+               File.Lst is name of running CMD file with extension .LST
+=========================================================================== */
+DCD_List: procedure expose DCD.
+parse upper arg MODE
+parse upper source . . DCDCMD
+DCDLST = left(DCDCMD,lastpos('.CMD',DCDCMD))'LST'
+if stream(DCDLST,'c','query exists')=''; then do /* file does not exist */
+   if MODE='EXIST'; then call DCD_Exit 3 DCDLST; end
+else do
+   if MODE='DELETE'; then
+      if sysfiledelete(DCDLST)<>0; then call DCD_Exit 6 DCDLST; end
+return DCDLST
+
+/* ===========================================================================
+DCD_Scan: procedure to scan drives for directories and save to file, then exit
+Usage: call DCD_Scan
+       Input:  DCD.CmdLin: string with drives
+       Output: DCD.Lst file containing directory structure
+=========================================================================== */
+DCD_Scan: procedure expose DCD.
+DRIVES=DCD.CmdLin
+if DRIVES=''; then call DCD_Exit 1 /* Missing input */
+
+/* first check if drives are allowed */
+do I = 1 to length(DRIVES)
+   Drive=substr(DRIVES,I,1)
+   if verify(DRIVE,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')=0; then do   /* test [A-Z] */
+      Drive=substr(DRIVES,I,1)':'
+      if \Valid_Drive(DRIVE); then call DCD_Exit 4 Drive
+   end
+end I
+
+/* then do the scanning */
+N_Drives = 0
+call charout , "Scanning drive "
+do I = 1 to length(DRIVES)
+   Drive=substr(DRIVES,I,1)':'
+   if Valid_Drive(Drive); then do
+      call charout , Drive
+      N_Drives = N_Drives+1
+      if sysfiletree(Drive"\*", DirList.N_Drives, 'SDO')<> 0; then do
+         say; call DCD_Exit 5 Drive
+      end
+   end
+end I
+
+/* finally write directory list to file */
+DCD.Lst=DCD_List('DELETE')         /* find DCDLST file; delete if necessary */
+call charout , " ... writing "DCD.Lst" ... "
+do I = 1 to N_Drives
+   do J = 1 to DirList.I.0
+      if lineout(DCD.Lst, DirList.I.J)<>0; then call DCD_Exit(7,'DCD.Lst')
+   end J
+end I
+say "done."
+call DCD_Exit 0 /* always exit after scanning */
+return
+
+/* ===========================================================================
+Valid_Drive: logical function to test valid drive
+Usage: result=Valid_Drive(drive:)
+       Input:  drive: drive letter followed by colon
+       Output: result=0 (invalid drive); result=1 (valid drive)
+=========================================================================== */
+Valid_Drive: procedure expose DCD.
+parse upper arg Drive
+Drive=filespec('D',Drive)
+if verify(Drive,SysDriveMap())=0; then return 1     /* OK!                  */
+return 0                                            /* any other not OK     */
+
+/* ===========================================================================
+DCD_Help: procedure to list help and then exit
+Usage: call DCD_Help MODE
+       Input:  MODE='' short help; MODE='VERBOSE' long help
+=========================================================================== */
+DCD_Help: procedure
+parse arg VERBOSE
+say "DCD disk change directory usage:"
+say "    DCD [-?|-help] [-scan <drives>] [-global|-fullmatch|-next] <dir>"
+if VERBOSE=''; then call DCD_Exit 0
+say
+say "Change directory to <dir>, in which `<dir>' is part of a directory name."
+say
+say "Arguments starting `-' or `/' are recognized as options."
+say "Options may be abbreviated to one character."
+say
+say "    -?         short help"
+say "    -help      long help"
+say "    -global    match directory on all drives scanned."
+say "    -fullmatch require full match of directory name."
+say "    -next      round-robin mode: do not query multiple matches, but"
+say "               jump to next matching directory."
+say "    -scan      scan drive(s)"
+say "    <drives>   one or more drives separated by whatever you want;"
+say "               all drives must be accessible or in use."
+call DCD_Exit 0
+return
+
+/* ===========================================================================
+DCD_Exit: procedure to exit with error message
+Usage: call DCD_Exit Errcode Text
+       Input:  Errcode error code to set (0=no error)
+               Text    text used in some of the error messages
+       Output: Errcode
+=========================================================================== */
+DCD_Exit: procedure
+parse arg Err Text
+if Err <> 0; then do
+   call charout , "DCD Error: "
+   if Text='0D'x|Text='08'x; then Text=''
+   select
+     when Err=1;  then call charout,"Missing input. Try DCD -?"
+     when Err=2;  then call charout,"Unrecognized option ("Text")."
+     when Err=3;  then call charout,"Missing file ("Text"). Scan disks."
+     when Err=4;  then call charout,"Sorry, invalid drive ("Text")."
+     when Err=5;  then call charout,"Sorry, SysFileTree error scanning "Text"."
+     when Err=6;  then call charout,"Sorry, SysFileDelete error for "Text"."
+     when Err=7;  then call charout,"Could not write to file "Text"."
+     when Err=8;  then call charout,"Invalid directory ("Text"). Scan disks?"
+     when Err=9;  then call charout,"Invalid directory structure ("Text")."
+     when Err=10; then call charout,"Sorry, SysFileSearch error ("Text")."
+     when Err=11; then call charout,"Sorry, no match ("Text"). Scan disks?"
+     when Err=12; then call charout,"Invalid selection ("Text")."
+     otherwise; call charout,"Something went wrong (error "Err"), but what?"
+   end
+end
+exit Err
+return
+
+/* ===========================================================================
+DCD_Halt: display a random message on ctl_break (called by signal on halt)
+=========================================================================== */
+DCD_Halt:
+Msg.0=8
+Msg.1="Ctl_break is wonderful!"
+Msg.2="Breaking up with you is hard to do!"
+Msg.3="Ctl_Break for the impatient!"
+Msg.4="Ouch!"
+Msg.5="Your wish is my command: I quit."
+Msg.6="I am not sure whether or not I want this..."
+Msg.7="Break dancing on your keyboard?"
+Msg.8="Please, don't do this to me!"
+N=random(1,Msg.0)
+say
+call charout,Msg.N
+/* ============================ end of DCD.CMD ============================ */
+

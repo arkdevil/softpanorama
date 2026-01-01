@@ -1,0 +1,2 @@
+/* Updated automatically --- do not modify */
+char version[] = "0.50";

@@ -1,0 +1,7 @@
+FORM1.FRM
+JMPARAM.VBX
+JMPARAM.BAS
+FORM2.FRM
+ProjWinSize=39,523,248,215
+ProjWinShow=2
+IconForm="Form1"

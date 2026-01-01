@@ -1,0 +1,872 @@
+From: marwk@levels.unisa.edu.au
+Newsgroups: comp.lang.pascal
+Subject: Kennington's FAQ  по Delphy
+
+
+Kennington's FAQ - by Raymond Kennington
+May 14, 1995
+
+I have compiled a list of Qs and As for problems which I have had to struggle
+to find answers to.  As the answers have been supplied mostly by others, I
+have created my own file for future reference.
+
+I have supplied it here for the benefit of others.  They can be freely
+distributed.
+
+Given a choice between publishing the names of those who have helped me
+or otherwise, I have chosen to be cautious.  Some very significant pieces
+of code or algorithms have their author's name attached.
+
+-----------------------------------------------------------------------------
+1. How to disable default keystroke behaviour:
+   e.g. in onKeyDown, if is a right arrow key then don't pass it on,
+   or   if 'A' make it 'a', but leave all others.
+
+2. How to create help for new components so that the Delphi help file is
+   not corrupted?
+
+3. How to dynamically create null-terminated strings like in C++?
+      p = new char[nChars];
+      for (i = 0; i < n; ++i)
+          process(p[i]);
+
+4. Is this possible to re-dimension arrays?
+
+5. What is the Beaujolais effect and how to avoid it?
+
+6. How to manage huge arrays.
+
+7. Is there a way to add Components as an array?
+
+8. Is it possible to allocate arrays dynamically.
+
+9. In a time-consuming process, for example processing every record in
+   in a table, how enable multi-tasking to coninue?
+
+10."I am trying to create a new component descended from TListBox that
+   adds and "ItemColor" property array and then changes the font
+   color accordingly before drawing the item.
+   I have figured out how to add the property array but have run into a
+   dead end trying to change the "DrawItem" handling.  The examples
+   included in the CWG have not helped out ...
+   Can anybody provide and example of how I would change the handling
+   of this event?"
+
+11.Where are some good FTP sites with Pascal source?
+
+12.How to connect IDAPI to ACCESS.
+
+13.Is there a way to make Acrobat appear readable on the screen when the
+   table of contents takes up the left third of the screen? Perhaps a change
+   of font would do it - but how?
+
+14.Is there a way of printing the manuals (OBJLANG) so that the i's and
+   every other character prints clearly?  The i's look like a split ell.
+   I am printing on a laser printer, so the output should be much better than
+   it is.
+
+15.What Delphi patches exist already?
+
+16.Which public properties are not retained in the .DMF file?
+   The Book states that all public properties are stored - not true.
+
+16.Given the name of a component as a String, how to access the component?
+
+17.How to access the label containing the text 'GView'?
+
+18.How to create a component on-the-fly?
+-----------------------------------------------------------------------------
+
+1. How to disable default keystroke behaviour:
+   e.g. in onKeyDown, if is a right arrow key then don't pass it on,
+   or   if 'A' make it 'a', but leave all others.
+
+A. In the first case: Change the Char passed to #0
+   in the second:     if key = 'A' then key = 'a';
+
+
+2. How to create help for new components so that the Delphi help file is
+   not corrupted?
+
+A. It is necessary in HelpInst to load the current .KWF file which one wants
+   to add the new help file to before running the add option.
+
+3. How to dynamically create null-terminated strings like in C++?
+      p = new char[nChars];
+      for (i = 0; i < n; ++i)
+          process(p[i]);
+
+A. Use StrAlloc and StrDispose. (an example of working code is required here)
+
+   Look at TMemStream or TFileStream (see CWG help).  Have used TMemStream
+   to store a display list of vectors with no problem.  The main issue for
+   you would be how to get the information into the stream.  If the
+   information is stored in a file it is very simple (just use LoadFromFile).
+
+A. Uses SysUtils
+
+   var
+      A: PChar;             { Memory NOT allocated }
+      S: String;
+   begin
+      S := 'This is a test of the EBS';     { S came from ? }
+      A := StrAlloc(80);                    { Allocate 80 bytes of storage }
+      StrPCopy(A, S);                       { Copy S into A }
+      StrDispose(A);                        { Free the memory used by A }
+   end.
+
+
+4. Is this possible to re-dimension arrays?
+
+A. Use the heap the code excerpts may be helpful.
+   Have been used to set arrays of 800 by 1200 this way.
+
+   const
+      MAXROWS  = 350;
+      MAXCOLS  = 450;
+
+   type
+      rowpointer = ^rowtype;
+
+      rowtype = array[1..MAXCOLS] of extended;
+
+   var
+     row : array[1..MAXROWS] of rowpointer;
+
+   (* function returning value of matrix *)
+   function mat(i,j : integer) : real;
+   begin
+      mat := row[i]^[j];
+   end;
+
+   (* procedure to write to matrix *)
+   procedure wmat(i,j : integer; val : real);
+   begin
+      row[i]^[j]:=val;
+   end;
+
+   (* procedure to set up matrix *)
+
+   procedure setmat;
+   var
+      i,j : integer;
+   begin
+      for i:=1 to rows do
+      begin
+         new(row[i]);
+         for j:=1 to cols do
+            wmat(i,j,0);
+      end;
+   end;
+
+   (* procedure to dispose of matrix *)
+   procedure DisposeMat;
+   var
+      i : integer;
+   begin
+      for i:=1 to availrows
+         do Dispose(row[i]);
+   end;
+
+5. What is the Beaujolais effect and how to avoid it?
+
+A. The MOST DANGEROUS aspect of Object Pascal: the so-called Beaujolais
+   effect:
+
+   Say you have
+
+      uses
+         ...
+         Tables,       { -- defines Include(X: Integer)    }
+         ...
+         LIsts,
+         ...;
+
+   Then when you call Include(Y)  in your program, it means
+
+      TABLE.Include(Y)
+
+   However, if later on, the supplier of Lists decides to offer a
+   definition for, say, Include(Z: Integer), then when you recompile
+   your program, - you have changed nothing! -, the call now means
+
+      LISTS.Include(Y)
+
+   You have changed nothing, I worked before, It still works after,
+   but it does a completely different thing. Nightmarish!
+
+   If Delphi were to be revised to offer overloading, they would
+   also be led to correct this infamous Beaujolais effect. In the
+   mean time there is only one way to protect yourself: always
+   use fully qualified names with the unit name prefixing the
+   identifier, as in the examples above.
+
+6. How to manage huge arrays.
+
+A. This is such a significant input that I have left the author's name
+   in the code.
+
+Enclosed is a unit that uses Windows global memory for allocating memory
+for arrays. It works fine even on very large arrays (several MB).
+
+Unit Huge;
+
+(***********************************************)
+(* Unit for making dynamic arrays and matrix.  *)
+(* The elementsize has a limit of 64 kB, but   *)
+(* the total size of each array/matrix is only *)
+(* limited by available memory.                *)
+(*                                             *)
+(* Per Ivar Steinsund (1994)                   *)
+(*                                             *)
+(* Example of use:                             *)
+(*                                             *)
+(* var J,K:longint;                            *)
+(*     Arr:PHugeRealArray;                     *)
+(*     Mat:PHugeSingleMatrix;                  *)
+(*                                             *)
+(* begin                                       *)
+(*    Arr:=new(PHugeRealArray,Init(0,200000,   *)
+(*             SizeOf(Real),true));            *)
+(*    if Arr^.Data<>nil then                   *)
+(*       for J:=0 to 200000 do Arr^.I(J)^:=J/5;*)
+(*    Arr^.Done;                               *)
+(*    Mat:=new(PHugeSinglematrix,Init(0,1000,  *)
+(*       0,1000,SizeOf(Single),True));         *)
+(*    If Mat^.Data<>nil then                   *)
+(*    for J.=0 to 1000 do                      *)
+(*       for K:=0 to 1000 do                   *)
+(*          Mat^.I(J,K)^:=J*K;                 *)
+(*    Mat^.Done;                               *)
+(* end;                                        *)
+(*                                             *)
+(***********************************************)
+
+interface
+
+uses  Objects,WinAPI,OMemory,WinTypes,WinProcs;
+
+Const
+    SegSize=$FFFF;
+
+Type
+    Adr=record
+       Off,Seg:Word;
+    end;
+
+    PHugeArray=^THugeArray;
+    THugeArray=Object(TObject)
+       Data:Pointer;
+       MinX,MaxX:LongInt;
+       ElementSize,ElementsPerSeg:LongInt;
+       constructor Init(Min,Max:LongInt; Size:Word; Message:boolean);
+       function ChangeSize(Min,Max:LongInt; Message:boolean):boolean;
+       function I(X:LongInt):Pointer;
+       destructor done; virtual;
+       procedure GrabMem(var NewData:Pointer; Range:LongInt; Change,Message:boolean);
+       function GetPtr(Pos:LongInt):Pointer;
+    end;
+
+    PReal=^Real;
+
+    PHugeRealArray=^THugeRealArray;
+    THugeRealArray=Object(THugeArray)
+       function I(X:LongInt):PReal;
+    end;
+
+    PHugeMatrix=^THugeMatrix;
+    THugeMatrix=Object(THugeArray)
+       MinY,MaxY,RangeY:LongInt;
+       constructor Init(Min1,Max1,Min2,Max2:LongInt; Size:Word; Message:boolean);
+       function ChangeSize(Min1,Max1,Min2,Max2:LongInt; Message:boolean):boolean;
+       function I(X,Y:LongInt):Pointer;
+    end;
+
+    PHugeWordMatrix=^THugeWordMatrix;
+    THugeWordMatrix=Object(THugeMatrix)
+       function I(X,Y:LongInt):PWord;
+    end;
+
+    PSingle=^Single;
+
+    PHugeSingleMatrix=^THugeSingleMatrix;
+    THugeSingleMatrix=Object(THugeMatrix)
+       function I(X,Y:LongInt):PSingle;
+    end;
+
+implementation
+
+    var EMessage:array [0..80] of char;
+
+    constructor THugeArray.Init(Min,Max:LongInt; Size:Word; Message:boolean);
+
+    begin
+       MinX:=Min;
+       MaxX:=Max;
+       ElementSize:=Size;
+       GrabMem(Data,MaxX-MinX+1,false,Message);
+    end;
+
+    destructor THugeArray.done;
+
+    begin
+       GlobalFreePtr(Data);
+    end;
+
+    function THugeArray.I(X:LongInt):Pointer;
+
+    const
+       Error:PChar='Error in huge array, continue? X=%lu';
+
+    begin
+{$IFOPT R+}
+       if (X<MinX) or (X>MaxX) then
+       begin
+          WVSPrintF(EMessage,Error,X);
+          if id_No=MessageBox(0,EMessage,'Index out of range!',mb_YesNo or mb_IconQuestion) then
+          begin
+             Done;
+             Halt;
+          end;
+       end;
+{$ENDIF}
+       I:=GetPtr(X-MinX);
+    end;
+
+    function THugeArray.ChangeSize(Min,Max:LongInt; Message:boolean):boolean;
+
+    var NewData:Pointer;
+
+    begin
+       MinX:=Min;
+       MaxX:=Max;
+       GrabMem(NewData,MaxX-MinX+1,true,Message);
+       if NewData<>nil then
+       begin
+          ChangeSize:=true;
+          Data:=NewData;
+       end
+       else ChangeSize:=false;
+    end;
+
+    procedure THugeArray.GrabMem(var NewData:Pointer; Range:LongInt; Change,Message:boolean);
+
+    var MemSize:LongInt;
+
+    begin
+       MemSize:=Range*ElementSize;
+       if not Change then ElementsPerSeg:=SegSize div ElementSize;
+       if (MemSize>SegSize) and (SegSize mod ElementSize<>0) then
+          MemSize:=(Range div ElementsPerSeg)*SegSize+ElementSize*(Range mod ElementsPerSeg);
+       if Change then NewData:=GlobalReAllocPtr(Data,MemSize,Gmem_Moveable or Gmem_NoDiscard)
+                 else NewData:=GlobalAllocPtr(Gmem_Moveable or Gmem_NoDiscard,MemSize);
+       if (NewData=nil) and Message then
+          MessageBox(0,'It is not possible to allocate enough memory.',
+                     'Error',mb_OK or mb_IconInformation);
+    end;
+
+    function THugeArray.GetPtr(Pos:LongInt):Pointer;
+
+    begin
+       GetPtr:=Ptr(Adr(Data).Seg+(Pos div ElementsPerSeg)*SelectorInc,
+                   Adr(Data).Off+(Pos mod ElementsPerSeg)*ElementSize);
+    end;
+
+    function THugeRealArray.I(X:LongInt):PReal;
+
+    begin
+       I:=inherited I(X);
+    end;
+
+    constructor THugeMatrix.Init(Min1,Max1,Min2,Max2:LongInt; Size:Word; Message:boolean);
+
+    begin
+       MinX:=Min1;
+       MaxX:=Max1;
+       MinY:=Min2;
+       MaxY:=Max2;
+       RangeY:=1+MaxY-MinY;
+       ElementSize:=Size;
+       GrabMem(Data,(MaxX-MinX+1)*(MaxY-MinY+1),false,Message);
+    end;
+
+    function THugeMatrix.ChangeSize(Min1,Max1,Min2,Max2:LongInt; Message:boolean):boolean;
+
+    var NewData:Pointer;
+
+    begin
+       MinX:=Min1;
+       MaxX:=Max1;
+       MinY:=Min2;
+       MaxY:=Max2;
+       RangeY:=1+MaxY-MinY;
+       GrabMem(NewData,(MaxX-MinX+1)*(MaxY-MinY+1),true,Message);
+       if NewData<>nil then
+       begin
+          ChangeSize:=true;
+          Data:=NewData;
+       end
+       else ChangeSize:=false;
+    end;
+
+    function THugeMatrix.I(X,Y:LongInt):Pointer;
+
+    const
+       Error:PChar='Error in huge matrix, continue? X=%lu and Y=%lu';
+
+    begin
+{$IFOPT R+}
+       if (X<MinX) or (X>MaxX) or (Y<MinY) or (Y>MaxY) then
+       begin
+          WVSPrintF(EMessage,Error,X);
+          WVSPrintF(EMessage,EMessage,Y);
+          if id_No=MessageBox(0,EMessage,'Index out of range!',mb_YesNo or mb_IconQuestion) then
+          begin
+             Done;
+             Halt;
+          end;
+       end;
+{$ENDIF}
+       I:=GetPtr(Y-MinY+RangeY*(X-MinX));
+    end;
+
+    function THugeWordMatrix.I(X,Y:LongInt):PWord;
+
+    begin
+       I:=inherited I(X,Y);
+    end;
+
+    function THugeSingleMatrix.I(X,Y:LongInt):PSingle;
+
+    begin
+       I:=inherited I(X,Y);
+    end;
+
+end.
+
+7. Is there a way to add Components as an array?
+
+A. The form keeps a list of these things.  It can be used something
+   like this:
+
+   var
+      I : integer;
+   begin
+   for i := componentCount - 1 downto 0 do {zero based list}
+   begin
+   if components[i] is TLabel then
+      (components[i] as TLabel).font.color := clBlue;
+   end;
+
+8. Is it possible to allocate arrays dynamically.
+
+A. Set the {$X+} switch and use
+
+   var
+      p : pChar;
+
+   p := MemAlloc(nChars+1);  (* nChars characters+ 1 null-byte *)
+   for i:=0 to n do
+      process(p[i]);
+
+   OR
+
+   for I := 0 to n do
+      process((p+i)^);
+
+A. Try the Tlist object.
+
+A. Try using TCollections
+
+A. In Borland Pascal variants its usually done with pointers.
+   So, take a generic pointer, allocate enough space for your array,
+   and then use offsets from the base pointer.  Here's an example:
+
+VAR
+   ElementSize : Byte;
+   DynArray    : Pointer;
+   NumElements : Integer;
+   TempElement : ^ElementType;
+
+BEGIN
+     GetMem( DynArray, (ElementSize*NumElements) ); {Allocates the array}
+     TempElement := DynArray;  {Points to item #1}
+     Inc( TempElement, 5 );    {Now points to item #6}
+     FreeMem( DynArray, (ElementSize*NumElements) ); {Frees up the array}
+END.
+
+9. In a time-consuming process, for example processing every record in
+   in a table, how enable multi-tasking to coninue?
+
+A. Call Application.ProcessMessages in the loop.
+
+10."I am trying to create a new component descended from TListBox that
+   adds and "ItemColor" property array and then changes the font
+   color accordingly before drawing the item.
+   I have figured out how to add the property array but have run into a
+   dead end trying to change the "DrawItem" handling.  The examples
+   included in the CWG have not helped out ...
+   Can anybody provide and example of how I would change the handling
+   of this event?"
+
+A. Danny Thorpe of Borland created a Console component (the equivalent of
+   WinCrt in TPW, BP) that is available (with source) on CompuServe. Should
+   be at ftp.borland.com as well.
+
+   This reads a.o.:
+
+   TColorConsole implements support for multiple text color attributes.  The
+   Console's font properties determine the text color color, background
+   color, font, style, etc of the display text.  Text foreground color is
+   Console.Font.Color; text background is Console.Font.BkColor.  Set the
+   Console's font properties, then writeln to the Console's text file
+   and that text will be displayed with those attributes.
+
+   You should be able to 'copy' the color part from there.
+
+11.Where are some good FTP sites with Pascal source?
+
+A. Check out http://www.cs.vu.nl/~jprins/tp.html
+   (see also regular announcements ...)
+
+A. SWAG is a veritable gold mine of PASCAL code
+
+ 107064 Apr 29 20:25 ftp://garbo.uwasa.fi/pc/INDEX.ZIP
+ INDEX.ZIP The annotated list of Garbo's MS-DOS files, zipped
+
+ 237240 Feb 28 11:19 ftp://garbo.uwasa.fi/pc/turbopas/swag.zip
+ swag.zip SWAG Reader + Information Files, SourceWare Archival Group
+
+ 523381 Nov 26 1993 ftp://garbo.uwasa.fi/pc/turbopas/swag9311.zip
+ swag9311.zip SWAG: A huge library of PD Turbo Pascal code, 11/93 update
+
+ 663693 Feb 26 1994 ftp://garbo.uwasa.fi/pc/turbopas/swag9402.zip
+ swag9402.zip SWAG: A huge library of PD Turbo Pascal code, 2/94 update
+
+ 439487 May 28 1994 ftp://garbo.uwasa.fi/pc/turbopas/swag9405.zip
+ swag9405.zip SWAG: A huge library of PD Turbo Pascal code, 5/94 update
+
+ 794769 Aug 27 1994 ftp://garbo.uwasa.fi/pc/turbopas/swag9408.zip
+ swag9408.zip SWAG: A huge library of PD Turbo Pascal code, 8/94 update
+
+ 826837 Nov 29 01:08 ftp://garbo.uwasa.fi/pc/turbopas/swag9411.zip
+ swag9411.zip SWAG: A huge library of PD Turbo Pascal code, 11/94 update
+
+ 627077 Feb 28 11:19 ftp://garbo.uwasa.fi/pc/turbopas/swag9502.zip
+ swag9502.zip SWAG: A huge library of PD Turbo Pascal code, 2/95 update
+
+ 455690 Mar 4 03:00 ftp://garbo.uwasa.fi/pc/turbopas/swaga-c.zip
+ swaga-c.zip SWAG Complete TP Code Package, all data, 1/5
+
+ 1178733 Mar 4 03:01 ftp://garbo.uwasa.fi/pc/turbopas/swagd-f.zip
+ swagd-f.zip SWAG Complete TP Code Package, all data, 2/5
+
+ 1199521 Mar 4 03:00 ftp://garbo.uwasa.fi/pc/turbopas/swagg-m.zip
+ swagg-m.zip SWAG Complete TP Code Package, all data, 3/5
+
+ 391679 Mar 4 03:01 ftp://garbo.uwasa.fi/pc/turbopas/swagn-r.zip
+ swagn-r.zip SWAG Complete TP Code Package, all data, 4/5
+
+ 904243 Mar 4 03:04 ftp://garbo.uwasa.fi/pc/turbopas/swags-z.zip
+ swags-z.zip SWAG Complete TP Code Package, all data, 5/5
+
+
+12.How to connect IDAPI to ACCESS.
+
+A. Thanks to Todd Fast for this significant contribution.
+
+   There are five basic steps to connect Paradox to Access:
+        1.  Obtain the Microsoft ODBC driver version 2.0 and the ODBC Manager.
+        2.  Configure the ODBC drivers and create data source names (DSN's).
+        3.  Configure an IDAPI alias to point to the ODBC DSN.
+        4.  Open Paradox with the correct IDAPI config file and attach to the
+            Access database.
+        5.  Open the Access tables.
+
+   Also, don't miss the huge caveat at the end of this article about
+   Access table names!
+
+---------------------------------
+        1.  Obtain the Microsoft ODBC driver version 2.0 and the ODBC Manager.
+        There are three ways to get these.
+
+        The first way is to contact MS and buy them.  I saw someone quote a
+        price of $12 on this group.
+
+        The second way is to buy MS Office Pro 4.3 or Access.  The drivers may
+        also come with one of the other programs that comes in Office, like
+        Word or Excel.  On installation of the programs, you should have the
+        ODBC drivers installed on your system.
+
+        The third way will give you the newest drivers, but not the ODBC
+        Manager.  The ODBC 2.0 drivers come with Paradox and are in the IDAPI
+        directory named ODBC.NEW and ODBCINST.NEW.  To install them, go find
+        where you have the ODBC*.DLL files already stored (usually      WINDOWS\SYSTEM).  Then, copy the *.NEW files to this location and
+        rename them to have a .DLL extension.  It's a good idea to rename the
+        existing DLL's with a .BAK extension.
+
+        2.  Configure the ODBC drivers and create data source names.
+        After you have the drivers installed, open the Windows Control Panel
+        and then double-click the ODBC manager icon.  You should see a dialog
+        that tells you which data sources you have created and which drivers
+        each uses in parentheses after them.
+
+        For each Access database you want to access, you need to configure a
+        data source that points to it.  To add a data source, press the         Add..." button.  You should then get a dialog asking which driver you
+        want to use for the data source.  Since you will be accessing Access    files, select the one that says something like "Access 2.0 ODBC driver
+        (*.mdb)".  If you don't see a driver that looks like this, then you
+        don't have the proper drivers installed. (See step 1 above.)
+
+        Once you have the correct driver selected and press "OK", you will see
+        a dialog called "ODBC Setup for Microsoft Access".  Fill in the "Data
+        Source Name" field with a name for the database you want to get to.
+        For example, if you are accessing a payroll database, put "Payroll" in
+        this field.  The "Description" field is for your own notes, and you can
+        safely leave it blank.  Fill in the "User Name" field with the user
+        name you will be using to access the database.  For unprotected
+        databases, use the name "Admin".
+
+        Now press the "Select Database..." button to point the data source name
+        (DSN) to the *.MDB file you want to access.  Find the file, fill in any
+        necessary options on the dialog, and press OK.  You should see the name
+        of the database on the lower part of the "ODBC Setup for Microsoft
+        Access" dialog.  If you leave this value blank, Paradox will ask upon
+        trying to attach to the database for the database file name.  It's
+        easier to specify it here, since you only have to do it once.
+
+        You have now successfully set up a DSN to point to the Access database.
+        You can close the ODBC manager or repeat this step to set up more
+        databases.
+
+        3.  Configure an IDAPI alias to point to the ODBC DSN.
+        Open the IDAPI Configuration Utility, and open the config file you want
+        to modify.  Since you will be using ODBC, you need to set up a new
+        IDAPI driver.
+
+        Remember:  Each Access database you attach to will need its own driver.
+
+        Press the "New Driver" button to bring up the "Add ODBC Driver" dialog.
+        In the "SQL Link Driver"field, type in any name you want.  These
+        characters prefixed with "ODBC_" will be the new driver's name.  Next,
+        in the "Default ODBC Driver" field, choose the Access ODBC driver.
+        Once you've chosen this driver, the name of the available DSN's will
+        appear in the "Default Data Source Name" field.  Choose the one you
+        want to access.  If you use the name in the example above, you'd choose
+        "Payroll".  Click OK, and you should see the new driver appear in the
+        list with the DBASE and PARADOX driver names.
+
+        Now you need to add an alias that uses this driver.
+
+        Remember:  For each ODBC IDAPI driver you add, you should have at least
+        one alias that uses it.
+
+        Go to the alias area, and press the "New Alias" button.  In the dialog
+        box, give your alias a name.  Under "Alias Type", choose the name of
+        the driver you just added, the one that starts with the "ODBC_" prefix.
+        In the example above, you'd choose "Payroll" as the alias name, and
+        "ODBC_Payroll" as the driver name.  Click OK.
+
+        Now you need to configure the alias.  Choose the new alias you created
+        in the list to the left.  The alias configuration information should
+        appear to the right.
+
+        The "Type" field contains the name of the ODBC driver you are using,
+        and is filled automatically.
+
+        The "Path" field is a bit of a misnomer.  The on-line help states that
+        this field should contain the path to your "vendor-supplied driver",
+        which means I assume the name of the DLL that supports ODBC access to
+        Access.  The name of the Access ODBC driver that comes with Office is
+        ODBCJT16.DLL, and it should be in the same location as your ODBC.DLL,
+        usually the WINDOWS/SYSTEM directory.  So, in accordance with my
+        example, I would type "WINDOWS/SYSTEM/ODBCJT16.DLL" in this field.
+
+        Let me say this:  it doesn't appear to matter what you put in this
+        field.  I theorize that since Windows automatically searches the
+        WINDOWS\SYSTEM directory for DLL's, you don't need to explicitly
+        provide the path.  However, if the drivers are somewhere else, you may
+        need to give the path in this field.  I don't know because I didn't
+        try.
+
+        I also know that you can safely put the path to the *.MDB file that you
+        will be accessing in the "Path" field.  Since the path to the database
+        is actually set in the ODBC manager, there is no need to specify it
+        here.  It simply doesn't seem to matter to Paradox.  I also tried the
+        path to ODBC.DLL with the same results.
+
+        All in all, if you're having problems with the ODBC connection, don't
+        spend a great deal of time trying different values in the "Path" field
+        like I did.  Put in "WINDOWS/SYSTEM/ODBCJT16.DLL" and let it be.
+
+        Finally, type in the user name that you typed into the ODBC DSN setup
+        dialog.  For my example and for a nonsecured database, this would be
+        "Admin".
+
+        For the values for the other fields, consult the on-line help.  For
+        Access access, the defaults work fine (for me, anyway).  Save the
+        config file, and exit or set up more driver/alias combinations.
+
+        That's it for the IDAPI configuration. (whew)
+
+        4.  Open Paradox with the correct IDAPI config file and attach to the
+        Access database.
+
+        Once you have the config file saved, you need to open Paradox with it.
+        There are two ways to do this.
+
+        The first is to have made the IDAPI config changes in the default
+        IDAPI.CFG file.  In this case, as long as you haven't overidden the use
+        of the default config file, Paradox will load up with the correct alias
+        available.
+
+        The second is to override the use of the default config file by using
+        the command-line paramater "-o".  If you did like me, you made changes
+        to a different IDAPI file, and saved it somewhere.  On the command line
+        in the Windows icon (use File | Properties in the Program Manager)
+        after the path to PDOXWIN.EXE, put "-o" followed by the path to the
+        *.CFG file you made that contains the ODBC alias.
+
+        Now you need to attach to the Access database.  Start Paradox, and
+        under the File menu, select "Aliases...".  In the "Database Alias"
+        field, find the name of your ODBC alias.  For my example, assuming I
+        have an ODBC alias "Payroll", I would find this name in the drop-down
+        edit box.  Assuming you've filled in everything correctly to this
+        point, the fields below the "Database Alias" field should have various
+        bits of info from the ODBC setup and the IDAPI config file.  I'd
+        reccommend not changing any of it before trying this next part.
+
+        To attach to the Access database, press the "Connect" button.  You will
+        see the pointer turn to the SQL hourglass shape, and it may take a
+        moment.  Eventually, you should get the message in the upper right of
+        the dialog telling you that you have connected successfully to the
+        database.
+
+        We're almost done...only one more part!
+
+        5.  Open the Access tables.
+
+        Gee, sounds easy, huh?  This is what held me up for two weeks until,
+        with the generous help of Aranya Ghatak, I figured out an annoying and
+        undocumented limitation of Paradox. More on that later.  First, how to
+        open a table.
+
+        You cannot change the working directory to the ODBC alias.  You have to
+        manually open the table with the File | Open | Table command or the
+        open table icon on the toolbar.  When the open table dialog comes up,
+        select the ODBC alias from the drive/alias list.
+
+        Voila!  The Access table names appear in the list on the left.  Now,
+        all you should have to do is double-click one, right?  Well, maybe, as
+        long as you know the following limitation:
+
+        ***************************************
+
+        Paradox cannot access Access (and possible other format) tables through
+        ODBC (or SQL?) that have more than one word as the table name.
+
+        ***************************************
+
+        If you try, you will get the annoying message that the table does not
+        exist, even though you can see it just fine in the open table dialog.
+        By the way, you cannot open it by typing the multi-word name of the
+        table, either.
+
+        If anyone knows of a driver without this limitation, please write me
+        and let me know.
+
+        The possible implications of this are that you will need to restructure
+        any existing Access databases that have multi-word names to contain
+        only one word name. (!)  This could be a big problem.  I don't know if
+        Access preserves relationships with renaming, much less what it does
+        with VB code that references the tables.  Maybe MS should use table
+        aliases?
+
+        Next bloated version, I guess.  :->
+
+   By the way, Paradox is better at accessing Access tables than Access
+   itself.  Paradox supports record-level locking on Access tables, whereas
+   Access only allows page-level locking.
+
+   --------------------------------------
+
+   So that's how you do it.  I hope you benefit from this info, and don't
+   struggle for weeks like I did.  If anyone finds an error in this post, or
+   has any comment, please write me at tfast@eden.com.  Good luck.
+
+   Todd
+
+13.Is there a way to make Acrobat appear readable on the screen when the
+   table of contents takes up the left third of the screen? Perhaps a change
+   of font would do it - but how?
+
+A. No.  (Why use this poor display system, BORLAND??)
+
+14.Is there a way of printing the manuals (OBJLANG) so that the i's and
+   every other character prints clearly?  The i's look like a split ell.
+   I am printing on a laser printer, so the output should be much better than
+   it is.
+
+A. If an HP III or similar then use Postscript, or try the configuration
+   setting of the Acrobat reader to use bitmap fonts for printing.
+
+15.What Delphi patches exist already?
+
+A. ftp://ftp.borland.com/techinfo/techdocs/langprod/delphi/gen/dlib.zip
+
+        contains a patched version of DLIB.EXE.
+
+
+16.Which public properties are not retained in the .DMF file?
+   The Book states that all public properties are stored - not true.
+
+A. TClipboard.GetComponent
+   SetComponent.
+
+   Public properties will not be retained, only published ones. *grr*
+
+16.Given the name of a component as a String, how to access the component?
+
+A. var
+      aLabel: TLabel;
+   begin
+      aLabel := FindComponent('GView') as TLabel; {will throw an exception if
+                                        it's not a TLabel - you have to handle that}
+      aLabel.font.color := clRed;
+   end;
+
+17.How to access the label containing the text 'GView'?
+
+A. for i := 1 to componentCount do
+   begin
+      if components[i-1] is TLabel then
+         if TLabel(components[i-1]).caption = 'GView' then
+            TLabel(components[i-1]).font.color := clRed;
+   end;
+
+18.How to create a component on-the-fly?
+
+A. Here is how to create a Tedit component when a Button1 is pressed.
+
+   procedure TForm1.Button1Click(...)
+   var
+      e : Tedit;  {place as a private Var of Tform1 if need for longer
+                   duration, and then free the memory in a more appropriate
+                   place}
+   begin
+      e := TEdit.create(Form1);
+
+      e.Parent := Form1; {specify which object is to contain it}
+
+      e.left := 4;
+      e.top  := 9;
+      e.width := 200;
+      e.height := 40;
+
+      e.text := 'hello';
+
+      {do something else with it, probably a global variable and not freed
+       here - this is just a simple demo to illustrate the idea}
+
+      e.free;
+   end;
+

@@ -1,0 +1,164 @@
+From: burgess@cynjut.infonet.net (Dave Burgess)
+Newsgroups: comp.os.386bsd.announce,comp.answers,news.answers
+Subject: [comp.os.386bsd] BNR/2 derived BSD for PCs FAQ (Part 10 of 10)
+Date: 27 Dec 1994 01:00:38 -0600
+Organization: Dave's House in Omaha
+Message-ID: <386bsd-faq-10-788511609@cynjut.infonet.net>
+
+Posted-By: auto-faq 3.1.1.2
+Archive-name: 386bsd-faq/part10
+
+Section 9	("Supported" Software List).
+
+#9.1	Software known to run under 386BSD
+#9.2	List whether patches are needed
+#9.3	List version/release of program
+#9.4	List who is supporting it if anyone
+#9.5	List where you can get it
+
+9.0	What GNU software has been tested and is working with Net/2 derived
+	BSD systems for the 386?
+
+	Just about all of it.
+
+
+9.1	Has anyone ever gotten news to work?
+
+
+	news running on 386bsd.  Here is a quick summary of the major 
+	places to stumble:
+
+	1)  get bash, gmake, gcc 2.X, cnews, trn (or your favorite reader).
+
+	2)  Make uucp work. (Read the info files that come with the
+	    original distribution for the whole scoop on configuration 
+	    files.)
+
+	Ed Note:  This step is not needed if you are imeplementing SLIP or
+	are directly connected to a network.
+
+	3)  Edit all the scripts which come with cnews and replace every 
+	occurence of /bin/sh with /usr/local/bin/bash (or wherever you put 
+	it).
+
+	4)  Build cnews using bash, gmake and gcc 2.x
+
+	5)  Install cnews in the directories you want it.  Some hand-hacking 
+	of the intall scripts is required (Too long ago to remember the 
+	details).
+
+	6)  Change the permissions on all the scripts from execute only to 
+	read-execute for group and other.  (On 386bsd, if you can't read 
+	a script, you can't execute it).
+
+	7)  Set up uucp to accept news
+
+	8)  Post an article and steal it out of the uucp queue before it 
+	gets sent.  Feed it to your rnews (as user uucp) instead and make 
+	sure that it does not bomb out with permission denied or some such.
+
+	9)  Have fun!
+
+	Implementing innd is even easier.  The configure script that comes 
+	with the system has been modified to work more correctly with
+	Net/2 derived BSD systems.  There are rumors of  problems with 
+	'lint', but these are easiest to find if you just run the configure
+	script and let the system find the errors.  This patch file gives
+	an example of the types of changes that need to be made.
+
+	Ed Note:  This patch is reversed.  The first block in each
+	section is the way your Makefile should look.
+
+*** /usr/src/local/innd-1.4-dist/Makefile	Mon Jun 14 11:01:35 1993
+--- /usr/src/local/innd-1.4-dist/Makefile.orig	Mon Jun 14 10:54:25 1993
+***************
+*** 35,46 ****
+  	$(SHELL) ./makedirs.sh
+  
+  ##  Other generic targets.
+! depend tags ctags profiled:
+  	@$(MAKE) $(FLAGS) WHAT_TO_MAKE=$@ common
+  
+  clean:
+  	@$(MAKE) $(FLAGS) WHAT_TO_MAKE=$@ common
+! 	rm -f libinn.a libinn_p.a FILELIST
+  
+  ##  Common target.
+  common:
+--- 35,46 ----
+  	$(SHELL) ./makedirs.sh
+  
+  ##  Other generic targets.
+! lint depend tags ctags profiled:
+  	@$(MAKE) $(FLAGS) WHAT_TO_MAKE=$@ common
+  
+  clean:
+  	@$(MAKE) $(FLAGS) WHAT_TO_MAKE=$@ common
+! 	rm -f libinn.a libinn_p.a llib-linn.ln FILELIST
+  
+  ##  Common target.
+  common:
+***************
+*** 87,96 ****
+  	-cd syslog; $(CC) -o syslogd syslogd.c ; cd ..
+  	@echo "Install syslogd and syslog.conf as appropriate"
+  
+! ##  Configure, compile.
+  world:		Install.ms
+  	cd config ; $(MAKE) $(FLAGS) subst quiet ; cd ..
+  	cd lib ; $(MAKE) $(FLAGS) install ; cd ..
+  
+  ##  Make a distribution.
+  shar:
+--- 87,99 ----
+  	-cd syslog; $(CC) -o syslogd syslogd.c ; cd ..
+  	@echo "Install syslogd and syslog.conf as appropriate"
+  
+! ##  Configure, compile, and lint.
+  world:		Install.ms
+  	cd config ; $(MAKE) $(FLAGS) subst quiet ; cd ..
++ 	cd lib ; $(MAKE) $(FLAGS) lint ; cd ..
++ 	cat lib/lint
+  	cd lib ; $(MAKE) $(FLAGS) install ; cd ..
++ 	$(MAKE) $(FLAGS) lint
+  
+  ##  Make a distribution.
+  shar:
+
+  Simple as that :-)
+
+
+9.2	How did you get emacs to compile?
+
+	The problem is in the dump-emacs function.  It writes the image 
+	header and then the text section of the image overwrites the
+	header.  This leaves you with a bad image.  If you try to load it 
+	into gdb, it will tell you that it is not an executable.  
+
+	What to do?
+
+	Look back at your configuration command:
+
+	>% configure i386-intel-386bsd --with-x=no
+
+	The 386bsd qualifier means that the compiles will include the file
+	src/s/386bsd.h.  If you go into this file and add the lines:
+
+	#define A_TEXT_OFFSET(x)  (sizeof (struct exec))
+	#define A_TEXT_SEEK(hdr) (N_TXTOFF(hdr) + A_TEXT_OFFSET(hdr))
+
+	This tells the subroutines in src/unexec.c about the 32 byte image
+	header, so that they will set up the header appropriately and not step
+	on it while writing the emacs executable.
+
+	The second problem is that emacs tries use its own crt0.o file.
+	Kill that line in the Makefile and you should be able to compile
+	for either static or shared library operations.
+
+
+-- 
+TSgt Dave Burgess           | Dave Burgess
+NCOIC, USSTRATCOM/J6844     | *BSD FAQ Maintainer
+Offutt AFB, NE              | Burgess@cynjut.infonet.net or ...@s069.infonet...
+                               
+

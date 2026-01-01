@@ -1,0 +1,694 @@
+HTMSTRIP.DOC                        1                         Revised: 02-28-97
+
+The HTMSTRIP.EXE program attempts to read HTML pages, remove the  HTML  coding,
+and write the file out as something more useful.  Features of this program:
+
+  * Ideal way to prep HTML documents for later retransmission via e-mail (which
+    doesn't support the fonts, pictures, etc).  Beats out  Netscape's  Save  As
+    Text option hands down.
+  * Can be run across an entire subdirectory (for example,  your  entire  cache
+    subdirectory), and will only process the  HTML  documents  that  it  finds.
+    (There are some options on this.)
+  * Removes all embedded HTML commands.
+  * Recodes the standard HTML "entity references" (so "&copy;" becomes  "(c)").
+    The actual replacements are coded in a user-modifiable lookup file.
+  * Handles standard indent, heading, selection groups, menus, tables, etc.
+  * Reflows all text as appropriate
+  * Can provide character-translation table to filter out characters that  only
+    work under Windows.
+  * Optionally, will  replace  Link,   Image,   and   Input   references   with
+    user-definable text representations.
+  * Optionally, alerts you to possible errors in the HTML code itself.
+  * Pressing escape stops the program early.
+
+HTML codes are surrounded within <...> indicators.   For  upward  compatibility
+reasons, Web browsers ignore any codes that  they  don't  understand  and  just
+process the ones they can handle.
+
+Note that the HTMSTRIP command is currently geared for handling HTML 3.0  files
+including the table extensions from Netscape.
+
+HTMSTRIP removes all HTML codes.  It also handles  the  standard  HTML  "&xxx;"
+"entity references" (for example, "&copy;" is replaced by "(c)").  You can  add
+or change these replacements as desired  by  using  the  INI  file  (documented
+later).
+
+
+Quickie instructions:
+
+Okay!  You hate to read.  I know that.  And there aren't any cute  pictures  in
+this documentation and, like everything I write, it's way too long to keep your
+attention for long.  So, let's bottom line it; what's the quickest way  to  use
+this program without learning any of the options?
+
+Let's  presume  you're  running  under  Windows.   Take  the  HTMSTRIP.EXE  and
+HTMSTRIP.INI files from the  HTMSTymm.ZIP  file  and  copy  them  to  the  same
+subdirectory somewhere.  (They should be in the same subdirectory already since
+that's how uncompressing them would have gone.) This subdirectory should be  in
+your path.  If you're not sure what your path is, hop to DOS  and  type  "SET".
+There   should    be    a    line    shown    that    says    something    like
+"PATH=C:\;C:\DOS;C:\WINDOWS".   I  wouldn't  advise  copying  HTMSTRIP.EXE  and
+HTMSTRIP.INI to your WINDOWS subdirectory.  Maybe your root?
+
+
+HTMSTRIP.DOC                        2                         Revised: 02-28-97
+
+Get on the Web and save the source of an HTML document to your hard disk.  This
+is done from the Netscape Navigator by bringing up  a  page  and  saying  "Save
+As...".  Remember the file name and what subdirectory you  saved  the  document
+to.  Just for example's sake, let's say the file name is "UPEPIS.HTM".
+
+Hop to DOS.  (You can run HTMSTRIP from the Run  option  in  Windows  but  it's
+easier to explain this way.)  Make the directory where you saved  the  document
+your default subdirectory.  (This  is  usually  done  with  a  series  of  "CD"
+commands in DOS.)
+
+Now, type:
+
+        HTMSTRIP
+
+You didn't pass in any parameters so HTMSTRIP will request the name of the file
+to process.  Enter the name of the HTML file.  In our case, this  would  appear
+like:
+
+        Enter filespec to process? UPEPIS.HTM
+
+Presuming you did everything correctly, the HTMSTRIP program will read the HTML
+file and tell you it created a new file with the file extension of  ".OUT"  (in
+our case, "UPEPIS.OUT").
+
+That was pretty easy.  Now, hop back into Windows and bring the new file up  in
+your text editor (NotePad or whatever).  With luck, you'll see the file looking
+similar to how it did when you were viewing it under  your  Web  browser.   The
+difference is that it's now a properly-formatted text document  which  fits  on
+the screen and can be e-mailed to someone.
+
+Hop back into DOS.  Type "HTMSTRIP /?".  You'll see there are a bunch of  other
+parameters that you can pass in.  If you're not pleased with  the  output  file
+that was created, you might want to read the  quick  on-screen  description  of
+each option and then consult the HTMSTRIP.DOC file for more instructions  about
+anything that sounds interesting.  Chances are, you won't want to revise any of
+the system defaults at least initially.   If  you  find  yourself  consistently
+needing to change some options, you might want to edit the HTMSTRIP.INI file to
+specify those new defaults.  Read the  BRUCEINI.DOC  file  for  information  on
+overriding defaults.
+
+Note that the instructions tell you you can use wildcards for  the  input  file
+name.  You can do something like "HTMSTRIP *.HTM" and  it  will  process  every
+file with an ".HTM" extension in your default subdirectory.
+
+
+
+HTMSTRIP.DOC                        3                         Revised: 02-28-97
+
+HTML codes:
+
+HTMSTRIP is also tuned to allow it to specially-handle  several  embedded  HTML
+codes.  These codes are the following:
+
+                 Supported
+Element          Attributes   Description
+
+<!-- ... -->                  Comments (skip)
+<A ...>...</A>                External link
+                 HREF=site      Start of hypertext link
+                 ID=anchor      Establishes target for hypertext links
+                 NAME=anchor    Establishes target for hypertext links
+<BASE ...>                    Establishing a root directory
+                 HREF=site      Prefix to add to unqualified sites
+<BLOCKQUOTE>...</BLOCKQUOTE>  Indented block of text
+<BR>                          Forced line break
+<CAPTION>...</CAPTION>        Title for a table block
+<CENTER>...</CENTER>          Centering text block
+<DD>                          Term definition
+<DIR>...</DIR>                Directory list of items (obsolete)
+<DL>...</DL>                  Definition list block
+<DT>                          First term of definition list/glossary
+<H1> to <H6>...</H1> to </H6> Heading items
+<HR>                          Horizontal rule
+<IMG ...>                     Image
+                 ALT=text       What to display if text-only environment
+                 SRC=site       Location of the image
+<INPUT ...>                   User input
+                 TYPE=CHECKBOX  Type of input -- shown as [_]
+                 TYPE=HIDDEN    Type of input -- suppress
+                 TYPE=RADIO     Type of input -- shown as (_)
+<LI>                          Menu/Ordered/Unordered/Directory list item
+<MENU>...</MENU>              Menu listing block (obsolete)
+<OL>...</OL>                  Ordered listing block (HTMSTRIP skips numbers)
+<OPTION>                      Used for single/multiple choice menus
+<P>                           Paragraph indicator
+<PRE>...</PRE>                Preserve spacing block (preformatted text)
+<SCRIPT>...</SCRIPT>          Java script blocks are ignored
+<SELECT>...</SELECT>          Block for single/multiple choice menu
+                 MULTIPLE       Allow for multiple selections
+<TABLE>...</TABLE>            Table block
+<TD>...</TD>                  Table data (cell)
+                 ALIGN=spec     How to align the cell (default is LEFT)
+                 COLSPAN=n      How many columns to span with this cell
+                 ROWSPAN=n      How many rows to span with this cell
+<TH>...</TH>                  Table heading
+                 ALIGN=spec     How to align the cell (default is CENTER)
+                 COLSPAN=n      How many columns to span with this cell
+                 ROWSPAN=n      How many rows to span with this cell
+<TITLE>...</TITLE>            Title item
+<TR>...</TR>                  Table row
+<UL>...</UL>                  Unordered listing
+
+HTMSTRIP.DOC                        4                         Revised: 02-28-97
+
+If you run across other codes that become vital, let me know and  I'll  try  to
+handle them somehow.
+
+
+How to get HTML files:
+
+Some people who are using regular Web browsers like Mosaic  or  Netscape  don't
+realize that they're  automatically  saving  HTML  files  to  their  hard  disk
+throughout every Web session.  That's because  just  about  every  Web  browser
+saves the most-recently accessed files from  the  Web  (including  HTML  source
+code, GIF's, and JPG's) on your hard disk and reads them from there instead  of
+requiring you to download them every time you go back to a previous page.  This
+is typically settable by you  under  "Preferences"  and  "Cache"  on  your  Web
+browser.
+
+I usually set my Web browser to have a huge cache, maybe 10MB.  Anything  beats
+downloading the same pages over again even at 28.8K.  And I make sure that I do
+not have anything specified like "clear cache at the  end  of  every  session".
+Then I just go through the  files  in  the  cache  subdirectory  afterward  and
+reprocess them.
+
+Two disadvantages to a cache...  It takes up hard disk space but, hey, the  Web
+browser is  typically  in  Windows  so  why  are  you  surprised.   The  second
+disadvantage is that  if  the  page  actually  changes  between  sessions,  you
+typically won't notice the new page as long as it remains in  your  cache.   If
+you think a page is still in cache and should have been changed but didn't, you
+can typically ask your Web browser to reload the page.  On some browsers,  this
+is shown as an arrow in the form of a circle.
+
+HTMSTRIP can process the entire cache subdirectory.  It  automatically  detects
+non-HTML files for you and processes accordingly.  It  creates  new  text  file
+versions of just the HTML pages it finds.
+
+Another great way to get HTML  pages  is  to  use  the  URL-minder  service  at
+http://www.netmind.com/URL-minder/new/register.html  This  is  a  free  service
+which automatically tells you whenever a Web page's contents changes.   If  you
+use the advanced features, you can have the Web page's HTML code sent to you as
+a file attachment (it's easier than dealing with the "embed" option too).  Then
+you can run HTMSTRIP on the resulting file.
+
+
+Specifying parameters:
+
+Parameters for this program can be set in the following ways.  The last setting
+encountered always wins:
+  - Read from an *.INI file (see BRUCEINI.DOC file),
+  - Through the use of an environmental variable (SET HTMSTRIP=whatever), or
+  - From the command line (see "Syntax" below)
+
+HTMSTRIP also allows you to define:
+  - How "entity references" (things like "&reg;") are shown
+  - How "symbolic references" (things like "[input]") are shown
+  - Which characters should be filtered  into  other  characters  (things  like
+    showing "’" as "'" -- none of these should actually appear on Web pages  by
+    the way)
+
+These are explained in sections at the end of this documentation.
+
+
+HTMSTRIP.DOC                        5                         Revised: 02-28-97
+
+Syntax:
+
+    HTMSTRIP [ filespec | @listfile ] [ /Cpath ] [ outfile ] [ /EXT=.xxx ]
+      [ /COPY=path ] [ /CREATE ] [ /ALL ] [ /ATTR=attribs ] [ /WIDTH=n ]
+      [ /FORCE ] [ /RULE=s ] [ /BORDER=c ] [ /BUFF=n ] [ /SPACES ] [ /RSPACE ]
+      [ /SYMBOLS ] [ /A=spec ] [ /IMG=spec | /IMGALT=spec | /ALTONLY ]
+      [ /-INDENT ] [ /WARNINGS ] [ /-TABLE ] [ /Tpath ] [ /MONO ]
+      [ /Iinitfile | /-I ] [ /Linitfile ] [ /FILTER | /FILTER=filename ]
+      [ /? ] [ /?&H ]
+
+where:
+
+"filespec" tells the routine which file or files  are  to  be  processed.   The
+specification can include path and wildcards if desired.  Typically,  the  file
+names are *.HTM files.  If no input specification (filespec  or  @listfile)  is
+provided, you'll be prompted for one.  If no extension is provided,  ".HTM"  is
+presumed.  (If you want to process a file which does  not  have  an  extension,
+include the trailing period on the file  name,  such  as  "HTMSTRIP  HTTP_WWW."
+(with the period in there).
+
+"@listfile" allows you to have a variety of file specifications saved in a text
+file named "listfile".  Each line in  the  file  should  consist  of  one  file
+specification, each of which can include a path and wildcards if desired. Blank
+lines and lines beginning with semi-colons, colons, or quotes are ignored.   If
+no input specification (filespec or @listfile) is provided, you'll be  prompted
+for one.
+
+"/Cpath" specifies that the cache is found in a particular subdirectory.   This
+allows you to specify a default location in your *.INI file (see  BRUCEINI.DOC)
+and just specify something like "A*.HTM"  for  the  files  to  process.   Note,
+however, that if you don't use *.INI files, it's easier to  just  pass  in  the
+input file path with the "filespec" parameter ("HTMSTRIP  *.HTM  /C\CACHE"  and
+"HTMSTRIP \CACHE\*.HTM" are the same).  Defaults to your current default  path.
+If the input filespec includes drive or path information,  this  will  override
+the /Cpath specification.
+
+"outfile" is the name of the output file  to  create.   Is  overwritten  if  it
+exists already.  If no output file name is provided, the routine will  use  the
+infile and provide an extension of *.OUT.  (The default .OUT extension  can  be
+overridden using the /EXT=.xxx parameter.) An outfile cannot  be  specified  if
+wildcards or @listfile are used for the input file specification.
+
+"/EXT=.xxx" allows you to specify a different default file  extension  for  the
+output file.  This parameter only matters if you do not explicitly  specify  an
+output file name.  Initially defaults to "/EXT=.OUT".
+
+"/COPY=path" specifies that the output files (for example, BRUCE.OUT  when  the
+input was BRUCE.HTM) are to be  created  in  the  specified  subdirectory.   By
+default, the program creates the output files in the same  path  as  the  input
+files.  If the subdirectory does not exist, you will be prompted for whether to
+create it or not based on the value of the /CREATE parameter.
+
+"/CREATE" automatically  creates  the  output  subdirectory  if  /COPY=path  is
+specified.  The default is "/-CREATE"; if the subdirectory is  not  there,  the
+program prompts whether it should be created or not.
+
+
+HTMSTRIP.DOC                        6                         Revised: 02-28-97
+
+"/ALL" says that if the program encounters what it thinks is just a text  file,
+it should take the file and try to fix up CR/LF problems (Unix files  end  with
+LF's instead of CR/LF which is what DOS needs) and  that's  it.   This  can  be
+somewhat risky since it may misdiagnose a file but it should be safe if  you're
+running it on your cache subdirectory.  Initially  defaults  to  "/-ALL"  which
+means it won't process it unless it thinks it's an HTML file.
+
+"/-ALL" says to skip files if the program thinks it's not an HTML  file.   This
+is initially the default.
+
+"/ATTR=attribs" allows you to specify a combination of attributes that you want
+considered.  You can specify any combination of R (read-only),  H  (hidden),  S
+(system), or A (archive bit).  Precede any character(s)  with  "-"  to  exclude
+instead of include.  Unlike with  the  DOS  DIR  command,  the  inclusions  and
+exclusions are subject to "OR" conditions; /ATTR=HS will retrieve any file that
+is either hidden or a system file or both.   You  can  specify  "/ATTR=ALL"  to
+specify that all files are to be processed.  Initially defaults to /ATTR=-H-S-R
+(skip hidden, system, or read-only files).
+
+"/WIDTH=n" specifies the desired line length for wrapping long lines  and  also
+for centering.  Initially defaults to "/WIDTH=80".
+
+"/FORCE" says that the specified width must be adhered to.  The only  exception
+to this is that tables may force a width expansion if the  cells  simply  can't
+fit on the page otherwise.  Using /FORCE means that <PRE>...</PRE>  blocks  may
+be wrapped (typically a no-no) and some words in tables may get split up if the
+entire word can't fit in the computed cell width.  The latter is  especially  a
+problem if there are lots of cell columns in a table; there isn't much room for
+the actual data when the cells themselves take up  so  much  space.   Initially
+defaults to "/-FORCE".
+
+"/-FORCE" says that the desired  widths  can  be  ignored  if  table  cells  or
+<PRE>...</PRE> blocks would look more natural without it.   This  is  initially
+the default.
+
+"/RULE=s" specifies that a string is to be repeated the width of the line. This
+is used to separate sections.  The string  can  be  a  single  character  (like
+"/RULE=-"), multiple characters (like "/RULE="- ""), it can contain decimal and
+hexadecimal characters (like "/RULE=\066\097\116"--see BRUCEHEX.DOC), it can be
+"/RULE=NULL" (which typically results in a blank line), or just simply  "/RULE"
+(which is the same thing as "/RULE=-" if /BORDER=T and "RULE=\196" if /BORDER=S
+or /BORDER=D).  Personally, if your printer supports IBM graphics characters, I
+find "/RULE=\196" to be  the  most  pleasing  of  the  rule  lines.   Initially
+defaults to /RULE=- .
+
+
+HTMSTRIP.DOC                        7                         Revised: 02-28-97
+
+"/BORDER=c" specifies the type of border to use.  The possible choices for  "c"
+are:
+  D  -- double line
+  S  -- single line
+  T  -- text character line    -- this is the default
+  B  -- blanks (spaces)
+  N  -- none
+  DV -- double line is used for vertical borders, lines are skipped in
+        horizontal rows within the table itself
+  SV -- same as DV except single line
+  TV -- same as DV except text lines
+Examples of the various border types:
+
+     <D>ouble       <S>ingle        <T>ext         <B>lank        <N>one
+   ╔═══╦═══╤═══╗  ┌───┬───┬───┐  +---+---+---+
+   ║ 1 ║ 2 │ 3 ║  │ 1 │ 2 │ 3 │  | 1 | 2 | 3 |    1   2   3      1   2   3
+   ╠═══╬═══╪═══╣  ├───┼───┼───┤  +---+---+---+                   4   5   6
+   ║ 4 ║ 5 │ 6 ║  │ 4 │ 5 │ 6 │  | 4 | 5 | 6 |    4   5   6      7   8   9
+   ╟───╫───┼───╢  ├───┼───┼───┤  +---+---+---+
+   ║ 7 ║ 8 │ 9 ║  │ 7 │ 8 │ 9 │  | 7 | 8 | 9 |    7   8   9
+   ╚═══╩═══╧═══╝  └───┴───┴───┘  +---+---+---+
+
+                      <DV>           <SV>           <TV>
+                  ╔═══╦═══╤═══╗  ┌───┬───┬───┐  +---+---+---+
+                  ║ 1 ║ 2 │ 3 ║  │ 1 │ 2 │ 3 │  | 1 | 2 | 3 |
+                  ╠═══╬═══╪═══╣  ├───┼───┼───┤  +---+---+---+
+                  ║ 4 ║ 5 │ 6 ║  │ 4 │ 5 │ 6 │  | 4 | 5 | 6 |
+                  ║ 7 ║ 8 │ 9 ║  │ 7 │ 8 │ 9 │  | 7 | 8 | 9 |
+                  ╚═══╩═══╧═══╝  └───┴───┴───┘  +---+---+---+
+
+"/BUFF=n" specifies how many spaces to position on either side of the  vertical
+bars in the tables.  Defaults to /BUFF=1.
+
+"/SPACES"  retains  extra  vertical  spacing  between  sections.    There   are
+frequently lots of extra blank lines that appear in the output file either  due
+to specific HTML requests or to insure proper reformatting.  Specifying /SPACES
+allows these to stay there.
+
+"/-SPACES" removes these extra blank lines.  This also tries  to  remove  empty
+columns in tables as well as some blank rows in tables.  This is initially  the
+default.
+
+"/RSPACE" requires that a blank line appear before and  after  horizontal  rule
+(<HR>) indicators.  Using this option with /SPACES  may  cause  multiple  blank
+lines around horizontal rules.   The initial default is "/-RSPACE"  which  does
+not require this.
+
+"/SYMBOLS" says to allow (unless redefined in  your  INI  file)  the  "(link)",
+"(image)",  and  "[Input]"  indicators.   See  the   "Defining   the   Symbolic
+References" discussion below.  Initially defaults to "/-SYMBOLS".
+
+"/-SYMBOLS" skips the indicators even if they're defined in your INI file. This
+is initially the default.
+
+
+HTMSTRIP.DOC                        8                         Revised: 02-28-97
+
+"/A=spec" tells the program how to handle <A...> links.  These  are  used  when
+the program is supposed to hop to another HTML page or to a section within  the
+current HTML page.  The values of "spec" are mutually exclusive:
+
+      /A=FSITE    says to show the site name, using its full url  address,  and
+                  embed this name in the body of the text page
+      /A=FSITEFN  says to show the site name, using its full url  address,  and
+                  place this site name in a footnote section at the end of  the
+                  text page
+      /A=SITE     says to show the site name, but only the part after the  last
+                  "/" or "\", and embed this name in the body of the text page
+      /A=SITEFN   says to show the site name, but only the part after the  last
+                  "/" or "\", and place this site name in a footnote section at
+                  the end of the text page
+      /A=SYMBOL   says to use the specified <A> symbol but to only do  this  if
+                  /SYMBOLS is in effect; this is initially the default
+
+"/IMG=spec" tells the program how to handle <IMG...> links.  These are used for
+embedded graphics.  The  values  of  "spec"  are  mutually  exclusive  and  are
+documented in the "/A=spec" section above.  Initially defaults to /IMG=SYMBOL.
+
+"/IMGALT=spec" is  identical  to  "/IMG=spec".   However,  if  /IMGALT=spec  is
+specified, the program will look for an ALT=alias  reference  in  the  <IMG...>
+link and use that if found.  Note that alias will be used in  its  entirity  if
+it's found and it will  be  embedded  in  the  output  text  (appearing  within
+brackets).  The "spec" items are used for any reference that  doesn't  have  an
+ALT=spec  specification;  in  this  case,  the  program  works  identically  to
+/IMG=spec for these.  So site names might be tossed at the bottom as  footnotes
+if /IMGALT=SITEFN or /IMGALT=FSITEFN is used but any ALT=spec items are  always
+in the text itself.  Initially defaults to /IMGALT=SYMBOL.
+
+"/ALTONLY" specifies that if an ALT=alias reference exists in an <IMG...> link,
+then the alias  should  be  embedded  in  the  output  text  (appearing  within
+brackets) but, otherwise, all <IMG...> references are  to  be  ignored  in  the
+input file.  Initially defaults to "/-ALTONLY".
+
+"/-INDENT" removes block indent sections from the  output  file.   By  default,
+five spaces are inserted before each line within a <BLOCKQUOTE>...</BLOCKQUOTE>
+block.  These can be nested so you can end up with a lot of white space in your
+document.  "/-INDENT" turns them off.  Initially defaults to "/INDENT".
+
+"/INDENT"  retains  the  <BLOCKQUOTE>...</BLOCKQUOTE>   indenting.    This   is
+initially the default.
+
+"/WARNINGS" displays warnings when HTMSTRIP finds either internal  problems  in
+the document or things it can't handle.  Initially defaults to "/-WARNINGS".
+
+"/-WARNINGS" turns off the warning messages.  This is initially the default.
+
+
+HTMSTRIP.DOC                        9                         Revised: 02-28-97
+
+"/TABLE" says to process text  within  table  declaration  sections  as  tables
+whenever the program can.  There are some maximum cell  length  limits  in  the
+program and some tabular text will be dumped as  straight  ASCII  text  anyway.
+This is initially the default.
+
+"/-TABLE" says to process text within table declarations sections  as  straight
+text, removing it from the tabular structure entirely.  There are  other  cases
+where page authors have switched to tables  for  formatting  purposes  and  the
+resulting pages when converted  to  text  are  mostly  spaces.  Finally,  using
+/-TABLE can sometimes avoid "out of string space" errors that pop  up  on  some
+pages. Initially defaults to "/TABLE".
+
+"/Tpath" specifies where to write the temporary files that the  routine  needs.
+Examples are "/TC:" and "/TC:\TEMP".  If not specified, the routine  writes  to
+the following in sequence:
+
+  - the value of any TEMP, then TMP, environmental variable
+  - C:\TEMP
+  - C:\
+
+"/MONO" (or "/-COLOR") does not  try  to  override  screen  colors.   Initially
+defaults to "/COLOR".
+
+"/COLOR" (or  "/-MONO")  allows  screen  colors  to  be  overridden.   This  is
+initially the default.
+
+"/Iinitfile" says to read an initialization file with the file name "initfile".
+The  file  specification  *must*  contain  a  period.   If  no  drive  or  path
+information is specified, the program will search  for  initfile  beginning  in
+your default subdirectory and then going throughout your DOS path.  The use  of
+an initialization file is optional.  Initially defaults to "/IHTMSTRIP.INI".
+
+"/-I" (or "/INULL") says to skip loading the initialization  file.   Note  that
+this also drops loading the file that translates things  like  "&xxx;"  so  you
+should specify /Linitfile if you drop the other file.
+
+"/L" says to read "&xxx;" entity references and "<A>" etc symbol  lookup  codes
+from your /Iinitfile file.  This is initially the default.
+
+"/Linitfile" says to read the "&xxx;" entity references and  "<A>"  etc  symbol
+lookup codes from the specified file "initfile".  Specifying  another  file  is
+primarily useful if you want to have a master *.INI file and  a  separate  code
+lookup table.  Initially defaults to "/L".
+
+"/-L" says to not  process  any  entity  references  or  symbol  lookup  codes.
+Initially defaults to "/L".
+
+"/FILTER" specifies that the program is to replace specific characters  in  the
+input file.  See the "Defining Character-Translations" discussion below.   When
+this parameter is in effect, the program looks for  character  translations  in
+the entity reference  file  (/Linitfile),  which  typically  defaults  to  your
+initialization file (/Iinitfile).  The is initially the default.
+
+
+HTMSTRIP.DOC                        10                        Revised: 02-28-97
+
+"/FILTER=filename" specifies that a filter is to be applied and  all  character
+replacements   are   in   the   file    "filename".     See    the    "Defining
+Character-Translations" discussion below.
+
+"/-FILTER" says to not bother removing the  nonprintable  characters  from  the
+output.  Initially defaults to "/FILTER".
+
+"/?" or "/HELP" or "HELP" shows you the syntax for the command.
+
+"/?&H" gives you a hexadecimal and decimal conversion table.
+
+
+Return codes:
+
+HTMSTRIP returns the following ERRORLEVEL codes:
+
+        0 = no problems, all files processed
+      251 = could not find a file to process
+      253 = operation aborted by pressing Escape
+      255 = syntax problems, or /? requested
+
+
+
+HTMSTRIP.DOC                        11                        Revised: 02-28-97
+
+Defining entity references:
+
+HTMSTRIP will process an entity reference definition file is one is found. This
+table can be in your standard *.INI file (for example, HTMSTRIP.INI) if desired
+or it can be a separate file specified using the /Linitfile parameter.
+
+Entity references are how non-standard characters like the copyright  character
+are handled in HTML pages.  Entity references are indicated  as  "&xxx;"  where
+"xxx" is either a code or a number preceded by a  pound  sign.   The  copyright
+symbol is indicated in HTML as "&copy;".
+
+A default HTMSTRIP.INI is provided with over 230 entity reference lookups.   To
+define or change these lookups, the INI file should include a series  of  lines
+in the following format:
+
+        &xxx; = outstr
+
+where "&xxx;" is the HTML sequence and "outstr" is what you want to replace  it
+with.  The "outstr"  portion  can  consist  of  regular  non-space  ASCII  text
+characters (like "A" or "z") as well as hexadecimal values (in the  form  &Hxx)
+or decimal values (in the form \nnn).  (See the BRUCEHEX.DOC file.) It can also
+be the word "NULL" which translates the string into nothing.  You cannot use  a
+space or equal sign in "outstr"; use the hexadecimal or decimal representations
+instead.  The table does not have to be in any specified order.  Lines can  end
+with "/*" followed by a comment if you want.  Examples:
+
+        &copy;   = (c)      /* Copyright symbol
+        &deg;    = °
+        &eacute; = é
+        &ecirc;  = ê
+        &egrave; = è
+        &emsp;   = \032
+
+Remember  that  "&xxx;"  entity  references  (yes,  I  hate  that  phrase)  are
+case-sensitive in HTML.  "&deg;" will not find "&Deg;".
+
+There seems to be a trend of late to  relax  some  of  the  replacement  coding
+requirements in Web pages.  The ";"  is  now,  apparently,  becoming  optional.
+Numeric replacements (for example, "&#32;")  seem  to  no  longer  require  the
+leading pound sign.  Therefore, HTMSTRIP looks for both of these iterations for
+any appropriate lookup.  "&copy;" will find  "&copy"  and  "&#153;"  will  find
+"&153".  The lookup itself has to  be  entered  in  the  formally  correct  way
+though.
+
+Windows users:  The lookup table was created in DOS  and,  as  such,  uses  the
+standard DOS IBM text characters instead of the Windows characters.   As  such,
+some of the lookups may come up bizarrely in other languages if you're  viewing
+the document under Windows.  If anyone would like to come up  with  a  complete
+HTMSTRIP.INI lookup file  that  works  under  Windows,  they'll  get  a  hearty
+"Thanks!" as payment.
+
+
+HTMSTRIP.DOC                        12                        Revised: 02-28-97
+
+Defining the Symbolic References:
+
+You are also allowed to redefine the strings that are used for  three  symbolic
+references in the entity reference file.  These show up  only  if  /SYMBOLS  is
+specified.  By default, you will see the following:
+
+        for <A> external links             -> (link)
+        for <IMG> image references         -> (image)
+        for <INPUT> user inputs            -> [Input]
+
+You can redefine any and all of these entity  references  in  the  same  lookup
+file.  These substitutions  are  specified  more  or  less  like  the  previous
+substitutions:
+
+        <A>      = (link)
+        <IMG>    = (image)
+        <INPUT>  = [Input]
+
+Unlike with the  other  lookups,  the  left  side  is  not  case  sensitive  so
+"<a>=(link)" works just fine.  Hexadecimal and decimal replacements  are  again
+acceptable (see BRUCEHEX.DOC file).  You might, for example, want  to  redefine
+some of them like this:
+
+        <A>      = \251     /* Replaces with a √ symbol
+        <IMG>    = \015     /* Replaces with a ☼ symbol (little flash cube)
+        <INPUT>  = ?        /* Replaces with a question mark
+
+Any symbolic references that you do not redefine will default to their original
+values.  If /-SYMBOLS is specified, any symbolic definitions are ignored and  a
+"NULL" replacement string is used for all of them.
+
+Note:  <A> references are  also  affected  by  the  /A=spec  parameter.   <IMG>
+references are also affected by the /IMG=spec and /IMGALT=spec parameters.
+
+
+
+HTMSTRIP.DOC                        13                        Revised: 02-28-97
+
+Defining Character-Translations (The Filter Table):
+
+HTMSTRIP allows you to translate specified characters as the text is read. This
+is useful on output for characters that are defined under  Windows  but  that's
+about it.  This should not be an issue because HTML is supposed to be  platform
+independent; the Web designer (or the software used for the page)  should  have
+been smart enough to insert the proper entity reference instead.
+
+For example, "Disney’s" shows up on the  Disney  site  for  some  reason.   The
+filter table will translate  this  as  "Disney's".   Also,  way  too  many  Web
+designers use decimal 169 ("©", as in "© 1996") as a copyright symbol;  they're
+supposed to use the entity reference &#169  instead.   The  filter  table  will
+translate this as "c 1996".
+
+There is a default character-translation table built  into  the  entity  lookup
+file (HTMSTRIP.INI).  This  will  typically  be  loaded  automatically  by  the
+program.  You can update the translations in the lookup file or you can  create
+your own filter  file  and  invoke  it  by  specifying  the  "/FILTER=filename"
+parameter.  In most cases, however, you will not need to modify this table.
+
+The filter table is an ASCII text file which consists of a series of  lines  in
+the following format:
+
+        inchar = outchar
+
+where "inchar" is the character to change from and "outstr" is what  to  change
+the character to.  Both portions can consist of regular  non-space  ASCII  text
+characters (like "A" or "z") as well as hexadecimal values (in the  form  &Hxx)
+or decimal values (in the form \nnn).   Both  sides  must  reference  a  single
+character  (exactly  one  character  is  always  translated  into  exactly  one
+character).  You cannot use a  space  or  equal  sign  in  either  "inchar"  or
+"outchar"; use the hexadecimal or decimal representations instead.   The  table
+does not have to be in any specified order.  Lines can end with  "/*"  followed
+by a comment if you want.
+
+Hexadecimal and decimal equivalents are explained in BRUCEHEX.DOC.
+
+Examples:
+
+        a    = A   /* Translate lowercase "a" into capital "A"
+        \032 = _   /* Translate space (decimal 032, &H20 too) into underscore
+        \027 = \032    /* Translate escape character to a space
+
+Some leading characters  in  INI  files  are  treated  specially  within  Wayne
+Software programs.  INI lines that begin with any of the  following  characters
+may lead to odd results:  "[", "/", "&", "\", ";", ":", "<", and ",".  To avoid
+problems, use hexadecimal or decimal representations for these characters.  For
+example, use \047 or &H2F if you want to override the definition of "/".
+
+
+
+HTMSTRIP.DOC                        14                        Revised: 02-28-97
+
+Author:
+
+This program was written by Bruce Guthrie of Wayne Software.  It  is  free  for
+use and  redistribution  provided  relevant  documentation  is  kept  with  the
+program, no changes are made to the program or documentation,  and  it  is  not
+bundled with commercial programs or charged for separately.  People who need to
+bundle it in for-sale packages must  pay  a  $50  registration  fee  to  "Wayne
+Software" at the following address.
+
+Additional information about this and other  Wayne  Software  programs  can  be
+found in the file BRUCE.DOC which should be included in the original ZIP  file.
+The recent change history for this and the other programs is  provided  in  the
+HISTORY.ymm file which should be in the same ZIP file where "y" is replaced  by
+the last digit of the year and "mm" is the two  digit  month  of  the  release;
+HISTORY.611 came out in November 1996.  This same naming convention is used  in
+naming the ZIP file (HTMSTymm.ZIP) that this program was included in.
+
+Comments and suggestions can also be sent to:
+
+                Bruce Guthrie
+                Wayne Software
+                113 Sheffield St.
+                Silver Spring, MD 20910
+
+                fax: (301) 588-8986
+                e-mail: bguthrie@nmaa.org
+                http://www.geocities.com/SiliconValley/Lakes/2414
+
+Please provide an Internet e-mail address on all correspondence.
+
+
+

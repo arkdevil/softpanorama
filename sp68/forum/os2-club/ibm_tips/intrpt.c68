@@ -1,0 +1,266 @@
+┌───────────────────────────────────────────────────────────────────────────┐
+│                          OS/2 2.0 Technical Tips                          │
+│                                 From the                                  │
+│                        OS/2 Technical Support Team                        │
+│                            Boca Raton, Florida                            │
+│                                                                           │
+├───────────────────┬─────────────────────────────────────┬─────────────────┤
+│    File Name      │   Description                       │ Number of pages │
+├───────────────────┼─────────────────────────────────────┼─────────────────┤
+│  INTERUPT.FAX     │ OS/2 Interrupt Level Information    │        5        │
+└───────────────────┴─────────────────────────────────────┴─────────────────┘
+
+INFORMATION REGARDING INTERRUPTS AND OS/2 2.0
+---------------------------------------------
+
+  ISA MACHINES(AT BUS)
+
+  On an ISA system, having a shared interrupt-request line can cause problems.
+  ISA systems have what are called "edge triggered" interrupts whereas Micro
+  Channel and EISA systems use "level sensitive" interrupts.  "Edge triggered"
+  interrupts can only be sensed for a very short period of time.  If a second
+  interrupt arrives from another adapter while the first interrupt is still
+  being processed, the second interrupt will be lost.  In your computer system,
+  this situation can lead to various difficulties such as printers that do not
+  seem to print smoothly or reliably, or communications sessions where some
+  characters are getting lost.
+
+  However, with single-tasking systems such as DOS, the two adapters that are
+  sharing the interrupt might never cause any real problems because they might
+  never be in use at the same time.  OS/2 2.0, however, presents a different
+  set of problems.  If you have multiple serial communications adapters, there
+  is a greater probability that you might try to use two or more of them at the
+  same time.  If some of them have previously been set up using shared
+  interrupts, problems can occur that probably didn't happen in DOS.
+
+  OS/2 2.0 can detect that an interrupt line is shared and will not allow
+  simultaneous use.  Assume that COM1 and COM3 are sharing Interrupt Request
+  line 4 (IRQ4).  If you try to use both COM ports at the same time, the OS/2
+  operating system will not allow the second one to start.  A well-written OS/2
+  communications program will recognize that the port cannot be opened and an
+  error message will be displayed.  A DOS application, however, is unprepared
+  to respond to this unfamiliar situation.  It will probably suspend, waiting
+  for the port that will not open.
+
+  Another potential source of trouble is having multiple hardware adapters that
+  are sharing the same I/O address.  The various hardware adapters in your
+  computer must have their own addresses.  Consider what might happen, for
+  example, if the commands that were meant for your printer were instead routed
+  to your disk drive.
+
+  The solution for all of these problems is to ensure that all your hardware
+  adapters have their own unique I/O addresses and IRQ assignments.
+
+
+  COM3 OR COM4 SUPPORT ON AN ISA SYSTEM
+
+  The original ISA machine (the IBM PC-AT) allowed for the definition of up to
+  four serial communication ports.  However, there has never been any hardware
+  architectural standard that defined the I/O port addresses or Interrupt
+  Request (IRQ) lines associated with communication ports 3 or 4.
+
+  Over the years, a convention has developed that places the port addresses for
+  COM3 and COM4 at 03E8 and 02E8 respectively.  This is a generally accepted
+  convention, but not a standard.  Check the documentation and the settings of
+  the adapters in your system to verify your hardware environment.
+
+  After you have checked and set the I/O and IRQ values on your COM ports or
+  internal modems, you must add this information to the communications
+  device-driver (COM.SYS) statement in the CONFIG.SYS file.
+
+  You might also need to tell your communications application software where
+  the COM ports are.  ProComm software, for example, has a configuration screen
+  that enables you to specify these settings.  If the application, operating
+  system, and hardware are not in agreement, then the application will not run.
+
+  OS/2 COM ports do not need to be defined in sequence.  It is acceptable to
+  have a COM4 without having a COM3.  DOS, however, might have difficulty if
+  there is a gap in the port definition.  To avoid confusion for DOS, you can
+  define COM ports that do not have any physical adapters attached in the
+  COM.SYS statement.  These substitute definitions will serve as placeholders.
+  COM1 and COM2 are assumed to have standard values and do not need to be
+  explicitly set up unless you want to set some non-standard values to
+  accommodate your particular configuration.
+
+  To enable COM3 or COM4 on an ISA system, place the following in the
+  CONFIG.SYS file:
+
+    DEVICE=X:\OS2\COM.SYS (n,a,i) (n,a,i)
+
+  where
+
+   X = the drive where OS/2 is installed
+   n = the COM port that you are attempting to access
+   a = communications port I/O address (03E8, 02E8, for example)
+   i = IRQ level, which is usually a jumper setting on the I/O adapter
+
+  For example, to specify that COM3 is at address 03E8 on IRQ5 and that COM4 is
+  at address 02E8 on IRQ10, use the following statement (assuming that OS/2 is
+  installed on drive C):
+
+          DEVICE=C:\OS2\COM.SYS (3,03E8,5) (4,02E8,10)
+
+  The I/O address and IRQ level should be noted in the documentation that came
+  with your adapter.  Either or both might be fixed values or can be set to a
+  range of values via jumpers or switches.  In some cases you might find that
+  the values are fixed or that the range of settings available to you is
+  insufficient to avoid the sharing conflict.  In that case, you must purchase
+  a different, more versatile adapter or accept that you cannot use both
+  adapters at the same time.
+
+
+  SETTING THE INTERRUPT REQUEST (IRQ) LEVEL ON AN ISA SYSTEM
+
+  The following information will help you determine what IRQ settings you can
+  use for COM3 or COM4 port adapters to avoid shared interrupts.
+
+  On an ISA machine there are a total of 15 IRQ levels available.  Many of
+  these are already being used.  Most are already in use because they are the
+  the standard settings for the more common devices.  These standard settings
+  are as follows:
+
+  IRQ LEVEL      DEVICE ASSOCIATED
+
+  0              System Timer
+  1              Keyboard
+  2              Secondary Interrupt Controller  (see note)
+  3              COM2 (Serial Communications Port 2)
+  4              COM1 (Serial Communications Port 1)
+  5              LPT2 (Parallel Port 2)
+  6              Diskette
+  7              LPT1 (Parallel Port 1)
+  8              Realtime Clock
+  9              open
+  10             open
+  11             open
+  12             open
+  13             Math Coprocessor
+  14             Hard Disk
+  15             open
+
+  NOTE:  On the IBM-AT (ISA bus), the IRQ9 pin is identical with the IRQ2 pin
+         on the original IBM-PC.  If you have an older, 8-bit adapter whose
+         documentation states that it uses IRQ2, be aware that this will
+         actually be interpreted as IRQ9 when plugged into the 16-bit ISA bus.
+
+  The IRQ levels shown as "open" have no established, standardized use.  When
+  setting the IRQ values on your COM3 or COM4 ports, you are likely to find
+  these levels available to use without conflict with some other adapter.
+  Furthermore, if you don't have two parallel ports installed, IRQ5 might be
+  usable for some other purpose, such as COM3 or COM4.  Be cautious about doing
+  this because it might cause a problem later if you decide to install a second
+  parallel port.  In addition, some other non-standard device might already be
+  using IRQ5.
+
+  When trying to manage the IRQ levels of your various hardware adapters to
+  avoid conflicts, you may find that your 8-bit adapters cause problems.
+  Except for IRQ9, only 16-bit adapters are configurable to use IRQ levels
+  higher than 7.  A glance at the IRQ table will also show that the
+  low-numbered IRQ lines already have some standard function assigned.  It
+
+  might be that your only alternative for avoiding some IRQ conflicts is to
+  purchase a more versatile 16-bit adapter.
+
+  If you have non-standard 8-bit adapters, be especially careful of interrupt
+  conflicts.  For example, the SoundBlaster adapter is configured at the
+  factory to use IRQ7.  IRQ7, however, is the standard assignment for LPT1, the
+  first printer port.  This conflict might not be apparent with DOS because DOS
+  printing typically does not use the interrupt line.  OS/2 2.0, however,
+  requires it, and the hidden conflict can become the source of printing
+  problems.  It is also fairly common to discover that the interrupt feature on
+  your parallel port adapter does not work.  In DOS, this might not have any
+  effect.  In OS/2 2.0, however, your printer might be very erratic or not work
+  at all.
+
+  Under OS/2 interrupts can not be shared.  Results are unpredictable if
+  interrupts are shared.  Sharing interrupts is not a problem under DOS.  It is
+  possible for devices that are sharing interrupts to work perfectly under DOS
+  and have problems under OS/2.
+
+  (Note:  On the IBM-AT (ISA bus) the IRQ9 pin is identical with the IRQ22 pin
+  on the original IBM-PC.  If you have an older, 8-bit adapter whose
+  documentation states that it uses IRQ2 then be aware that this will actually
+  be seen as IRQ9 when plugged into the 16-bit ISA bus.)
+
+  If multiple hardware adapters of any kind (not just communications) are using
+  the same IRQ level then the effect on your computer will be unpredictable.
+  However, with single tasking systems like DOS, the two adapters which are
+  sharing the interrupt may never cause any problems since they may never be in
+  use at the same time.
+
+  OS/2, however, presents a different set of problems.  If we have two, three
+  or four adapters, the probability is now high that they are used at the same
+  time.  If some of adapters had been set up using shared interrupts then the
+  scene is set for mysterious things to occur in OS/2.
+
+  OS/2 can, however, detect that an interrupt line is shared and will disallow
+  the simultaneous use.  Assume that COM1 and COM3 were sharing IRQ4 (a fairly
+  common real situation).  If we tried to use both COM ports at the same time
+  OS/2 would refuse to allow the second one to start.  A well written OS/2
+  communications program would see and report the error from OS/2 that the port
+  could not be opened.  A DOS application, however, will likely be unprepared
+  to respond to this strange situation and it may simply hang there waiting
+  forever for the port that will never open.
+
+  The solution for all of this is to make sure that all of your hardware
+  adapters have their own unique I/O addresses and IRQ assignments.
+  Unfortunately, on an ISA machine, OS/2 has no way to query the computer to
+  find out what these settings are.  Therefore, after checking and setting the
+  adapters according to the instruction manuals you must also tell OS/2 what
+  you've done by placing explicit information into the CONFIG.SYS file.
+
+SUMMARY
+-------
+
+        *  Even though there is some flexibility for Printer &
+           Comm. port assignment try to stick to the standard
+           assignment as shown in IRQ table at the beginning
+           of document.
+
+        *  Available interrupts, in order of priority, are:
+           IRQ10, IRQ11, IRQ12, IRQ15, IRQ3 (if not used
+           for COM2), and IRQ5 (if not used for LPT2).
+
+        *  Addresses and interrupts can be assigned in OS2
+           to comm ports as described in info apar II06069.
+           Standard assigment is as follows:
+                COM1 - 3F8 - IRQ 4 (default)
+                COM2 - 2F8 - IRQ 3 (default)
+                COM3 - 3E8
+                COM4 - 2E8
+           There is no OS/2 default setting for COM3 and
+           COM4. It must be specified by the device=com.sys
+           statement in config.sys.
+
+        *  Printer port addresses and IRQ levels are hardcoded
+           in OS/2 as follows:
+                3BC and 378     ==> IRQ7 (LPT1)
+                278             ==> IRQ5 (LPT2)
+           Unlike the the comm ports, where the addresses
+           and the interrupts can be modified by the
+           device=com.sys in config.sys, the printer port
+           addresses and IRQ shown above are fixed.
+           OS2 assigns LPT1 to the highest printer port address
+           being used. The printer address is specified in the
+           printer adapter board.
+           With OS/2 you can not use both addresses 3BC and 378
+           as printer port addresses. Both LPTs would be sharing
+           IRQ7.
+           Unlike DOS, OS/2 uses interrupts for printing.
+           The interrupt is triggered by a signal line from
+           the printer, ACK. If the IRQs are not configured
+           correctly, or the printer cable is missing the ACK
+           line the printer may work under DOS and
+           have problems under OS/2.
+
+           An example of address and interrupt assignment is
+           follows:
+                   COM1 - 3F8,IRQ4
+                   COM2 - 2F8,IRQ3
+                   COM3 - 3E8,IRQ5 (IRQ5 not being used by lpt2)
+                   COM4 - 2E8,IRQ10
+
+                   LPT1 - 378,IRQ7
+
+        *  If interrupt devices are occasionally losing data,
+           try moving to a higher priority unused interrupt.

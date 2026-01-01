@@ -1,0 +1,124 @@
+/*
+$Header: C:\THE\RCS\append.the 1.4 1993/09/01 16:27:20 MH Interim MH $
+*/
+/***********************************************************************/
+/* Description: REXX macro to append a string to a line.               */
+/* Syntax:      append target string                                   */
+/* Notes:       This macro appends the supplied string to the lines    */
+/*              specified in the target.                               */
+/*              Full XEDIT/KEDIT/THE targets are supported.            */
+/***********************************************************************/
+trace o
+args = Arg(1)
+argtype.0 = 2
+argtype.1 = 'TARGET'
+argtype.2 = 'STRING'
+noargs = parseargs(args)
+If noargs < 2 Then Do                               /* no args - error */
+   'CMSG append' args                             /* redisplay command */
+   'EMSG' errstr                                   /* say its an error */
+   Exit                                              /* go back to THE */
+End
+forward = 1                  /* assume direction is forward by defualt */
+'EXTRACT /LINE/TOF/EOF/SIZE/STAY/FTYPE/FNAME/'    /* get various stuff */
+current_line = line.1                   /* save current line for later */
+If tof.1 = 'ON' Then 'N'       /* if on 'top of file' move down 1 line */
+If eof.1 = 'ON' Then 'U'    /* if on 'bottom of file' move down 1 line */
+nolines = valid_target(arg.1)              /* validate supplied target */
+If nolines = 0 Then Do            /* invalid target or target no found */
+   'CMSG append' args                             /* redisplay command */
+   'EMSG Invalid target specified:' arg.1          /* say its an error */
+   ':'||current_line                           /* restore current line */
+   Exit                                              /* go back to THE */
+End
+If nolines = 'ALL' Then Do                         /* if target is ALL */
+   ':1'                                              /* move to line 1 */
+   nolines = size.1                  /* nolines to act on - whole file */
+End
+If nolines < 0 Then Do                /* if target before current line */
+   forward = 0                    /* indicate direction to be backward */
+   nolines = nolines * -1                     /* make nolines positive */
+End
+totlines = 0                             /* reset changed line counter */
+Do nolines                              /* for each line to target ... */
+   'EXTRACT/CURLINE/'                     /* get current line contents */
+   'REPLACE' curline.3||arg.2
+   totlines = totlines + 1
+   If forward = 1 Then 'N'         /* if going forward, get next line */
+   Else 'U'                  /* if going backwards, get previous line */
+   If rc \= 0 Then Leave                        /* shouldn't get here */
+End
+'EMSG' "'"||arg.2||"'" 'appended to' totlines 'lines' /* say how many lines changed */
+If stay.1 = 'ON' Then ':'||current_line 
+Return                                              /* go back to THE */
+
+/***********************************************************************/
+/* Parses a string into types of arguments.                            */
+/* Allowable types of arguments are:                                   */
+/*     STRING   - any string                                           */
+/*     TARGET   - any valid THE target                                 */
+/* Returns number of arguments or -1 if an error                       */
+/* Usage:                                                              */
+/*       Set argtype.i with the type of argument expected              */
+/*       Set argtype.0 with the number of arguments expected           */
+/* Return:                                                             */
+/*       Sets arg.i to each argument                                   */
+/***********************************************************************/
+parseargs: Procedure Expose arg. argtype. errstr
+Parse Arg args
+noargs = 0
+Do i = 1 To argtype.0
+   Select
+     When argtype.i = 'STRING' Then Do
+          arg.i = args
+          noargs = noargs + 1
+          End
+     When argtype.i = 'TARGET' Then Do
+          args = Strip(args,'L')
+          word1 = Word(args,1)
+          Select
+            When Datatype(word1,'NUM') Then Do
+                 arg.i = word1
+                 args = Substr(args,Length(arg.i)+2)
+                 noargs = noargs + 1
+                 End
+            When Substr(args,1,1) = ':' | Substr(args,1,1) = ';' Then Do
+                 If Datatype(Substr(word1,2),'NUM') Then Do
+                    arg.i = word1
+                    args = Substr(args,Length(arg.i)+2)
+                    noargs = noargs + 1
+                    End
+                 Else Do
+                    errstr = 'Invalid target specified' word1
+                    Return -1
+                    End
+                 End
+            When Translate(word1) = 'ALL' | word1 = '*' | word1 = '-*' Then Do
+                 arg.i = word1
+                 args = Substr(args,Length(word1)+2)
+                 noargs = noargs + 1
+                 End
+            Otherwise Do
+                 delim = Substr(args,1,1)
+                 If delim \= '/' & delim \= '\' & delim \= '@' Then Do
+                    errstr = 'Invalid string target delimiter specified' delim
+                    Return -1
+                    End
+                 pos = Pos(delim,Substr(args,2))
+                 If pos = 0 Then Do
+                    errstr = 'No terminating string target delimiter specified' delim
+                    Return -1
+                    End
+                 arg.i = Substr(args,1,pos)
+                 args = Substr(args,pos+3)
+                 noargs = noargs + 1
+                 End
+          End
+     End
+     Otherwise Do
+        errstr = 'invalid argument type' argtype.i
+        Return -1
+        End
+   End
+End
+Return noargs

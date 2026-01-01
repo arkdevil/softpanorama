@@ -1,0 +1,100 @@
+From: barilo@perch.inwest.donetsk.ua
+Newsgroups: relcom.comp.lang.pascal
+Subject: 3 вопроса по TV
+Date: Sun, 22 Jan 95 13:00:36 GMT
+Organization: JV INTER-WEST Ltd.
+Message-ID: <9501221300.aa00793@perch.inwest.donetsk.ua>
+
+                           Hi, everybody!
+
+      Вопрос первый. У меня есть строка ввода в диалоге и я хочу про-
+извести кое-какие манипуляции при потере ей (строкой в смысле) фокуса.
+Как это сделать?
+
+      Вопрос второй. Кто-нибудь когда-нибудь использовал флаги
+ofPostProcess и ofPreProcess, если использовал, то какая необходимость
+была, что получилось и прочая и прочая... И побольше пли-из.
+
+      Вопрос третий. Самый загадочный. Как-то юзал я TFilterValidator и
+решил из HandleEvent'а строки ввода, к которой он был пришит проверить,
+является ли перехваченный мной символ подмножеством ValidChars. Говорю ему:
+If (Event.CharCode In Validator^.ValidChars) then ..., а он мне: field iden-
+tifier expected. Вот так вот. Бросился я по Ctrl-F4 смотреть
+MyInputLine^.Validator^, а там среди кучи указателей на методы, всего ДВА
+значения полей, как у простого TValidator'а, а не ТРИ, как у отфильтрован-
+ного валидатора причем третье поле должно было бы быть множеством. И при этом
+при всем программулина корректно работала и запрещенные символы ввести было
+низзя. Дерьмо, в общем.
+      Тогда плюнул, а сейчас интересно стало. Черт! Сейчас перечитал, чушь
+какая-то. Такого не может быть, потому что не может быть никогда!
+      Так вот собственно сам вопрос: может кто когда с чем-нибудь подобным
+встречался? Поделитесь!
+
+       Thanx in advance,
+
+
+--- 
+Alexander Barilo,     phone (office): (0622) 35-23-47, 35-77-45
+programmer            Addr  : 3, Monjushko str, Donetsk, 340007, Ukraine
+JV 'Inter-West'       E-mail: barilo@perch.inwest.donetsk.ua
+
+
+Newsgroups: relcom.comp.lang.pascal
+From:  "Constantin Poddubny" <const@const.krasnoyarsk.su>
+Subject: Re: 3 вопроса по TV
+Organization: The Sosnovoborsk Municipal Venture for Housing and
+    Communications
+Date: Tue, 24 Jan 1995 06:17:38 GMT
+Message-ID: <AB2k99lO7H@const.krasnoyarsk.su>
+
+>                                   Hi, everybody!
+
+       И тебе того же!
+
+>          Вопрос первый. У меня есть строка ввода в диалоге и я хочу про-
+>   извести кое-какие манипуляции при потере ей (строкой в смысле) фокуса.
+>   Как это сделать?
+
+   Когда  какой-нибудь  объект,  образованный  от   TView,   например,
+TInputLine теряет или приобретает фокус, он посылает
+
+   Message(  Owner, evBroadcast, Command, @Self )
+
+где Command - это cmRecievedFocus или cmReleasedFocus, так что  можешь
+перехватывать это сообщение, например в HandleEvent-е  своего  диалога
+или строки и делать свои черные дела.
+   Кроме того, если твоя строка ввода имеет флаг  ofValidate,  то  при
+потере  фокуса  происходит  вызов  метода  Valid(  cmReleasedFocus  ),
+который ты можешь перекрыть примерно таким образом:
+
+function TMyInputLine.Valid( Command: word ): boolean;
+begin
+  Valid := inherited Valid( Command );
+  if Command = cmReleasedFocus then                      { свои темные дела }
+    Message( Owner, evBroadcast, cmMyCommand, @Self )    { а у меня так }
+end;
+
+
+>         Вопрос второй. Кто-нибудь когда-нибудь использовал флаги
+>   ofPostProcess и ofPreProcess, если использовал, то какая необходимость
+
+   Ну, вообще-то про флаги  ofPostProcess  и  ofPreProcess  достаточно
+хорошо написано в документации по TV 2.0. А  вкраце  эти  флаги  нужны
+вот для чего: Каждое событие проходит по  цепочке  активных  элементов
+дважды - первый раз со взведенным  флагом  ofPreProcess,  второй  -  c
+флагом ofPostProcess, причем если событие было обработано и очищено  в
+первый  проход,  второго  прохода  не  происходит.  В  большинстве  же
+случаев эти флаги используются для разрешения конфликтов  при  нажатии
+клавиш  "горячих"  символов   и   Alt+"горячий"     символ.     Пример
+использования этих флагов можно посмотреть в модуле DIALOGS.PAS  метод
+TButton.HandleEvent.
+
+>    Вопрос третий. Самый загадочный. Как-то юзал я TFilterValidator и
+
+   Не работал - не знаю.
+
+
+                                 Успехов, Константин Поддубный.
+
+
+

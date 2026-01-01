@@ -1,0 +1,331 @@
+
+
+
+
+
+
+   The Translation and Execution of Icon Programs under MS-DOS
+
+
+
+   The program icont is a command processor for Version 5.9 of
+the Icon programming language.  This implementation of Icon runs
+under MS-DOS Version 2.0 or higher on computers with
+8086/88/186/286-family processors. IBM hardware equivalence is
+not necessary. It is a small memory model implementation and
+requires 192 KB of memory.
+
+   icont produces a file suitable for interpretation by the Icon
+interpreter.  The Icon translator is run in the form
+
+        icont [ option ... ] file ... [-x] [arg ... ]
+
+Translation consists of two phases:  translation and linking.
+During translation, each Icon source file is translated into an
+intermediate language; during linking, the intermediate language
+files are combined and a single output file is produced.  The
+output file from the linker is referred to as an interpretable
+file.  Unless the -o option is specified, the name of the result-
+ing interpretable file is formed by deleting the suffix of the
+first input file named on the command line.  If the -x option is
+used, the file is automatically executed by the interpreter and
+any arguments following the -x are passed as execution arguments
+to the Icon program itself.
+
+   Files whose names end in .icn are assumed to be Icon source
+programs; they are translated, and the intermediate code is left
+in two files of the same name with .u1 and .u2 substituted for
+.icn.  The intermediate code files normally are deleted when com-
+pilation has finished.  Files whose names end in .u1 or .u2 are
+assumed to be intermediate code files from a previous translation
+(only the .u1 file should be named -- the .u2 file is assumed);
+these files are included in the linking phase after any .icn
+files have been translated.  A .u1 or .u2 file that is explicitly
+named is not deleted.  Icon source programs may be read from
+standard input.  The argument - signifies the use of standard
+input as a source file.  In this case, the intermediate code is
+placed in stdin.u1 and stdin.u2 and the interpretable file is
+stdin.
+
+   The following options are recognized by icont.
+
+-c        Suppress the linking phase.  The intermediate code
+          files are not deleted.
+
+-o output Name the interpretable file output.
+
+-s        Suppress any informative messages from the translator
+          and linker.  Normally, both informative messages and
+          error messages are sent to standard error output.
+
+
+
+
+                              - 1 -
+
+
+
+
+
+
+
+
+-t        Arrange for &trace to have an initial value of -1 when
+          the program is executed.  Normally, &trace has an ini-
+          tial value of 0.
+
+-u        Issue warning messages for undeclared identifiers in
+          the program.  The warnings are issued during the link-
+          ing phase.
+
+   Icon has a number of memory regions related to the translation
+of programs.  These regions are large enough for most programs,
+but their size can be changed, if necessary, by the -S option,
+which has the form -S[cfgilrstCL] n, where the letter following
+the S specifies the region and n is the number of storage units
+to allocate for the region. The regions are:
+
+     c  literal table
+
+     f  field table
+
+     g  global symbol table
+
+     i  identifier table
+
+     l  local symbol table
+
+     r  field table for record lists
+
+     s  string space
+
+     t  tree space
+
+     C  code buffer
+
+     L  labels
+
+   The environment variable IPATH controls the location of files
+specified in link directives. IPATH should have a value of the
+form p1:p2: ... : pn where the pi name directories.  Each direc-
+tory is searched in turn to locate files named in link direc-
+tives. The default value for IPATH is . , that is, the current
+directory.
+
+   The interpretable file produced by the Icon linker is run by
+the program iconx.  For example, the command
+
+        icont hello.icn
+
+produces a file named hello that can be run by the command
+
+        iconx hello
+
+
+   The phases also can be executed separately. For example,
+
+
+
+
+                              - 2 -
+
+
+
+
+
+
+
+
+        itran hello.icn
+        ilink hello.u1
+        iconx hello
+
+is equivalent to
+
+        icont hello.icn -x
+
+
+   Arguments can be passed to the Icon program by following the
+program name with the arguments.  Any such arguments are passed
+to the main procedure as a list of strings.
+
+   When an Icon program is executed, a number of environment
+strings are examined to determine certain execution parameters.
+The values assigned to these strings should be numbers.  The
+environment strings that affect execution and the interpretations
+of their values are as follows:
+
+TRACE     Initialize the value of &trace.  If this variable has a
+          value, it overrides the translation-time -t option.
+
+NBUFS     The number of i/o buffers to use for files.  When a
+          file is opened, it is assigned an i/o buffer if one is
+          available and the file is not a console.  If no buffer
+          is available, the file is not buffered.  &input, &out-
+          put, and &errout are buffered if buffers are available.
+          The default number is 5.
+
+NOERRBUF  If set, &errout is not buffered.
+
+STRSIZE   The initial size of the string space, in bytes.  The
+          string space grows if necessary, but it never shrinks.
+          The default value is 10,240.
+
+HEAPSIZE  The initial size of the heap, in bytes.  The heap grows
+          if necessary, but it never shrinks.  The default value
+          is 10,240.
+
+NSTACKS   The number of stacks initially available for co-
+          expressions.  More are automatically allocated if
+          needed.  The default value is 2.
+
+STKSIZE   The size of each co-expression stack, in words.  The
+          default value is 1000.
+
+Files
+
+   The following files are needed to translate and run Icon pro-
+grams:
+
+
+
+
+
+
+
+                              - 3 -
+
+
+
+
+
+
+
+
+        icont.exe        command processor
+        itran.exe        translator
+        ilink.exe        linker
+        iconx.exe        interpreter
+
+
+References
+
+An Overview of the Icon Programming Language, Ralph E. Griswold,
+Department of Computer Science, The University of Arizona, Sep-
+tember 1985.
+
+The Icon Programming Language, Ralph E. Griswold and Madge T.
+Griswold, Prentice-Hall Inc., Englewood Cliffs, New Jersey, 1983.
+
+Extensions to Version 5 of the Icon Programming Language, Ralph
+E. Griswold, Department of Computer Science, The University of
+Arizona, September 1985.
+
+Bugs and Deficiencies
+
+   Downward compatibility of interpretable files will not be
+maintained in subsequent releases of Icon.  No checks are per-
+formed to determine if the interpretable file and the interpreter
+are compatible.  Peculiar program behavior is the only indication
+of such incompatibility.
+
+   Interpretable files do not stand alone; the Icon interpreter
+must be present on the system.  This implies that the interpreter
+is of the same version of Icon as the translator that produced
+the interpretable file.
+
+   Because of the way that co-expressions are implemented, there
+is a possibility that programs in which they are used may mal-
+function mysteriously.
+
+   Integer overflow on multiplication is not detected.
+
+   The -x option for icont requires 256 KB of memory to be effec-
+tive. If there is not sufficient memory, it fails silently.  The
+resulting interpretable file may be run with iconx, however.
+
+   If garbage collection fails, iconx may abort with an inap-
+propriate message.
+
+   Stack overflow is not detected immediately and may generate
+odd messages.
+
+
+
+Ralph E. Griswold
+
+Department of Computer Science
+The University of Arizona
+
+
+
+                              - 4 -
+
+
+
+
+
+
+
+
+October 18, 1985
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                              - 5 -
+
+
+

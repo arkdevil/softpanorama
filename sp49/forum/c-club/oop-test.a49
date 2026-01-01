@@ -1,0 +1,356 @@
+From L-usenet@cs.kiev.ua Fri Oct 16 21:46:42 UKR 1992 remote from csoft
+X-Class: Slow
+To: netters
+Sender: L-usenet@cs.kiev.ua
+Newsgroups: comp.software-eng
+From: rigg@ssdt-tempe.sps.mot.com (Dana Rigg)
+Subject: [NEWS] OO Testing Summary (Long)
+Message-ID: <1992Oct16.151435.8579@newsgate.sps.mot.com>
+Nntp-Posting-Host: 223.188.10.38
+Reply-To: rigg@ssdt-tempe.sps.mot.com
+Organization: Motorola, Inc.
+Date: Fri, 16 Oct 1992 15:14:35 GMT
+
+
+Hello All!
+
+Several days ago I posted a request for information regarding object-
+oriented testing.  Below are the responses that I recieved.  Thanks
+for your input everyone!
+
+ORIGINAL POST:
+
+-> Hello all!
+-> 
+-> I'm interested in any papers discussing class testing in C++.
+-> Implementations or personal ideas are welcome but no random shots
+-> please, only well thought-out plans.  I'm looking for something
+-> formal, simple enough so that test code does not require a lot of
+-> formal testing, and easily adaptable to numerous classes.
+-> 
+-> Please resond by email, as I don't read this newsgroup all that
+-> frequently.
+-> 
+-> Thanks very much for you help!
+-> 
+
+Dana Rigg
+Chandler, AZ.
+rigg@ssdt-tempe.sps.mot.com
+
+
+----------------------------------------------------------------------
+
+Here are three papers I have
+1) A Framework for Testing Object Oriented Programs
+   M.D Smith and DJ Robson
+  ( I think it is from JOOP)
+
+2) Adequate tesing and Object Oriented Programming
+   Dewayne E. Perry and Gail E. Kaiser
+   Jan-Feb 1990, JOOP
+3) Object-Oriente Programming- THe problems of Validation.
+   M.D Smith and D.J Robson
+   (From IEEE , 1990)
+	
+--
+Somesh Rao
+Experimental Systems Development Center  914-784-6965 [T/L 863-6965]
+T.J Watson Research Center               External:somesh@watson.ibm.com
+P.O Box 704, (H0-B27)                    Internal: somesh@shakti.watson.ibm.com
+Yorktown Heights, NY 10598               vnet    : somesh at yktvmh
+
+----------------------------------------------------------------------
+
+Although it is not C++, I can point you to a couple things involving
+testing of modules that may help you on parts of your problem.  (There
+is a (between you and me, virtually worthless) paper in JOOP about 2-3
+years ago which won't tell you much, but that most people will
+probably tell you about.  If you find anything useful there I'd like
+to know what it is!)
+
+One thing I was going to mention require some minor work on your part
+to track down.  It is a PhD dissertation by Wael Hegazy called "The
+Requirements of Testing a Class of Reusable Software Modules", 1989,
+available from University Microfilms (1-800-521-0600).  The other is a
+more recent PhD dissertation by Joe Hollingsworth entitled "Software
+Component Design-for-Reuse: A Language-Independent Discipline Applied
+to Ada," that will soon be available as an OSU technical report as a
+PostScript file for anonymous FTP.  It has a chapter on how to
+organize modules for testing in order to make it more likely the
+testing scaffolding itself doesn't have the bugs, and other nice
+things.  If you are interested, please send me a note in a few weeks
+asking me how to get it.
+
+Good luck,
+	-Bruce
+
+----------------------------------------------------------------------
+
+Well...one important part about testing C++ classes is that the
+C++ class *MUST* be defensively coded...
+
+All unused default constructors, destructors, assignment operators,
+and copy constructors must be declared private! This is to prevent the
+compiler from supplying its own default implementations (which are
+usually wrong...)
+
+In other words, all classes start out their development lives in the
+following form:
+
+class T
+{
+  public:
+  protected:
+  private:
+    T(void);                // default constructor
+    virtual ~T(void);       // default destructor
+    T(const T&);            // default copy constructor
+    T& operator=(const T&); // default assigment operator
+}  
+
+The methods are then promoted to either a public or protected interface
+as they are implemented (if they are not implemented...they are left 
+private). Adopting this style will prevent many bugs due to memory
+leaks and misuse of the object.
+
+Preconditions and Postconditions are another important function to
+add. These allow the code to "test-itself" as it is exercised...
+
+For example:
+
+class T
+{
+  public:
+    T(void);
+    ~T(void);
+    void enable(void); 
+    void disable(void);
+    void isEnabled(void);
+
+  private:
+    T(const T&);
+    T& operator=(const T&);    
+
+    BOOL mEnabled; 
+}
+  
+T:T(void) : mEnabled(FALSE) {}
+T:~T(void) {}
+ 
+void T:enable(void)
+{
+  mEnable = TRUE;
+  Postcondition(isEnabled());
+}
+
+void T:disable(void)
+{
+  mEnable = FALSE;
+  Postcondition(!isEnabled());
+}
+
+BOOL T:isEnabled(void)
+{
+  return mEnabled;
+}
+
+The Precondition and Postconditions allow automatic testing of both 
+the objects internal state, and its external usage...
+
+Lastly, class testing should be staged...that is...
+the classes should be tested with as much isolation between them as
+possible.
+the classes should be tested from the most base class upwards.
+
+Andrew
+-- 
+Andrew Walduck, MPR Canada, walduck@mprgate.mpr.ca
+
+----------------------------------------------------------------------
+
+M.J Harrold, J.D McGregor, and K.J. Fitzpatrick,
+"Incremental testing of object-oriented class structures," 
+Proceedings of 14th International Conference on Software Engineering,
+May 1992
+
+D.E. Perry and G.E. Kaiser, "Adequate testing and object-oriented
+programming," Journal of Object-Oriented Programming, vol 2 pp. 13-19,
+January/February 1990
+
+  /Mats Bengtsson
+email: etxmtsb@solsta.ericsson.se
+
+----------------------------------------------------------------------
+
+If you will be at OOPSLA, you may want to check out our poster, "Towards a
+Testing Methodology for Object-Oriented Systems". It describes how we
+are integrating testing (for Eiffel and C++) classes into an iterative
+software process model. It also describes the ACE tool that we built 
+which provides automated support for the testing of Eiffel and C++ classes.
+Essentially, one provides test cases written in a test scripting language.
+A test driver is generated to run the test cases on the class. Test
+scripts for ancestors are automatically applied in the context of the
+derived class to ensure re-testing and appropriate regression testing
+of inherited methods.
+
+Gail Murphy
+MPR Teltech Ltd.
+murphy@mprgate.mpr.ca
+
+----------------------------------------------------------------------
+
+I've been toying with integrating test into the source file in a
+usable manner.  I've got a working but rather crude preprocessor for
+C++ which provides pre/post conditions, regression test generation,
+and a few literate programming type constructs.
+
+In terms of testing, the test is manually entered but kept with each
+method being tested, hopefully making it easier to keep the test suite
+up to date as code changes.  The following is a fragment of a string
+class.  I've removed function bodies and some test cases in the
+interest in providing a finite example but it is taken from real code
+which compiles and executes without error.
+
+The preprocessor is currently implemented using awk (some syntactic
+patches like the "@" before member function names below are because
+the awk program doesn't have true C++ parsing capabilities).  I'm
+willing to send the programs and documentaton (about 3300 total lines
+of text) if you're interested.
+
+
+
+Source text:
+
+@section String Concatination:  operator+
+Concatination returns a string consisting of the two arguments
+concatinated together.  In general this should be used for simple
+concatination of two strings, e.g.:
+
+    s3 = s1 + s2;
+
+Either side of the "+" operator can be either a char* or char type
+value so long as the other side is a string type.
+
+For concatination of multiple strings, especially if efficiency is
+desired, see the += and << operators below.
+
+@public String @operator+(const String& s2) const
+@inline
+{
+ ...
+}
+@test	String + String
+@expect	digits+lc10 0123456789abcdefghij
+@expect digits+emptystring 0123456789
+@expect emptystring+digits 0123456789
+@expect emptystring+emptystring+emptrystring+emptystring
+
+@public String @operator+(const String &s1, const Char* c2)
+@inline
+{
+    @require nonnull(c2)
+    ...
+}
+@test	String + const Char*
+@expect	digits+"xyz" 0123456789xyz
+
+
+@friend String operator+(const Char* c1, const String& s2)
+@inline
+{
+    @require nonnull(c1)
+    ...
+}
+@test	const Char* + String
+@expect	"xyz"+digits xyz0123456789
+
+
+
+Generated .h file:
+
+#line 1038
+public:     String operator+(const String& s2) const;
+#line 1053
+public:     String operator+(const Char* c2) const;
+#line 1064
+friend      String operator+(const Char* c1, const String& s2);
+
+
+
+Generated inlines source file:
+
+#line 1039
+inline  String String::operator+(const String& s2) const
+#line 1040
+{TRACE(" String String::operator+(const String& s2) const")
+	return String(text, len, s2.text, s2.len);
+}
+#line 1054
+inline  String String::operator+(const Char* c2) const
+#line 1055
+{TRACE(" String String::operator+(const Char* c2) const")
+	REQUIRE(( nonnull(c2)), String_module_name, 1056)
+
+	return String(text, len, c2, strlen((char*)c2));
+}
+#line 1065
+inline  String operator+(const Char* c1, const String& s2)
+#line 1066
+{TRACE(" String operator+(const Char* c1, const String& s2)") 
+	REQUIRE(( nonnull(c1)), String_module_name, 1067)
+
+	return String(c1, strlen((char*)c1), s2.text, s2.len);
+}
+
+
+
+Generated test file source:
+
+#line 1024
+	cout << " String Concatination: operator+" << '\n';
+#line 1043
+	cout << " String + String:  " << (digits+lc10) << '\n';
+	cout << " String + String:  " << (digits+emptystring) << '\n';
+	cout << " String + String:  " << (emptystring+digits) << '\n';
+	cout << " String + String:  " << (emptystring+emptystring+emptystring+emptystring) << '\n';
+#line 1060
+	cout << " String + const Char*:  " << (digits+"xyz") << '\n';
+#line 1071
+	cout << " const Char* + String:  " << ("xyz"+digits) << '\n';
+
+
+Expected results file (compare to test program output):
+
+ String + String:  0123456789abcdefghij
+ String + String:  0123456789
+ String + String:  0123456789
+ String + String:  
+ String + const Char*:  0123456789xyz
+ const Char* + String:  xyz0123456789
+
+
+
+Originally based on a program printed in Computer Language, July, 1990,
+by Marco S. Hyman
+
+
+csn.org!arrayb!intellistor.com!wicklund@uunet.uucp
+
+----------------------------------------------------------------------
+
+A very good starting point would be "A framework for testing
+object-oriented programs" in Journal of Object oriented Programming,
+June 1992, by M.D.Smith and D.J. Robson.
+
+--       "
+Andreas Rosel   		School of Computing Science,
+				Queensland University of Technology
+ _--_|\      \|/		Box 2434, Brisbane 4001, AUSTRALIA 
+/      QUT  - o -		Phone: +61 7 864-2303
+\_.--._/     /|\		Fax:   +61 7 864-1801
+      v  			Email: a.rosel@qut.edu.au
+
+----------------------------------------------------------------------
+
+

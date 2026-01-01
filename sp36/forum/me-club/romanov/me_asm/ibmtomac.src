@@ -1,0 +1,122 @@
+$MACRO IbmToMac TO <CtrlM>;		{ Written by Alex Romanov, 1991 }
+{
+This Multi-Edit 5.00 macro shows how to interface Multi-Edit macro language
+with 80x86 assembly language routines. Though intended to be merely an example
+to the paper "Interfacing Multi-Edit with Assembly Language" by Alex Romanov,
+it actually performs something useful: it converts file in current window to
+Apple (R) Macintosh (TM) Cyrillic text format.
+	This macro cannot be directly compiled with MEMAC. To compile it, load it
+into the editor and run macro ME_ASM -- a macro language preprocessor that
+resolves references to "inline assembly includes". See ME_ASM.SRC and the
+paper itself for a more detailed discussion.
+	NOTE. The layout of Cyrillic letters as mapped by the translation table
+below conforms to the Cyrillic code chart recently adopted by Apple for
+official use in the U.S.S.R. This macro also translates bullets (), sections
+(), and some other special characters to appropriate symbols of Macintosh
+character set.				}
+
+	If File_Changed Then
+		RM ('Userin^Verify /BL=SOURCE FILE NOT SAVED!/T=Do you wish to save the original file before converting it?');
+		If Key2 = 1 Then
+			GoTo abort;
+		End;
+		If Return_Int Then
+			Save_File;
+			If Error_Level Then
+				RM ('Meerror');
+				GoTo abort;
+			End;
+		End;
+	End;
+
+	RM ('Userin^Verify /BL=IBM-to-Mac Text Conversion/T=Convert this file to Mac Cyrillic text?');
+	If Not (Return_Int) Then
+		GoTo abort;
+	End;
+
+	Undo_Stat := FALSE;
+	Refresh := FALSE;
+	Working;
+
+	Def_Str (translate_table[260], curr_line[2048]);
+	Def_Int (i, xlat_handle);
+
+	i := 0;
+	translate_table := '';
+	While i < 7 Do
+		translate_table := translate_table + ' ';
+		++ i;
+	End;
+	translate_table := translate_table + '|165';	{ bullet }
+	++ i;
+	While i < 21 Do
+		translate_table := translate_table + ' ';
+		++ i;
+	End;
+	translate_table := translate_table + '|164';	{ section }
+	++ i;
+	While i < 32 Do
+		translate_table := translate_table + ' ';
+		++ i;
+	End;
+	While i < 127 Do
+		translate_table := translate_table + Char (i);
+		++ i;
+	End;
+	translate_table := translate_table + ' ';
+	++ i;
+	While i <= 159 Do
+		translate_table := translate_table + Char (i);
+		++ i;
+	End;
+	While i <= 175 Do
+		translate_table := translate_table + Char (i + 64);
+		++ i;
+	End;
+	While i < 224 Do
+		translate_table := translate_table + ' ';
+		++ i;
+	End;
+	While i < 239 Do
+		translate_table := translate_table + Char (i + 16);
+		++ i;
+	End;
+	translate_table := translate_table + '|223|221|222|179|178|32|32|214|32|32|32|32|195|32|32|165|32';
+
+{ The following line is ME_ASM extension of Multi-Edit macro language }
+	xlat_handle := Binary_Code ('xlat.asm','masmlink');
+
+	Mark_Pos;
+	Tof;
+	Make_Message (' Processing line ');
+	While Not (At_Eof) Do
+		Write (Str (C_Line), 18, Message_Row, 0, Message_Color);
+		curr_line := translate_table + Get_Line;
+        R_DS := Seg (curr_line);
+        R_BX := Ofs (curr_line) + 4;
+        R_DI := R_BX + 256;
+        R_ES := R_DS;
+        R_SI := R_DI;
+        i := Length (Get_Line);
+        If Not (i) Then
+            GoTo skip_this_line;
+        End;
+        R_CX := i;
+        Intr (xlat_handle);
+        Put_Line (Copy (curr_line, 257, i));
+ skip_this_line:
+        Down;
+	End;
+
+{ The following line is another ME_ASM extension of Multi-Edit macro language }
+	Kill_Binary_Handle (xlat_handle);
+
+	Goto_Mark;
+	Undo_Stat := TRUE;
+	Refresh := TRUE;
+	Redraw;
+	Make_Message (' File converted to Mac text format.');
+
+ abort:
+
+END_MACRO;

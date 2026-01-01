@@ -1,0 +1,93 @@
+$Macro MYPAGE FROM Edit TRANS;
+  Set_Global_Str('TX_1','/S=2/M=pg_ON');
+  Set_Global_Str('XTX_1','Расставить');
+  Set_Global_Str('TX_2','/S=2/M=pg_Off');
+  Set_Global_Str('XTX_2','Снять');
+  Run_Macro('USERIN^TOPMENU /GCLR=1/M=XTX_/G=TX_/#=2/X=1/Y=1/S=1/BC=1/L=СТРАНИЦЫ');
+  return_int := 100;
+END_MACRO;
+
+$Macro PG_ON;
+  Def_Int(kill_count);
+  Set_Global_Int('IINT_1',Right_Margin);
+  Set_Global_Str('IPARM_1','/T=Установить правую границу:      /C=3/L=1/W=3/TP=1');
+  Set_Global_Int('IINT_2',1);
+  Set_Global_Str('IPARM_2','/T=Установить начальную страницу:  /C=3/L=2/W=3/TP=1');
+  Set_Global_Int('IINT_3',60);
+  Set_Global_Str('IPARM_3','/T=Установить высоту страницы:     /C=3/L=3/W=3/TP=1');
+  Set_Global_Str('ISTR_4','ВВЕДИТЕ <ENTER> ДЛЯ УСТАНОВКИ');
+  Set_Global_Str('IPARM_4','/TP=6/C=6/L=5/W=29');
+  Run_Macro( 'USERIN^Data_In /#=4/S=1/A=3/X=6/Y=3/H=7/W=45');
+
+Run_Macro('on');
+End_Macro;
+
+$Macro PG_off;
+Mark_Pos;
+refresh := false;
+Push_Undo;
+Make_Message('Удаление страниц');
+Working;
+Tof;
+While (Search_Fwd('%@|12',0)) Do
+  Del_Line;
+  Del_Line;
+	eol;
+	if c_col = 1 then
+		 del_Line;
+	end;
+End;
+Pop_Undo;
+refresh := true;
+Goto_Mark;
+redraw;
+End_Macro;
+
+$Macro On;
+Def_Int(k,p,jx,r_m);
+Def_Str(s_k);
+Mark_Pos;
+r_m := Right_Margin;
+refresh := false;
+Push_Undo;
+Make_Message('Удаление страниц');
+Working;
+Insert_Mode := true;
+Right_Margin := Global_Int('IINT_1');
+k := Global_Int('IINT_2');
+p := Global_Int('IINT_3');
+Tof;
+While (Search_Fwd('%@|12',0)) Do
+    Del_Line;
+    Del_Line;
+	  eol;
+	  if c_col = 1 then
+       Del_Line;
+	  end;
+END;
+TOF;
+Make_Message('Расстановка страниц. Всего - ? ');
+Goto_Line(p);
+While NOT(At_EOF) DO
+  EOL;
+  CR;
+  Put_Line('|12');
+  EOL;
+  CR;
+  jx := Right_Margin/2 - 3;
+  Goto_Col(jx);
+  s_k := Str(k + 1);
+  Text('стр '+ s_k);
+  EOL;
+  CR;
+  k := k + 1;
+  Goto_Line(C_Line + p - 3);
+Make_Message('Расстановка страниц. Всего - ' + s_k);
+End;
+Pop_Undo;
+refresh := true;
+Goto_Mark;
+Right_Margin := r_m;
+Make_Message('Расстановка страниц. Всего - ' + s_k);
+redraw;
+End_Macro;

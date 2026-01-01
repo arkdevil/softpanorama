@@ -1,0 +1,233 @@
+From: lee@netspace.students.brown.edu (Lee J. Silverman)
+Newsgroups: comp.mail.smail,comp.os.linux.admin
+Subject: Smail on Linux.  Was: Smail has intermittent fits
+Date: 24 Sep 1994 15:12:16 GMT
+Organization: Brown University NetSpace Project
+Message-ID: <LEE.94Sep24111217@netspace.students.brown.edu>
+
+
+	For all you Linux types: Smail is configured incorrectly in
+slackware.  (Last I checked; I'm running Slackware 1.2 with my own
+mods).
+	First, and ABSOLUTELY critical: (if you skip the rest of this
+post, at least read this!!) Put the line: 
+-smtp_debug 
+in your /usr/lib/smail/config file.  It turns off SMTP debugging,
+which can give an unauthorized user access to run commands on your
+machine (probably as user nobody, but remember that smail runs as
+root.)
+
+	Second: smail is set up to be called from inetd.  This is
+startlingly inefficient.  Smail must reparse all of its configuration
+files each time it is started up.  If you've looked at the config
+files, you can imagine that this takes a while.  Furthermore, mail
+that has been deffered or otherwise queued up won't be delivered by
+this method.
+
+	So, here's what you do.  Remove the call to smail from
+/etc/inetd.conf.  In your /etc/rc.d/rc.inet2 file, add the following:
+
+# Start the SMAIL SMTP server.
+if [ -f /bin/smail ]
+then
+ echo -n " smail-SMTP"
+ /bin/smail -bd 
+ echo -n " smail-Queue"
+ /bin/smail -q20m
+fi
+
+smail -bd starts a daemon that sits and waits for connections on the
+SMTP port (25), and spawns off a child proccess every time new mail
+arrives.  It only has to procceess its config files when it starts, so
+it's startlingly more efficient.  Smail -q20m sets up a daemon that
+proccesses the "input" queue every 20 minutes.  Mail that smail -bd
+could not deliver immediately goes into this queue.  
+	One of smail's only shortcomings is that it only has one
+queue.  Mailers like MMDF and Zmailer use multiple queues so that if,
+for example, AOL.com is down when a queue run is performed, Zmailer
+doesn't have to proccess every message in the queue that's destined
+for AOL.  It simply tries the first one and when that doesn't work it
+skips the rest.  The "retries" files help out here, because it doesn't
+try to connect for every message, but it still has to proccess the
+entire queue.  Unfortunately, Zmailer doesn't work on Linux boxes yet,
+and MMDF is a dinosaur that I didn't want to install for fear that it
+might stomp on something.  Good design, though.)
+
+	Third: If you're on the internet, go to the /usr/lib/smail/
+directory and edit the "transports" file.  Uncomment the last four
+lines in order to allow internet mail to be delivered using MX
+records, not hostnames.  Here are the drivers I have in transports, in
+order (I use procmail for local mail delivery, which is why the first
+driver is bogus, and the second driver delivers to local users.)
+bogus:	driver = appendfile,		# append message to a file
+local:	driver = pipe,			# append message to a file
+pipe:	driver = pipe,			# pipe message to another program
+file:	driver = appendfile,
+smtp:	driver = smtp,
+
+Since I'm not on UUnet uux doesn't do me any good so I got rid of the
+UUCP drivers.  Here's the full smtp driver, since that's going to be
+the most important one:
+
+smtp:	driver = smtp,
+    	-max_addrs,
+    	-from,
+	-max_chars;
+# For internet use: uncomment the below 4 lines
+	use_bind,			# resolve MX and multiple A records
+	defnames,			# use standard domain searching
+	defer_no_connect,		# try again if the nameserver is down
+	local_mx_okay,			# pass on to next router if MX is us
+
+It's these last four that make mail deliverable over the internet,
+especially the use_bind tag.  Smail defaults to using gethostbyname,
+which means that any mail for a machine with an MX record won't be
+delivered.
+
+Next, edit the "routers" file.  Once it is decided that mail is going
+to go to a remote machine, this file is used to determine how to get
+the message there.  Here are some of the key elements in this file:
+
+match-inet-addrs:
+        driver=gethostbyaddr,           # match user@[aaa.bbb.ccc.ddd]
+        transport=smtp;                 # delivery is over smtp/tcp
+
+forces:					# Just in case I need it
+	driver = pathalias,		# router to search paths file
+
+match_mx_hosts:				# Match folks on the internet
+	driver=bind,			# Get info from nameserver
+	transport=smtp;			# use TCP/IP SMTP for delivery
+	defnames,			# use standard domain searching
+	local_mx_okay,			# if the MX points to this host, pass
+					# it to the next router and see if
+					# we serve it a different way
+	defer_no_connect,		# try again if the nameserver is down
+        gateways="brownvm.brown.edu:bitnet:+:uunet.uu.net:uucp"
+
+{This is the REALLY important one.  The vast majority of your outgoing
+mail will use this driver.  Notice that it uses bind instead of
+gethostbyname.  VERY important for machines with MX records.  Also
+notice the "gateways" line.  Mail to user@XXXXX.bitnet will be sent
+through Brown's mainframe (substitute in a more local Bitnet gateway
+in your own files, please) and mail to user@YYYY.uucp will go through
+uunet.uu.net (again, you may want to substitute a more local UUCP
+gateway).  Defer_no_connect is really important if you're using the
+bind driver, because it allows the mailer to retry sending the mail if
+the nameserver is down.}
+
+match-inet-hosts:
+        driver=gethostbyname,		# match hosts on network
+        transport=smtp;			# delivery is over smtp/tcp
+	domain = students.brown.edu	# strip trailing domain before lookup
+
+{Most of the time the match_mx_hosts will deliver the mail before this
+driver is reached.}
+
+{MAKE SURE THE REROUTE DRIVER IS COMMENTED OUT!!!!!!!!!!!!!!!!!!}
+
+smart_host:
+	driver=smarthost,		# special-case driver
+	transport=smtp;			# by default deliver over SMTP
+
+{The smarthost is listed in the config file.}
+
+	Lastly, the config file.  Here's a copy of mine, just to get
+people started:
+
+#--------------------------------------------------------------------------
+#
+#	smail configuration for NetSpace
+# (see smail(5) man page for details and other options)
+#
+# Primary hostname
+hostname=netspace.students.brown.edu
+
+# Other hostnames that mail will be accepted for.  ALl of your machine's
+# names should go in this list.  Note that there are no returns.
+more_hostnames=netspace.cis.brown.edu:archive.phish.net:home.eos.brown.edu:ssc.org:netspace.stg.brown.edu:netspace.org
+
+# Mail coming out of Netspace has this address on it.
+visible_name=netspace.students.brown.edu
+
+# How to get to the "smart" machine.  As if an IBM mainframe were "smart". :-)
+smart_path=brownvm.brown.edu
+smart_transport=smtp
+
+# When mail is delivered to "postmaster", who does it go to?
+postmaster=lee
+
+# Needed for Listproc to work correctly, among other things.  Make sure there
+# is a user "nobody" in /etc/passwd with a * in the passwd field:
+# nobody:*:15:12:nobody:/home/nobody:/bin/logout
+nobody=nobody
+
+# If this many messages are being proccesed at once, queue them instead of
+# attempting immediate delivery.
+smtp_accept_queue=20
+
+# Don't accept any more than this many SMTP connections at once.  Imagine the
+# load of 60 smail proccesses on a Linux box... cripes!
+smtp_accept_max=60
+
+# Other schtuff
+retry_file=retry
+smail=/bin/smail
+delivery_mode=foreground
+
+# Turn of SMTP debugging.  CRITICAL!!!!!
+-smtp_debug
+
+# I don't want to see copies of every bounced message on my machine...
+-error_copy_postmaster
+
+# This is the line that comes up when someone makes an SMTP connection
+smtp_banner="Welcome to NetSpace!  We're running Smail here."
+
+# This is the same as the default.
+received_field="Received: \
+       ${if def:sender_host\
+            {from $sender_host by $primary_name\
+             ${if def:sender_proto: with $sender_proto}\
+             \n\t(Smail$version #$compile_num) }\
+        else{by $primary_name ${if def:sender_proto:with $sender_proto }\
+              (Smail$version #$compile_num)\n\t}}\
+        id $message_id; $spool_date"
+
+#--------------------End of Config File---------------------------------
+
+	On a final note: My linux box runs the Listproc mailing list
+software, with over a dozen lists, 5 of which have over 250 users and
+see more than 5 messages a day.  If you use listproc, append the flag
+-m 250 after each list definition.  This tells Listproc that each
+"system" SMTP connection, where the initial delivery of mail takes
+place, delivers mail to up to 250 different people.  That means for a
+list with 900 subscribers, only 4 smail proccesses are started.
+Although these proccesses take considerably longer to run than a smail
+proccess with only one message to deliver, they take far less time to
+run than starting 900 seperate smail proccesses, and the load on the
+machine is much less!  Also, make sure the server line in your
+listproc config file tells it not to attempt delivery if the load is
+over "1", unless you're only using your Linux box to deliver mail.  A
+linux box at a load of 1 is slow enough already without Listproc
+slowing things down more.
+
+	All told, my machine proccesses about 5000 email messages a
+day, sometimes more.  I have not had a message stay in the "input"
+queue for more than two days in over a week, even though smail is
+configured to retry delivery every 20 minutes for 5 days.  I haven't
+had any messages at all in the "error" queue (mostly because of the
+smart_host driver).  The load on my machine due to mail proccessing is
+SMALL, because Listproc and smail are set up to handle it.
+
+	I hope this post helps at least a few people out there!
+
+Take care!
+
+
+--
+Lee Silverman, Brown class of '94, Brown GeoPhysics ScM '95
+Email to: Lee_Silverman@brown.edu
+Phish-Net Archivist: phish-archives@phish.net
+"Nonsense - you only say it's impossible because nobody's ever done it."
+

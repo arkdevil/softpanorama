@@ -1,0 +1,138 @@
+Newsgroups: comp.databases.xbase.fox
+From: yahnz@csn.org (Jan C. Zawadzki)
+Subject: Re: FoxPro Vs. Client-Server RBDMS
+Message-ID: <yahnz.12.0013FC12@csn.org>
+Organization: Colorado SuperNet, Inc.
+Date: Fri, 9 Sep 1994 02:58:56 GMT
+
+In article <34naac$bci@paperboy.gsfc.nasa.gov> gregory_smith@ccmail.gsfc.nasa.gov (Gregory A. Smith) writes:
+>From: gregory_smith@ccmail.gsfc.nasa.gov (Gregory A. Smith)
+>Subject: FoxPro Vs. Client-Server RBDMS
+>Date: 8 Sep 1994 15:23:56 GMT
+
+>Can anyone tell if there are any objective metrics for when to move from
+>Xbase File-Server Architecture (such as FoxPro) to a Client-Server RDBMS
+>Architecture (such as Sybase-Powerbuilder)?
+
+>For instance, is there a threshold in number of records, megabytes of
+>data or number of simultaneous users at which FoxPro should be ruled
+>out as a development tool.
+
+It all depends on what you do with it.  Foxpro is extremely fast in terms of 
+transaction processing - adding a record or changing a record.  Foxpro stinks 
+on the other hand if you are searching through large amounts of data - if your 
+users are looking through lists of invoices, or some such.  I've run code that 
+bangs over 1G of files, and it runs OK.  I wouldn't buy an HP to save 
+myself 3 hours of run time if I only run the thing once a week.  The benefits 
+of going to C-S are numerous, but as with any tool it works well on SOME tasks.
+If you've looked at PB you'll probably conclude that it is a much more of a 
+development tool than Foxpro - it is designed to handle large scale projects, 
+with inheritance, and other such.  I've been using a combination of Foxpro and 
+PB to talk to a Watcom database sitting on a Novell server, and there are 
+tasks I would not want to touch with PB, and there are tasks that Foxpro is 
+just not as well suited for...  As to the user count this is more of a network 
+throughput (and locking) issue - even if your application reads very little 
+data, 2000 users are going to nail your network in a blink.  If you are 
+starting any new medium to large scale projects (120h+ in my book), I'd start 
+in PB and look for places where Foxpro applies better.
+
+>If anyone has any objective metrics, benchmarks, or statistics supporting
+>such a threshold, please email them to me at:
+
+You can do a simple calculation: in a query, Foxpro copies across all data 
+needed to perform comparisons, etc.  Assume a LOCATE:
+
+               FOXPRO                     CS
+Worst Case =   FieldSize * RecCount       SQL Select + results cursor
+Average Case = FieldSize * RecCount / 2   constant (as above)
+Best Case =    FieldSize                  constant (as above)
+
+Look at your data, and see what data you are bringing across...  Even if you 
+use seeks, the index must be essentially copied across.  If your indexes are 
+big, the same calculation applies.  The above assumes the same server on both 
+ends, ie. the actual search taking about the same amount of time.  This is 
+generally not true, as most SQL backends organize data to make queries very 
+fast, unlike Foxpro.
+
+>gregory_smith@ccmail.gsfc.nasa.gov
+
+>Thanks in advance.
+
+Jan
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!yeshua.marcam.com!usc!elroy.jpl.nasa.gov!ncar!csn!p13.Boulder-2.dialup.csn.net!yahnz Wed Sep 14 22:03:26 1994
+Newsgroups: comp.databases.xbase.fox
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!yeshua.marcam.com!usc!elroy.jpl.nasa.gov!ncar!csn!p13.Boulder-2.dialup.csn.net!yahnz
+From: yahnz@csn.org (Jan C. Zawadzki)
+Subject: Re: FoxPro Vs. Client-Server RBDMS
+Message-ID: <yahnz.15.001540C3@csn.org>
+Lines: 34
+Sender: news@csn.org (The Daily Planet)
+Nntp-Posting-Host: p13.boulder-2.dialup.csn.net
+Organization: Colorado SuperNet, Inc.
+X-Newsreader: Trumpet for Windows [Version 1.0 Rev A]
+References: <34naac$bci@paperboy.gsfc.nasa.gov> <34nf89$ber@illuminati.io.com> <kenho.41.2E7071E2@hk.super.net> <aaron_bratcher-0909941212290001@fpm-mac-17.uchicago.edu>
+Date: Sat, 10 Sep 1994 04:15:02 GMT
+
+In article <aaron_bratcher-0909941212290001@fpm-mac-17.uchicago.edu> aaron_bratcher@fpm.uchicago.edu (Aaron Bratcher) writes:
+
+(... stuff deleted ...)
+
+>> Well I admit performance is a very important factor, there are many 
+features >> that available in CS RDBMS are much more superior than FP. e.g. 
+>> referential integrity, Rollback transaction, etc. Try to do this in 
+>> Foxpro.... Headache!!
+
+>Has anyone actually done transaction processing in their FoxPro application?
+>I would love to hear some case testimonies.
+
+If you mean a transaction as an operation that is not a query, I haven't seen 
+too many applications that do NO transaction processing...  If you mean a 
+transacation as an OS feature with a guaranteed rollback and database 
+integrity, you CANNOT - not in Foxpro  (don't count Novell stuff - that it 
+using Novell features, not Foxpro's).
+
+>I want to write an application that can have a duplicate copy at another
+>site and through the magic (read... "my months of toil and headaches") of
+>software be able to "cross update" the sites so each would have the
+>changes/additions/deleteions of the other site. Any insights to this?
+
+Depending on your application, maintain a date field of LastChange.  Whenever 
+you write to it, update LastChange.  Every week (or whatever) send out all 
+records with LastChange in the date range, and reset them.  This assumes NO 
+possibility of both sites modifyng a single record (because then you are 
+really fudged).
+
+>Aaron L. Bratcher
+>University of Chicago
+
+Jan C. Zawadzki
+Medical Group Management Association
+
+From ankh.iia.org!uunet!george.inhouse.compuserve.com!news.inhouse.compuserve.com!compuserve.com!news Wed Sep 14 22:04:03 1994
+Path: ankh.iia.org!uunet!george.inhouse.compuserve.com!news.inhouse.compuserve.com!compuserve.com!news
+From: Chris Bobbitt <76701.203@CompuServe.COM>
+Newsgroups: comp.databases.xbase.fox
+Subject: Re: FoxPro Vs. Client-Server RBDMS
+Date: 11 Sep 1994 02:17:26 GMT
+Organization: TI Forum
+Lines: 15
+Message-ID: <34tpbm$5g4$1@mhadf.inhouse.compuserve.com>
+References: <34naac$bci@paperboy.gsfc.nasa.gov>
+
+I would think a reasonable indicator for when to move from Fox Pro to
+a client-server database would be the needs of the database. Fox Pro will
+certainly handle a database of any practical size, and probably, with the
+right PCs and network equipment, most any number of users.
+
+HOWEVER, if your database requires (a) more internal _enforced_ integrity
+due to complexity, (b) a large number of clients with a limited amount
+of network bandwidth [say 20-30 users on an Ethernet network], (c) and
+the sophistication afforded by transaction commits and rollbacks, on-line
+backups, etc., then it is time to move it to a C/S setup.
+
+To make a long story short, my company does FoxPro for big things, and we
+also do C/S for big things - we just let the application decide for us
+which way we do it. Rules of thumb only work when everyone has the same
+thumb. ---Chris
+

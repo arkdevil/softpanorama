@@ -1,0 +1,245 @@
+{$A+,B-,D-,E-,F-,I-,L-,N-,O-,R-,S-,V-}
+{$M 1204, 4600, 24000}
+
+unit BZCalend;                         { (c) BZSoft Inc. 1991. }
+
+Interface
+
+uses TpCrt,TpWindow,TpDate,Dos,TpMouse,TpDos;
+
+const EnableMouseCal : boolean = false;
+      SoundSwith : word = $1F00; { Alt/S, Install $0000 to ignore }
+      DelayOfWhiteCal : word = 30; { second }
+      WhiteAndExitCal : boolean = false;
+var
+    DateFormatCal,
+    PYear,
+    PMont,
+    PDate,Pd : Word;
+type CalArrayType = array[0..11] of string[56];
+    const
+         DD : array [0..6] of string[2] =
+               ('Вс','Пн','Вт','Ср','Чт','Пт','Сб');
+          DayStringR: array[0..6] of string[11] =
+          ('Воскресенье','Понедельник','Вторник    ','Среда      '
+          ,'Четверг    ','Пятница    ','Суббота    ');
+          MonthString : array[1..12] of string[8] =
+          (' Январь ','Февраль ','  Март  ',' Апрель ','  Май   ','  Июнь  '
+          ,'  Июль  ',' Август ','Сентябрь','Октябрь ',' Ноябрь ','Декабрь ');
+          LenMon:array[1..12] of byte = (31,29,31,30,31,30,31,31,30,31,30,31);
+          FormDUS = 0{mdy}; FormDEurope = 1{dmy}; FormDJapan = 2{ymd};
+          FormCal : 0..2 = FormDEurope;
+          DateSlashChar : char = '.';
+          HelpCalArray : CalArrayType =
+           (' КАЛЕНДАРЬ ',
+            '',
+            '    Сейчас  Вы  можете  выбрать  нужную  дату  в  окошке',
+            '  КАЛЕНДАРЯ.  Для  ввода  выбранной  даты нажмите ENTER.',
+            '  Перемещать  курсор  в  окошке  можно  с помощью клавиш',
+            '  управления  курсором.  Клавиша Home уменьшает значение',
+            '  ГОДа, End -увеличивает. Для МЕСЯЦа соотв. клавиши PgUp',
+            '  и  PgDn.  Выбранная  дата  не может быть вне указанных',
+            '  пределов, но просмотр возможен с 1600 по 4000 год.    ',
+            '  Можете использовать также для управления  "мышь", если',
+            '  это утройство и его драйвер установлены в системе.',
+            '');
+
+procedure EnterDate ( var oM:word; var oD:word; var oY:word;
+                      bM,bD,bY:word; eM,eD,eY:word;
+                      Xc,Yc : byte; CalSound:boolean;
+                      VA,FA,WA,CA,PA,HA:byte; title : string;
+                      var PressEsc : boolean);
+
+Implementation
+
+procedure EnterDate ( var oM:word; var oD:word; var oY:word;
+                      bM,bD,bY:word; eM,eD,eY:word;
+                      Xc,Yc : byte; CalSound:boolean;
+                      VA,FA,WA,CA,PA,HA:byte; title : string;
+                      var PressEsc : boolean);
+
+label Jump;
+
+const
+     HomeK  = 1;
+     EndK   = 2;
+     PgUpK  = 3;
+     PgDnK  = 4;
+     LeftK  = 5;
+     RightK = 6;
+     UpK    = 7;
+     DownK  = 8;
+     EnterK = 9;
+     HelpK  =10;
+
+var
+    W1,W2                     : WindowPtr;
+    Xcal,Ycal,LastCol,
+    SaveShadowAttr,
+    MouseInDay,
+    Number,Xlo,Ylo,Xhi,Yhi    : byte;
+    SaveSound, Ok, b,
+    SaveShadow,
+    SaveMouseCursor,
+    EnableMouseCalUse         : boolean;
+    SaveDelay, a, i,
+    FirstDay, LastDay         : word;
+    SaveShadowMode            : ShadowType;
+    S                         : string;
+    c                         : Char;
+    TimeCal                   : LongInt;
+    MouseSet : set of byte;
+
+ procedure DrawCalendar(M:word;Y:Word);
+ begin 
+ end;
+
+ procedure Click;
+ begin
+ end;
+
+ function DateStrRet(d,m,y:word) : string;
+ begin
+ end;
+
+ function DateInSet (d,m,y:word) : boolean;
+ begin
+ end;
+
+ procedure AttrDate (d,r:word; High:Boolean);
+ begin
+ end;
+
+ procedure Comm;
+ begin
+ end;
+
+ function HelpCal : boolean;
+ begin
+ end;
+
+ procedure VerifyDate(var d:word; var m:word; var y:word);
+ begin
+ end;
+
+procedure CallF (Func : byte);
+begin
+end;
+
+procedure MouseDay;
+begin
+end;
+
+begin
+SaveShadow:=Shadow; Shadow:=true; SaveShadowAttr:=ShadowAttr;
+EnableMouseCalUse := EnableMouseCal and MouseInstalled;
+if EnableMouseCalUse Then
+   begin
+     SaveMouseCursor:=MouseCursorOn;
+     EnableEventHandling;
+     Xlo:=MouseXLo; Ylo:=MouseYLo;
+     Xhi:=MouseXHi; Yhi:=MouseYHi;
+     FullMouseWindow;
+     MouseGotoXY(Xc+1,Yc+1);
+    end;
+ShadowAttr:=$07; Ok:=false; PressEsc:=false;
+SaveShadowMode:=ShadowMode; ShadowMode:=BigShadow;
+SaveDelay:=ExplodeDelay; SaveSound:=SoundFlagW;
+SoundFlagW:=CalSound; Explode:=true;
+ExplodeDelay:=5; VerifyDate(oD,oM,oY);
+if (bD+bM+bY)>0 Then VerifyDate(bD,bM,bY);
+if (eD+eM+eY)>0 Then VerifyDate(eD,eM,eY);
+b := MakeWindow( w2, Xc, Yc, Xc+60, Yc+14, true,
+                 true, false, VA, VA, VA, title);
+b := DisplayWindow(w2); HiddenCursor;
+FastWrite('Клавиши управления :',                          Yc+ 1,Xc+32,VA);
+FastWrite('┌─────┬─────┐',                                 Yc+ 2,Xc+28,VA);
+FastWrite('│Home │ End │ - выбор года',                    Yc+ 3,Xc+28,VA);
+FastWrite('├─────┼─────┤',                                 Yc+ 4,Xc+28,VA);
+FastWrite('│PgUp │PgDn │ - выбор месяца',                  Yc+ 5,Xc+28,VA);
+FastWrite('├──┬──┼──┬──┤',                                 Yc+ 6,Xc+28,VA);
+FastWrite('│'+#24+' │'+#25+' │'+#27+' │'+#26+' │ - выбор даты',Yc+ 7,Xc+28,VA);
+FastWrite('├──┴──┴──┴──┤',                                 Yc+ 8,Xc+28,VA);
+FastWrite('│   Enter   │ - ввод даты',                     Yc+ 9,Xc+28,VA);
+FastWrite('├───────────┤',                                 Yc+10,Xc+28,VA);
+FastWrite('│     F1    │ - подсказка',                     Yc+11,Xc+28,VA);
+FastWrite('└───────────┘',                                 Yc+12,Xc+28,VA);
+if (bM+bD+bY)>0 Then
+   FastWrite('Минимальная дата '+DateStrRet(bD,bM,bY),Yc+13,Xc+2,VA);
+if (eM+eD+eY)>0 Then
+   FastWrite('Максимальная дата '+DateStrRet(eD,eM,eY),Yc+13,Xc+31,VA);
+Xcal:=Xc+2;Ycal:=Yc+3; SoundFlagW:=false; Shadow:=false;
+MouseSet := [ 5, 6, 8, 9,11,12,14,15,17,18,21,22];
+b := MakeWindow( w1,Xcal,Ycal,Xcal+23,Ycal+8,true,true,false,WA,FA,FA,'');
+b := DisplayWindow(w1);
+DrawCalendar(oM,oY);
+AttrDate(oD,FirstDay,true);
+repeat
+TimeCal:=TimeMs;
+While WhiteAndExitCal and (not (KeyPressed or
+                               (EnableMouseCalUse and MousePressed))) do
+      if TimeCal<(TimeMs-DelayOfWhiteCal*1000) Then
+         if DateInSet(oD,oM,oY)
+            Then begin CallF(EnterK); goto Jump end
+            else begin TimeCal:=TimeMs; Beep end;
+a:=ReadKeyOrButton;
+   case a of
+   $1C0D: begin CallF(EnterK); Ok:=DateInSet(oD,oM,oY) end;
+   $011B,MouseRt: PressEsc:=true;
+   $3B00,MouseCtr: CallF(HelpK);
+   $4F00: if oY<3999 Then CallF(EndK);
+   $4700: if oY>1600 Then CallF(HomeK);
+   $4900: CallF(PgUpK);
+   $5100: CallF(PgDnK);
+   $4800: CallF(UpK);
+   $4B00: CallF(LeftK);
+   $4D00: CallF(RightK);
+   $5000: CallF(DownK);
+   MouseLft : begin
+     if MouseInWindow(Xcal+1,Ycal+1,Xcal+22,Ycal+7) Then
+        begin
+          MouseDay;
+          case MouseInDay of
+          0 : CallF(PgUpK);
+          32: CallF(PgDnK);
+          1..31 : if MouseInDay = oD Then
+                 begin CallF(EnterK); Ok:=DateInSet(oD,oM,oY) end
+                else begin
+                  Number:=0;
+                  AttrDate(oD,FirstDay,false);
+                  Click; oD:=MouseInDay;
+                  AttrDate(oD,FirstDay,true);
+                end
+          end
+        end;
+     if MouseInWindow(Xc+29,Yc+3,Xc+33,Yc+3) and (oY>1600) Then CallF(HomeK);
+     if MouseInWindow(Xc+35,Yc+3,Xc+39,Yc+3) and (oY<3999) Then CallF(EndK);
+     if MouseInWindow(Xc+29,Yc+5,Xc+33,Yc+5) Then CallF(PgUpK);
+     if MouseInWindow(Xc+35,Yc+5,Xc+39,Yc+5) Then CallF(PgDnK);
+     if MouseInWindow(Xc+29,Yc+7,Xc+30,Yc+7) Then CallF(UpK);
+     if MouseInWindow(Xc+32,Yc+7,Xc+33,Yc+7) Then CallF(DownK);
+     if MouseInWindow(Xc+35,Yc+7,Xc+36,Yc+7) Then CallF(LeftK);
+     if MouseInWindow(Xc+38,Yc+7,Xc+39,Yc+7) Then CallF(RightK);
+     if MouseInWindow(Xc+29,Yc+9,Xc+39,Yc+9) Then begin
+        CallF(EnterK);  Ok:=DateInSet(oD,oM,oY) end;
+     if MouseInWindow(Xc+29,Yc+11,Xc+39,Yc+11) Then CallF(HelpK);
+    end; { Mouse Left Button }
+   end;
+if a=SoundSwith Then CalSound:= not CalSound;
+until Ok or PressEsc;
+Jump:
+if EnableMouseCalUse Then
+   begin
+     if SaveMouseCursor Then ShowMouse else HideMouse;
+   end;
+killWindow(w1); SoundFlagW:=CalSound;
+killWindow(w2); Shadow:=SaveShadow; ShadowAttr := SaveShadowAttr;
+SoundFlagW:=SaveSound; ShadowMode:=SaveShadowMode; 
+ExplodeDelay:=SaveDelay;
+if EnableMouseCalUse Then
+   begin
+     MouseWindow(Xlo,Ylo,Xhi,Yhi);
+     if SaveMouseCursor Then ShowMouse else HideMouse;
+   end;
+end;
+end.

@@ -1,0 +1,56 @@
+From: ron@blip.apana.org.au
+Newsgroups: comp.os.os2.networking,comp.os.os2.networking.tcp-ip
+Subject: Re: Multi-SLIP for OS/2
+Date: 12 Nov 1994 00:24:28 GMT
+Organization: werple public-access unix, Melbourne
+Message-ID: <3a11vs$md7@eplet.apana.org.au>
+
+In <1994Nov09.222935.10525@digibd.com>, vince@digibd.com (Vince Ma) writes:
+>
+>Does anyone know there is a Multi-SLIP software available in the market?
+>I heard there is such thing which can support up to 8 sessions per system.
+>Any info about this kind of product will be appreciated.
+>
+>Thank you in advance.
+>-- 
+>Vincent Mar   vince@digibd.com                  
+>#include <std/disclaimers.h>
+
+Standard part of SLIP.EXE with Aug CSD's and later (Eg. Warp) is support for
+multiple comm ports. Works OK, BUT the error recovery and scripting is still
+constrained by the concepts in David Bolens original design (great code, since
+expanded in a mediocre fashion)
+
+As an example, you cant have COM1 with a script to access the internet AND
+have COM2 wait for incoming calls. Why ?, because the slip interface is not
+activated until ALL the startup scripts for each defined port have completed.
+In other words, the slip interface doesnt start until BOTH com1 connects to
+the internet AND somebody calls you on COM2 - totally daft. A better design
+would be to have each interface (sl0, sl1,... etc) marked as DOWN until the
+startup script for each one deliberately marked it as UP (as part of the REXX
+script) Shouldn't be too hard, since each interface script is executed as a
+separate thread - it's just that at present, the main SLIP thread waits for
+each startup thread to complete before becoming active.
+
+The other major weakness is the primitive monitoring of carrier-detect. At
+the moment, all you can specify is to exit SLIP 'nn' minutes after loss of
+carrier (on which port ?). This is still better than the original which had
+no support for monitoring carrier at all, but in a multi-line situation the
+nicest design would be to spin off a new thread with a REXX script to handle
+the desired processing.
+
+Eg.
+sl0 {
+  ... usual parameters
+  carrierloss=linedown.cmd, attachparms="whatever I like"
+  }
+
+In addition to the current functions available to the REXX script, it would
+probably be nice to include a function to shutdown the entire SLIP support
+from a script. (rather than running 'slay' or 'kill' or similar utility)
+
+my $0.02 worth
+
+Ron O'Hara
+
+

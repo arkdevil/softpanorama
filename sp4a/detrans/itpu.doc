@@ -1,0 +1,419 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             Turbo Pascal (tm) Unit
+                                Interface Utility
+
+                                  Version 1.50
+
+                         Copyright (C) 1992 Oleg Danilow
+                               All rights reserved
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                             Minsk, August 28, 1992
+
+
+
+                                        i
+
+
+
+                                Table Of Contents
+                                =================
+
+   TPU Interface Utility  .............................................. 2
+        Version 1.50, Release Date 08/28/92  ........................... 2
+   Tips & tricks  ...................................................... 2
+   Command-line options  ............................................... 3
+        /c  ............................................................ 4
+        /w  ............................................................ 4
+        /r  ............................................................ 4
+        /l  ............................................................ 4
+        /u  ............................................................ 4
+   Error messages  ..................................................... 4
+        General .i.error  .............................................. 4
+        Insufficient memory  ........................................... 4
+        Output .i.error  ............................................... 5
+        Read error  .................................................... 5
+        Open error  .................................................... 5
+        Unit not found  ................................................ 5
+        Not a unit  .................................................... 5
+        Bad unit version  .............................................. 5
+        Bad option format  ............................................. 5
+        Unknown identifier style  ...................................... 5
+        Missing library name  .......................................... 5
+        Missing path name  ............................................. 6
+        Unknown option  ................................................ 6
+        Unknown switch  ................................................ 6
+        Command error  ................................................. 6
+        File already exists  ........................................... 6
+        File not found  ................................................ 6
+        Missing file name  ............................................. 6
+        Library not found  ............................................. 6
+        Unit image corrupt  ............................................ 6
+   Contact  ............................................................ 7
+   Acknowledgements  ................................................... 7
+   Index  .............................................................. 8
+
+
+
+                                                                       Page 2
+   --------------------------------------------------------------------------
+
+
+
+   TPU Interface Utility
+   =====================
+
+   Version 1.50, Release Date 08/28/92
+   -----------------------------------
+
+   The TPU (Turbo Pascal Unit) Interface Utility (ITPU) is intended to be
+   used for inquiry about the Borland Turbo Pascal 6.0 and/or Turbo Pascal
+   for Windows object modules. The program is a SHAREWARE, so you are
+   encouraged to test it in a 30 day evaluation period. If you still
+   appreciate the program and have found it useful, the registration fee is
+   mandatory, or you must discontinue using the program. Any amount will be
+   accepted with gratitude.
+
+   Due to the unavailability of an original format of the TPU the whole
+   program output is based totally upon the author's guess. Therefore the
+   guarantee of the proper results may not be given, though the program has
+   been intensively tested in different situations.
+
+   Tips & tricks
+   =============
+
+   There is a major restriction in ITPU usage, concerning the version of the
+   compiler. Currently the ITPU program supports only TP 6.0 or TPW unit
+   format. Any other versions are not suitable. The MS-DOS or PC-DOS version
+   3.0 or higher is also required.
+
+   The ITPU program produces the _information_ text, not the source code for
+   some reasons. However, the output is formatted as much closer as possible
+   to the Pascal language semantics, for your convinience. The order of
+   symbols declaration doesn't match the language rules, because the symbols
+   are processed in the order they met in the TPU file. They are sorted only
+   into the conventional groups, such as: constants, types, variables, etc.
+
+   The program runs pretty well in most cases. However, there are some
+   special ones which are not obvious and cannot be handled by the program.
+   For instance, the enumeration type elements are considered as untyped
+   integer constants by the compiler, so the ITPU may confuse them with the
+   actual constants of the same type:
+
+       Source text:                   |  May result in:
+       ------------                   |  --------------
+       type                           |  const
+         MyType = (One, Two, Three);  |    Three = MyConst;
+                                      |
+       const                          |  type
+         MyConst = Three;             |    MyType = (One, Two, MyConst);
+
+
+
+                                                                       Page 3
+   --------------------------------------------------------------------------
+
+
+   BTW, this happens only when the constant has been processed before the
+   type declaration.
+
+   Another hole is the local context names, used to determine the symbolic
+   names of the function formal parameters. If the function/procedure has
+   been compiled with the $L directive set ON ($L+), the compiler stores the
+   local context list along with the function. ITPU detects if the local
+   context is available and if it is, uses the original parameters naming,
+   otherwise the simple P1, P2, etc. are used. Unfortunately the local
+   context usage will produce an invalid output in some situations. The name
+   is assigned to each of the parameter according to its position in stack
+   frame, so in most cases this will work fine, except when the String
+   parameters are passed by value, or returned by the function. The compiler
+   stores only the relative stack position of the local name and doesn't
+   track an actual position in the parameter list, so the ITPU may assume an
+   invalid order of naming and produce something like this:
+
+           function MyFunc(Flag: String; Name: Word): String;
+
+       instead of:
+
+           function MyFunc(Name: String; Flag: Word): String;
+
+   Sometimes an actual source parameter name may give it a chance to get a
+   clue, what this function must be doing...
+
+   All that is depressing, but, as you might guess is not much of importance.
+
+   Command-line options
+   ====================
+
+   The format of the command line is simple and friendly:
+
+         itpu [options] <inputfile>[.TPU] [<outputfile>[.INT]]
+
+   The only required parameter is the filename of a unit to be processed. An
+   extension is automatically assumed (.TPU). Options may be placed anywhere
+   in the command line. You may specify only the pathname of an output file.
+   The command line is case-independent, so you may use the upper or lower
+   case characters, as you like. The 'plus' character can be omitted in
+   switches. The following options are available in this version.
+
+
+
+                                                                       Page 4
+   --------------------------------------------------------------------------
+
+
+       /c              Letter case in identifiers;
+                       u - All in uppercase (default)
+                       l - Force the lowercase
+                       s - Stylish (all in lowercase, the first letter in
+                       uppercase)
+
+       /w{+|-}         Write over switch; Default is OFF. You may switch this
+                       on to suppress the "File already exists" error;
+
+       /r{+|-}         Switch technical comments on/off; The comments
+                       includes record length, function offset, size and
+                       other technical information;
+
+       /l<name>        Turbo Library name to use instead of TURBO.TPL; It can
+                       be any valid DOS file name; .TPL extension assumed if
+                       there's no one; For example, the Turbo Pascal for
+                       Windows users may specify /lTPW or /l\TPW\BIN\TPW. It
+                       is your responsibility to specify the matching
+                       library; There may be an invalid output when the unit
+                       was compiled using TP 6.0 and the library of TPW is
+                       loaded;
+
+       /u<name>        A list of the directories where missing TPU may
+                       reside; This option acts incrementary, so you can
+                       specify the long list of the directories in the number
+                       of /u options; Entries in the directory list must be
+                       separated with semicolon
+
+   You can specify all the options through the configuration file. The
+   configuration file is much like the command line, but accepts the line
+   break characters as the delimiters, besides the space and slash. ITPU
+   program first looks for the file of the same name as an EXE file with an
+   extension .CFG in the directory, where it was started from, then in the
+   current directory and finally, takes a command line. Any or all of the
+   configuration files may be omitted. The last state of an option is
+   actually used. The command line has the maximum priority over the
+   configuration files. For example, if the CFG in ITPU startup directory
+   contains /cl, the CFG in the current directory /cu and the command line
+   states /cs, the last one (/cs) is about to be used.
+
+   Error messages
+   ==============
+
+   General error
+         This error indicates that the program cannot perform an operation
+         and also cannot classify an error. This is seldom occur and cannot
+         be fixed. Try to reboot though.
+
+   Insufficient memory
+
+
+
+                                                                       Page 5
+   --------------------------------------------------------------------------
+
+
+         The program informs the user that the memory got low. Remove some
+         resident programs to increase an amount of memory for processing.
+
+   Output error
+         The program cannot perform an output operation (write to a file).
+         Typically occur when the disk space is getting down. Delete some
+         unused stuff from your disk.
+
+   Read error
+         This error occur when the program cannot continue reading from the
+         disk. There's a broken file, probably. Check your file integrity.
+
+   Open error
+         The file cannot be opened. Either, there is no available DOS handles
+         or there's something wrong with a file name. Try to increase the
+         number of FILES= in your config.sys file, check the file names
+         specified.
+
+   Unit not found
+         The unit needed for processing is not found. The ITPU program looks
+         for the unit in the current directory, then in all of the
+         directories, specified with /u option, and finally in the DOS PATH
+         environment variable. If it fails to find a unit, this error is
+         posted.  Check your directories and units.
+
+   Not a unit
+         The program encountered the unit which actually is not the one. ITPU
+         checks the unit signature and if the mismatch is detected, the error
+         issued. Note: do not try to merely change the signature of the file,
+         this may result in an unstable system state, despite the ITPU always
+         checks the unit structure.
+
+   Bad unit version
+         The program has found the unit with the valid signature, but of an
+         invalid version. Typically this error occur when the user tries to
+         pass the TP 5.0 or any other version unit. ITPU supports only TP 6.0
+         or TPW unit versions.
+
+   Bad option format
+         An invalid command-line option specified. Extra characters detected
+         or some characters are missing. Check the configuration files and
+         the command line.
+
+   Unknown identifier style
+         An invalid style was specified in the /c command line option. Check
+         your setup.
+
+   Missing library name
+         The library name required in /l options. Check the command line
+         specified.
+
+
+
+                                                                       Page 6
+   --------------------------------------------------------------------------
+
+
+   Missing path name
+         The path name expected immediately after the /u option. Check your
+         settings once more.
+
+   Unknown option
+         Unknown option specified in the command line. The option is not
+         supported by the program. Check the command line you type.
+
+   Unknown switch
+         Unsupported switch passed in the command line. The program does not
+         support switches.
+
+   Command error
+         Something is wrong with the command line. Check the configuration
+         files, as well as your command line.
+
+   File already exists
+         The program has detected the file of the same name as an output file
+         and /w option is turned off. Look if that file is useful for you or
+         set the /w option ON (/w+ or /w) to overwrite automatically.
+
+   File not found
+         Program cannot find the main unit to be processed. Check if you
+         specified the right directory or if this file actually exists.
+
+   Missing file name
+         The input file name is required in the command line. Specify an
+         existing file name.
+
+   Library not found
+         The program cannot find the library either in current directory or
+         in those, specified in PATH environment variable. Check whether you
+         specified the right directory and name of the library, or if it is
+         actually exist.
+
+   Unit image corrupt
+         The ITPU program has detected the unit with a valid signature, but
+         the interior is corrupted. Supply the valid file.
+
+
+
+                                                                       Page 7
+   --------------------------------------------------------------------------
+
+
+   Contact
+   =======
+
+   Author will appreciate any questions/suggestions concerning the program.
+   All the correspondence must be routed to:
+
+           Oleg Danilow             Internet: dov%solo.minsk.by@ussr.eu.net
+           Bogdanovich st. 143-87   FidoNet:  2:466/90
+           220100 Minsk, Belarus
+
+           tel. +7-0172-344-117
+
+   Acknowledgements
+   ================
+
+   Turbo Pascal is a registered trademark of Borland, International.
+   MS-DOS and MS-Windows are registered trademarks of Microsoft Corp.
+
+
+
+                                                                       Page 8
+   --------------------------------------------------------------------------
+
+
+                                      Index
+                                      =====
+
+         $L directive  ............. 3     options  ............... 3, 4
+         Borland  ............... 2, 7     PATH  .................. 5, 6
+         CFG  ...................... 4     PC-DOS  ................... 2
+         command line  .... 3, 4, 5, 6     procedure  ................ 3
+         comments  ................. 4     registration  ............. 2
+         compiler  ................. 3     shareware  ................ 2
+         config.sys  ............... 5     String  ................... 3
+         configuration file  ....... 4     switch  ................... 4
+         constants  ................ 2     switches  .............. 3, 6
+         directory                         symbolic names  ........... 3
+            list  .................. 4     TPU  ................... 2, 4
+         DOS  ................... 4, 5     TPW  ................ 2, 4, 5
+         enumeration type  ......... 2     Turbo Library  ............ 4
+         error  ................. 4, 5     Turbo Pascal  ............. 7
+         EXE  ...................... 4        6.0  ................... 2
+         FILES  .................... 5        for Windows  ........ 2, 4
+         formal parameters  ........ 3        Unit  .................. 2
+         function  .............. 3, 4     TURBO.TPL  ................ 4
+         identifiers  .............. 4     types  .................... 2
+         ITPU  ......... 2, 3, 4, 5, 6     unit  ......... 2, 3, 4, 5, 6
+         local context  ............ 3     variables  ................ 2
+         Microsoft  ................ 7     Windows  .................. 7
+         MS-DOS  ................ 2, 7

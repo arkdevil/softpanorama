@@ -1,0 +1,108 @@
+;;***************************************************
+;; Программа делает простые вещи:
+;;    ожидает нажатия на клавишу и комментирует,
+;;    какая из клавиш была нажата. Выход из программы
+;;    осуществляется при нажатии на Esc или Ctrl-Z.
+
+code SEGMENT
+ASSUME cs:code, ds:code
+ORG 100h
+
+start:
+   $WHILE(ah NE 2ch $OR al NE 1ah)
+      mov ah,0
+      int 16h
+      push ax
+      $IF(ah E 1)
+         mov dx,OFFSET escape
+         mov ah,9
+         int 21h
+         pop ax
+         $BREAK WHILE
+      $ELSE
+         $IF(ah E 2ch $AND al E 1ah)
+            mov dx,OFFSET ctrl_z
+         $ELSE
+            $IF(ah GE 2 $AND ah LE 13)
+               mov dx,OFFSET row_1
+            $ELSE
+               $IF(ah GE 16 $AND ah LE 27)
+                  mov dx,OFFSET row_2
+               $ELSE
+                  $IF(ah GE 30 $AND ah LE 41)
+                     mov dx,OFFSET row_3
+                  $ELSE
+                     $IF(ah GE 43 $AND ah LE 53)
+                        mov dx,OFFSET row_4
+                     $ELSE
+.SHORT
+                        $SWITCH(ah)
+                           $CASE 1
+                              mov dx,OFFSET escape
+                              $BREAK CASE
+                           $CASE 14
+                              mov dx,OFFSET backspace
+                              $BREAK CASE
+                           $CASE 15
+                              mov dx,OFFSET tab
+                              $BREAK CASE
+                           $CASE 28
+                              mov dx,OFFSET return
+                              $BREAK CASE
+                           $CASE 57
+                              mov dx,OFFSET space
+                              $BREAK CASE
+                           $DEFAULT
+                              $IF(ah GE 59 $AND ah LE 68)
+                                 mov dx,OFFSET function
+                              $ELSE
+                                 $SWITCH(ah)
+                                    $CASE 72
+                                       mov dx,OFFSET up
+                                       $BREAK CASE
+                                    $CASE 75
+                                       mov dx,OFFSET left
+                                       $BREAK CASE
+                                    $CASE 77
+                                       mov dx,OFFSET right
+                                       $BREAK CASE
+                                    $CASE 80
+                                       mov dx,OFFSET down
+                                       $BREAK CASE
+                                    $DEFAULT
+                                       mov dx,OFFSET other
+                                 $ENDCASE
+                              $ENDIF
+                        $ENDCASE
+.LONG
+                     $ENDIF
+                  $ENDIF
+               $ENDIF
+            $ENDIF
+         $ENDIF
+      $ENDIF
+      mov ah,9
+      int 21h
+      pop ax
+   $ENDWHILE
+   int 20h
+
+row_1     DB 'Нажата клавиша из 1-го (сверху) ряда основной клавиатуры.',10,13,'$'
+row_2     DB 'Нажата клавиша из 2-го (сверху) ряда основной клавиатуры.',10,13,'$'
+row_3     DB 'Нажата клавиша из 3-го (сверху) ряда основной клавиатуры.',10,13,'$'
+row_4     DB 'Нажата клавиша из 4-го (сверху) ряда основной клавиатуры.',10,13,'$'
+backspace DB 'Нажата клавиша BackSpace.',10,13,'$'
+tab       DB 'Нажата клавиша Tab.',10,13,'$'
+return    DB 'Нажата клавиша Enter.',10,13,'$'
+space     DB 'Нажата клавиша Space.',10,13,'$'
+escape    DB 'Нажата клавиша Esc - выход из программы.',10,13,'$'
+ctrl_z    DB 'Нажата клавиша Ctrl-Z - выход из программы.',10,13,'$'
+function  DB 'Нажата функциональная клавиша.',10,13,'$'
+up        DB 'Нажата клавиша Up Arrow.',10,13,'$'
+down      DB 'Нажата клавиша Down Arrow.',10,13,'$'
+left      DB 'Нажата клавиша Left Arrow.',10,13,'$'
+right     DB 'Нажата клавиша Right Arrow.',10,13,'$'
+other     DB 'На эти клавиши программа не реагирует !.',7,10,13,'$'
+
+code ENDS
+END start

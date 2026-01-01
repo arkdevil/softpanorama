@@ -1,0 +1,150 @@
+From: pratt@Sunburn.Stanford.EDU (Vaughan R. Pratt)
+Newsgroups: comp.arch,comp.sys.intel,sci.math.num-analysis
+Subject: TECHNICAL (Pentium): Exact number of FDIV error-pair FLOATs (was: Bad section of the noisy-integer table)
+Date: 12 Dec 1994 18:27:59 GMT
+Organization: Computer Science Department,  Stanford University.
+Message-ID: <3ci4nf$ar2@Radon.Stanford.EDU>
+
+Summary:  A search of the 2^46 pairs of single-precision mantissas
+turned up 1281 erroneous FDIV pairs x/y, under the error criterion that
+x - (x/y)*y is at least 3 for an exponent that assigns unit weight to
+the least significant bit.  The search was such that there should be
+fewer than half a dozen error pairs remaining unobserved, which a
+longer search will produce tomorrow.  For Toon Moene's weather
+forecasting application this corresponds to an error rate of one every
+four days for uniformly distributed FDIV operands, and far more for
+operands with even an imperceptible tendency to cluster around
+integers.
+
+In article <872@moene.indiv.nluug.nl>,
+Toon Moene <toon@moene.indiv.nluug.nl> wrote:
+>In article <3cef5e$4vl@Radon.Stanford.EDU> pratt@Sunburn.Stanford.EDU  
+>(Vaughan R. Pratt) writes:
+>> Here is a particularly bad section of the noisy-integer table
+>
+>This is very interesting stuff, but for my application it would be far  
+>more useful to simply have a list of dividend / divisor / Pentium-quotient  
+>triples of mantissa's for the cases where the Pentium is wrong. As my  
+>application uses almost exclusively 32-bit floating point arithmetic - and  
+>is stable at that - I'm currently only left with the 8 (!) 32-bit dividend  
+>/ divisor pairs in Tim Coe's text (The Pentium Papers entry at  
+>http://www.mathworks.com). Now 8 error pairs in a sea of (2^24)^2 possible  
+>mantissa pairs is a vanishingly small stick in a haystack.
+
+This haystack contains only (2^23)^2 pairs if we stick to positive
+floats, or 70 trillion.  Even so, although the Pentium is a fast
+machine brute-force search (perebor as Russian computer scientists call
+it) of that haystack would take 2.25 years at 100 MHz, though a labfull
+of 100 Pentiums could do it in 8 days.
+
+However Tim Coe has shown that the bad divisors lie in at most 5/4096
+of the possible single-precision mantissas.  By only examining those
+mantissas the search time on one Pentium is reduced to 24.0 hours
+(coincidence).
+
+Coe claims that over 90% of the bad divisors lie in the top 36/2048 of
+*that* already small space, and my own observation shows (for pentad 30
+at least) that over 99.9% of them lie in the top 64/2048.  Limiting the
+search to that space saves a further factor of 32, bring it down to 45
+minutes.
+
+I did this.  For that region the search program below found 1281 bad
+pairs.  I've started up the 24-hour search and unless the other four
+pentads are very different I expect fewer than half a dozen more
+pairs.  So this 1281 number is not only a lower bound but I expect will
+also turn out to be a sufficiently good approximation to the exact
+number for all practical purposes.
+
+>Earlier I wrote  
+>that our Numerical Weather Forecasting code does on the order of 3.5 *  
+>10^9 divisions per forecast (or 4 * 365 * 3.5 * 10^9 ~ 5 * 10^12 divisions  
+>per year), which looked like _something_ against an error occurrence rate  
+>of 1 in 9 * 10^9 - but now it seems that for 32-bit operations the error  
+>occurrence rate is only 8 * 2^-48 ~ 3 * 10^-14. That's quite something  
+                                ^^
+>else than 1 in 9 * 10^9 ...
+
+This should be 46 (this is for positives only, I'm assuming that the
+negatives behave essentially the same), giving an error rate of 1.14 *
+10^-13 assuming only 8 erroneous pairs.
+
+With 1281 erroneous pairs the rate jumps by a factor of 160 to 1281 *
+2^-46 ~ 1.82 * 10^-11.  IF your FDIV operands do not cluster around
+integers *at all* (and let me emphasize the "at all" here so you do not
+come back a month later and include me with Intel in a suit alleging
+failure to disclose due to some tendency towards such clustering
+throwing these numbers *way* off), then your forecast has a probability
+of 0.064 of containing an error.  Thus at 4 forecasts per day you will
+see an error every four days on average.  Not exactly 27,000 years, but
+then Intel's hypothetical FDIV-averse "average spreadsheet user" is
+happy to let you tell her whether she'll need an umbrella tomorrow.
+
+An error every four days is a butterfly wing that is very unlikely to
+affect your estimate of the chance of showers.
+
+Toon, how do you know you do that many FDIV's?  Did you instrument your
+code to count them?  If so, could you conveniently instrument it to
+count errors?  You should certainly see a couple of errors every week,
+and any more than that would give some idea of how the nonuniformity of
+your data was affecting things.  Of course it is conceivable (but
+highly unlikely in my opinion) that your data *stays away from* the
+problem areas, giving a lower error rate.  It would be very nice to
+know for sure.  Not that I speak for Intel, but I would be somewhat
+surprised if they were unwilling to underwrite the associated expenses
+if that were an obstacle to doing this experiment.
+
+Here's the program that produced the above statistic.  As a curiosity,
+the only thing tipping one off to the fact that all the arithmetic is
+done in floating point is the float declaration itself.  I hope the ">
+2" is close enough to being the appropriate test here, if not please
+spend 45 minutes running it again with whatever you believe to be the
+right test.  To see what proportion of 15th-bit errors occur for
+example, run it with "> 2" replaced by ">= 512."  Bear in mind that the
+"first bit" is the sign bit in IEEE arithmetic, and the least
+significant bit is thus the 24th bit.  In general an n-th bit error is
+of size 2^(24-n) for this program, e.g. a 15th bit error is of size
+2^(24-15) = 512, confirming my ">= 512" above.
+
+main()
+{
+	int wrong = 0;
+	float p, x, y;
+	for (x = 1<<23; x < 1<<24; x++)
+		for (p = 18*(1<<19); p <= 30*(1<<19); p += 3*(1<<19))
+			for (y = p-1; y >= p-64; y--)
+				wrong += (x - (x/y)*y > 2);
+	printf("%d\n", wrong);
+}
+
+I will do the all-day run next (simply increase the -64 to -2048) and
+report the exact answer tomorrow, not that anyone is likely to care
+unless it uncovers an unexpected difference in one of the other four
+pentads.  I have previously posted the distribution for pentad 7680 for
+the case of double precision, available as /pub/FDIV/bug15 on
+boole.stanford.edu, which has less than .1% of the errors outside the
+region in which the 1281 errors were found.  This article will be
+bug19.
+
+This program is "embarrassingly parallelizable" as they say, and
+someone with a dozen Pentiums in their lab could easily beat me to the
+punch by parallelizing this program thereby getting the exact answer in
+two hours instead of a day.
+
+Let me close with two caveats.  First, the single-precision domain is
+relevant for people like Toon Moene who for whatever reason work
+there.  (But I would not be enormously surprised if the
+single-precision error rate turned out to be a good predictor of the
+double-precision Pentium error rate.)
+
+Second, let me emphasize yet again that clustering around integers can
+magnify these low error rates considerably.  In order to go from a rate
+of one error per four days in your forecast to one per four minutes
+requires only a very tiny bulge around integers in the distribution of
+your FDIV operands, a bulge you would never notice if plotted on a
+graph.  By the time the bulge became noticeable errors would be
+happening more than one a second (back of the envelope, your envelope
+may vary:-).
+-- 
+Vaughan Pratt		http://boole.stanford.edu/boole.html
+	      		"Eureka" --  Greek for "Oops, forgot my bathrobe again"
+

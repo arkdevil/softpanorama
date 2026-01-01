@@ -1,0 +1,20 @@
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ TP6SB 1.01 █
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+TP6SB 1.01 is a Source Butifier for Turbo Pascal (up to Version 6.0)
+sources. Use it only on your own risk!
+Please report all bugs and comments to the author:
+
+       Jozsef Ferincz
+       Bleibtreustr. 32
+       D-1000 Berlin 15
+       Germany
+
+       Phone:  +49 30 8835822
+       E-Mail: ferincz@chemie.fu-berlin.de
+               ferincz@fub.uucp
+
+TP6SB is NOT a FreeWare. You may try it for 21 days before registering.
+
+Turbo Pascal is a trademark of Borland International.

@@ -1,0 +1,254 @@
+Program 5X86.EXE
+
+Author Peter N Moss
+E-Mail Address pmoss@yoda.alt.za
+
+Version B6  16 December 1995.
+
+Source code: Source code is not included.
+             Compiled with Turbo Pascal V5.5 and TASM V1.1
+
+Files:
+      5X86xx.ZIP      The combined zipped distribution package
+      5X86.EXE        The program file
+      5X86.REG        Registration form
+      5X86.DOC        This file
+
+The program:
+
+The program detects the presence of a 5x86 processor and will not
+run if a Cyrix/IBM 5x86 is not found.
+
+5x86.EXE will report and enable the modification of the performance
+control register of the Cyrix 5x86 (TM) processor.  Access to register
+bits marked reserved (*) is not supported other than to report status
+if in some cases non zero.
+
+Useage: 5x86 <[/H|?] [/Q]> </BTB_EN=[on|off] /LOOP_EN=[on|off]
+             /LSSER=[on|off] /RSTK_EN=[on|off] /BWRT=[on|off]
+             /WT1=[on|off]  /LINBRST=[on|off] /MEM_BYP=[on|off]
+             /DTE_EN=[on|off] /FP_FAST=[on|off]> <[/ICD|/CWT|/CWB]> <[/T]>
+
+        Where BTB_EN  Branch prediction
+              LOOP_EN Loop (Prefetch buffer)
+              LSSER   Load store serialise, reorder
+              RSTK_EN Return stack
+              BWRT    Burst write cycle 4 dwords on cache line replacement.
+              WT1     Write through region one (640kb..1Mb).
+              LINBRST Linear burst mode.
+              MEM_BYP Memory read bypassing
+              DTE_EN  Directory table cache
+              FP_FAST Fast NPU exception reporting
+              ICD     CPU Internal cache disable
+              CWT     CPU cache enable, write through mode
+              CWB     CPU cache enable, write back mode
+              Q = Program version
+              H,? = Help
+              T = Status of PCR0 register
+              E = (Reserved) Debug report.  Status of PCR0, CCR1..4
+                   and CR0
+
+        Note that T may be combined with register bit settings
+        and will report status after the register has been set
+        by reading the register. Thus giving confirmation that
+        the register has been set correctly ie 5x86 /LSSER=on
+        /BTB_EN=on /RTS=off /t
+
+        E is included for debugging and expansion.  The report
+        is more than 25 lines so it would be advisable to use
+        this with either a DOS pipe to more (| more) or
+        redirection to a file (> filename).  It is is not part
+        of the program and is not expected to continue beyound
+        its current use.
+
+        On = enable, 1; Off = disable, 0.  On and off are valid and
+        all other values are treated as a error.
+
+        The first three characters only need be entered. LIN=on is the
+        same as LINBRST=on.  Less than three characters of the register
+        bit name will cause an error.
+
+        The cache enable/disable parameters are only valid for the CPU
+        at level 0.  DOS operates at level 0 (ring 0).
+
+        Upper case or lower case characters may be used.  The order of
+        register input is not important.  H, ? or Q will terminate any
+        other command line parameters.  T may be placed anywhere on the
+        command line.
+
+        Command line input may use any legal DOS seperator, space tab /
+        ; ect.
+
+Errorlevel:
+           5 = No Cyrix 5x86.
+           1 = Command line entry error
+           0 = Normal termination.
+
+Register: Performance control register 0
+
+The following bits of this register perform various functions detailed
+with the register bit name.
+
+Register PRC0 Index 20h
+
+Bit map:
+----------------------------------------------------------------
+   7      6      5      4      3       2         1        0
+----------------------------------------------------------------
+|LSSER|  Res4|  Res3|  Res2|  Res1|  LOOP_EN|  BTB_EN|  RSTK_EN|
+----------------------------------------------------------------
+
+Bit    Name     Function
+7      LSSER    1 = Load store serialise enable (Reorder disable)
+6      Res4     BTB Test register
+5      Res3     Reserved
+4      Res2     Reordering of locked misalighned loads
+3      Res1     All instructions stalled to serialise pipeline
+2      LOOP_EN  Loop enable
+1      BTB_EN   Branch target buffer enable
+0      RSTK_EN  Return stack enable
+
+Access to this register is via I/O ports 22h (Index) and 23h (Data)
+and the MAP_EN bits of the CCR3 register.  Full details of the register
+address and access requirements can be found in the Cyrix 5x86 (TM)
+processor data book #94192-00.
+
+RSTK_EN: 1 = The return stack is enabled and RET instructions will
+         speculatively execute the code following the associated CALL
+         to improve performance.
+BTB_EN:  1 = Branch target buffer enable.  Branch prediction occurs.
+LOOP_EN: 1 = The CPU will not flush the prefetch buffer if the
+         destination jump is already in the prefetch buffer
+         eliminating the need for a read from the cache.
+LSSER:   1 = All memory reads and writes will occur in execution
+         order. Reordering disabled.
+         LSSER should be set to ensure that memory mapped I/O devices
+         operating outside of the address range 640k..1M will operate
+         correctly.
+         Memory accesses in the range 640k..1M will always be issued
+         in execution order.
+
+Usage and optimisation:
+
+In setting the CPU please note the the results are very dependent on
+the correct setup of the CMOS parameters.  Particular attention should
+be placed on the L2 cache settings as well as memory read and write
+wait states.  It is suggested that these setting be optimised first
+before attempting to "tune" the CPU performance control register.
+There maybe some interaction of the CMOS settings and CPU settings
+requiring iteration to find the most suitable.
+
+The Cyrix 5x86 as other Cyrix processors requires that the motherboard
+and BIOS support the on chip cache (L1) as well as other signal pins.
+For this reason the motherboard jumpers and CMOS must be set correctly.
+
+The cache is enabled/disabled by setting CPU CR0 register which can
+only be accessed when the CPU is operating at level 0 or ring 0.
+This feature is not to be used in protected mode (32 bit programs) such
+as Windows, Unix ect.  No checking is done at present allthough
+possible.  The user is expected to read and understand this
+statement and not foolishly attempt to modify the cache setting when
+operating the CPU at any other level than 0.  The use of this feature
+is only included for those motherboards without Cyrix cache support.
+
+Some problems have been noted with LSSER set to 0 the default when
+other functions (bits) have been enabled.
+
+Suggested BIOS default values are:
+
+CCR2  BWRT    = 0
+CCR4  MEM_BYP = 1
+      DTE_EN  = 1
+      FP_FAST = 0
+      IORT    = 0
+PCR0  RSTACK  = 0
+      BTB     = 0
+      LOOP    = 0
+      LSSER   = 1 for PCI memory mapped devices
+      LSSER   = 0 for systems without PCI
+
+The parameters for use can be found by entering h or ? on the command
+line.  When the optimum parameters have been found path\5x86 {parameters}
+may be placed in your autoexec.bat file with those parameters so that
+the PC is set on startup.
+
+What are we dealing with?
+
+Memory management:
+
+Load-store reordering; that prioritises memory reads required by the
+integer unit over writes to external memory.
+
+Memory-read bypassing; that eliminates unnecessary memory reads by using
+valid data still in the execution unit.
+
+Branch prediction:
+
+The branch prediction target buffer (BTB) is used to store branch target
+addresses and branch prediction information.
+
+The target address of a RET instruction is dynanic rather than static
+and return addresses are cached in a return stack rather than the BTB.
+The return address is pushed on the return stack during a CALL
+instruction and poped during the corresponding RET instruction.
+
+Functionality, type and rights:
+
+5x86.EXE is not crippled or contain nagware.  It is shareware, all
+rights are reserved by Peter N Moss.
+
+Copyright:
+
+5x86.EXE and 5x86.DOC are copyright 1995 Peter N Moss.
+
+Disclaimer:
+
+No claim is made for the fitness of purpose of this software and no
+claim for damages of any nature will be accepted.  The program is
+for use at entirely your own risk.
+
+Distribution:
+
+You may distribute the files only on condition that they are not
+altered and this document file is included.  The latest version can
+be found at ftp://compnt.cs.unp.ac.za/uploads/cyrix/5x86(Ver).zip.
+Updates to registered users will only be sent via Internet e-mail
+without charge.  Disk updates will be charged at the cost of
+materials and postage.
+
+Reports and support:
+
+Whilst reports of results or bugs are welcomed, it is not possible to
+support questions on how to setup or optimise any motherboards.  You
+are referred to the dealer that sold the board and or CPU.  Registered
+users can expect free udate notification and as much help as can be
+given.
+
+Thanks:  Mr C Chan, Mr K J Wren and Mr J Stiel for testing and
+         feedback.
+
+Trademarks:  Cyrix is a registered trademark of Cyrix Corp.
+             Cx5x86 is a registered trademark of Cyrix Corp.
+
+Payment: Payment of US$5.00 or the equivelent is such a small amount
+that anyone that uses the program continuously should contribute to
+the development of it.  It will also insure that the program continues
+to be developed.  You are offered 30 days free trial for evaluation
+only.  After that period has expired and registration or payment has
+not taken place then the program must not be used.
+
+For money order payment from outside of South Africa please add $4.00.
+Payment in cash, cheques or money order may be made to:
+
+P N Moss
+P O Box 212144
+Oribi
+Pietermaritzburg
+Rep of South Africa, 3205
+
+When making payment please include your e-mail address if you have one
+and your return mail address.
+
+Registration form:  5X86.REG
+
+

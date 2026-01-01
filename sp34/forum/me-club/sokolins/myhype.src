@@ -1,0 +1,107 @@
+{*******************************MULTI-EDIT MACRO******************************
+
+Name:MYHYPE = hypeprin + некоторые мои упрощения
+
+Description:  Takes the current .HLP file and generates a .DOC file complete
+	with Multi-Edit Print Formatter formatting codes.
+
+New: Генеpиpует .DOC файл  готовый к печати. Печатные листы (стpаницы), общее 
+оглавление не фоpмиpуются. Пpостановка стpаниц возможна с помощью макpоса MYPAGE
+
+               (C) Copyright 1988 by American Cybernetics, Inc.
+               (C) Copyright 1990 by Basil S.
+******************************************************************************}
+
+$macro myhype;
+  def_str(out_line,tstr);
+	def_int( w_in, w_out );
+	def_char(tc);
+
+	undo_stat := false;
+	refresh := false;
+	w_in := cur_window;
+	out_line := file_name;
+	create_window;
+	file_name := truncate_extension(out_line) + '.DOC';
+	run_macro('EXTSETUP');
+	w_out := cur_window;
+	down;
+	down;
+	switch_window(w_in);
+
+	tof;
+	while not(at_eof) do
+		put_line_num( c_line );
+		if check_key then
+			if key1 = 27 then
+				goto exit;
+			end;
+		end;
+		goto_col(1);
+		if cur_char = '|12' then
+			out_line := get_word(' ');
+			right;
+			out_line := get_word('');
+			switch_window(w_out);
+      down;
+			goto_col(1);
+      text('|27E' + out_line + '|27F');
+			down;
+			down;
+			switch_window(w_in);
+			down;
+		else
+			out_line := '';
+			while not(at_eol) do
+				out_line := out_line + get_word('^@');
+				if not(at_eol) then
+					tc := cur_char;
+					right;
+					if tc = '@' then
+						if cur_char = '@' then
+							out_line := out_line + '@';
+							right;
+							goto do_loop;
+						end;
+						tstr := get_word('[');
+						right;
+						if cur_char = '!' then
+							right;
+						end;
+            out_line := out_line + '|27E' + get_word(']') + '|27F';
+						right;
+						goto do_loop;
+					else
+						if cur_char = '^' then
+							out_line := out_line + '^';
+							right;
+							goto do_loop;
+						end;
+						if cur_char = 'B' then
+              out_line := out_line + '|27E';
+							right;
+							goto do_loop;
+						end;
+						if cur_char = 'b' then
+              out_line := out_line + '|27F';
+							right;
+							goto do_loop;
+						end;
+						right;
+						goto do_loop;
+					end;
+				end;
+		 do_loop:
+			end;
+			switch_window(w_out);
+			put_line(out_line);
+			down;
+			switch_window(w_in);
+			down;
+			goto_col(1);
+		end;
+	end;
+exit:
+	switch_window(w_out);
+	undo_stat := true;
+end_macro;

@@ -1,0 +1,160 @@
+From: fcarette@vub.ac.be (Carette Francois)
+Newsgroups: comp.lang.rexx
+Subject: Named pipes on OS/2 2.11
+Date: 21 Jun 1994 14:33:31 GMT
+Organization: Brussels Free Universities (VUB/ULB), Belgium
+Message-ID: <2u6tnr$3fq@rc1.vub.ac.be>
+
+I use a program which creates named pipes to send messages to a REXX program.
+
+Before OS/2 2.11 (OS/2 2.1 namely), I just used the linein function to read
+into my named pipe.
+
+With OS/2 2.11 it doesn't work anylonger...
+
+Can anybody tell me what happened ? or suggest another way to read the messages
+from the pipe. (I've seen that RxOPen and RxRead from ydbautil are supposed to
+do so, but I was not able in making them work... the documentation being too
+short).
+
+Thanks for any help.
+
+Francois CARETTE.
+
+========================================================================
+Path: ugle.unit.no!trane.uninett.no!sunic!EU.net!howland.reston.ans.net!europa.eng.gtefsd.com!uhog.mit.edu!MathWorks.Com!paladin.american.edu!auvm!ARIEL.UCS.UNIMELB.EDU.AU!itimms
+Comments: Gated by NETNEWS@AUVM.AMERICAN.EDU
+Newsgroups: comp.lang.rexx
+X-Mailer: ELM [version 2.4 PL22]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Content-Length: 357
+Message-ID: <199406211625.CAA28079@ariel.ucs.unimelb.EDU.AU>
+Date: Wed, 22 Jun 1994 02:25:37 +1000
+Sender: REXX Programming discussion list <REXXLIST@UGA.BITNET>
+From: Ian Timms <itimms@ARIEL.UCS.UNIMELB.EDU.AU>
+Subject: Re: Named pipes on OS/2 2.11
+Comments: To: REXXLIST@UGA.CC.UGA.EDU
+In-Reply-To: <199406211610.CAA27036@ariel.ucs.unimelb.EDU.AU> from "Carette
+              Francois" at Jun 21, 94 02:33:31 pm
+Lines: 11
+
+> Before OS/2 2.11 (OS/2 2.1 namely), I just used the linein function to read
+> into my named pipe.
+>
+> With OS/2 2.11 it doesn't work anylonger...
+>
+> Can anybody tell me what happened ? or suggest another way to read the message
+s
+
+My memory is getting a bit hazy but I seem to recall that the STREAMS
+functions can be used on named pipes.
+
+Cheers, Ian.
+========================================================================
+Newsgroups: comp.lang.rexx
+Path: ugle.unit.no!trane.uninett.no!sunic!EU.net!howland.reston.ans.net!noc.near.net!ns.draper.com!news.draper.com!nntp
+From: rrr@draper.com (Richard Ristaino)
+Subject: Re: Named pipes on OS/2 2.11
+Message-ID: <1994Jun23.200035.13922@draper.com>
+Lines: 90
+Sender: nntp@draper.com (NNTP Master)
+Nntp-Posting-Host: rrr4186.draper.com
+Organization: Draper Laboratory
+X-Newsreader: IBM NewsReader/2 v1.00
+References: <2u6tnr$3fq@rc1.vub.ac.be>
+Distribution: inet
+Date: Thu, 23 Jun 1994 20:00:35 GMT
+
+In <2u6tnr$3fq@rc1.vub.ac.be>, fcarette@vub.ac.be (Carette Francois) writes:
+>I use a program which creates named pipes to send messages to a REXX program.
+>
+>Before OS/2 2.11 (OS/2 2.1 namely), I just used the linein function to read
+>into my named pipe.
+>
+>With OS/2 2.11 it doesn't work anylonger...
+>
+>Can anybody tell me what happened ? or suggest another way to read the messages
+>from the pipe. (I've seen that RxOPen and RxRead from ydbautil are supposed to
+>do so, but I was not able in making them work... the documentation being too
+>short).
+>
+>Thanks for any help.
+>
+>Francois CARETTE.
+>
+
+I'm using ydbautil under 2.11 - try these code samples:
+------------------------ cut here ---------------------
+/*  Named Pipe Server  */
+signal on Halt
+if RxFuncQuery('RxYDBAUtilInit') then do
+   call RxFuncAdd 'RxYDBAUtilInit', 'YDBAUtil', 'RxYDBAUtilInit'
+   call RxYDBAUtilInit
+   end
+pipe = '\PIPE\TPIPE'
+cr = x2c(0d0a)  /* carriage return + line feed */
+eof = x2c(1a)   /* e-o-f marker */
+say "Creating" pipe"..."
+cc = RxCreateNPipe(hPipe,pipe,'wID','Wtr',1,1024,1024,250)
+if cc > 0 then do
+   say "Error creating Named Pipe" pipe "rc =" cc
+   exit
+   end
+/**********/
+do forever
+   say "Waiting for Client connection on hPipe '"c2x(hpipe)"'x"
+   cc = RxConnectNPipe(hPipe)
+   if cc > 0 then signal Halt
+   call RxRead 'req', hpipe, 12
+   say "   Client Req received: " req
+   call RxWrite hpipe, reverse(req)||cr
+   call RxRead req, hpipe, 1000
+   say "   Disconnecting from this client... " RxDisConnectNPipe(hpipe)
+   end
+
+Halt:
+  call Beep 150,250
+  say "Disconnecting" pipe RxDisConnectNPipe(hPipe)
+  say "Closing pipe handle" RxCloseH(hpipe)
+exit
+------------------------ cut here ---------------------
+/*  Named Pipe Client  */
+signal on Halt
+if RxFuncQuery('SysLoadFuncs') then do
+   call RxFuncAdd 'SysLoadFuncs', 'RexxUtil', 'SysLoadFuncs'
+   call SysLoadFuncs
+   end
+if RxFuncQuery('RxYDBAUtilInit') then do
+   call RxFuncAdd 'RxYDBAUtilInit', 'YDBAUtil', 'RxYDBAUtilInit'
+   call RxYDBAUtilInit
+   end
+pipe = '\PIPE\TPIPE'
+
+/*  try to open the pipe  */
+parse value stream(pipe,'C','OPEN') with state ':' cc
+if cc = 231 then do /* pipe not available */
+   say "Waiting on pipe" pipe"..."
+   call SysWaitNamedPipe pipe,-1  /* wait indefinitely, then OPEN again */
+   parse value stream(pipe,'C','OPEN') with state ':' cc
+   end
+if state \= 'READY' | cc \= '' then do
+   say "Open returned" state':'cc
+   signal Halt
+   end
+alpha='abcdefghijklmnopqrstuvwxyz'
+/* send request, read answer, send terminator */
+req = substr(alpha,random(1,22),5)
+say "Requesting" req"..."
+call charout pipe,req
+say "response was: " linein(pipe)
+call charout pipe,'bye'
+signal Halt
+
+Halt:
+/* call Beep 285,250 */
+   say "Closing" pipe stream(pipe,'C','CLOSE')
+
+exit
+

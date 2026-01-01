@@ -1,0 +1,83 @@
+
+                          Multi Spooler
+
+     Author: Rich Winkel (USA)
+     Modifications: Leonid Bunich (USSR) 
+
+     So what does the world need another print spooler for?
+     I've been dissatisfied with all the spoolers I've seen, for 
+various reasons.  Some can't even drive an Epson at full speed, 
+some interfere with interrupt handling (as when downloading over 
+a COM port and printing at the same time), some spend more time 
+in wait loops than they do printing, some have a set, unchangable 
+buffer size, some are so inefficient that it's a wonder the 
+computer gets anything else done, and most are insensitive to 
+competing demands for CPU time, making the term 'background job' 
+inapplicable.  
+     I wrote this spooler with speed, flexibility and background 
+execution in mind.  Unlike most other spoolers I've seen, it is 
+not driven by the timer interrupt.  It's driven by an excellent 
+indicator of free CPU time, the keyboard I/O interrupt.  Any time 
+a program requests keyboard input, it can be assumed it has a 
+little free time on it's hands, especially since the keyboard is 
+the slowest I/O device on the computer; and since keyboard I/O 
+gets high priority in any interactive program, it's assured that 
+the spooler will be called often enough to drive a printer at a 
+good clip, usually at top speed.
+     As far as flexibilty, the size of the spooler buffer is 
+specified in 8K increments at startup, as well as which printer 
+(LPT1-LPT3) to spool for.  In fact, 3 printers can be spooled 
+simultaneously by running the spooler 3 times, specifying each 
+printer in turn.
+     Once the spooler is installed, its buffer can be purged in 
+the middle of a print by running the spooler again, specifying 
+the appropriate printer and letter C (cancel) as second parameter.  
+     The spooler has 3 modes of operation.  In one mode, if the 
+buffer gets filled, it will begin printing a character for each 
+character it puts in the buffer, until things get caught up.  The 
+second mode arises when a keyboard I/O call is made which 
+requests that the keyboard routine return the next character in 
+the keyboard buffer, or if there is none, wait until one is 
+entered and then return it.  This is the optimum mode for the 
+spooler.  If there is no character in the keyboard buffer, it 
+will begin looping and printing until one is entered, and then 
+release control (BASIC often makes I/O calls of this type).  The 
+third mode is used when a keyboard I/O call is made which only 
+requests the status of the buffer. (i.e. return a character if 
+one is there, but don't wait for it.)  In this event, the spooler 
+will print one character and exit. (WordStar makes use of this 
+type of I/O call).  Depending on the activity of the program 
+making the call, type three will drive a printer at a rate 
+anywhere from tolerable to top speed.  Using WordStar, my 
+Okidata 82A is run at full tilt.  The other two modes will drive 
+a printer at full speed.
+     Use the HEX2BIN program to convert MSPOOL.HEX to MSPOOL.COM.
+
+SYNTAX:
+
+     To install:
+     A>lbspool p,b      p - printer (1 to 4)
+                        b - buffer length (1 to 7), in 8K - blocks
+
+     To purge buffer:
+     A>lbspool p,C
+
+Limitations:
+
+     This program will not spool for a serial printer, even if 
+          the MODE LPT#:=COMn command is in effect.
+     Programs such as QSWAP, which switch the entries in the 
+          printer table in the ROM bios data area, will not 
+          affect this spooler once it is installed.  (In the 
+          interest of speed, the appropriate entry in this table 
+          is put into the spooler code itself at initialization)
+     Programs which bypass INT 16 for keyboard I/O will stop the 
+          spooler. (This is conceivable, although I've never seen 
+          such a program.  The program would have to have very 
+          specific I/O requirements, such as, perhaps, APL.)
+     When more than one printer is being spooled, in some 
+          circumstances (i.e. in mode 2 above), the last spooler 
+          loaded will have priority, then the second to last.
+
+  Rich Winkel -- Columbia, Mo.
+ 

@@ -1,0 +1,423 @@
+
+=== old/algo.h last/algo.h
+
+28c28
+< inline T __median(T a, T b, T c) {
+---
+> inline const T& __median(const T& a, const T& b, const T& c) {
+45c45
+< inline T __median(T a, T b, T c, Compare comp) {
+---
+> inline const T& __median(const T& a, const T& b, const T& c, Compare comp) {
+117c117,118
+< template <class ForwardIterator1, class ForwardIterator2, class Distance>
+---
+> template <class ForwardIterator1, class ForwardIterator2, class Distance1,
+> 	  class Distance2>
+120,121c121,122
+< 			  Distance*) {
+<     Distance d1 = 0;
+---
+> 			  Distance1*, Distance2*) {
+>     Distance1 d1 = 0;
+123c124
+<     Distance d2 = 0;
+---
+>     Distance2 d2 = 0;
+146c147,148
+<     return __search(first1, last1, first2, last2, distance_type(first1));
+---
+>     return __search(first1, last1, first2, last2, distance_type(first1),
+> 		    distance_type(first2));
+150c152
+< 	  class BinaryPredicate, class Distance>
+---
+> 	  class BinaryPredicate, class Distance1, class Distance2>
+153,154c155,156
+< 			  BinaryPredicate binary_pred, Distance*) {
+<     Distance d1 = 0;
+---
+> 			  BinaryPredicate binary_pred, Distance1*, Distance2*) {
+>     Distance1 d1 = 0;
+156c158
+<     Distance d2 = 0;
+---
+>     Distance2 d2 = 0;
+181c183
+< 		    distance_type(first1));
+---
+> 		    distance_type(first1), distance_type(first2));
+253c255
+< void generate_n(OutputIterator first, Size n, Generator gen) {
+---
+> OutputIterator generate_n(OutputIterator first, Size n, Generator gen) {
+254a257
+>     return first;
+2412c2415
+< 	if (!(*i < *ii)) {
+---
+> 	if (*ii < *i) {
+2414c2417
+< 	    while (*i < *--j);
+---
+> 	    while (!(*--j < *i));
+2438c2441
+< 	if (!comp(*i, *ii)) {
+---
+> 	if (comp(*ii, *i)) {
+2440c2443
+< 	    while (comp(*i, *--j));
+---
+> 	    while (!comp(*--j, *i));
+
+=== old/algobase.h last/algobase.h
+
+144c144,145
+< void uninitialized_fill_n(ForwardIterator first, Size n, const T& x) {
+---
+> ForwardIterator uninitialized_fill_n(ForwardIterator first, Size n,
+> 				     const T& x) {
+145a147
+>     return first;
+169c171
+< void fill_n(OutputIterator first, Size n, const T& value) {
+---
+> OutputIterator fill_n(OutputIterator first, Size n, const T& value) {
+170a173
+>     return first;
+
+=== old/deque.h last/deque.h
+
+386c386
+< 		 map_size = (i + 1) * 2;
+---
+> 	    map_size = (i + 1) * 2;
+391c391
+< 		 map[map_size / 4 + i + 1] = p;
+---
+> 	    map[map_size / 4 + i + 1] = p;
+437,441d436
+<     } else if (end() - position > position - begin()) {
+< 	push_front(*begin());
+< 	copy(begin() + 2, position, begin() + 1); 
+< 	*(position - 1) = x;
+< 	return position - 1;
+443,446c438,447
+< 	push_back(*(end() - 1));
+< 	copy_backward(position, end() - 2, end() - 1); 
+< 	*position = x;
+< 	return position;
+---
+> 	difference_type index = position - begin();
+> 	if (index < length) {
+> 	    push_front(*begin());
+> 	    copy(begin() + 2, begin() + index + 1, begin() + 1); 
+> 	} else {
+> 	    push_back(*(end() - 1));
+> 	    copy_backward(begin() + index, end() - 2, end() - 1); 
+>         }
+> 	*(begin() + index) = x;
+> 	return begin() + index;
+452,455c453,457
+<     if (end() - position > position - begin()) {
+< 	iterator old_begin = begin();
+< 	if (n > position - old_begin) {
+< 		 size_type m = n - (position - old_begin);
+---
+>     difference_type index = position - begin();
+>     difference_type remainder = length - index;
+>     if (remainder > index) {
+> 	if (n > index) {
+> 	    difference_type m = n - index;
+457,464c459,466
+< 	    iterator i = position;
+< 	    while (i != old_begin) push_front(*--i);
+< 	    fill(old_begin, position, x);
+< 	} else {
+< 	    iterator i = old_begin + n;
+< 	    while (i != old_begin) push_front(*--i);
+< 	    copy(old_begin + n, position, old_begin);
+< 	    fill(position - n, position, x);
+---
+> 	    difference_type i = index;
+> 	    while (i--) push_front(*(begin() + n - 1));
+> 	    fill(begin() + n, begin() + n + index, x);
+> 	} else {
+> 	    difference_type i = n;
+> 	    while (i--) push_front(*(begin() + n - 1));
+> 	    copy(begin() + n + n, begin() + n + index, begin() + n);
+> 	    fill(begin() + index, begin() + n + index, x);
+467,469c469,471
+< 	iterator old_end = end();
+< 	if (n > old_end - position) {
+< 		 size_type m = n - (old_end - position);
+---
+> 	difference_type orig_len = index + remainder;
+> 	if (n > remainder) {
+> 	    difference_type m = n - remainder;
+471,478c473,481
+< 	    iterator i = position;
+< 	    while (i != old_end) push_back(*i++);
+< 	    fill(position, old_end, x);
+< 	} else {
+< 	    iterator i = old_end - n;
+< 	    while (i != old_end) push_back(*i++);
+< 	    copy_backward(position, old_end - n, old_end);
+< 	    fill(position, position + n, x);
+---
+> 	    difference_type i = 0;
+> 	    while (i < remainder) push_back(*(begin() + index + i++));
+> 	    fill(begin() + index, begin() + orig_len, x);
+> 	} else {
+> 	    difference_type i = 0;
+> 	    while (i < n) push_back(*(begin() + orig_len - n + i++));
+> 	    copy_backward(begin() + index, begin() + orig_len - n, 
+> 			  begin() + orig_len);
+> 	    fill(begin() + index, begin() + index + n, x);
+484a488,489
+>     difference_type index = position - begin();
+>     difference_type remainder = length - index;
+487,490c492,494
+<     if (end() - position > position - begin()) {
+< 	iterator old_begin = begin();
+< 	if (n > position - old_begin) {
+< 		 const T* m = last - (position - old_begin);
+---
+>     if (remainder > index) {
+> 	if (n > index) {
+> 	    const T* m = last - index;
+492,499c496,503
+< 	    iterator i = position;
+< 	    while (i != old_begin) push_front(*--i);
+< 	    copy(last - (position - old_begin), last, old_begin);
+< 	} else {
+< 	    iterator i = old_begin + n;
+< 	    while (i != old_begin) push_front(*--i);
+< 	    copy(old_begin + n, position, old_begin);
+< 	    copy(first, last, position - n);
+---
+> 	    difference_type i = index;
+> 	    while (i--) push_front(*(begin() + n - 1));
+> 	    copy(last - index, last, begin() + n);
+> 	} else {
+> 	    difference_type i = n;
+> 	    while (i--) push_front(*(begin() + n - 1));
+> 	    copy(begin() + n + n, begin() + n + index, begin() + n);
+> 	    copy(first, last, begin() + index);
+502,504c506,508
+< 	iterator old_end = end();
+< 	if (n > old_end - position) {
+< 		 const T* m = first + (old_end - position);
+---
+> 	difference_type orig_len = index + remainder;
+> 	if (n > remainder) {
+> 	    const T* m = first + remainder;
+506,513c510,518
+< 	    iterator i = position;
+< 	    while (i != old_end) push_back(*i++);
+< 		 copy(first, first + (old_end - position), position);
+< 	} else {
+< 	    iterator i = old_end - n;
+< 	    while (i != old_end) push_back(*i++);
+< 	    copy_backward(position, old_end - n, old_end);
+< 	    copy(first, last, position);
+---
+> 	    difference_type i = 0;
+> 	    while (i < remainder) push_back(*(begin() + index + i++));
+> 	    copy(first, first + remainder, begin() + index);
+> 	} else {
+> 	    difference_type i = 0;
+> 	    while (i < n) push_back(*(begin() + orig_len - n + i++));
+> 	    copy_backward(begin() + index, begin() + orig_len - n, 
+> 			  begin() + orig_len);
+> 	    copy(first, last, begin() + index);
+
+=== old/heap.h last/heap.h
+
+31c31
+< template <class RandomAccessIterator, class T>
+---
+> template <class RandomAccessIterator, class Distance, class T>
+33,34c33,35
+< 			    RandomAccessIterator last, T*) {
+<     __push_heap(first, (last - first) - 1, 0, T(*(last - 1)));
+---
+> 			    RandomAccessIterator last, Distance*, T*) {
+>     __push_heap(first, Distance((last - first) - 1), Distance(0), 
+> 		T(*(last - 1)));
+39c40
+<     __push_heap_aux(first, last, value_type(first));
+---
+>     __push_heap_aux(first, last, distance_type(first), value_type(first));
+54c55
+< template <class RandomAccessIterator, class Compare,  class T>
+---
+> template <class RandomAccessIterator, class Compare, class Distance, class T>
+56,57c57,60
+< 			    RandomAccessIterator last, Compare comp, T*) {
+<     __push_heap(first, (last - first) - 1, 0, T(*(last - 1)), comp);
+---
+> 			    RandomAccessIterator last, Compare comp,
+> 			    Distance*, T*) {
+>     __push_heap(first, Distance((last - first) - 1), Distance(0), 
+> 		T(*(last - 1)), comp);
+63c66
+<     __push_heap_aux(first, last, comp, value_type(first));
+---
+>     __push_heap_aux(first, last, comp, distance_type(first), value_type(first));
+
+=== old/random.cpp last/random.cpp
+
+39c39,40
+<     for (size_t i = 0; i < 54; i++) {
+---
+>     size_t i;
+>     for (i = 0; i < 54; i++) {
+
+=== old/tree.h last/tree.h
+
+656,658c656,657
+<         ::swap(y, z);  
+<                        // y points to node to be actually deleted,
+<                        // z points to old z's former successor
+---
+>         y = z;
+>                        // y points to node to be actually deleted
+803,813c802,812
+<     link_type y = header;
+<     link_type x = root();
+<     bool comp = false;
+<     while (x != NIL) {
+<         y = x;
+<         comp = key_compare(key(x), k);
+<         x = comp ? right(x) : left(x);
+<     }
+<     iterator j = iterator(y);   
+<     if (comp) ++j;
+<     return (j == end() || key_compare(k, key(j.node))) ? end() : j;
+---
+>    link_type y = header; /* Last node which is not less than k. */
+>    link_type x = root(); /* Current node. */
+> 
+>    while (x != NIL) 
+>      if (!key_compare(key(x), k))
+>        y = x, x = left(x);
+>    else
+>        x = right(x);
+> 
+>    iterator j = iterator(y);   
+>    return (j == end() || key_compare(k, key(j.node))) ? end() : j;
+819,829c818,828
+<     link_type y = header;
+<     link_type x = root();
+<     bool comp = false;
+<     while (x != NIL) {
+<         y = x;
+<         comp = key_compare(key(x), k);
+<         x = comp ? right(x) : left(x);
+<     }
+<     const_iterator j = const_iterator(y);   
+<     if (comp) ++j;
+<     return (j == end() || key_compare(k, key(j.node))) ? end() : j;
+---
+>    link_type y = header; /* Last node which is not less than k. */
+>    link_type x = root(); /* Current node. */
+> 
+>    while (x != NIL) {
+>      if (!key_compare(key(x), k))
+>        y = x, x = left(x);
+>    else
+>        x = right(x);
+>    }
+>    const_iterator j = const_iterator(y);   
+>    return (j == end() || key_compare(k, key(j.node))) ? end() : j;
+844,853c843,852
+<     link_type y = header;
+<     link_type x = root();
+<     bool comp = false;
+<     while (x != NIL) {
+<         y = x;
+<         comp = key_compare(key(x), k);
+<         x = comp ? right(x) : left(x);
+<     }
+<     iterator j = iterator(y);   
+<     return comp ? ++j : j;
+---
+>    link_type y = header; /* Last node which is not less than k. */
+>    link_type x = root(); /* Current node. */
+> 
+>    while (x != NIL) 
+>      if (!key_compare(key(x), k))
+>        y = x, x = left(x);
+>      else
+>        x = right(x);
+> 
+>    return iterator(y);
+859,868c858,867
+<     link_type y = header;
+<     link_type x = root();
+<     bool comp = false;
+<     while (x != NIL) {
+<         y = x;
+<         comp = key_compare(key(x), k);
+<         x = comp ? right(x) : left(x);
+<     }
+<     const_iterator j = const_iterator(y);   
+<     return comp ? ++j : j;
+---
+>    link_type y = header; /* Last node which is not less than k. */
+>    link_type x = root(); /* Current node. */
+> 
+>    while (x != NIL) 
+>      if (!key_compare(key(x), k))
+>        y = x, x = left(x);
+>      else
+>        x = right(x);
+> 
+>    return const_iterator(y);
+874,883c873,882
+<     link_type y = header;
+<     link_type x = root();
+<     bool comp = true;
+<     while (x != NIL) {
+<         y = x;
+<         comp = key_compare(k, key(x));
+<         x = comp ? left(x) : right(x);
+<     }
+<     iterator j = iterator(y);   
+<     return comp ? j : ++j;
+---
+>   link_type y = header; /* Last node which is greater than k. */
+>   link_type x = root(); /* Current node. */
+> 
+>    while (x != NIL) 
+>      if (key_compare(k, key(x)))
+>        y = x, x = left(x);
+>      else
+>        x = right(x);
+> 
+>    return iterator(y);
+889,899c888,895
+<     link_type y = header;
+<     link_type x = root();
+<     bool comp = true;
+<     while (x != NIL) {
+<         y = x;
+<         comp = key_compare(k, key(x));
+<         x = comp ? left(x) : right(x);
+<     }
+<     const_iterator j = const_iterator(y);   
+<     return comp ? j : ++j;
+< }
+---
+>   link_type y = header; /* Last node which is greater than k. */
+>   link_type x = root(); /* Current node. */
+> 
+>    while (x != NIL) 
+>      if (key_compare(k, key(x)))
+>        y = x, x = left(x);
+>      else
+>        x = right(x);
+900a897,898
+>    return const_iterator(y);
+> }

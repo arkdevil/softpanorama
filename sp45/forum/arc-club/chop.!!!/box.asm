@@ -1,0 +1,356 @@
+;╒══════════════════════════════════════════════════════════════════════════╕
+;│                                                                          │
+;│ Исходный текст пустого ВОХ-файла комплекса MatchBox (Спичечный коробок)  │
+;│                                                     Ver.0.0    1.05.92   │
+;│                                                                          │
+;│ Автор: Чоп Александр	                     	тел:(095)315-10-31(раб.)    │
+;│               105043,Москва, Измайловский пр.,73/2,общ.5 MГТУ им.Баумана │
+;│                                                                          │
+;│ Транслятор  : TASM 2.0             					    │
+;│ Препроцессор: Block Structure Processor 1.00 of Connel Scientific Graphic│
+;╘══════════════════════════════════════════════════════════════════════════╛
+name mui
+
+_TEXT   SEGMENT BYTE PUBLIC
+_TEXT   ENDS
+
+_LAST SEGMENT byte public
+_LAST ENDS
+
+MemSize	equ	6	;смещ.в PSP длины выдел.сегм.
+EnvSeg	equ	2ch	;смещ.в PSP сегмента Env.
+BlockSize equ	3	;смещ.в MCB его длины в параграфах
+
+put&exit  macro string
+   mov   dx,offset string
+   call	exmess
+   endm
+
+_LAST segment
+assume cs:_LAST,ds:nothing
+
+Dummi proc  far
+
+Jumper   label far
+
+   rep   movsb		;порядок описателя:
+   lodsw		;MINMEM (для COM: -1),SP,SS,CS,IP
+   xchg	bp,ax           ;сохр. COM-признак
+   lodsw                ;AX──>SP если EXE
+   add	[si],bx		;в BX остался сегмент загрузки (Seg PSP+10h)
+                        ;если EXE: SI указывает на будущий SP
+   inc	 bp		;анализируем: если COM, будет ZF
+;   $IF  Z		;в случае COM
+   JNZ	BOX$IF1
+   mov  ax,es:[MemSize] ;размер выделенного сегмента
+   mov	dx,100h		;DX - будущий IP
+   add  ax,dx		;AX - будущий SP (для полной иден-
+   		        ;тичности с COMMAND.COM надо бы еще +0eh)
+   mov	[si],es 	;SS==ES
+;   $ENDIF
+BOX$IF1:
+   pop	di		;забираем из стека значение АХ при запуске
+   cli
+   mov   ss,[si]
+   xchg   sp,ax
+   sti
+
+   lodsw	;SI=SI+2
+   lodsw  	;CS
+   add ax,bx    ;привязываем CS
+   push ax
+   lodsw  	;IP
+   dec	bp	;анализируем: если COM, будет -1 и SF
+;   $IF	S
+   JNS	BOX$IF2
+   pop	ax	;стек на место
+   push	es 	;CS==ES	
+   xchg	dx,ax	;AX:=100h
+;   $ENDIF
+BOX$IF2:
+   push	ax	;IP
+   sub	ax,ax
+   cwd		;DX:=0
+   xchg  di,ax  ;восстанавливаем значение АХ при запуске
+   sub   bp,bp
+   sub   si,si
+   sub   bx,bx
+   push  es
+   pop   ds
+   ret
+Dummi endp
+SizeJumperProg  = $ - Jumper
+_LAST ends
+
+ASSUME CS:_TEXT,DS:_LAST
+
+_TEXT   SEGMENT ; ******************************
+PSPCmd   equ   00080h
+SizRecTbl equ 14
+
+db "CHOP",0
+
+movprog  label dword
+StartTailPart dw offset Jumper
+SegTailPart dw _LAST
+
+total dw 0
+
+PrintName proc near
+   pop dx       ;вынуть адрес RET
+   pop bx       ;вынуть аргум.
+   dec bx
+   dec bx
+   mov [bx],20bah
+   mov [bx+10],'║ '
+   mov [bx+12],0d0ah
+   mov byte ptr [bx+14],'$'
+   push dx	;восстановить адрес RET
+   mov dx,bx
+   mov ah,9
+   int 21h
+   ret
+PrintName  endp
+
+PrintFooter proc near
+   push	cs
+   pop	ds
+   mov	dx,offset Footer
+   mov  ah,9
+   int  21h
+   ret
+PrintFooter endp
+
+consist proc near
+   push	ds
+   push	cs
+   pop	ds
+   mov  cx,total
+   mov  di,StartTailPart;
+   add  di,SizeJumperProg       ; выч.нач.таблицы -> StartNext
+   mov	dx,offset CnsstHeader
+   mov  ah,9
+   int  21h
+   pop ds
+;   $DO
+BOX$DO1:
+   push  di
+   call  PrintName
+   add   di,SizRecTbl
+;   $ENDDO LOOP
+   LOOP	BOX$DO1
+   call PrintFooter
+   ret
+consist endp
+
+exmess   proc near
+   push	cs
+   pop	ds
+   mov  ah,9
+   int  21h
+   mov	dx,offset newl
+   int	21h
+   mov ax,4c00h
+   int 21h
+exmess	endp
+
+loader   proc far	;	**********
+
+   mov  dx,cs:total     ;не пуст ли ящик ?
+   or	dx,dx
+;   $IF   E
+   JNE	BOX$IF3
+   put&exit  EmptyMsg
+;   $ENDIF
+BOX$IF3:
+
+   push ax		;сохр. входн. сост. AX
+   mov   ds,cs:SegTailPart
+
+   mov  ax, PSPCmd
+   mov  di,ax		;ES: DI = Command Line address
+   mov  al,es:[di]	;CX = Command Line size excluding \r
+   mov  cx,ax
+   or	ax,ax		;парам. вызова есть ?
+
+;   $IF Z
+   JNZ	BOX$IF4
+   call consist
+   put&exit HelpUse
+;   $ENDIF
+BOX$IF4:
+
+   mov   al,' '
+   cld
+   inc	di	;указ.на символы ком.строки
+   rep	scasb	;выбросить предш.пробелы
+   dec	di	;т.к. имеем след.букву
+   mov	bp,di	;bp=где ' ' конч.и нач.слово
+   inc	cx      ;
+   repne scasb
+;   $IF CXNZ
+   JCXZ	BOX$IF5
+	dec di
+;   $ENDIF
+BOX$IF5:
+   sub   di,bp  ; di=длина 1-го слова
+   mov	 bx,di	;bx - длина 1 слова
+   cmp   bl,8   ; не длинней 8 букв
+;   $IF   G
+   JLE	BOX$IF6
+       call  consist
+       put&exit VeryLong
+;   $ENDIF
+BOX$IF6:
+
+   mov	cx,dx			;CX=total
+   mov  dx,cs:[StartTailPart]	;
+   add  dx,SizeJumperProg	;выч.нач.таблицы -> dx
+
+;   $DO				; перебрать все записи
+BOX$DO2:
+       push  cx                 ; сохр. внеш.цикл - > total
+       mov   cx,bx		; совп. ли Начало зап. с Идент.?
+       mov   di,bp		; в bp - нач.слова
+       mov   si,dx		;
+       rep  cmpsb
+       pop   cx
+
+;      $IF   E
+      JNE	BOX$IF7
+	push  dx
+	cmp al,[si]	;совпадение полное ?(след.пробел)
+	je MatchingOK   ;да - прекр.поиск
+	inc   ah	;неполное - совп.имя в стек
+;      $ENDIF
+BOX$IF7:
+
+       add   dx,SizRecTbl	;No - продолж. просмотр зап.
+;   $ENDDO LOOP
+   LOOP	BOX$DO2
+   cmp ah,1		;совпал 1 ?
+
+;   $IF   L			;cовпад.нет
+   JGE	BOX$IF8
+       call consist
+       put&exit NoMatch
+;   $ENDIF
+BOX$IF8:
+
+;   $IF G			;2 и больше совп.
+   JLE	BOX$IF9
+	mov   cl,ah		;распечат.из стека все совп.имена
+	push	ds
+	push	cs
+	pop	ds
+	mov	dx,offset MatchHeader
+	mov  ah,9
+	int  21h
+	pop ds
+;	$DO
+BOX$DO3:
+		call  PrintName  ;
+;	$ENDDO LOOP              ;
+	LOOP	BOX$DO3
+	call PrintFooter
+	put&exit TooManyMatch
+;   $ENDIF
+BOX$IF9:
+
+;		***** Программа обнаружена -> подготовка к выполн.
+MatchingOK:
+   add	bp,bx		;bp -> ком.стр. без 1-го слова
+   mov	ax,PSPCmd
+   mov  di,ax		;DI=80h
+   sub	ax,bp		;bx - длина строки, кот.надо выбр.
+
+   push ds
+   push es		;DS=ES для пересылки ком.стр.
+   pop  ds
+
+   inc	ax
+   add	al,[di]		;AL - длина оставш. парам.
+   mov	[di],al		;запис.ее на место
+   inc	ax
+   mov  cl,al		;cx - длина оставш. строки
+
+   inc   di              ;указ. на начало парам.
+   mov   si,bp           ;указ. на них
+   rep   movsb    	 ;сдвинуть ком.стр.
+
+;  --------запись найденного имени программы вместо имени BOX-файла
+   mov	ax,ds:[EnvSeg]	; сейчас DS==PSP
+   pop	ds		;DS = Seg таблицы имен
+   pop  si		;SI = начало совпавшего имени
+   push si
+   push	es
+
+   dec	ax
+   mov	es,ax		;ES = Seg MCB of DOS environment
+   mov	bx,es:[BlockSize];BX = размер блока окружения в параграфах
+   inc	ax
+   mov	es,ax		;ES = DOS environment Seg
+   mov	cl,4
+   shl  bx,cl		;BX - длина Env. в байтах
+   
+   
+   sub  di,di		;начало Env. 
+   sub  ax,ax		;ищем 0
+;   $DO
+BOX$DO4:
+	scasb		;DI-> начало следующей переменной
+;        $IF Z
+        JNZ	BOX$IF10
+         	scasb   ;Два 0 подряд - переменные закончились
+;                $LEAVE Z
+                JZ	BOX$LEAVE4
+;        $ENDIF
+BOX$IF10:
+;   $ENDDO	
+   JMP	BOX$DO4
+BOX$LEAVE4:
+   scasw		;переставляем DI на начало имени выполняемого файла
+   mov	al,'\'		;чтобы угодить VTSR, который показывает только имена
+   stosb		;содержащие '\' в начале и '.' в конце
+   sub  bx,di
+   mov  cx,bx
+   dec  cx
+   dec	cx
+   cmp	cl,8		;длина имени в таблице - 8 симв.
+;   $IF	G
+   JLE	BOX$IF11
+    	mov cl,8
+;   $ENDIF
+BOX$IF11:
+rep movsb
+   mov al,'.'
+   stosw		;заканчиваем точкой и нулем
+   pop es
+
+
+   mov   di,100h  ;перемещение прогр.на PSP:100h
+; после пересылки имени si -> указ. за конец стр. в табл.
+   pop	si
+   lodsw
+   xchg  dx,ax            ;грузим offs прогр.
+   mov	 bx,cs
+   lodsw
+   add   ax,bx		  ;прибавим к PSP смещ.прогр.
+   mov   cx,[si]          ;грузим offs endprog
+   sub   cx,dx            ;ее длина в cx
+   mov   si,dx            ;указ. на offs прогр.
+   mov   ds,ax
+   jmp   [movprog]
+CnsstHeader db	'╔═TaskName═╗',10,13,'║',9,'   ║',10,13,'$'
+MatchHeader db	'╓─Matching─╖',10,13,'║',9,'   ║'
+newl	db	10,13,'$'
+Footer db	'║',9,'   ║',10,13,'╚══════════╝',10,13,'$'
+VeryLong db	10,13,'TaskName too long!$'
+firstAX	label word
+EmptyMsg db 'Now empty..$'
+TooManyMatch db  10,13,'More one hit!$'
+NoMatch	db	10,13,'Nobody similar..'
+HelpUse	db 10,13,'Use : BOX <a few TaskNames letter> [Tasks parameters]','$'
+loader   endp
+_TEXT   ENDS
+end loader

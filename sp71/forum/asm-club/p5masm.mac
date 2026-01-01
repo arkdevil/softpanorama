@@ -1,0 +1,276 @@
+;
+;			INTEL CONFIDENTIAL
+;
+;	P5 CODE MACRO FILE FOR USE WITH MICROSOFT MASM 5.1 OR LATER
+;	ASSEMBLER.         
+;
+;	These macros have been developed by Intel Corporation and have 
+;	been verified on a working P5 system. 
+;		
+;	You have Intel's permission to incorporate these macros into
+;	your product royalty free. 
+;
+;	Intel specifically disclaims all warranties, express or implied, 
+;	and all liability, including consequential and other indirect 
+;	damages, for the use of these macros, including liability for 
+;	infringement of any proprietary rights.  Intel does not assume 
+;	any responsibility for any errors which may appear in these macros 
+;	nor any responsibility to update them.
+;
+;	Filename:	p5masm.mac
+;	Date:		10/92
+;
+;	These code macros have been generated because at the current time
+;	Microsoft's assembler does not include built-in assembler
+;	mnemonics for the new P5 instructions.  
+;
+;	To make use of the code macros defined below, include 
+;	the contents of this file by placing the following
+;	statement in your masm source file:
+;	
+;	INCLUDE P5MASM.MAC
+;
+;	To invoke a code macro, use the name of the macro just 
+;	as you would use any other assembler instruction
+;	mnemonic, including any required operands. 
+;	Examples are given with each macro.
+;
+;	The new instructions include:
+;
+;		CMPXCHG8B 	;Compare and exchange
+;				;eight bytes 
+;		CPUID		;CPU Identification
+;		RDTSC		;Read Time Stamp Counter
+;		MOVTOCR4	;Move reg to CR4
+;		MOVFROMCR4	;Move CR4 to reg
+;		RDMSR		;Read Model Specific Register
+;		WRMSR		;Write Model Specific Register
+;		RSM		;Resume from SMM
+;
+; NOTE:	All but two of the code macro names in this file correspond 
+;	directly with the actual names given to the new instructions.
+;
+; 
+; Instruction opcode bits in MOD REG R/M and SIB formats
+;
+.xcref MODRM_REC,SIB_REC
+MODRM_REC record $MOD:2,$REG:3,$RM:3
+SIB_REC  record  $SS:2,$IND:3,$BASE:3
+
+; $REG or $RM values when used for registers
+
+.xcref @BX@SI,@BX@DI,@BP@SI,@BP@DI,@SI,@DI,@BX
+@BX@SI	 equ	 000b		; BX+SI
+@BX@DI	 equ	 001b		; BX+DI
+@BP@SI	 equ	 010b		; BP+SI
+@BP@DI	 equ	 011b		; BP+DI
+@SI	 equ	 100b		; SI
+@DI	 equ	 101b		; DI
+@DISP	 equ	 110b		; BP (must have at least disp8)
+@BX	 equ	 111b		; BX
+
+.xcref @EAX,@ECX,@EDX,@EBX,@ESP,@EBP,@ESI,@EDI
+@EAX	 equ	 000b		; EAX
+@ECX	 equ	 001b		; ECX
+@EDX	 equ	 010b		; EDX
+@EBX	 equ	 011b		; EBX
+@ESP	 equ	 100b		; ESP
+@EBP	 equ	 101b		; EBP
+@ESI	 equ	 110b		; ESI
+@EDI	 equ	 111b		; EDI
+;
+;**************************************************************************
+;
+; CMPXCHG8B	  - Compare and exchange 8 Bytes - 
+;
+; Input:  64-bit memory location (DEST).  This macro does not support
+;	  segment override prefixes.  If a segment override prefix
+;	  is used, the correct byte must be inserted after the line
+;	  "local L1, L2" of this macro. 
+;
+; Output: IF EDX:EAX=DEST
+;		DEST <- ECX:EBX
+;		ZF=1
+;	  ELSE 
+;		EDX:EAX <- DEST
+;		ZF=0
+;
+; The contents of a 64-bit memory location (DEST) is compared
+; against a 64-bit value stored in the EDX:EAX register 
+; pair.  If the values are equal the 64-bit value stored in the 
+; ECX:EBX register pair is placed in DEST and the zero flag is set.  
+; Otherwise, the value in DEST is placed in EDX:EAX and the zero 
+; flag is cleared.
+;	
+; NOTE:  This macro uses the SIDT instruction to generate the correct
+;        addressing scheme, i.e., memory variable w/ or w/o indexing,
+; 	 bracketed register expression, etc.  It then replaces the
+;	 second opcode byte with the opcode for CMPXCHG8B (0C7H).
+
+CMPXCHG8B MACRO operand  
+	local L1, L2
+L1:	SIDT operand
+L2:	org L1 + 1
+	db 0C7H
+	org L1 + 5
+ENDM 
+
+;**************************************************************************
+;
+; CPUID          - CPU identification - 
+;
+; Pre B0 steppings:
+; 
+; Input:   None
+; Output:  EAX[3:0]   <- stepping
+;	   EAX[7:4]   <- model
+;	   EAX[11:8]  <- family
+;
+; B0 and later steppings:
+;
+; Input:   EAX = 0 or 1
+; Output:  IF EAX=0
+;		EAX=highest value CPUID understands
+;		EBX, EDX, ECX = vendor identification string
+;	   ELSE
+;	  	EAX[3:0]   <- stepping
+;		EAX[7:4]   <- model
+;		EAX[11:8]  <- family
+;		EAX[31:12] <- reserved
+;		EBX, ECX   <- reserved
+;		EDX[0:0]   <- floating point present if 1
+;		EDX[31:1]  <- reserved feature flag bits
+;		       	      (See the Preliminary Supplement to
+;			      the P5 Microprocessor User's Manual
+;			      for a complete definition of these bits.)
+
+CPUID MACRO 
+	db	0FH
+	db	0A2H
+ENDM 
+
+
+;**************************************************************************
+;
+; RDTSC          - Read Time Stamp Counter - 
+;
+; Input:  None
+; Output: EDX:EAX <- contents of Time Stamp Counter
+;
+
+RDTSC MACRO
+	db 	0FH
+	db	31H
+ENDM 
+
+
+;**************************************************************************
+;
+; MOVSPR	- Move to/from special register macro -
+;
+; Input:  general purpose register/control or debug register
+; Output: control or debug register/general purpose register
+;
+; Use this macro to move to/from CR4 which MASM does not currently
+; support.  Any R32 can be used as well as any special register 
+; (CRn, DRn) as either the source or destination.	
+; This macro requires Microsoft MASM 5.10 or later.
+;
+
+MOVSPR	 macro	 DST,SRC	; Move to/from special registers
+	 local	 TYP,SPR,R32,OPC,SPN
+
+SPR	 equ	 <DST>		; Assume special register is DST
+R32	 catstr  <@>,<SRC>	; Assume R32 is SRC
+TYP	 substr  SPR,1,2	; Get 1st and 2nd chars of SPR
+
+% ifidni <TYP>,<CR>		; Check for CRn
+OPC	 =	 22h		; Opcode for ...
+else
+% ifidni <TYP>,<DR>		; Check for DRn
+OPC	 =	 23h		; Opcode for ...
+else
+
+SPR	 equ	 <SRC>		; Assume special register is SRC
+R32	 catstr  <@>,<DST>	; Assume R32 is DST
+TYP	 substr  SPR,1,2	; Get 1st and 2nd chars of SPR
+
+% ifidni <TYP>,<CR>		; Check for CRn
+OPC	 =	 20h		; Opcode for ...
+else
+% ifidni <TYP>,<DR>		; Check for DRn
+OPC	 =	 21h		; Opcode for ...
+else
+%OUT Invalid register #
+.err
+endif				; IFIDNI <TYP>,<DR>
+endif				; IFIDNI <TYP>,<CR>
+
+endif				; IFIDNI <TYP>,<DR>
+endif				; IFIDNI <TYP>,<CR>
+
+SPN	 substr  SPR,3,1	; Get the register number
+
+%	 db	 0Fh,OPC,(11b shl $MOD) or (SPN shl $REG) or (R32 shl $RM)
+
+	 endm			; MOVSPR
+
+;**************************************************************************
+;
+; RDMSR       - Read from Model Specific Register -
+;            
+; Input:   ECX indicating which MSR to read from
+; Output:  EDX:EAX <- contents of MSR
+;           
+; To use this instruction the ECX register must hold a value that 
+; specifies which model specific register is to be read.  After
+; the instruction has completed the contents of the model specific
+; register will be found in the EDX:EAX register pair.
+;
+; See the P5 documentation for a complete list of model specific registers.
+;
+
+RDMSR MACRO
+	db 	0FH
+	db 	32H
+ENDM
+
+
+;**************************************************************************
+;
+; WRMSR       - Write to a Model Specific Register -
+;
+; Input:   ECX indicating which MSR to write to
+; Output:  MSR <- EDX:EAX 
+;
+; To use this instruction the ECX register must hold a value that 
+; specifies which model specific register is to be written.  After
+; the instruction has completed, the contents of the EDX:EAX 
+; register pair will be transferred to the specified model specific
+; register.
+;
+; See the P5 documentation for a complete list of model specific registers.
+;
+
+WRMSR MACRO
+	db 	0FH
+	db 	30H
+ENDM
+
+
+;**************************************************************************
+;
+; RSM          - Resume from System Management Mode -
+;
+; Input:   None
+; Output:  Restored CPU state
+;
+; Resume operation of a program interrupted by a System Management Mode
+; interrupt.
+;
+
+RSM MACRO
+	db	0FH
+	db	0AAH
+ENDM
+;**************************************************************************

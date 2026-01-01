@@ -1,0 +1,104 @@
+By: Mike Dodd
+Re: Re: EASE-C READER
+---------------------------------------------------------------------------
+ >>  I've reprogrammed the (), [], and {} characters on my PC's VGA display
+ >>  to be taller than normal.
+
+ > I am interested, and would you mind if I sent it through the PDN? Sounds
+ > like something that is very useful.
+ > Also, is this kind of stuff workable on EGA cards as well?
+
+ Here's the code.  It should work on EGA because the characters use an 8x14
+ font.  I've put the program in the public domain, so you can send it
+ through PDN.  Hope it helps.
+
+ ; Ease-C-Read.
+ ; Program to make [], (), and {} characters taller on EGA/VGA screen.
+ ; Public domain by Mike Dodd.  August 9, 1991.
+ ; Assemble with MASM 5.xx.  Link for small model.  Make .com with EXE2BIN.
+
+ .MODEL TINY
+ .CODE
+
+ VERY_TALL   equ  1    ; 0 makes shorter characters
+ BYTES_CHAR  equ  14   ; Number of bytes per character
+
+ ; This macro loads BP with the offset of the new data, DX with the
+ ; character to change, and calls INT 10h to store the bit map.
+
+ FIX macro pointer, character
+   mov bp, pointer
+   mov dx, character
+   int 10h
+ endm
+
+ org     100h
+
+ newchars PROC near
+
+ ; These registers remain the same through the Int 10h calls, so we
+ ; don't have to reinitialize them for each character.
+
+ push    cs
+ pop     es                  ; ES = data table segment
+ mov     cx, 1               ; CX = character count
+ mov     bx, BYTES_CHAR SHL 8; BH = bytes/character, BL = 0
+ mov     ax, 1100h           ; INT 10h, function 11, subfunction 0
+
+ FIX left_bracket, '['
+ FIX right_bracket, ']'
+ FIX left_paren, '('
+ FIX right_paren, ')'
+ FIX left_brace, '{'
+ FIX right_brace, '}'
+
+ int     20h                 ; Terminate the program
+
+ newchars  ENDP
+
+ ; Data for the new characters.  Each character contains 14 bytes.
+ ; Two versions are given -- tall and very tall.
+
+ left_bracket:   ; Left square bracket: [
+ if VERY_TALL
+ db 1eh, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 1eh
+ else
+ db 0, 1eh, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 1eh, 0
+ endif
+
+ right_bracket:  ; Right square bracket: ]
+ if VERY_TALL
+ db 78h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 78h
+ else
+ db 0, 78h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 18h, 78h, 0
+ endif
+
+ left_paren:     ; Left parentheses: (
+ if VERY_TALL
+ db 06h, 0ch, 18h, 30h, 30h, 30h, 30h, 30h, 30h, 30h, 30h, 18h, 0ch, 06h
+ else
+ db 0, 06h, 0ch, 18h, 30h, 30h, 30h, 30h, 30h, 30h, 18h, 0ch, 06h, 0
+ endif
+
+ right_paren:    ; Right parentheses: )
+ if VERY_TALL
+ db 60h, 30h, 18h, 0ch, 0ch, 0ch, 0ch, 0ch, 0ch, 0ch, 0ch, 18h, 30h, 60h
+ else
+ db 0, 60h, 30h, 18h, 0ch, 0ch, 0ch, 0ch, 0ch, 0ch, 18h, 30h, 60h, 0
+ endif
+
+ left_brace:     ; Left curly brace: {
+ if VERY_TALL
+ db 0eh, 18h, 18h, 18h, 18h, 18h, 70h, 18h, 18h, 18h, 18h, 18h, 18h, 0eh
+ else
+ db 0, 0eh, 18h, 18h, 18h, 18h, 70h, 18h, 18h, 18h, 18h, 18h, 0eh, 0
+ endif
+
+ right_brace:    ; Right curly brace: }
+ if VERY_TALL
+ db 70h, 18h, 18h, 18h, 18h, 18h, 0eh, 18h, 18h, 18h, 18h, 18h, 18h, 70h
+ else
+ db 0, 70h, 18h, 18h, 18h, 18h, 0eh, 18h, 18h, 18h, 18h, 18h, 70h, 0
+ endif
+
+ END newchars

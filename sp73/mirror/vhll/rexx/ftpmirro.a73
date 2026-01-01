@@ -1,0 +1,351 @@
+Newsgroups: comp.lang.rexx,comp.os.os2.networking.misc
+From: gunthorg@cuug.ab.ca (Gary Gunthorpe)
+Subject: Re: REXX Interpreter HELP HELP HELP! (FTP-API - high tech stuff!)
+Message-ID: <VNXPlyGxVhrL075yn@cuug.ab.ca>
+Organization: Calgary UNIX User's Group
+Date: Tue, 14 Mar 1995 22:17:03 GMT
+
+In article <0098D4E6.97C96B84@netins.net>, hfreese@netins.net wrote:
+>
+>Hello!
+>
+>After reviewing much REXX stuff, we have determined that
+>we could really really use a REXX-pert who could do the
+>following with OS/2 Rexx to a remote Unix FTP site:
+>
+>   Use REXX to periodically check the list of files in a specified
+>   directory an a remote host and either get or put files to make
+>   a mirror copy with the local OS/2 host machine... and to
+>   perform minimal amount of file transfers in the process of mirroring:
+>
+>   /remote/data       Contains what we want
+>   /local/os2/data    Is our box that needs to have the data made local
+>
+>   One other thing may be to trigger an update on the local OS/2 box
+>   when a specific file pattern has a new copy to run a program
+>   locally that will process into a result by our program...
+>
+>   So it would go in this sequence...
+>
+>   0. Alarm would tell this mirror to start once every x minutes
+>      (we already know how to do this part...)
+>   1. ftp remote.site.com
+>   2. /remote/data      (change to a directory specified)
+>   3. list the files and compare against list in /local/os2/data
+>   4. if there are any new files, get only those files not in /local/os2/data
+>   5. send a signal that new files are present and/or execute a program
+>   6. remove any files locally that have been removed from /remote/data
+>   7. ready for next execute a 0
+>
+>Do you or someone you know do REXX programming that could
+>do the above on a freelance basis?  We need this sooner than
+>the learning curve permits us to make our goals.
+>
+>Please reply with your thoughts...
+>
+
+Gee, It just so happens that I have just such a rexx script!! It does
+everything on your list execpt for #5, but it should be easy to add.
+I have been using it to mirror all of the *.txt files in the hobbes incoming
+directory and it has been working fine. It even retries connects if they fail.
+I have appended it to the end of this message, I hope it's not to long:
+
+Sample command line:
+ftpmirror -C hobbes.nmsu.edu /incoming *.txt
+
+-----Start FTPMIRROR.CMD ------
+/* ########################################################################
+
+   This REXX script will mirror a given FTP site's directory into the
+   current directory. NOTE! Any files that are in the current directory
+   but not in the specified FTP directory WILL BE ERASED!!!!! (That match
+   the wild card spec)
+
+
+   Requires RXFtp.dll (EWS, in software.watson.ibm.com, hobbes or
+   ftp.cdrom.com)
+
+   By Jason Gunthorpe (guthorg@cuug.ab.ca -or- ggdelt1@ibm.net)
+   ########################################################################
+*/
+'@echo off'                       /* Don't echo commands */
+
+say "Mirror FTP V1.0"
+
+   /* Load in the DLLs */
+   call LoadFuncs
+
+   /* Set inital variables: UserId, HostName */
+   call SetVars
+
+   /* Param Line: ftpmirror <-D/C/L> SITE DIRECTORY <WildCards0> <WildCards1> ...*/
+   parse arg opt site dir wilds
+   opt = translate(opt)
+   opt = translate(opt,'--','/\')     /* Make caps, / to - */
+
+   /* See if there are options.. */
+   if (substr(opt,1,1) \= '-') then do
+      parse arg site dir wilds
+      opt = ''
+   end
+
+   /* Do not delete local files */
+   if (pos('D',opt) \= 0) then
+      Delete = 0
+   else
+      Delete = 1
+
+   /* Do not ignore case */
+   if (pos('C',opt) \= 0) then
+      MCase = 0
+   else
+      MCase = 1
+
+   /* Do not logout */
+   if (pos('L',opt) \= 0) then
+      Logout = 0
+   else
+      Logout = 1
+
+top:
+   say "  FTP: Connecting to" Site
+   if (FTPSetUser(Site,"anonymous",userid || '@' || HostName) = -1) then do
+      call SayFTPError
+      call FTPLogoff
+      signal top
+   end
+
+   say "  FTP: Moving to" Dir
+   if (FTPChDir(Dir) = -1) then do
+      call SayFTPError
+      call FTPLogoff
+      signal top
+   end
+
+   Loop = 1
+   do while (1)
+      WldCard = Word(Wilds,Loop)
+      Loop = Loop + 1
+
+      /* See if there are more wild cards */
+      if (WldCard = '') then
+         Leave
+      else do
+         say "  FTP: Getting Files List:" WldCard
+         if (FTPLs(WldCard,"Files.") = -1) then do
+            Files.0 = 0
+            exit
+         end
+
+         if (MCase = 1) then do
+            say "  FTP: Getting Files List:" Translate(WldCard)
+            if (FTPLs(Translate(WldCard),"CFiles.") = -1) then do
+               CFile.0 = 0
+               exit
+            end
+
+            I2 = 1
+            I = Files.0 + 1
+            do while (I2 \= CFiles.0 + 1)
+               Files.I = CFiles.I2
+
+               I = I + 1
+               I2 = I2 + 1
+            end
+
+            Files.0 = Files.0 + CFiles.0
+         end
+
+         if (Files.0 = 0) then do
+            say "    Files list is empty, skipping"
+            Iterate
+         end
+
+         call SysFileTree WldCard,"LFiles","FO";
+         I2 = 1
+         do while (I2 \= LFiles.0 + 1)
+            Len = lastpos("\",LFiles.I2) + 1
+            Len2 = length(LFiles.I2) - Len + 1
+            LFiles.I2 = SubStr(LFiles.I2,len,len2)
+            I2 = I2 + 1
+         end
+
+         /* Compare files in the Remote Stem */
+         I = 1
+         do while (I \= Files.0 + 1)
+            if (pos("\",Files.I) \= 0) then do
+               Len = lastpos("\",Files.I) + 1
+               Len2 = length(Files.I) - Len + 1
+               Dest = SubStr(Files.I,len,len2)
+               I2 = I2 + 1
+            end
+            else
+               Dest = Files.I
+
+            if (stream(Dest,'c','query exists')  = '') then do
+               say "    FTP: Getting " || Files.I || " -> " || Dest
+               if (FtpGet(Dest,Files.I,"Binary") = -1) & (FTPErrNo \= '0') then do
+                  call SayFTPError
+               end
+                  NDest = translate(Dest,XRange('A','Z'),XRange('a','z'))
+            end
+            else do
+               /* Remove the entry from LFiles */
+               I2 = 1
+               do while (I2 \= LFiles.0 + 1)
+                  if (LFiles.I2 = Dest) then do
+                     LFiles.I2 = ''
+                     leave
+                  end
+                  I2 = I2 + 1
+               end
+               if (I2 = LFiles.0 + 1) then do
+                  say "Local Files list does not cointain" Dest "(" || Files.I || ") but it should!!"
+                  call FTPLogoff
+                  exit
+               end
+            end
+
+            I = I+1
+         end
+
+         /* Files that remain in the local stem are not on the remote */
+         if (Delete = 0) then
+            Iterate
+
+         I2 = 1
+         do while (I2 \= LFiles.0 + 1)
+            if (LFiles.I2 \= '') then do
+               say "      Deleting" LFiles.I2
+               call SysFileDelete(LFiles.I2);
+            end
+            I2 = I2 + 1
+         end
+      end
+   end
+
+   if (Logout = 1) then
+      call FTPLogoff
+return
+
+/* ########################################################################
+
+   Function - LoadFuncs()
+
+   Description - This function loads the utility functions.
+
+   ########################################################################
+*/
+LoadFuncs:
+   /* Load REXX Functions and FTP Functions */
+   if RxFuncQuery("FtpLoadFuncs") then do
+      /* FTP Functions have not been loaded.. */
+      rc = RxFuncAdd("FtpLoadFuncs","RxFtp","FtpLoadFuncs")
+      if (rc \= 0) then do
+         say "Sorry, but the file 'RxFtp.dll' could not be found. "
+         say "'RxFuncAdd('FtpLoadFuncs','RxFtp','FtpLoadFuncs')' has failed! (rc =" rc")"
+         say
+         say "You will need to ftp a version of the rxftp.dll to use this script"
+         say "Some URL's where rxftp.dll has been seen are:"
+         say "   ftp://hobbes.nmsu.edu/os2/ibm/ews/rxftp.zip"
+         exit
+      end
+
+      call FtpLoadFuncs "Quite"
+   end
+   say "  LoadFuncs: Loaded RxFtp functions"
+
+   /* Load RexxUtil functions */
+   if RxFuncQuery("SysLoadFuncs") then do
+      /* RexxUtil functions have not been loaded. */
+      rc = RxFuncAdd("SysLoadFuncs","RexxUtil","SysLoadFuncs")
+      if \(rc = 0) then do
+         say "RexxUtil could not be loaded!"
+         exit
+      end
+
+      call SysLoadFuncs
+   end
+   say "  LoadFuncs: Loaded RexxUtil functions"
+return
+
+/* ########################################################################
+
+   Function - SetVars
+
+   Description - This function sets UserId and HostName. UserId is
+                 retrived from the USER environment variable (or is
+                 set to OS2USER if no var is found). HostName is retrived
+                 from RxSocket calls or from the HOSTNAME environment
+                 variable.
+
+                 User is already declared then it is not changed.
+
+   ########################################################################
+*/
+SetVars:procedure expose UserId HostName
+   /* We need to find the user name */
+   if \(UserId = "") then do
+      /* Read the User ID from the environment. */
+      UserId = Value("USER",,"OS2ENVIRONMENT");
+
+      /* Not found! */
+      if (UserId = "") then UserId = 'OS2USER'
+   end
+
+   /* Check to ensure that there is no @ sign. */
+   if \(Verify(UserId,"@","M") = 0) then do
+      say "The User Id (" || UserId || ") contains an '@' sign. The User Id should"
+      say "have no domain name (ed, not ed@ibm.net). Check the USER environment"
+      say "variable."
+      exit
+   end
+
+   /* We need to find the host name. */
+   if \(HostName = "") then do
+      /* Read the Host Name from the environment. */
+      HostName = Value("HOSTNAME",,"OS2ENVIRONMENT")
+
+      /* Not found! */
+      if (HostName = "") then do
+         say "The Host Name could not be found. This means that RxSock has not been"
+         say "installed and there is no HOSTNAME envirnment variable."
+         exit
+      end
+   end
+
+   /* Check to ensure that there is no @ sign. */
+   if \(Verify(HostName,"@","M") = 0) then do
+      say "The Host Name (" || HostName || ") contains an '@' sign. The Host Name should"
+      say "only contain the domain (ibm.net, not ed@ibm.net). Check the HOSTNAME"
+      say "environment variable."
+      exit
+   end
+
+   say "  SetVars: Your address is " || UserId || "@" || HostName
+return
+
+SayFTPError: procedure expose ftperrno
+
+   select
+      when FTPErrNo="FTPSERVICE"     then phrase="unknown service"
+      when FTPErrNo="FTPHOST"        then phrase="unknown host"
+      when FTPErrNo="FTPSOCKET"      then phrase="unable to obtain socket"
+      when FTPErrNo="FTPCONNECT"     then phrase="unable to connect to server"
+      when FTPErrNo="FTPLOGIN"       then phrase="login failed"
+      when FTPErrNo="FTPABORT"       then phrase="transfer aborted"
+      when FTPErrNo="FTPLOCALFILE"   then phrase="problem openning local file"
+      when FTPErrNo="FTPDATACONN"    then phrase="problem initializing data connection"
+      when FTPErrNo="FTPCOMMAND"     then phrase="command failed"
+      when FTPErrNo="FTPPROXYTHIRD"  then phrase="proxy server does not support third party transfers"
+      when FTPErrNo="FTPNOPRIMARY"   then phrase="no primary connection for proxy transfer"
+      when FTPErrNo="0"              then phrase="no error (possibly unknown error)"
+      otherwise
+         phrase="unknown error condition "||FTPErrNo
+   end
+
+   say phrase
+return
+
+-----End--------
+

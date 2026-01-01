@@ -1,0 +1,89 @@
+Newsgroups: comp.lang.rexx
+Subject: OBJREXX Memory Eating Bug!
+From: sasmith@orca.osg.gov.bc.ca   (Steve Smith)
+Date: 9 Sep 95 19:10:25 PDT
+
+I have installed the version of Object REXX on the hobbes ftp site.
+
+I installed it with the install directory listed first in my LIBPATH, PATH,
+DPATH etc. and after rebooting executed the WPSINST program.
+
+All was well for a few days, then I ran my AF_SINCE.CMD REXX program.
+This is a simple program that parses the ALLFILES.TXT file from the
+ftp.pcco.ibm.com site looking for files on or after a certain date (lfYY,
+lfMM lfDD in program below). If it finds any files, it displays them using
+the REXX say procedure. I usually invoke it with redirection to save the
+output to a file:
+
+AF_SINCE >AF.NEW
+
+After installing the Object REXX beta on my IBM 750-P90 Micro Channel
+machine (32MB memory and 1.5GB disk), when I run this program my
+swapper grows from the default allocation (16MB) until it consumes all
+free space on my boot drive (usually 40MB) then my system crashes.
+
+I reproduced this several times. By moving the Object REXX directories
+to the other end of LIBPATH, PATH DPATH etc, the problem goes away
+and the AF_SINCE.CMD program completes it's work in a few seconds,
+without growing my swap file at all.
+
+Here's the program (not the best REXX I've ever written). If anyone sees
+anything in my program that could explain this please let me know...
+
+=====================================================================
+/* */
+lfMM = '08'
+lfYY = '95'
+lfDD = '25'
+
+inFile = 'ALLFILES.TXT'
+
+currDir = ''
+lastDir = ''
+do while lines(inFile) \= 0
+    inLine = strip(linein(inFile))
+    if substr(inLine,1,1) = '/' then do
+        parse var inLine currDir .
+        iterate
+    end
+    if substr(inLine,30,1) = '/' & ,
+       substr(inLine,33,1) = '/' then do
+       parse var inLine . 28 mm '/' dd '/' yy .
+       if (yy = lfYY & mm > lfMM) | ,
+          (yy = lfYY & mm = lfMM & dd > lfDD) then do
+            parse var inLine fn fsize fdate fdesc
+            if currDir \= lastDir then do
+                say currDir
+                lastDir = currDir
+            end
+            say '  ' inLine
+       end
+    end
+    if substr(inLine,30,1) = '-' & ,
+       substr(inLine,33,1) = '-' then do
+       parse var inLine . 28 mm '-' dd '-' yy .
+       if (yy = lfYY & mm > lfMM) | ,
+          (yy = lfYY & mm = lfMM & dd > lfDD) then do
+            parse var inLine fn fsize fdate fdesc
+            if currDir \= lastDir then do
+                say currDir
+                lastDir = currDir
+            end
+            say '  ' inLine
+       end
+    end
+
+
+end
+call lineout inFile
+exit 0
+
+
+==================================================================
+Steve Smith
+BC Systems Corporation
+Victoria BC Canada
+Internet: sasmith@bcsc02.gov.bc.ca
+"The views expressed are mine and not those of my employer."
+
+

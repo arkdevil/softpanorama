@@ -1,0 +1,405 @@
+{(C) 1991 by Ol}
+$MACRO_FILE 3;
+{Инверсия первых букв слов.}
+$MACRO 3;
+
+Set_Global_Str('TX_1','/H=FIXEDMENU/S=0/M=EUPPER');
+Set_Global_Str('XTX_1','вВерх');
+Set_Global_Str('TX_2','/H=FIXEDMENU/S=0/M=ELOWER');
+Set_Global_Str('XTX_2','вНиз');
+RM('USERIN^TOPMENU /GCLR=1/M=XTX_/G=TX_/#=2/X=1/Y=2/S=1/BC=1/L=КУДА ИНВЕРТИРОВАТЬ БУКВЫ');
+Return_Int := 100;
+
+END_MACRO;
+
+$MACRO EUPPER;
+
+    Set_Global_Str('SX_1','/H=FIXEDMENU/S=1/M=EU_EOF');
+    Set_Global_Str('XSX_1','с текущей строки до EOF (или в блоке)');
+    Set_Global_Str('SX_2','/H=FIXEDMENU/S=2/M=EU_WORD');
+    Set_Global_Str('XSX_2','в Слове (курсор в нём)');
+    Set_Global_Str('SX_3','/H=FIXEDMENU/S=2/M=EU_LINE');
+    Set_Global_Str('XSX_3','в Строке');
+    Set_Global_Str('SX_4','/H=FIXEDMENU/S=1/M=EU_FIRST');
+    Set_Global_Str('XSX_4','в Первых словах с текущей строки до EOF');
+
+    RM('USERIN^SUBMENU /GCLR=1/G=SX_/M=XSX_/#=4/S=4/L=МЕНЮ ИНВЕРТИРОВАНИЯ ПЕРВЫХ БУКВ СЛОВ ВВЕРХ/X=' +
+		Parse_Str('/X=',MParm_Str) + '/Y=' + Parse_Str('/Y=',MParm_Str));
+if return_int = -1 then RM('3'); end;
+END_MACRO;
+
+$MACRO EU_EOF;
+{Переключение регистра первых букв всех слов файла с нижнего
+на верхний (если он нижний) начиная с текущей строки и до конца файла,
+а если отмечен блок, то в нем.}
+Def_Int(n := 0,insertmo,c);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 0;
+Make_Message('Starting...');
+    if ((block_stat = 1) and (marking = 0)) then
+    goto_line(block_line1);
+	    WHILE C_LINE <= BLOCK_LINE2 DO
+	    call con;
+	    END;
+    else
+	while at_eof = false do
+	call con;
+	end;
+    end;
+goto pass;
+con:
+n := n + 1;
+first_word;
+c := c_col;
+eol;
+while c_col > c do
+word_left;
+ IF ((ascii(Cur_Char) > 96) and (ascii(Cur_Char) < 123)) THEN
+ TEXT(Caps(Cur_Char));
+ left;
+ Make_Message('Converting... Line No. ' + str(n));
+ END;
+	IF ((ascii(cur_char) >= 160) and (ascii(cur_char) <= 175)) then
+	text(char(ascii(cur_char) - 32));
+	left;
+	Make_Message('Converting... Line No. ' + str(n));
+	END;
+	IF ((ascii(cur_char) >= 224) and (ascii(cur_char) <= 239)) then
+	text(char(ascii(cur_char) - 80));
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+	IF Cur_Char = 'ё' THEN
+	TEXT('Ё');
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+end;
+DOWN;
+ret;
+pass:
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+
+$MACRO EU_WORD;
+{Переключение регистра первой буквы слова с нижнего на верхний (если он нижний)
+с последующим переводом курсора на начало следующего/предыдущего слова.}
+Def_Int(n := 0,insertmo);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 1;
+Make_Message('Starting...');
+lt:
+word_left;
+begin:
+ IF ((ascii(Cur_Char) > 96) and (ascii(Cur_Char) < 123)) THEN
+ TEXT(Caps(Cur_Char));
+ n := n + 1;
+ left;
+ END;
+	IF ((ascii(cur_char) >= 160) and (ascii(cur_char) <= 175)) then
+	text(char(ascii(cur_char) - 32));
+	n := n + 1;
+	left;
+	END;
+	IF ((ascii(cur_char) >= 224) and (ascii(cur_char) <= 239)) then
+	text(char(ascii(cur_char) - 80));
+	n := n + 1;
+	left;
+	END;
+	IF Cur_Char = 'ё' THEN
+	TEXT('Ё');
+	n := n + 1;
+	left;
+	END;
+        Make_Message(str(n) + ' word''s letter converted. ONCE MORE RIGHT - <RT>/LEFT - <LF>, ESCAPE - <ESC>.');
+read:		read_key;
+        if (key1 = 27) and (key2 = 1) then
+	goto alles;
+	end;
+		if (key1 = 0) and (key2 = 77) then
+		word_right;
+		goto begin;
+		elsif (key1 = 0) and (key2 = 75) then
+		goto lt;
+		else goto read;
+		end;
+alles:
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+
+$MACRO EU_LINE;
+{Переключение регистра первых букв всех слов строки файла с нижнего
+на верхний (если он нижний) с переводом курсора на строку ниже.}
+Def_Int(n := 0,insertmo,c);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 0;
+Make_Message('Starting...');
+first_word;
+c := c_col;
+eol;
+while c_col > c do
+n := n + 1;
+word_left;
+ IF ((ascii(Cur_Char) > 96) and (ascii(Cur_Char) < 123)) THEN
+ TEXT(Caps(Cur_Char));
+ left;
+ Make_Message('Converting... Word No. ' + str(n));
+ END;
+	IF ((ascii(cur_char) >= 160) and (ascii(cur_char) <= 175)) then
+	text(char(ascii(cur_char) - 32));
+	left;
+    Make_Message('Converting... Word No. ' + str(n));
+	END;
+	IF ((ascii(cur_char) >= 224) and (ascii(cur_char) <= 239)) then
+	text(char(ascii(cur_char) - 80));
+    Make_Message('Converting... Word No. ' + str(n));
+	left;
+	END;
+	IF Cur_Char = 'ё' THEN
+	TEXT('Ё');
+    Make_Message('Converting... Word No. ' + str(n));
+	left;
+	END;
+end;
+DOWN;
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+
+$MACRO EU_FIRST;
+{Переключение регистра первых букв первых слов в строках файла с нижнего
+на верхний (если он нижний) начиная с текущей строки и до конца файла.}
+Def_Int(n := 0,insertmo);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 0;
+Make_Message('Starting...');
+WHILE AT_EOF <> TRUE DO
+n := n + 1;
+First_Word;
+ IF ((ascii(Cur_Char) > 96) and (ascii(Cur_Char) < 123)) THEN
+ TEXT(Caps(Cur_Char));
+ left;
+ Make_Message('Converting... Line No. ' + str(n));
+ END;
+	IF ((ascii(cur_char) >= 160) and (ascii(cur_char) <= 175)) then
+	text(char(ascii(cur_char) - 32));
+	left;
+	Make_Message('Converting... Line No. ' + str(n));
+	END;
+	IF ((ascii(cur_char) >= 224) and (ascii(cur_char) <= 239)) then
+	text(char(ascii(cur_char) - 80));
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+	IF Cur_Char = 'ё' THEN
+	TEXT('Ё');
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+DOWN;
+END;
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+{********************* конец больших букв, начало малых *********************}
+$MACRO ELOWER;
+
+    Set_Global_Str('SX_1','/H=FIXEDMENU/S=1/M=EL_EOF');
+    Set_Global_Str('XSX_1','с текущей строки до EOF (или в блоке)');
+    Set_Global_Str('SX_2','/H=FIXEDMENU/S=2/M=EL_WORD');
+    Set_Global_Str('XSX_2','в Слове (курсор в нём)');
+    Set_Global_Str('SX_3','/H=FIXEDMENU/S=2/M=EL_LINE');
+    Set_Global_Str('XSX_3','в Строке');
+    Set_Global_Str('SX_4','/H=FIXEDMENU/S=1/M=EL_FIRST');
+    Set_Global_Str('XSX_4','в Первых словах с текущей строки до EOF');
+
+    RM('USERIN^SUBMENU /GCLR=1/G=SX_/M=XSX_/#=4/S=4/L=МЕНЮ ИНВЕРТИРОВАНИЯ ПЕРВЫХ БУКВ СЛОВ ВНИЗ/X=' +
+		Parse_Str('/X=',MParm_Str) + '/Y=' + Parse_Str('/Y=',MParm_Str));
+if return_int = -1 then RM('3'); end;
+END_MACRO;
+
+$MACRO EL_EOF;
+{Переключение регистра первых букв всех слов файла с верхнего
+на нижний (если он верхний) начиная с текущей строки и до конца файла,
+а если отмечен блок, то в нем.}
+Def_Int(n := 0,insertmo,c);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 0;
+Make_Message('Starting...');
+    if ((block_stat = 1) and (marking = 0)) then
+    goto_line(block_line1);
+	    WHILE C_LINE <= BLOCK_LINE2 DO
+	    call con;
+	    END;
+    else
+	while at_eof = false do
+	call con;
+	end;
+    end;
+goto pass;
+con:
+n := n + 1;
+first_word;
+c := c_col;
+eol;
+while c_col > c do
+word_left;
+ IF ((ascii(Cur_Char) > 64) and (ascii(Cur_Char) < 91)) THEN
+ TEXT(Lower(Cur_Char));
+ left;
+ Make_Message('Converting... Line No. ' + str(n));
+ END;
+	IF ((ascii(cur_char) >= 128) and (ascii(cur_char) <= 143)) then
+	text(char(ascii(cur_char) + 32));
+	left;
+	Make_Message('Converting... Line No. ' + str(n));
+	END;
+	IF ((ascii(cur_char) >= 144) and (ascii(cur_char) <= 159)) then
+	text(char(ascii(cur_char) + 80));
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+	IF Cur_Char = 'Ё' THEN
+	TEXT('ё');
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+end;
+DOWN;
+ret;
+pass:
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+
+$MACRO EL_WORD;
+{Переключение регистра первой буквы слова с верхнего на нижний (если он верхний)
+с последующим переводом курсора на начало следующего/предыдущего слова.}
+Def_Int(n := 0,insertmo);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 1;
+Make_Message('Starting...');
+lt:
+word_left;
+begin:
+ IF ((ascii(Cur_Char) > 64) and (ascii(Cur_Char) < 91)) THEN
+ TEXT(Lower(Cur_Char));
+ n := n + 1;
+ left;
+ END;
+	IF ((ascii(cur_char) >= 128) and (ascii(cur_char) <= 143)) then
+	text(char(ascii(cur_char) + 32));
+	n := n + 1;
+	left;
+	END;
+	IF ((ascii(cur_char) >= 144) and (ascii(cur_char) <= 159)) then
+	text(char(ascii(cur_char) + 80));
+	n := n + 1;
+	left;
+	END;
+	IF Cur_Char = 'Ё' THEN
+	TEXT('ё');
+	n := n + 1;
+	left;
+	END;
+        Make_Message(str(n) + ' word''s letter converted. ONCE MORE RIGHT - <RT>/LEFT - <LF>, ESCAPE - <ESC>.');
+read:		read_key;
+        if (key1 = 27) and (key2 = 1) then
+	goto alles;
+	end;
+		if (key1 = 0) and (key2 = 77) then
+		word_right;
+		goto begin;
+		elsif (key1 = 0) and (key2 = 75) then
+		goto lt;
+		else goto read;
+		end;
+alles:
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+
+$MACRO EL_LINE;
+{Переключение регистра первых букв всех слов строки файла с верхнего
+на нижний (если он верхний) с переводом курсора на строку ниже.}
+Def_Int(n := 0,insertmo,c);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 0;
+Make_Message('Starting...');
+first_word;
+c := c_col;
+eol;
+while c_col > c do
+n := n + 1;
+word_left;
+ IF ((ascii(Cur_Char) > 64) and (ascii(Cur_Char) < 91)) THEN
+ TEXT(Lower(Cur_Char));
+ left;
+ Make_Message('Converting... Word No. ' + str(n));
+ END;
+	IF ((ascii(cur_char) >= 128) and (ascii(cur_char) <= 143)) then
+	text(char(ascii(cur_char) + 32));
+	left;
+    Make_Message('Converting... Word No. ' + str(n));
+	END;
+	IF ((ascii(cur_char) >= 144) and (ascii(cur_char) <= 159)) then
+	text(char(ascii(cur_char) + 80));
+    Make_Message('Converting... Word No. ' + str(n));
+	left;
+	END;
+	IF Cur_Char = 'Ё' THEN
+	TEXT('ё');
+    Make_Message('Converting... Word No. ' + str(n));
+	left;
+	END;
+end;
+DOWN;
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;
+
+$MACRO EL_FIRST;
+{Переключение регистра первых букв первых слов в строках файла с верхнего
+на нижний (если он верхний) начиная с текущей строки и до конца файла.}
+Def_Int(n := 0,insertmo);
+insertmo := Insert_Mode;
+Insert_Mode := FALSE;
+Refresh := 0;
+Make_Message('Starting...');
+WHILE AT_EOF <> TRUE DO
+n := n + 1;
+First_Word;
+ IF ((ascii(Cur_Char) > 64) and (ascii(Cur_Char) < 91)) THEN
+ TEXT(Lower(Cur_Char));
+ left;
+ Make_Message('Converting... Line No. ' + str(n));
+ END;
+	IF ((ascii(cur_char) >= 128) and (ascii(cur_char) <= 143)) then
+	text(char(ascii(cur_char) + 32));
+	left;
+	Make_Message('Converting... Line No. ' + str(n));
+	END;
+	IF ((ascii(cur_char) >= 144) and (ascii(cur_char) <= 159)) then
+	text(char(ascii(cur_char) + 80));
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+	IF Cur_Char = 'Ё' THEN
+	TEXT('ё');
+	Make_Message('Converting... Line No. ' + str(n));
+	left;
+	END;
+DOWN;
+END;
+Make_Message('That''s all.');
+Insert_Mode := insertmo;
+END_MACRO;

@@ -1,0 +1,32 @@
+  -----------------------  DataMake program --------------------------
+  --  (c) 1995 E.Martin.
+  --                Compuserve: 100661,3653
+  --
+  --    This program is a simple code generator. It's intended to produce
+  --    a Unit that will create all the databases used by your application.
+  --    This way, a program can be shipped without the datafiles, which can
+  --    be created as needed.
+  --    The program is fairly easy to use, as it is based in the DataList
+  --    example program that ships with Delphi.
+  --    The code generated : CreateDB.Pas is ready to be included in your project
+  --      whenever you decide you can call CreateDBMS to recreate the datafiles.
+  --      The code style is structured and readable (as much as this is) and can
+  --      be easily modified to further specialize.
+  --
+  --    This program is FreeWare: use it or modify it at your own will.
+  --     I'll be glad if it helped someone.
+  --
+  --
+  --  Revision history:
+  --  14/Jun/95 : created.
+  --
+  --  Known limitations:
+  --   This version doesn't handle dBase Expressions indexes.  To do so I'd
+  --   have to dig rather deep in the Borland's DBE api.  As I don't have
+  --   the manuals, and I don't need to use dBase expressions right now, I
+  --   left it aside.  Maybe someone wants to improve the program to do it.
+  --
+  --  Any comments, bug reports, etc  can be addressed at: 
+      Enrique Martin
+      Compuserve: 100661,3653
+      Internet: emarti0@ibm.net

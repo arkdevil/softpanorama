@@ -1,0 +1,781 @@
+
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+                               Table of Contents
+
+
+    1. INTRODUCTION...................................... 2
+        1.1. Purpose of TbDisk........................... 2
+        1.2. A Quick start............................... 2
+        1.3. Benefits.................................... 3
+
+    2. USAGE OF THE PROGRAM.............................. 4
+        2.1. System requirements......................... 4
+        2.2. Program invocation.......................... 4
+            2.2.1. Invocation in Config.Sys.............. 5
+            2.2.2. Invocation in network environment..... 5
+            2.2.3. Invocation when using MS-Windows...... 5
+        2.3. What is direct disk access?................. 5
+        2.4. Detecting direct disk accesses.............. 6
+        2.5. Command line options........................ 7
+            2.5.1. help ................................. 7
+            2.5.2. remove ............................... 7
+            2.5.3. off .................................. 7
+            2.5.4. on ................................... 7
+            2.5.5. wrprot ............................... 8
+            2.5.6. nowrprot ............................. 8
+            2.5.7. win32 ................................ 8
+            2.5.8. secure ............................... 8
+            2.5.9. notunnel ............................. 8
+            2.5.10. install ............................. 9
+        2.6. Examples:................................... 9
+
+    3. CONSIDERATIONS AND RECOMMENDATIONS............... 10
+        3.1. Site installation.......................... 10
+        3.2. How secure is TbDisk?...................... 10
+        3.3. Solving incompatibility problems........... 10
+        3.4. Reducing the memory requirements........... 11
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Page i
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Page 1
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+1.  INTRODUCTION
+
+
+  1.1.  Purpose of TbDisk
+
+    Many viruses try to damage the data on the disk. They accomplish
+    this by formatting the disk, overwriting the FAT, swapping
+    disk sectors, etc. Almost anything is possible.
+
+    There is a category of malicious software known as 'bootsector
+    virus droppers'. A bootsector virus dropper is a program that
+    installs a bootsector virus on the disk. The program itself is not
+    a virus, it just installs the virus on the system. Since the
+    program itself is not a virus, it is hard to detect by virus
+    scanners and other anti-virus software. There is only one way to
+    detect such programs, and that is by monitoring their behavior.
+
+    None of these viruses use DOS to perform their write attempts,
+    they access the BIOS of your disk directly, thereby effectively
+    bypassing DOS.
+
+    TbDisk monitors the system and ensures that no program will write
+    directly to disk without permission!  This will draw attention to
+    any software that attempts to write directly to disk, thereby
+    reducing the likelihood that a virus will be able to go unnoticed.
+    It will also prevent viruses from damaging data on your disk, and
+    it will detect bootsector virus droppers.
+
+    An additional feature of TbDisk is that it can be used to write
+    protect the hard disks. This might be handy if you want to test a
+    new program.
+
+
+  1.2.  A Quick start
+
+    Although we highly recommend a complete reading of this manual, here
+    are some directions for a quick run of TbDisk:
+
+    Load TbDriver first if it is not yet loaded. Type "TbDriver" and
+    press 'Enter'.
+
+    For a quick installation it is recommended to invoke TbDisk from
+    the DOS command line or from the end of the AutoExec.Bat file. For
+    other installations like from within the Config.Sys file you should
+    read the detailed program invocation chapter.
+
+    To load TbDisk type "TbDisk" and press return.
+
+    The invocation syntax is:
+            TBDISK [<options>]...
+
+    For fast online help type "TbDisk ?" or "TbDisk help".
+
+
+
+                                     Page 2
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+
+  1.3.  Benefits
+
+    TbDisk has several advantages over other disk guards:
+
+    +   TbDisk not only informs you when a program tries to write
+        directly to disk, it also offers you the option to abort the
+        program before it can cause any damage.
+
+    +   Detection of 'stealth' techniques. TbDisk will detect attempts
+        to single step through the BIOS handler, and it will even
+        monitor the use of undocumented calls that could cause disk
+        damage. Instead of other disk guards it will not issue an false
+        alarm if a program tries to use undocumented calls to read
+        rather than to write.
+
+    +   TbDisk is able to detect direct write attempts via Int 13h. To
+        do this, it has to distinguish between DOS and application
+        software because DOS is allowed to write to disk and an
+        application normally not. Other disk guards do not monitor Int
+        13h for direct disk access.
+
+    +   Easy maintenance. TbDisk uses the Anti-Vir.Dat records to
+        determine if a program is allowed to write directly to disk.
+        Many common disk utilities will be recognized by TbSetup.
+        However, if TbSetup doesn't recognize a disk utility, TbDisk
+        will ask your permission for the program to write directly to
+        disk.  Permission information will be maintained in the
+        Anti-Vir.Dat files, to prevent TbDisk from bothering you when
+        an approved program is accessing the disk directly.
+
+    +   TbDisk is fully network compatible. It does not require you to
+        reload the program after logging on to a network. Other
+        resident anti-virus utilities force you to choose between
+        protection before the network is started, or protection after
+        the network is started, but not both.
+
+    +   TbDisk can display its messages in your local language.
+
+    +   TbDisk uses less than 600 bytes of memory, and it can be loaded
+        into upper memory.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Page 3
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+2.  USAGE OF THE PROGRAM
+
+
+  2.1.  System requirements
+
+    TbDisk runs perfectly on standard machines, in line with our
+    philosophy that there should be a limit to limitations.
+
+    +   TbDisk can be executed under DOS version 3.00 (and all later
+        versions). However, Dos 5.0 or higher is recommended, since
+        TbDisk has been optimized and designed primarily for use with
+        these DOS versions.
+
+    +   TbDisk requires about 4 Kb of free memory to be invoked.
+        After termination it requires only 600 bytes of memory.
+
+
+  2.2.  Program invocation
+
+    It is recommended to invoke TbDisk automatically from within your
+    Config.Sys or Autoexec.Bat file.
+
+    TbDisk requires TbDriver to be loaded first!
+
+    TbDisk is easy to use. The syntax is as follows:
+            TbDisk [<options>]...
+
+    Improper installation can cause excessive amounts of false alarms!
+    If you want to install TbDisk in your Config.Sys or AutoExec.Bat
+    file, it is highly recommended to use the 'install' option of
+    TbDisk first. If the system continues to behave normally and TbDisk
+    does not give a false alarms when you copy files on your hard
+    disk, TbDisk is installed correctly and you can remove option
+    'install'.
+            TbDisk Install
+
+    Failure to use option 'install' when you install TbDisk in your
+    Config.Sys or AutoExec.Bat file may cause loss of data! Option
+    'install' causes TbDisk to allow all disk accesses, it will however
+    pop-up a message like it would do in normal mode. If no false
+    alarms occur when you copy files on your hard disk, TbDisk is
+    installed correctly and option 'install' can be removed.
+
+    If TbDisk causes false alarms you should load TbDisk at a later
+    place in you Config.Sys or AutoExec.Bat file, until it works as it
+    should be.
+
+    UNLIKE THE OTHER TBAV UTILITIES IT IS RECOMMENDED TO LOAD TBDISK
+    AFTER OTHER RESIDENT SOFTWARE! Failure to do so can cause excessive
+    amounts of false alarm!
+
+    There are three possible ways to invoke TbDisk:
+
+
+
+                                     Page 4
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    To invoke TbDisk from the DOS prompt or within the Autoexec.Bat
+    file:
+            <path>TbDisk
+
+    To invoke TbDisk from the Config.Sys as a TSR (Dos 4+):
+            Install=<path>TbDisk.Exe
+
+    To invoke TbDisk from the Config.Sys as a device driver:
+            Device=<path>TbDisk.Exe
+
+    TbDisk should always work correctly after being started from
+    within the Autoexec.Bat. The "Install=" Config.Sys command is
+    NOT available in DOS 3.xx.
+
+    In addition to the three invocation possibilities DOS 5+ users can
+    "highload" TbDisk into an UMB (upper memory block) if it is
+    available:
+            LoadHigh <path>TbDisk.Exe
+    Within the Config.Sys file TbDisk can also be loaded high:
+            DeviceHigh=<path>TbDisk.Exe
+
+   2.2.1.  Invocation in Config.Sys
+
+    -> Invoking TbDisk as a device driver does not work in all OEM
+       versions of DOS. You have to try it, if it doesn't work use the
+       "Install=" command or load TbDisk from within the Autoexec.Bat.
+
+   2.2.2.  Invocation in network environment
+
+    -> Unlike other anti-virus products, the Thunderbyte anti-virus
+       utlities can be loaded before the network is started without
+       losing the protection after the network has been started.
+
+   2.2.3.  Invocation when using MS-Windows
+
+    -> Windows users should invoke TbDisk BEFORE starting Windows.
+       If you do that there is only one copy of TbDisk in memory, but
+       every DOS-window will nevertheless have a fully functional
+       TbDisk in it.  TbDisk detects if Windows is starting up, and
+       will switch itself into multitasking mode if necessary. You can
+       even disable TbDisk in one window without affecting the
+       functionality in another window.
+
+       If you configured Windows to use fast 32-bit disk access you
+       might need TbDisk option 'win32' if Windows displays an error
+       message.
+
+
+  2.3.  What is direct disk access?
+
+    Programs often access files on a disk. The operating system (DOS)
+    takes care of all disk access. If a program for instance wants to
+
+
+
+                                     Page 5
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    update a file, the program asks DOS to write the data to disk.
+
+    There are however also possibilities to write to disk without using
+    DOS. This is called 'direct disk access'.
+
+    Normal programs do not write to disk directly. However, there are
+    some programs that need to write to disk directly. Programs in this
+    category are:
+
+    -   Format utilities. A disk can only be formatted by direct disk
+        access.
+
+    -   Disk diagnosis utilities (such as the NORTON disk doctor, DOS
+        chkdsk, etc.)
+
+    -   Disk optimizers.
+
+    Most viruses perform direct disk access too, and that is why disk
+    access should be controlled in some way, preferably by TbDisk.
+
+
+  2.4.  Detecting direct disk accesses
+
+    If TbDisk detects that a program tries to access the disk directly,
+    a pop-up window will appear with a message, informing you about
+    this in your own language. You can either choose to continue, or to
+    abort the disk operation.
+
+    If you answer 'NO' to the question 'Cancel disk access?' the
+    program will continue undisturbed, and TbDisk places a mark in the
+    Anti-Vir.Dat file about this program. Next time you invoke the same
+    program, TbDisk will not disturb you again.
+
+    There are some programs which normally access the disk directly,
+    such as disk diagnosis utilities, format utilities, disk
+    optimizers, etc.  How does TbDisk distinguish between these
+    programs and viruses?
+
+    TbDisk uses the Anti-Vir.Dat records generated by TbSetup to keep
+    track of which files are allowed to access the disk directly. Most
+    common disk utilities will be marked as such by TbSetup, so you
+    don't have to worry about these files.
+
+    If TbDisk pops up with the message that a program tries to write to
+    disk directly, you have to consider the purpose of the program
+    mentioned. Is the program supposed to format or edit disk sectors?
+    The answer is obviously yes if the program mentioned is a format
+    utility or a disk optimizer.
+
+    However, if the message appears while you are performing a text
+    processing job or running a database or spreadsheet application,
+    something is definitely wrong! You had better terminate the program
+
+
+
+                                     Page 6
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    and use a virus scanner to check the system.
+
+    The same applies when software that operates normally without
+    accessing the disk directly suddenly changes its behavior
+    and tries to write to disk directly.
+
+
+  2.5.  Command line options
+
+    It is possible to specify options on the command line. The upper
+    four options are always available, the other options are only
+    available if TbDisk is not already resident in memory.
+
+    optionword  parameter  short  explanation
+    ----------  ---------  ----- ----------------------------
+
+        help                ?  =display this helpscreen
+        remove              r  =remove TbDisk from memory
+        off                 d  =disable checking
+        on                  e  =enable checking
+        wrprot              p  =make hard disk write protected
+        nowrprot            n  =allow writes to hard disk
+
+        win32               w  =allow Windows 32bit disk access
+        secure              s  =deny access without asking
+        notunnel            t  =do not detect tunneling
+        install             i  =installation test mode
+
+   2.5.1.  help (?)
+
+    If you specify this option TbDisk will show you the brief help as
+    shown above. Once TbDisk has been loaded the help option will not
+    show all options anymore.
+
+   2.5.2.  remove (r)
+
+    This option can be used to remove the resident part of TbDisk from
+    your system's memory.  All memory used by TbDisk will be released.
+    Unfortunately, the removal of a TSR (like TbDisk) is not always
+    possible.  TbDisk checks whether it is safe to remove the resident
+    part from memory. If it is not safe it just disables TbDisk. A TSR
+    can not be removed if another TSR has been started after it.  If
+    this happens with TbDisk it will completely disable itself.
+
+   2.5.3.  off (d)
+
+    If you specify this option TbDisk will be disabled, but it will
+    remain in memory.
+
+   2.5.4.  on (e)
+
+    If you use this option TbDisk will be activated again after you
+
+
+
+                                     Page 7
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    disabled it with the 'off' option.
+
+   2.5.5.  wrprot (p)
+
+    You can easily protect diskettes with a simple sticker or flipping
+    a tab, but that is impossible with hard disks. This of course adds
+    considerably to the risks involved when, for instance, testing new
+    software in order to find out what it will do to your hard disk and
+    how this would affect your valuable data eventually.
+
+    Option 'wrprot' can be used to write protect your hard disk.
+    Whenever a program wishes to write to a protected disk you will
+    receive a message like:
+    "Write protect error writing drive C: A)bort, R)etry, I)gnore?"
+    You may then take appropriate action.
+
+    NOTE: A software write protection like this is not for 100%
+    reliable. Although there are nearly no viruses that are able to
+    do so, it IS possible to bypass a software write protection!
+    However, it is a valuable protection against most malicious
+    software.
+
+   2.5.6.  nowrprot (n)
+
+    You can use this option to undo the option 'wrprot'.
+
+   2.5.7.  win32 (w)
+
+    Windows 386 enhanced mode uses some undocumented DOS calls to
+    retrieve the original BIOS disk handler if 32 bit disk access has
+    been enabled. Since TbDisk guards these calls, 32 bit disk access
+    is no longer possible. If you want to use Windows 32 bit disk
+    access you have to specify option 'win32' at TbDisk invocation. The
+    security is slightly reduced in this case.
+
+    USE THIS OPTION ONLY IF YOU USE WINDOWS 386 ENHANCED MODE WITH FAST
+    32-BIT DISK ACCESS ENABLED!
+
+   2.5.8.  secure (s)
+
+    TbDisk normally asks the user to continue or to cancel when a
+    program tries to perform direct disk access. In some business
+    environments however this choice should not be made by employees.
+    By using option 'secure' it is no longer possible to give direct
+    disk access permission to new or unknown software.
+
+   2.5.9.  notunnel (t)
+
+    TbDisk normally detects tunneling attempts of viruses.
+    'Tunneling' is a technique used by viruses to determine the
+    location of the BIOS system code in memory, and to use that address
+    to communicate with the BIOS directly. This will inactivate all TSR
+
+
+
+                                     Page 8
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    programs, including resident anti-virus software. TbDisk is able
+    to detect 'tunneling' attempts, and informs you about this. Some
+    other anti-virus products also make use of tunneling techniques to
+    bypass resident viruses, causing an false alarm. If you make use of
+    such other anti-virus products, you may use option 'notunnel' to
+    disable the tunneling-detection.
+
+   2.5.10.  install (i)
+
+    If TbDisk is installed incorrectly, it may cause a lot of false
+    alarms. To prevent you from cancelling a valid disk write operation
+    when such a false alarm occurs, you should use option 'install'
+    when you install TbDisk in the Config.Sys or AutoExec.Bat file.
+
+
+  2.6.  Examples:
+
+        C:\utils\TbDisk
+
+    or:
+        Device=C:\utils\TbDisk.Exe
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Page 9
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+3.  CONSIDERATIONS AND RECOMMENDATIONS
+
+
+  3.1.  Site installation.
+
+    If you have to install TbDisk on a lot of machines in one company,
+    it would be tedious to invoke a frequently used disk utility on
+    each machine in order to 'teach' TbDisk which programs are valid
+    disk utilities and which are not.  Fortunately, this is not
+    necessary.  If a resident utility named DISKUTIL.EXE is used
+    throuhgout the company, use TbSetup to determine the length and CRC
+    of the program. Now put the name of this program along with the
+    other information in the file TbSetup.Dat and assign the value
+    '0020' to it. Example:
+
+    DISKUTIL.EXE  01286  E387AB21  0020  ;Our DISK utility
+
+    Also consult the TbSetup documentation.
+
+    If you now run TbSetup on every machine (you have to do this
+    anyway) it will recognize this utility and it will set the
+    disk access permission flag for TbDisk automatically.
+
+
+  3.2.  How secure is TbDisk?
+
+    No disk guard can prevent all suspicious disk writes if it is
+    implemented in software. Only a hardware disk guard (as implemented
+    in the Thunderbyte PC Immnunizer) can detect and prevent all direct
+    disk writes. TbDisk however succeeds in trapping almost every disk
+    write, and it is able to prevent software from locating the BIOS
+    entry address. TbDisk is probably the best software disk guard
+    available!
+
+
+  3.3.  Solving incompatibility problems.
+
+    Although TbDisk has been designed to cooperate with other resident
+    software, other software may not have been, causing system errors or
+    worse.
+
+    The problems most often incurred:
+
+    Problem:
+        When I invoke TbDisk from the DOS command prompt everything
+        works OK. However, when I install TbDisk from within the
+        Condig.Sys or AutoExec.Bat file it keeps on warning that
+        programs write to disk directly.
+
+    Solution:
+        Load TbDisk at the end of your AutoExec.Bat file.
+
+
+
+
+                                    Page 10
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    Problem:
+        I formatted the hard disk using DOS FORMAT.COM, but TbDisk did
+        not say anything until the process was almost finished.
+
+    Solution:
+        This is not a problem. A high level format program like DOS
+        FORMAT.COM does actually not format the disk, but it reads all
+        tracks to locate possible bad spots, and finally it clears the
+        FAT and directory structure. Only this last step implies a disk
+        write, so only this last step is detected by TbDisk.
+
+    Problem:
+        After I have given permission for a program to perform direct
+        disk access, TbDisk asks the same question next time.
+
+    Solution:
+        1) The 'secure' option of TbDriver is specified. Remove this
+        option, reboot and try again.
+        2) The program mentioned does not appear in the Anti-Vir.Dat
+        file and therefore TbDisk can not permanently store the
+        permission flag. Use TbSetup to generate the Anti-Vir.Dat
+        record of this program!
+
+    Problem:
+        If I try to use Windows fast 32 bit disk access, Windows comes
+        up with an error message.
+
+    Solution:
+        Use option 'win32' on the TbDisk command line.
+
+    Problem:
+        If TbDisk tries to display a message, the text 'message file
+        <filename> could not be opened' appears.
+
+    Solution:
+        Specify the FULL path and filename of the file that you will
+        use as message file after the TbDriver invocation. The default
+        filename is TbDriver.Lng.
+
+    Problem:
+        The system sometimes hangs when you answer 'NO' (do NOT abort
+        program) to a TbDisk message.
+
+    Solution:
+        Try using StackMan. StackMan is supplied in the TBAV package.
+
+
+  3.4.  Reducing the memory requirements.
+
+    Most PC users try to maintain as much free DOS memory as possible.
+    TbDisk is designed to use a very small amount of DOS memory. To
+    decrease the memory requirements of TbDisk even further do the
+
+
+
+                                    Page 11
+
+ Thunderbyte disk guard v5.00 (C) 1992 Thunderbyte B.V.
+
+
+    following:
+
+    -   Load TbDisk from within the Config.Sys file. If loaded as a
+        device driver TbDisk has no Program Segment Prefix (PSP),
+        and that will save 256 bytes. On many systems however it is not
+        possible to install TbDisk from within the Config.Sys file.
+
+    -   If you invoke TbDisk from within the Autoexec.Bat file do this
+        before establishing environment variables. DOS maintains a list
+        of environment variables for every resident program, so keep
+        this list small while installing TSRs. Once all TSRs have been
+        installed you can define all environment variables without
+        affecting the memory requirements of the TSRs.
+
+    -   If you have DOS 5.0 or higher try to load TbDisk into an upper
+        memory block using the "loadhigh" or "devicehigh" commands.
+
+    -   Use one of the processor specific versions of TbDisk. They all
+        consume less memory than the generic version of TbDisk.
+        Processor optimized versions are available on any Thunderbyte
+        support BBS.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    Page 12

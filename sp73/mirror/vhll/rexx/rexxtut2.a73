@@ -1,0 +1,731 @@
+From: dwhawk@onyx.southwind.net (Don Hawkinson)
+Newsgroups: comp.lang.rexx
+Subject: WinCreateObject Docum
+Date: 16 Mar 1995 09:49:11 -0600
+Organization: SouthWind Internet Access, Inc.
+Message-ID: <3k9mln$n3k@onyx.southwind.net>
+
+dries@elvis.rowan.edu wrote about WinCreateObject Docum
+d> I have a situation where I need to control the appearance and actions of
+d> Windowed DOS programs running under OS/2 Warp. I would like to create a
+d> template object that has all the appropriate WinCreateObj setups, but I
+d> can find no list of those setup strings.
+
+The information you want may be in a file on hobbes.nmsu.edu or on
+ftp.pcco.ibm.com  called rexxtut2.zip.
+
+ 
+ 
+ /*******************************************/
+ /* This function creates an instance of    */
+ /* object class pszClassName, with title   */
+ /* pszTitle, and places the icon and title */
+ /* in the location referred to by          */
+ /* pszLocation.                            */
+ /*******************************************/
+ 
+ #define INCL_WINWORKPLACE
+ #include <os2.h>
+ 
+ PSZ        pszClassName;    /*  Pointer to class name. */
+ PSZ        pszTitle;        /*  Pointer to initial title of object. */
+ PSZ        pszSetupString;  /*  Pointer to setup string. */
+ PSZ        pszLocation;     /*  Folder location. */
+ ULONG      ulFlags;         /*  Creation flags. */
+ HOBJECT    rc;              /*  Handle to the created object. */
+ 
+ rc = WinCreateObject(pszClassName, pszTitle,
+        pszSetupString, pszLocation, ulFlags);
+ 
+ 
+   
+  pszClassName (PSZ) - input 
+     Pointer to class name. 
+ 
+     A pointer to a zero-terminated string which contains the name of the class 
+     of which this object is a member. 
+  
+ 
+   
+  pszTitle (PSZ) - input 
+     Pointer to initial title of object. 
+ 
+     A pointer to a zero-terminated string which contains the initial title of the 
+     object as it is to appear when displayed on the user interface underneath an 
+     icon or on the title bar of an open object. 
+  
+ 
+   
+  pszSetupString (PSZ) - input 
+     Pointer to setup string. 
+  
+ 
+   
+  pszLocation (PSZ) - input 
+     Folder location. 
+ 
+     This value can be in any of the following formats: 
+ 
+    o  Predefined object ids of system folders. 
+ 
+            "<WP_NOWHERE>"           The hidden folder. 
+            "<LOCATION_DESKTOP>" The currently active desktop. 
+            "<WP_OS2SYS>"            The System folder. 
+            "<WP_TEMPS>"             The Templates folder. 
+            "<WP_CONFIG>"            The System Setup folder. 
+            "<WP_START>"             The Startup folder. 
+            "<WP_INFO>"              The Information folder. 
+            "<WP_DRIVES>"            The Drives folder. 
+ 
+    o  Real name specified as a fully qualified path name. 
+  
+ 
+   
+  ulFlags (ULONG) - input 
+     Creation flags. 
+ 
+     This parameter can have one of the following values: 
+ 
+       CO_FAILIFEXISTS 
+          No object will be created if an object with the given object ID already 
+          exists. This is the default. 
+       CO_REPLACEIFEXISTS 
+          If an object with the given ID already exists, the existing object should 
+          be replaced. 
+       CO_UPDATEIFEXISTS 
+          If an object with the given ID already exists, the existing object should 
+          be updated with the new information. 
+  
+ 
+   
+  rc (HOBJECT) - returns 
+     Handle to the created object. 
+ 
+       NULLHANDLE 
+          Error occurred. 
+       Other 
+          A handle to the object created.  This handle is persistent and can be 
+          used for the WinSetObjectData and WinDestroyObject function calls. 
+  
+ 
+ 
+ Classes can define KEYNAMES and values that affect the behavior 
+ of their objects. 
+ 
+ Use KEYNAMES with setup methods as follows: 
+ 
+    o  To set a certain behavior during object creation, specify the 
+       KEYNAME in the setup string of WinCreateObject 
+ 
+    o  To change the behavior of an existing object, specify the 
+       KEYNAME in the setup string of WinSetObjectData 
+  
+  Every class defines its own set of KEYNAMES and values. Appendix 
+  A contains the definition of KEYNAMES for all classes. KEYNAMES 
+  and the  values supported by the WPObject class are listed in the 
+  following table. 
+ 
+  
+  
+ 
+    pszSetupString="TITLE=MYObject;ICONFILE=MYOBJ.ICO;OBJECTID=<MyObjectID>";
+  
+  KEYNAMES and their values are separated by semicolons in the 
+  setup string.  The escape character (^) followed by a semicolon 
+  can be used to represent a semicolon if one is required in a 
+  KEYNAME value specification. KEYNAMES are processed by an 
+  object's wpSetup, which is called when WinCreateObject and 
+  WinSetObjectData are called by an application. Classes that define 
+  their own KEYNAMES override the wpSetup method, as shown in 
+  the following figure. The override for wpSetup scans the setup 
+  string for its KEYNAMES and processes them. 
+  
+ 
+  
+     wpSetup(PSZ pszSetupString)
+     {
+         _parent_wpSetup(self, pszSetupString);
+         if (_wpScanSetupString("ICONFILE"...)
+            _wpSetIconData();
+         if (_wpScanSetupString("MYKEYNAME"..)
+            do whatever;
+  
+         .
+         .
+         .
+     }
+  
+  
+  An example setup string could be: 
+  
+ 
+  
+  
+    pszSetupString="TITLE=MYObject;ICONFILE=myobj.ico;HELPPANEL=132;
+                   TEMPLATE=YES;NODELETE=NO;MYKEYNAME=1,2";
+  
+  
+  Because wpSetup is called as a result of WinCreateObject and 
+  WinSetObjectData, applications can effect changes to objects that 
+  already exist on the Desktop and are being used. For example, to 
+  effect changes to the icons for objects that already exist, an 
+  application calls: 
+ 
+    1. WinQueryObject to get a handle to the object using the object's 
+       OBJECTID. 
+ 
+    2. WinSetObjectData with a ICONDATA KEYNAME value specified 
+       in the setup string. 
+    
+ 
+ 
+ Class definition file: wpfolder.idl 
+ 
+ Class hierarchy 
+ 
+ SOMObject
+       WPObject 
+             WPFileSystem 
+                   WPFolder 
+ 
+ Description 
+ 
+ This is the folder object class. An instance of this class can be created as a Workplace object. An instance of this 
+ class is created initially by the system in its template form. It has the title "Folder" and resides in the 
+ "Templates" folder. 
+ 
+ Instance methods 
+ 
+ The following list shows how all the WPFolder methods are related within functional areas: 
+ 
+ Settings notebook methods 
+ 
+    o  wpAddFolderBackgroundPage 
+    o  wpAddFolderIncludePage 
+    o  wpAddFolderSelfClosePage 
+    o  wpAddFolderSortPage 
+    o  wpAddFolderView1Page 
+    o  wpAddFolderView2Page 
+    o  wpAddFolderView3Page 
+  
+  Object position methods 
+ 
+    o  wpQueryIconViewPos 
+    o  wpQueryNextIconPos 
+    o  wpSetNextIconPos 
+  
+  Folder attributes methods 
+ 
+    o  wpIsDetailsColumnVisible 
+    o  wpIsSortAttribAvailable 
+    o  wpModifyFldrFlags 
+    o  wpQueryFldrAttr 
+    o  wpQueryFldrDetailsClass 
+    o  wpQueryFldrFlags 
+    o  wpQueryFldrFont 
+    o  wpQueryFldrSort 
+    o  wpQueryFldrSortClass 
+    o  wpSetDetailsColumnVisibility 
+    o  wpSetFldrAttr 
+    o  wpSetFldrDetailsClass 
+    o  wpSetFldrFlags 
+    o  wpSetFldrFont 
+    o  wpSetFldrSort 
+    o  wpSetFldrSortClass 
+    o  wpSetSortAttribAvailable 
+  Folder state methods 
+ 
+    o  wpHideFldrRunObjs 
+  
+  Folder content methods 
+ 
+    o  wpAddFirstChild 
+    o  wpAddToContent 
+    o  wpContainsFolders 
+    o  wpDeleteContents 
+    o  wpDeleteFromContent 
+    o  wpPopulate 
+    o  wpQueryContent 
+  
+  WPObject instance methods 
+ 
+  The following list shows all the methods overridden by the WPFolder class. These methods are overridden in order to 
+  modify the behavior defined by an ancestor class. 
+ 
+    o  wpAddObjectWindowPage 
+    o  wpAddSettingsPages 
+    o  wpConfirmDelete 
+    o  wpDelete 
+    o  wpDragOver 
+    o  wpDrop 
+    o  wpFilterPopupMenu 
+    o  wpFormatDragItem 
+    o  wpFree 
+    o  wpInitData 
+    o  wpMenuItemHelpSelected 
+    o  wpMenuItemSelected 
+    o  wpModifyPopupMenu 
+    o  wpMoveObject 
+    o  wpObjectReady 
+    o  wpOpen 
+    o  wpQueryDefaultHelp 
+    o  wpQueryDefaultView 
+    o  wpRender 
+    o  wpRenderComplete 
+    o  wpRestoreState 
+    o  wpSaveState 
+    o  wpSetIconData 
+    o  wpSetup 
+    o  wpUnInitData 
+  
+  WPFileSystem instance methods 
+ 
+  The following list shows all the methods overridden by the WPFolder class. These methods are overridden in order to 
+  modify the behavior defined by an ancestor class. 
+ 
+    o  wpAddFile2Page 
+    o  wpAddFile3Page 
+  wpSetup override by WPFolder 
+ 
+  The following table shows the keyname-value pairs supported by the WPFolder class. 
+ 
+  ┌────────────────┬──────────────────┬──────────────────────────────┐
+  │KEYNAME         │VALUE             │DESCRIPTION                   │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │ALWAYSSORT      │YES               │Sort order is always          │
+  │                │                  │maintained. Opening and adding│
+  │                │                  │an object to a folder may take│
+  │                │                  │longer if the sort order is   │
+  │                │                  │being maintained.             │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NO                │Sort order is not maintained. │
+  │                │                  │This is the default value.    │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │BACKGROUND      │N,M,S,B,C         │This sets the folder          │
+  │                │                  │background, where:            │
+  │                │                  │N = Image file name; This     │
+  │                │                  │    name must be the fully-   │
+  │                │                  │    qualified path of the     │
+  │                │                  │    image file. "?:\" is      │
+  │                │                  │    permitted to indicate the │
+  │                │                  │    boot drive.               │
+  │                │                  │                              │
+  │                │                  │M = Image mode; This mode can │
+  │                │                  │    be one of the following:  │
+  │                │                  │    N = Normal image          │
+  │                │                  │    T = Titled image          │
+  │                │                  │    S = Scaled image          │
+  │                │                  │                              │
+  │                │                  │S = Scaling factor.           │
+  │                │                  │                              │
+  │                │                  │B = Background type; This can │
+  │                │                  │    be one of the following:  │
+  │                │                  │    I = Image                 │
+  │                │                  │    C = Color only            │
+  │                │                  │                              │
+  │                │                  │C = Background color; This    │
+  │                │                  │    color can be 3 numbers re-│
+  │                │                  │    presenting RGB values or  │
+  │                │                  │    the default, in the       │
+  │                │                  │    following format:         │
+  │                │                  │                              │
+  │                │                  │    {R-value G-value B-value} │
+  │                │                  │                              │
+  │                │                  │For example:                  │
+  │                │                  │"BACKGROUND=                  │
+  │                │                  │C:\OS2\BITMAP\OS2LOGO.BMP,S,  │
+  │                │                  │3,I"                          │
+  │                │                  │or                            │
+  │                │                  │"BACKGROUND=                  │
+  │                │                  │(none),,,C,0 128 128"         │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │DEFAULTVIEW     │ICON              │This sets the default open    │
+  │                │                  │view to the ICON (or CONTENTS)│
+  │                │                  │view.                         │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │TREE              │This sets the default open    │
+  │                │                  │view to the TREE view.        │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │DETAILS           │This sets the default open    │
+  │                │                  │view to the DETAILS view.     │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │                  │The default view of the       │
+  │                │                  │containing folder.            │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │DETAILSCLASS    │classname         │This sets the object class for│
+  │                │                  │which the details are         │
+  │                │                  │displayed in details view.    │
+  │                │                  │The default object class is   │
+  │                │                  │WPFileSystem.                 │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │DETAILSFONT     │font name.size    │Setup string used to change   │
+  │                │string            │the font used for a details   │
+  │                │                  │view. For example:  10.Helv   │
+  │                │                  │The default value is 8.Helv.  │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │DETAILSVIEW     │s1[,s2,...sn]     │This set details view to the  │
+  │                │                  │specified styles. Possible    │
+  │                │                  │values are:                   │
+  │                │                  │MINI   small icon; this is    │
+  │                │                  │       the default.           │
+  │                │                  │NORMAL normal-size icon.      │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │ICONFONT        │font size.facename│Setup string used to change   │
+  │                │                  │the font used for an icon     │
+  │                │                  │view. For example:  10.Helv   │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │ICONNFILE       │index,filename    │This sets the file name of the│
+  │                │                  │animation (open folder) icon. │
+  │                │                  │The "index" value must be set │
+  │                │                  │to 1. The specified file      │
+  │                │                  │contains the folder's open    │
+  │                │                  │folder icon.                  │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │ICONNRESOURCE   │index,id,modname  │This sets the resource of the │
+  │                │                  │animation (open folder) icon. │
+  │                │                  │The "index" value must be set │
+  │                │                  │to 1. The "id" is the identity│
+  │                │                  │of an icon resource in the    │
+  │                │                  │"module" dynamic link library │
+  │                │                  │(DLL). The specified resource │
+  │                │                  │is the folder's open folder   │
+  │                │                  │icon.                         │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │ICONVIEW        │s1[,s2,...sn]     │This sets icon view to the    │
+  │                │                  │specified styles. Possible    │
+  │                │                  │values are:                   │
+  │                │                  │FLOWED      NOGRID            │
+  │                │                  │INVISIBLE   NONFLOWED         │
+  │                │                  │MINI        NORMAL            │
+  │                │                  │                              │
+  │                │                  │The default value is          │
+  │                │                  │NOGRID,NORMAL                 │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │ICONVIEWPOS     │x,y,cx,cy         │This sets the initial icon    │
+  │                │                  │view position and size of the │
+  │                │                  │folder on the screen. These   │
+  │                │                  │values are percentages (0-100)│
+  │                │                  │of the screen size.           │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │OPEN            │ICON              │This opens the icon view when │
+  │                │                  │object is created or when     │
+  │                │                  │WinSetObjectData is called.   │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │TREE              │This opens the tree view when │
+  │                │                  │object is created or when     │
+  │                │                  │WinSetObjectData is called.   │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │DETAILS           │This opens the details view   │
+  │                │                  │when object is created or when│
+  │                │                  │WinSetObjectData is called.   │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │                  │The default is to not         │
+  │                │                  │automatically open a view.    │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │REMOVEFONTS     │YES               │This removes all instance     │
+  │                │                  │fonts from the folder.        │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NO                │This does not remove instance │
+  │                │                  │fonts from the folder.        │
+  │                │                  │This is the default value.    │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │SORTCLASS       │classname         │This sets the class object to │
+  │                │                  │sort by.                      │
+  │                │                  │The default class object is   │
+  │                │                  │WPFileSystem.                 │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │TREEFONT        │font size.facename│This changes the font used for│
+  │                │                  │a tree view. For example:     │
+  │                │                  │10.System Proportional        │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │TREEVIEW        │s1[,s2,...sn]     │This sets the tree view to the│
+  │                │                  │specified styles. Possible    │
+  │                │                  │values are:                   │
+  │                │                  │INVISIBLE  LINES              │
+  │                │                  │MINI       NOLINES            │
+  │                │                  │NORMAL                        │
+  │                │                  │                              │
+  │                │                  │The default value is LINES,   │
+  │                │                  │NORMAL.                       │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │WORKAREA        │YES               │This sets the folder so it is │
+  │                │                  │a workarea.                   │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NO                │This sets the folder so it is │
+  │                │                  │not a workarea. This is the   │
+  │                │                  │default value.                │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │view styles     │FLOWED            │Flowed list items.            │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NONFLOWED         │Non-flowed list items.        │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NONGRID           │Non-gridded icon view.        │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NORMAL            │Normal size icons.            │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │MINI              │Small icons.                  │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │INVISIBLE         │No icons.                     │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │LINES             │Lines in tree view.           │
+  ├────────────────┼──────────────────┼──────────────────────────────┤
+  │                │NOLINES           │No lines in tree view.        │
+  └────────────────┴──────────────────┴──────────────────────────────┘
+  
+  WPFileSystem instance methods 
+ 
+  The following list shows all the methods overridden by the WPFolder class. These methods are overridden in order to 
+  modify the behavior defined by an ancestor class. 
+ 
+    o  wpRefresh 
+  
+  Class methods 
+ 
+  The following list shows all the WPFolder class methods: 
+ 
+    o  wpclsQueryOpenFolders 
+    o  wpclsQueryIconDataN 
+    o  wpclsQueryIconN 
+  
+  WPObject class methods. 
+ 
+  The following list shows all the class methods overridden by the WPFolder class. These methods are overridden to 
+  modify the behavior defined by an ancestor class. 
+ 
+    o  wpclsInitData 
+    o  wpclsQueryDefaultHelp 
+    o  wpclsQueryDefaultView 
+    o  wpclsQueryIconData 
+    o  wpclsQueryStyle 
+    o  wpclsQueryTitle 
+  
+ 
+ 
+ Class definition file: wppgm.idl 
+ 
+ Class hierarchy 
+ 
+ SOMObject
+       WPObject 
+             WPAbstract 
+                   WPProgram 
+ 
+ Description 
+ 
+ This is the program object class. This class provides an object that points at executable programs, and allows the 
+ user to run that program by simply double-clicking on the program object. The program can also contain a variety of 
+ useful additional parameters, such as the environment for the program and the parameters that are passed to it. An 
+ instance of this class can be created as a Workplace object and is created initially by the system in its template 
+ form. It has the title "Program" and resides in the "Templates" folder. 
+ 
+ Other instances of this class initially created by the system include: 
+ 
+    o  "DOS Full Screen" in the "Command Prompts" folder 
+    o  "DOS Window" in the "Command Prompts" folder 
+    o  "OS/2 Full Screen" in the "Command Prompts" folder 
+    o  "OS/2 Window" in the "Command Prompts" folder 
+    o  Every object in the "Games" folder 
+    o  Some objects in the "Information" folder 
+    o  Every object in the "Productivity" folder 
+  
+  Instance methods 
+ 
+  The following list shows all the WPProgram methods. 
+ 
+    o  wpAddProgramAssociationPage 
+    o  wpAddProgramPage 
+    o  wpAddProgramSessionPage 
+    o  wpQueryAssociationFilter 
+    o  wpQueryProgramAssociations 
+    o  wpQueryAssociationType 
+    o  wpQueryProgDetails 
+    o  wpSetAssociationFilter 
+    o  wpSetProgramAssociations 
+    o  wpSetAssociationType 
+    o  wpSetProgDetails 
+    o  wpSetProgIcon 
+  
+  WPObject instance methods 
+ 
+  The following list shows all the methods overridden by the WPProgram class. These methods are overridden in order 
+  to modify the behavior defined by an ancestor class. 
+ 
+    o  wpAddSettingsPages 
+    o  wpCopyObject 
+    o  wpCreateAnother 
+    o  wpCreateFromTemplate 
+    o  wpDragOver 
+    o  wpDrop 
+    o  wpInitData 
+    o  wpMenuItemHelpSelected 
+    o  wpMenuItemSelected 
+    o  wpModifyPopupMenu 
+    o  wpMoveObject 
+    o  wpOpen 
+    o  wpQueryDefaultHelp 
+    o  wpQueryIcon 
+    o  wpQueryIconData 
+    o  wpRestoreState 
+    o  wpSaveState 
+    o  wpSetIconData 
+    o  wpSetTitle 
+    o  wpSetup 
+    o  wpUnInitData 
+  
+  wpSetup override by WPProgram 
+ 
+  The following table shows the keyname-value pairs added by the WPProgram class. 
+ 
+  ┌───────────────┬─────────────────────────┬─────────────────────────┐
+  │KEYNAME        │VALUE                    │DESCRIPTION              │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │ASSOCFILTER    │filters                  │Sets the filename filter │
+  │               │                         │for files associated to  │
+  │               │                         │this program. Multiple   │
+  │               │                         │filters are separated by │
+  │               │                         │commas.                  │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │ASSOCTYPE      │type                     │Sets the type of files   │
+  │               │                         │associated to this       │
+  │               │                         │program. Multiple filters│
+  │               │                         │are separated by commas. │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │EXENAME        │filename                 │Sets the name of the     │
+  │               │                         │program.                 │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │MAXIMIZED      │YES                      │The program window is    │
+  │               │                         │maximized upon startup.  │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │NO                       │The program window is    │
+  │               │                         │restored to normal upon  │
+  │               │                         │startup.                 │
+  │               │                         │This is the default      │
+  │               │                         │setting.                 │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │MINIMIZED      │YES                      │The program window is    │
+  │               │                         │minimized upon startup.  │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │NO                       │The program window is    │
+  │               │                         │restored to normal upon  │
+  │               │                         │startup.                 │
+  │               │                         │This is the default      │
+  │               │                         │setting.                 │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │NOAUTOCLOSE    │YES                      │Leaves the window open   │
+  │               │                         │upon program termination.│
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │NO                       │Closes the window when   │
+  │               │                         │the program terminates.  │
+  │               │                         │This is the default      │
+  │               │                         │setting.                 │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │PARAMETERS     │params                   │Sets the parameters list,│
+  │               │                         │which may include        │
+  │               │                         │substitution characters. │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │PROGTYPE       │FULLSCREEN               │Sets the session type to │
+  │               │                         │OS/2 full screen         │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PM                       │Sets the session type to │
+  │               │                         │PM.                      │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_30_STD              │Sets the session type to │
+  │               │                         │standard compatibility   │
+  │               │                         │full screen mode.        │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_31_ENH              │Sets the session type to │
+  │               │                         │enhanced compatibility   │
+  │               │                         │full screen mode.        │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_31_ENHSEAMLESSCOMMON│Sets the session type to │
+  │               │                         │WIN-OS/2 window in the   │
+  │               │                         │WIN-OS/2 enhanced        │
+  │               │                         │compatibility common     │
+  │               │                         │session.                 │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_31_ENHSEAMLESSVDM   │Sets the session type to │
+  │               │                         │WIN-OS/2 window in a     │
+  │               │                         │separate session enhanced│
+  │               │                         │compatibility mode.      │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_31_STD              │Sets the session type to │
+  │               │                         │standard compatibility   │
+  │               │                         │full screen mode.        │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_31_STDSEAMLESSCOMMON│Sets the session type to │
+  │               │                         │WIN-OS/2 window in the   │
+  │               │                         │WIN-OS/2 standard        │
+  │               │                         │compatibility common     │
+  │               │                         │session.                 │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │PROG_31_STDSEAMLESSVDM   │Sets the session type to │
+  │               │                         │WIN-OS/2 window in a     │
+  │               │                         │separate session standard│
+  │               │                         │compatibility mode.      │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │SEPARATEWIN              │Sets the session type to │
+  │               │                         │WIN-OS2 window running in│
+  │               │                         │a separate VDM.          │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │VDM                      │Sets the session type to │
+  │               │                         │DOS full screen.         │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │WIN                      │Sets the session type to │
+  │               │                         │WIN-OS2 full screen.     │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │WINDOWABLEVIO            │Sets the session type to │
+  │               │                         │OS/2 windowed.           │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │WINDOWEDVDM              │Sets the session type to │
+  │               │                         │DOS windowed.            │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │               │WINDOWEDWIN              │Sets the session type to │
+  │               │                         │WIN-OS2 window.          │
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │SET            │XXX=VVV                  │XXX is an environment    │
+  │               │                         │variable. VVV sets the   │
+  │               │                         │value of the environment │
+  │               │                         │variable. This is also   │
+  │               │                         │used to specify DOS      │
+  │               │                         │settings on DOS and      │
+  │               │                         │Windows programs.        │
+  │               │                         │Each variable/value pair │
+  │               │                         │must be separated by a   │
+  │               │                         │NULL (\0), and the entire│
+  │               │                         │string must be terminated│
+  │               │                         │by two NULLS (\0\0). For │
+  │               │                         │exmple: DOS              │
+  │               │                         │DEVICE=value\0env=value\0│
+  ├───────────────┼─────────────────────────┼─────────────────────────┤
+  │STARTUPDIR     │pathname                 │Sets the working         │
+  │               │                         │directory.               │
+  └───────────────┴─────────────────────────┴─────────────────────────┘
+  
+  Example 
+ 
+  pszSetupString="PROGTYPE=VDM;EXENAME=C=\EDIT.EXE;
+                  ASSOCFILTER=*.DOC,*.TXT;ASSOCTYPE=Plain Text;
+                  SET DOS_DEVICE=1.SYS,2.SYS;
+                  SET PATH=C:\FRED"
+  
+  Class methods 
+ 
+  There are currently no class methods defined for the WPProgram Workplace class object. 
+ 
+  WPObject class methods. 
+ 
+  The following list shows all the class methods overridden by the WPProgram class. These methods are overridden to 
+  modify the behavior defined by an ancestor class. 
+ 
+    o  wpclsQueryDefaultHelp 
+    o  wpclsQueryDefaultView 
+    o  wpclsQueryIconData 
+    o  wpclsQueryTitle 
+    o  wpclsQueryStyle
+
+---
+ ■ don.hawkinson@twsubbs.twsu.edu  dwhawk@onyx.southwind.net
+                                  
+-- 
+
+

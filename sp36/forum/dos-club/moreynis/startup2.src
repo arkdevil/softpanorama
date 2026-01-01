@@ -1,0 +1,40 @@
+$MACRO Startup2 DUMP;
+
+{ This Multi-Edit 5.00 macro will be run every time Multi-Edit is started.
+  It checks whether Dimmer (VGA screen saver by Arkady Moreynis) is installed,
+  and in case it is, assigns the interface macro to <ShftF12>.
+  Otherwise, it attempts to install Multi-Edit macro called ScreenSaver
+  as a timer event and assigns the controlling macro to <ShftF12>.			}
+
+
+	R_AX := $6400;
+	Intr ($2F);
+	If R_AX and $FF = $FF Then
+		Def_Int (old_delay);
+		Macro_To_Key (<ShftF12>,'Dimmer^Dimmer',ALL);
+		R_AX := $6404;
+		Intr ($2F);     { Get dimmer parameters }
+		old_delay := R_AX and $FF;
+		If old_delay Then
+			Make_Message ('Dimmer is installed; screen blank delay is ' + Str (old_delay) + ' min. <ShftF12> to adjust params.');
+		Else
+			Make_Message ('Dimmer is installed but disabled. <ShftF12> to adjust params.');
+		End;
+	Else
+		Set_Global_Int ('Scr_Iint_1',5);    { Screen blank delay in minutes }
+		Set_Global_Int ('Scr_Method',1);    { Screen blank method # }
+		Set_Global_Int ('Scr_Iint_2',1);    { Inform Set_Screensaver that
+							we are about to initialize ScreenSaver ourselves }
+			{ Choose the correct radio button }
+		Set_Global_Int ('Scr_Iint_4',0);
+		Set_Global_Int ('Scr_Iint_5',0);
+		Set_Global_Int ('Scr_Iint_' + Str (3+Global_Int ('Scr_Method')),1);
+			{ Now initialize ScreenSaver }
+		Set_Global_Int ('Scrsaver_Handle', Set_Timer_Event ('Scrsaver^ScreenSaver /G',18,ALL));
+			{ Assign Set_ScreenSaver to a key so that parameters may be changed
+			during your work session }
+		Macro_To_Key (<ShftF12>,'Scrsaver^Set_ScreenSaver /G',EDIT);
+		Make_Message ('ScreenSaver installed; screen blank delay is ' + Str (Global_Int ('Scr_Iint_1')) + ' min. <ShftF12> to adjust params.');
+	End;
+
+END_MACRO;

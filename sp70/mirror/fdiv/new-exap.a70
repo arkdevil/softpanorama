@@ -1,0 +1,258 @@
+From: nhirsch@panix.com (Norman Hirsch)
+Newsgroups: comp.sys.intel
+Subject: A shocking example of the Pentium bug
+Date: Mon, 5 Dec 1994 17:34:03 UNDEFINED
+Organization: Panix Public Access UNIX and Internet
+Message-ID: <nhirsch.101.01467A41@panix.com>
+
+Taking these division problems a step further, here's one you can see without 
+even calculating it, since if you compare two fractions with one having a 
+larger denominator, it should be less than the other, should it not?   
+
+OK, then,  which is larger?
+
+Is      4.999999/15      <       4.999999/14.999999       ?
+
+Without even calculating the above, one can immediately see the above is true 
+because the denominator of the first is larger than the second.
+
+On a Pentium, however the result would be false (according to calculations 
+posted elsewhere), thereby having the potential of giving an opposite result 
+to any chain of calculations or events.
+
+Note:  Thanks to Vaughan Pratt for providing a simplier example and the 
+initial data that triggered the idea.
+
+Best regards,
+
+Norman Hirsch
+---------------------------------------------------------------
+
+>From: Vaughan Pratt <pratt@cs.stanford.edu>
+>To: nhirsch@panix.com (Norman Hirsch)
+>Cc: pratt@cs.stanford.edu (Vaughan R. Pratt)
+>Subject: Re: How to find FDIV bug example 
+>Date: Sun, 04 Dec 1994 17:50:12 -0800
+>.Sender: pratt@coraki.Stanford.EDU
+
+
+>>17.999999/53.999998 which should be > than 17.999999/53.999999 
+>>but it would come out incorrectly in a Pentium?    This would return an 
+>>opposite result in a logical operation.
+
+>An extremely nice point, I wonder if anyone else has thought of it!
+
+>4.999999/15 > 4.999999/14.999999 is an easy way to get this sort of
+>thing---the change in the denominator (10^-7) is much less than the
+>error (10^-5).
+
+>Since you don't need a Pentium to do this (I didn't use mine to do the
+>above, which was obvious) you might want to post this yourself, it's
+>basically your idea.
+
+>Vaughan Pratt
+
+---------------------------
+
+From: pratt@Sunburn.Stanford.EDU (Vaughan R. Pratt)
+Subject: A natural scenario with high FDIV bug probability (was: In Intel's Defense...)
+Date: 3 Dec 1994 15:20:17 GMT
+
+
+In this message I give a scenario in which FDIV bugs are encountered
+once every three milliseconds or so, in contrast to Intel's default
+scenario in which they are encountered every 27.000 years or so.
+Furthermore none of the encountered bugs involve obscure numbers: all
+of them take the form of small "bruised" rationals like 5/15, which
+when bruised as 4.999999/14.999999 yields 0.333329 on the Pentium and
+0.33333329 elsewhere.  Moreover quite a few of the errors encountered
+are very large, as with this example.  We leave the plausibility of our
+scenario for the reader to judge; my intent is that it come across as
+something that could well happen.
+
+By way of motivation:
+
+In article <3bnrgo$4gf@hermes.synopsys.com>,
+Joe Buck <jbuck@synopsys.com> wrote:
+>I am really quite amazed at all of this fuss.  In one case out of nine
+>billion, you get what in essence is a single-precision division instead of
+>a double-precision division.  The vast majority of Pentium users never do
+>anything that requires even full single-precision: they run spreadsheets,
+>write documents, and play games.  Why should Intel pay about 1 billion
+>(that's nine zeros) dollars to get all these lusers a new chip?
+
+One in nine billion, NOT.  It is a common fallacy that real numbers
+arising in a user's program are uniformly distributed.  Their actual
+distribution depends critically on both where the program gets its data
+and what it does with it, as with the scenario described below.
+
+Correct to within single-precision, NOT.  Unless of course you had in
+mind a 16-bit word length; other examples of ~16-bit errors have
+already been given, but the form of the ones we give here such as the
+above-cited 4.999999/14.999999 makes them particularly dramatic.
+
+In this message I give a simple and plausible scenario, not involving
+number theory, cryptography, differential equations, or matrix
+inversions, but simply divisions by integers of one to three digits,
+represented as reals, that have been slightly "bruised" by a process
+all of us have seen many times.  In this scenario the FDIV bug reveals
+itself, not once every 27,000 years, but rather once every three
+milliseconds or so, the rate at which my Pentium was encountering
+them.
+
+The critical postulate here is that the integers encountered in this
+scenario have been "bruised" very slightly due to other processing and
+then truncated, for whatever reason (e.g. the numbers might have been
+obtained automatically from a decimal calculator), to some preordained
+number of decimal digits, the *precision*.  All integers are subjected
+uniformly to this treatment, for a fixed precision.  Thus if the
+precision is say 6, and we are dividing say 7 by 18, then 7 is actually
+6.999999 and 18 is 17.999999, that is, the same quantity, here 10^-6,
+is subtracted from both operands.
+
+There are a million pairs of integers i,j with 1 <= i,j <= 1000.  The
+following table shows, as a function of the decimal precision going
+down, and the *tolerance* (how far off a division must be to count as a
+wrong answer) going across, how many of the one million possible
+divisions i/j are wrong.  For these quotients the IEEE-correct answers
+can be expected to have a relative error of better than 10^-17.  The
+table below defines "wrong" as having a relative error of at least
+10^-15 for the first column, at least 10^-13 for the second, etc.
+(That is, going across the table we become less fussy and hence
+recognize fewer quotients as wrong.)
+
+        Tolerance (10^-): 15    13    11     9     7     5     4
+  --------------------------------------------------------------
+  Decimal precision           Number wrong, out of a million
+  --------------------------------------------------------------
+          15               4     4     0     0     0     0     0
+          14             101   101    29     0     0     0     0
+          13             871   864   252     0     0     0     0
+          12             876   867   573     0     0     0     0
+          11             871   868   822    52     0     0     0
+          10             875   871   852   211     0     0     0
+           9             886   885   875   527     6     0     0
+           8             875   875   873   762    69     0     0
+           7             833   833   833   818   258     0     0
+           6             627   627   627   623   426    14     0
+           5             233   233   233   232   205    10     0
+           4              43    43    43    42    41     2     0
+           3               0     0     0     0     0     0     0
+
+With 6 digits of precision the truncation error is one millionth, an
+easily remembered quantity.  For this case, the reader may wish to
+memorize two or three of the worst offenders, if only for production at
+cocktail parties.
+
+My favorite is 5/15, that is, 4.999999/14.999999, appraised by the Pentium at
+0.33332922 when other appraisers would insist on
+0.33333329 as a fairer answer.
+      ^^
+Another bad case is 7/48 (6.999999/47.999999), for which the Pentium guesses
+0.14583204 when a more inspired guess would be
+0.14583332.
+       ^^
+One more candidate: 9/54 (8.999999/53.999999), where the Pentium gambles on
+0.16666439 and loses petulantly to
+0.16666665.
+       ^^
+
+Let me emphasize the three essential features of examples such as
+these.  First, the basic arithmetic is with quite small integers
+(albeit slightly "bruised"), greatly increasing the likelihood that you
+will encounter these exact errors, whether or not you ever notice
+them.  Second, the bruising can be by any simple amount, like a
+millionth or a ten-millionth, it does not have to be an obscure
+quantity like 0.000000142883, greatly increasing the likelihood that
+the kind of bruising arising in your situation will be bad for you.
+Third, the error can be applied uniformly to both operands of FDIV, one
+does not need to tweak the errors of the operands separately, giving
+you an even better chance of encountering one of these errors.
+
+An odd feature of these three examples that for want of time I have not
+pursued and that may or may not have a uniform explanation is that in
+every case the error can be described approximately by saying that the
+Pentium omitted two of the repeating digits, underlined with ^^ in the
+above.  This yields a simple heuristic for emulating a Pentium on these
+three examples: calculate 4.999999/14.999999 or whatever on your pocket
+calculator, then delete two of the repeating digits; the result is good
+to one digit beyond the repeating string (actually two in the 5/15
+case).
+
+It should be noted that the relative error in these three examples is
+considerably greater than the precision.
+
+Only 26 pairs survive at tolerance 10^-5.  Here for the record are the
+14 wrong'uns for precision 6:  5/15, 5/30, 5/60, 5/120, 9/54, 9/108,
+9/216, 9/432, 9/864, 10/60, 10/120, 10/240, 10/480, and 10/960.  (7/48
+is off by only 0.9*10^-5, just barely missing out on tolerance 10^-5.)
+For precision 5 the 10 bad guys are 18/27, 20/30, 33/144, 36/108,
+40/120, 44/192, 72/432, 72/864, 80/480, and 80/960.  And for precision
+4 the two divisions are 82/96 and 120/288; specifically,
+81.9999/95.9999 yields 0.854156 when we expected 0.8541665, while
+119.9999/287.9999 yields 0.416656 and we wanted 0.4166665.  (Hmm, the
+delete-two-repeats rule works here too; very interesting...)
+
+Although we have been assuming radix ten for our notion of precision,
+it is not special, and any other radix should yield similar results,
+albeit with some other assortment of small rational erring divisions.
+In particular if we had evolved thirteen fingers instead of ten, the
+corresponding table going from 11 digits down to 3 digits at tolerance
+10^-9 would have been 0, 31, 211, 547, 802, 784, 417, 109, 0.
+
+While this scenario puts the FDIV bug in what looks at least to me like
+a pretty bad light, I do not claim it is anything like the worst case
+scenario.  The two essential factors for any scenario are the rate at
+which that scenario triggers the FDIV bug, and how often the essence of
+that scenario arises in the real world.  The "damage index" of a
+scenario is the product of those two factors.  A scenario that accounts
+for thousands of hours of actual Pentium time but that only triggers
+the bug say every ten minutes may well have a higher damage index than
+my scenario above, whose strength is that it triggers the bug every few
+milliseconds but whose weakness is the uncertainty as to how likely it
+really is in practice.  You must admit however that it is not a
+completely implausible scenario.
+
+-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o
+
+I append here the code that prints the above table.  For those who
+think if not harmonize in C, this is where to look for the exact
+meanings of "precision" and "tolerance".
+
+#include <stdlib.h>
+#include <math.h>
+
+main(argc, argv)
+        char *argv[];
+{
+        int i, j, cnt, digits;
+        double prec, tol, ibruis, jbruis, pent, true;
+        for (digits = 15, prec = 1e-15; digits > 2; digits--, prec *= 10) {
+                printf("%4.d\t\t", digits);
+                for (tol = 1e-15; tol < 1e-4; tol *= 100) {
+                        cnt = 0;
+                        for (i = 1; i <= 1000; i++)
+                                for (j = 1; j <= 1000; j++) {
+                                        ibruis = i - prec, jbruis = j - prec;
+                                        pent = ibruis/jbruis;
+                                        true = (1.11*ibruis)/(1.11*jbruis);
+                                        cnt += (fabs(pent - true) > tol*true);
+                                }
+                        printf("%4d  ", cnt);
+                }
+                printf("\n");
+        }
+}
+
+My heuristic for getting the true quotient, namely true =
+(1.11*ibruis)/(1.11*jbruis), is the quick and dirty one of randomizing
+the operands just enough to move the probabilities of hitting the FDIV
+bug at least somewhat closer to Intel's estimate of once in 27,000
+years.  When I replaced 1.11 by 1.01 the results were identical, which
+along with the Intel estimate seemed good enough for a program not
+intended for building planes.
+-- 
+
+
+
+

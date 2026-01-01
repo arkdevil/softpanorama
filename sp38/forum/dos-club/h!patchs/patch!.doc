@@ -1,0 +1,169 @@
+
+PATCH!, the smart patcher program Version 1.0с
+                                     
+Program and documentation by Madis Kaal
+aka Mast of 2:490/30@fidonet.org
+
+(c) by MacSoft 1991
+
+  From time to time, you have to apply patches to programs
+written either by yourself or by someone else. Even Borland, the
+mighty company, cannot live without some bug fixes. And they
+have their own patching program, which is pretty dumb (tough it
+does the job most of the time).
+
+  So I decided to write my own patching program, which accepts
+control file which is readable by human beings. In the process,
+I ended up with something I would like to share with you, hoping
+that the file format will gain popularity - after all, it has
+plenty of room for extensions.
+
+  The program was written with Borland C++ version 2.0.
+
+  Ok, lets go down to business now, here is a list of features:
+
+* Can patch multiple files with single patch file.
+* Can patch any of these file in several places.
+* Can verify if the patch is being applied to correct file.
+* Can interact with user and write information to screen under
+  control file control.
+
+  Right now, only the command line version is available, but the
+same control file can be used for full-screen version with all
+the bells and whistles.
+
+  The command line syntax is
+
+PATCH! ctlfile destination
+
+where ctlfile is name of the control file and destination is
+path do tirectory where you have the files you wish to patch.
+I recommend you use ".PAT" as control file extension, which will
+make the full-screen version considerably easier to write.
+
+  Control file is a plain ASCII text, lines up to 80 characters
+in length. Lines must be terminated with <CR><LF> sequences.
+
+  First two lines of the file make up the header which, besides
+being informative, is also used to verify if it is patch file at
+all. The first two lines of the control file could be for
+example something like
+
+For: My own very buggy program 
+By: Jack J. Smith & The Gang
+
+which brings us to general issue - keywords. Keywords start at
+the first column of the line and come in two flavors - actual
+keywords and commands. Keywords are terminated with ':' and
+followed by parameters. Parameters may follow ':' directly or
+have white space between them and ':'.
+
+Anyway, the commands first (arguments in [] are optional) :
+
+@[text]   This will tell PATCH! to write the optional [text] to
+          screen and go to next line. Plain '@' will output
+          blank line.
+
+?[text]   This will cause PATCH! to write the text to screen,
+          then add "(Y/N)?" prompt and wait for user answer.
+          If the user enters <N>, the patch processing will be
+          aborted , entering <Y> or <CR> will continue
+          processing. 
+
+;[text]   This is comment. Lines beginning with semicolon will
+          be ignored by PATCH!. Blank lines are also ignored.
+
+
+And here are the keywords (keywords are case-insensitive):
+
+FOR:[t]   This keyword is required. It must be on the first line
+          of the control file. [t] is the optional text which
+          will indicate the purpose of the patch.
+
+BY:[t]    This keyword indicates the author of the control file.
+          PATCH! will write both FOR: and BY: lines to screen,
+          so user will see what and who hes dealing with.
+
+FILE:fn   This starts the file pprocessing. PATCH! will open the
+          specified file for reading and writing immidiatley
+          when this keyword is encountered. Do not put fixed
+          path into this filename, path is specified by user.
+
+OFFSET:x  The keyword tells PATCH! to seek to offset x in the
+          file. Offset is hexadecimal number. This keyword must
+          be followed either by ORIGINAL, REPLACE, or both
+          keywords. Several OFFSET keywords may be specified for
+          one file, thus each file can be patched in several
+          places.
+
+ORIGINAL: This keyword is used to verify that the file being
+          patched is right one. The keyword is followed by
+          string of hex bytes which will be verified against
+          file contents starting at specified OFFSET. Only one
+          ORIGINAL keyword is valid for each OFFSET. This
+          keyword may be omitted, but then the REPLACE keyword
+          must be used for this offset.
+          In case the data mismatch occurs, PATCH! will prompt
+          user with warning message asking if the processing
+          should continue anyway.
+
+REPLACE:  This keyword tells PATCH! to write the specified bytes
+          to given OFFSET. Only one REPLACE keyword is valid per
+          one OFFSET. This keyword, just like ORIGINAL may be
+          omitted but in this case ORIGINAL must be used.
+
+END       This is the keyword which is not followed by ':', as
+          it does not take any arguments. It will cause PATCH!
+          to close the file being patched. After the file is
+          closed, new file can be opened with FILE keyword which
+          allows to process more than one file in single patch.
+
+Example control file:
+
+--- file starts here -------------------------------------------
+For: Fixing the BlackJack winning probability
+By: The Boogie-man
+
+@This patch will help you win the BlackJack game more that you
+@originally do, and is recommended for persons with weaks hearts.
+@
+?Do you want to continue
+
+; This keyword tells the file name we're going to patch...
+; First File: keyword causes PATCH! to ask, where are your files.
+;
+File: BJACK.EXE
+
+; Output a message
+;
+@Patching BJACK.EXE now...
+
+; Seek to patch offset...
+; Original: and/or Replace: keywords must follow. Both are
+; optional, but at least one must be specified.
+;
+Offset: 1b41
+
+; If Original is specified, this will be checked against data
+; read from file, if the data differs, file is considered
+; invalid. If this is not specified, 'blind' patch will be
+; made.
+;
+Original: 74 09 f6 06 d4 17 01
+
+; This keyword specifies the data to write at file offset.
+;
+Replace:  75 13 e8 6d 00 eb
+
+; More Offset:/Original:/Replace groups may follow...
+;
+
+@Done.
+
+; This optional keyword tells we're done with this file
+;
+End
+
+; More file specifications may follow...
+
+---- end of file -----------------------------------------------

@@ -1,0 +1,58 @@
+ { -------------------------------------------------------------------------  }
+$Macro K_BAT TRANS ;                   { Вызов K_ME + EXT .BAt 16.01.91-13:18 }
+                                       { Проверим, правильно ли нас запустили }
+   Def_Int(temp_id , jx );
+   Def_Str(cf , trailer , path , ext , name);
+
+      If Global_Int('BIGCOMP_OK') = 0 Then
+         Make_Message('Multi-Edit запущен не с MEC batch file,'
+                    + ' K_BAT не может работать.');
+         Beep;
+         GoTo EXIT;
+      End;
+      If (Get_Extension(File_Name) = '') Then
+         Make_Message('K_BAT не может работать с пустым расширением.');
+         Beep;
+         GoTo EXIT;
+      End;    
+      Refresh := FALSE;
+      temp_id := Window_Id;
+      cf := File_Name;
+      path := Get_Path     (cf);       { Выделим путь                         }
+      ext  := Get_Extension(cf);       { Выделим расширение                   }
+      name := Truncate_Path(Truncate_Extension(cf));       { Чистое имя       }
+
+      Make_Message('K_BAT для ' + CF + ' Сохраненение исх. файлов');
+
+      jx := Switch_Win_Id(temp_id) ;   { Вернуться в окно вызова              }
+      Refresh := TRUE;                 { Для уверенности, что высветим        }
+      Redraw;
+      Working;                         { Turn ON the Working sign             }
+      Refresh := FALSE;                { Turn screen off                      }
+
+                                 {As BIG_COMPILE - dump everything From memory}
+      Run_Macro('^AUTOSAVE');
+      Set_Global_Int('DONT_PROCESS',1);{ Не запускать CMPERROR при возврате   }
+      Make_Message('Saving status...');
+      Run_Macro( 'EXIT^STATUS' );
+      Refresh := FALSE;
+                                       { Create the command file              }
+      Switch_Window(Window_Count);
+      Create_Window;
+      trailer := '|13 EXIT|13@echo off|10|13';
+      Text( 'K_ME_'  + Get_Extension(cf) + '.Bat'
+                                       { Параметры для передачи в BAT-файл    }
+                     + ' ' + cf        { параметр 1 - полное имя              }
+                     + ' ' + path      { параметр 2 - Drive и путь            }
+                     + ' ' + name      { параметр 3 - имя без EXT и пути      }
+                     + ' ' + ext       { параметр 4 - EXT                     }
+                     + trailer);
+      File_Name := 'MECOMP.TMP';
+      Save_File;
+      Rest_Dos_Screen;
+                                       { Exit the editor                      }
+      QUIT( 2 );                       { Выйти , запустив .BAT с  BIG_COMPILE }
+
+  EXIT:
+
+ End_Macro;                            { -- K_BAT                             }

@@ -1,0 +1,65 @@
+How to disable entry into IDLE mode:
+
+Many of today's newer ATA interface drives have automatic energy savings
+modes implemented by default. The drive's typically are designed to go into
+an Idle mode which reduces power consumption and parks the drive heads
+after a defined period of inactivity.  If the inactivity period continues
+to another defined interval, the disc drive will further reduce its power
+consumption by spinning down the platters and entering Standby mode.
+
+When the drives are Idle or in Standby, any subsequent disc I/O will "wake
+them up" and enter Active Mode. This requires a modest amount of time that
+may not be desired.  Disc drive Power Management Commands control these
+features and can be used to enable, disable or change the activation
+intervals of the power saving modes.  A general command FBh is used to
+cause a drive to enter Active mode and set the Idle timer.  If the Idle
+timer is set to 0 then the power management mode is disabled until a cold
+boot.
+
+The executable program required to do this is very small at 42 bytes.
+It can be created through the DOS Debug utility.  Two Debug script files are
+included, one for each drive:
+                             master =  no_idle0.scr
+                             slave  =  no_idle1.scr
+
+At the DOS prompt simply type:
+                             debug <no_idle0.scr
+
+This will cause the script file to be redirected into Debug with the
+following results (without the comments and the xxxx is system dependant):
+
+-n no_idle0.com              program name
+-a 100                       assemble at memory location 100
+xxxx:0100 call 120           call the instruction at location 120
+xxxx:0103 mov dx,1f6         select the drive/head register
+xxxx:0106 mov al,a0          setup for drive 0 (b0 for drive 1)
+xxxx:0108 out dx,al          output to the port address
+xxxx:0109 call 120           wait while busy
+xxxx:010C mov dx,1f2         select the sector count/timer register
+xxxx:010F mov al,0           set it to 0 msecs
+xxxx:0111 out dx,al          output to the port address
+xxxx:0112 call 120           wait while busy
+xxxx:0115 mov dx,1f7         select the drive command register
+xxxx:0118 mov al,fb          setup the Active/Set Idle command
+xxxx:011A out dx,al          output to the port address
+xxxx:011B call 120           wait while busy
+xxxx:011E nop                no operation (slight pause)
+xxxx:011F nop
+xxxx:0120 mov dx,1f7         select the status register
+xxxx:0123 in al,dx           input from the port
+xxxx:0124 and al,80          isolate the busy bit
+xxxx:0126 jnz 120            jump if not zero to location 120
+xxxx:0128 nop
+xxxx:0129 ret                return (finished)
+xxxx:012A
+-rcx
+CX 0000
+:2a                          number of bytes to save
+-w
+Writing 0002A bytes
+-q                           as in quit
+
+When finished, a very small no_idle0.com file will exist that can be run to
+disable the Idle mode.  The statement @no_idle0.com may be added to your
+autoexec.bat file.
+

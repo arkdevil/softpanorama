@@ -1,0 +1,1 @@
+void risynok(float mas_x[], float mas_y[], int number);

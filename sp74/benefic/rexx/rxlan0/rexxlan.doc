@@ -1,0 +1,3316 @@
+
+
+
+
+
+
+
+
+                            REXXLAN 0.99 documentation
+
+                            !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                                PRERELEASE VERSION
+
+                            !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+               ┌──────────────────────────────────────────────────┐
+               │                      REXXLAN                     │
+               │     the programmers REXX API extension for       │
+               │     IBM LAN Server (and compatible) networks.    │
+               └──────────────────────────────────────────────────┘
+
+                  (c) EDV Beratung Leif Braeuer, 1992, 1993
+                      2080 Pinneberg, Germany
+                      EMAIL: CIS: 100024,3436, Fido: 2:240/5015.13
+
+
+
+
+
+
+                 THIS EVALUATION LICENSE EXPIRES 30 DAYS FOLLOWING
+                 GENERAL AVAILABILITY OF THE PRODUCT OR AT LEAST ON
+                 SEPTEMBER 30, 1993.
+                 THE PRE-RELEASE PROGRAM AND DOCUMENTATION ARE PRO-
+                 VIDED "AS-IS".
+
+                 THIS EVALUATION PACKAGE MAY BE DISTRIBUTED UNCHANGED
+                 FREELY VIA BULLETIN BOARD SYSTEMS INCLUDING ALL FILES
+                 AND CONSIDERING THE COPYRIGHT NOTES.
+                 YOU ARE NOT ALLOWED TO CHARGE ANY DISTRIBUTION FEES
+                 EXCEPT FOR REASONABLE HANDLING COSTS.
+
+
+
+
+
+┌─────────────────────────────  DISCLAIMER ────────────────────────────────────┐
+│                                                                              │
+│  THE USER OF THE PROGRAM BY USING IT AGREES NOT TO HOLD THE AUTHOR NOR THE   │
+│  DISTRIBUTOR LIABLE FOR ANY DAMAGE THAT MAY HAVE BEEN CAUSED BY EITHER THE   │
+│  PROPER OR IMPROPER FUNCTIONING OR BY THE USE OR MISUSE OF THIS REXXLAN      │
+│  REXX PROGRAMMING EXTENSION.                                                 │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                TABLE OF CONTENTS
+
+
+
+         I.  INTRODUCTION
+                What is REXXLAN
+                How do I use REXXLAN ?
+
+
+        II.  CONTENT OF THIS PACKAGE
+                The files
+                Installation
+                Terms of license
+                Ordering and Support
+
+
+       III.  DESCRIPTION OF THE API
+                1. The internals API
+                2. The LAN Server API
+
+
+
+
+
+  I.  INTRODUCTION.
+
+  What is REXXLAN ?
+  ─────────────────
+  Since the IBM OS/2 version 2.0, IBM provides an easy to use language
+  extension for the OS/2 Procedures Language/REXX. Third party developer
+  are able to supply REXX extension DLL, to add "special-need" functions
+  to the REXX language extent.
+  An example for this kind of extension is REXXUTIL.DLL, a component of
+  the operating system, that adds some Workplace-Shell and standard API
+  system calls to the REXX language.
+
+  This well documented possibility to extend REXX and the few command
+  line programs available for the IBM LAN Server were the base of
+  the idea, to develop an extension that allows full access to the
+  broad LAN Server API.
+
+  The development goals were:
+
+      - supply an API that matches as good as possible the C calls.
+        A programmer who uses the LAN API in his C programs should not
+        have any problem to use the REXX counterparts.
+      - the API will not suppress any information
+      - The API will not use any temporary files
+      - the API should implement a mechanism to transport data to/from
+        the API that is similar to the C data structures.
+
+
+  The result is two files, RXLAN20.DLL and RXLAN30.DLL, that implement
+  more than 80 API calls to use in REXX.
+  RXLAN20.DLL is used for LAN Server 2.X Requester, that do not support
+  the LAN Server 3.0 Domain Controller Database (DCDB) API.
+  RXLAN30.DLL adds these DCDB API calls and can only be used with IBM
+  LAN Requester 3.0 or higher.
+
+
+  REXXLAN is excellent for
+
+  - LAN Server administrators who have a minimum of REXX programming
+    knowledge.
+
+  - developers of applications who use some of the LAN Server API,
+    and need to test the function of a specific API call. Instead of
+    writing several small C programs, compiling them and testing their
+    function, one can write a small REXX batch, run, modify and rerun
+    this batch. The turnaround time is much shorter using this method.
+
+  - users of a LAN Requester, who want to exploit the full capacity of
+    the Requester, e.g. to write some batches to connect to resources,
+    access other servers, add new applications to their Application Menu.
+
+
+  How do I use REXXLAN ?
+  ──────────────────────
+  The following example shows the use of the REXXLAN extension in your
+  REXX programs:
+
+    1: /* REXX */
+    2: /* Query which user is logged on this PC */
+    3:
+    4: CALL RxFuncAdd NetLoadFuncs, RXLAN20, NetLoadFuncs
+    5: CALL NetLoadFuncs
+    6: SAY 'Querying workstation info...'
+    7: ret =  NetWkstaGetInfo( '', '0', 'Buffer', '0', '0' )
+    8: IF ret = 0 THEN DO
+    9:    SAY 'Logged on user : ' || Buffer.wki0_username
+   10:    SAY 'Default domain : ' || Buffer.wki0_langroup
+   11:    END
+   12: ELSE DO
+   13:    IF ret = 2201 THEN DO            /* NERR_NotLoggedOn */
+   14:       SAY 'No user is logged on.'
+   15:       END
+   16:    ELSE DO
+   17:       SAY 'Error in NetWkstaGetInfo rc = ' || ret
+   18:       END
+   19:    END
+   20: CALL Netdropfuncs
+
+   In line 4 the REXX function RxFuncAdd is used to add the loading
+   function of a REXX extension DLL. Please refer to your REXX Pro-
+   grammers Reference for more information.
+   The loading function is called NetLoadFuncs (like SysLoadFuncs in
+   the REXXUTIL.DLL). NetLoadFuncs is loaded from RXLAN20.DLL and
+   registered under the name NetLoadFuncs.
+   In line 5 the NetLoadFuncs registers all RXLAN20 functions, initialises
+   all needed variables and allocates memory for the loaded instance of
+   the DLL.
+
+        DO NOT REGISTER ANY OTHER FUNCTION THROUGH THE RXFUNCADD API !
+
+        UNPREDICTABLE ERRORS WILL OCCUR, IF YOU TRY TO USE REXXLAN APIS
+        WITHOUT INITIALIZING THEM WITH NETLOADFUNCS
+
+   In line 7 the NetWkstaGetInfo is called. The first parameter specifies
+   where the command will be executed. '' means, the command will be
+   executed locally. The second parameter '0' specifies the level of
+   information needed. 'Buffer' tells the REXX function under which name
+   the variables should be created. The remaining buffers were left for
+   "future use" and for compatibility reasons. The lines 9 and 10 show
+   which variables are created by the Wksta API call. These values are
+   printed, if a user is logged on.
+
+   REXXLAN and the REXX variable pools
+   ───────────────────────────────────
+   REXX does not know any structured variables. So, a mechanism had to be
+   implemented which simulates this by seperating the variable name and
+   its struct fields by a dot. The REXX progammer passes the API the name
+   of a top level qualifier under which the complete variable structure
+   will be created.
+   E.g.         ACCESSINFO.ACC1_RESOURCENAME
+                ACCESSINFO.ACC1_ATTR         
+                ACCESSINFO.ACC1_COUNT
+                ACCESSINFO.n.ACL_UGNAME
+                ACCESSINFO.n.ACL_ACCESS            (n: 0..ACC1_COUNT-1)
+
+   In this example the programmer passed 'ACCESSINFO' for the parameter
+   buffer to the NetAccessAdd function.
+
+
+
+  II.  CONTENT OF THIS PACKAGE
+
+  The files
+  ─────────
+
+  This package consists of the following files:
+
+       - RXLAN20.DLL       The REXXLAN extension DLL for a LAN Server
+                           Version 2.0 Requester
+
+       - RXLAN30.DLL       The counterpart DLL for a LAN Server Version
+                           3.0 Requester.
+                           DO NOT USE THIS WITH A LAN REQUESTER 2.0
+
+       - REXXLAN.DOC       This document
+
+       - REXXLAN.INF       The VIEWable one-line reference
+                           (NO AVAILABLE YET)
+
+       - README.1ST        Any last minute comments. Please read them.
+
+       - \SMPLES20         Some sample REXX files using the REXX20.DLL
+                           The files are well documented, please read
+                           the remarks for further details.
+
+       - \SMPLES30         The REXX30.DLL counterpart.
+
+       - FORM              For the development of further releases of
+                           REXXLAN and other Network management utilities,
+                           I ask you to fill in this form. Please send the
+                           completed form back to me.
+
+       - REPORT.BUG        For the - hopefully - never occuring case, that
+                           you discover an "anomaly" of my program,
+                           please fill in this form and send it to me.
+
+
+      You are not allowed to distribute any changed file, except of
+      packing these files into one archive using a program like PKZIP
+      or LHARC.
+
+
+
+  Installation
+  ────────────
+
+  To use the REXXLAN extension, copy all files from the diskette into
+  a directory of you choice. Then copy the appropriate file RXLAN20.DLL
+  or RXLAN30.DLL in a LIBPATH directory like \IBMLAN\NETLIB or add
+  your installation directory to the LIBBPATH statement in the CONFIG.SYS
+  You may add the pathname of your REXX program directory to the PATH
+  statement of the CONFIG.SYS to run your CMD files from every directory.
+
+
+
+
+
+  Terms of license
+  ────────────────
+
+
+      THIS EVALUATION LICENSE EXPIRES 30 DAYS FOLLOWING GENERAL
+      AVAILABILITY OF THE PRODUCT OR AT LEAST ON SEPTEMBER 30, 1993.
+
+      THE PRE-RELEASE PROGRAM AND DOCUMENTATION ARE PROVIDED "AS-IS".
+
+      THIS EVALUATION PACKAGE MAY BE DISTRIBUTED UNCHANGED FREELY (E.G.
+      VIA BULLETIN BOARD SYSTEMS)  INCLUDING ALL FILES AND CONSIDERING
+      THE COPYRIGHT NOTES.
+
+      YOU ARE NOT ALLOWED TO CHARGE ANY DISTRIBUTION FEES EXCEPT OF
+      REASONABLE HANDLING COSTS.
+
+
+      THE PACKAGE IS NEITHER FREEWARE, NOR "FOR PUBLIC DOMAIN", NOR
+      SHAREWARE.
+      AFTER EXPIRATION OF THIS LICENSE, YOU HAVE TO DELETE ALL COPIES
+      OF THIS PROGRAM AND DOCUMENTATION OR IF YOU WISH TO CONTINUE
+      USING REXXLAN, ORDER THE "GOLDEN CODE" OF THE PROGRAM.
+
+
+
+  Ordering and support
+  ────────────────────
+  At the moment, no details on ordering and licensing cost are available.
+  Please contact the technical support or wait for the general available
+  announcement.
+
+  The technical support is provided through electronic mail. You will
+  reach it at:
+
+        COMPUSERVE:   LEIF BRAEUER, 100024,3436
+
+        FIDO:         2:240/5015.13  OR
+                      2:242/320.13
+
+        INTERNET:     100024,3436@compuserve.com
+
+        MAUS NET:     LEIF BRAEUER@HH           (GERMANY ONLY)
+
+
+
+*************************************************************************
+*************************************************************************
+
+
+                                    REXXLAN LAN SERVER API IMPLEMENTATION
+
+                                                    (Version 0.99)
+
+*************************************************************************
+*************************************************************************
+
+
+
+
+-------------------------------------------------------------------------
+                                                     1. INTERNALS SECTION
+-------------------------------------------------------------------------
+
+                                                             NetDropFuncs
+-------------------------------------------------------------------------
+    Syntax    : CALL NetDropFuncs
+
+    Purpose   : Deregister all registered Functions of RXLAN?0.DLL
+
+    Return    : NONE
+
+    Parameter : NONE
+
+    Variables : NONE
+
+-------------------------------------------------------------------------
+
+
+                                                             NetLoadFuncs
+-------------------------------------------------------------------------
+    Syntax    : CALL NetLoadFuncs
+
+    Purpose   : Register additional Function from RXLAN?0.DLL
+
+    Return    : NONE
+
+    Parameter : NONE
+
+    Variables : NONE
+
+-------------------------------------------------------------------------
+
+
+                                                           NetRexxVersion
+-------------------------------------------------------------------------
+    Syntax    : Call NetRexxVersion level
+
+    Purpose   : Get information about REXXLAN version / supported LAN
+                Requester
+
+    Return    : depends on the value of level
+
+    Parameter : level  0 : return major and minor version of REXXLAN
+                           (e.g. "0.99")
+                       1 : return supported LAN Requester version
+                           "2.0" or "3.0"
+                       2 : return a textual copyright note
+
+    Variables : NONE
+
+-------------------------------------------------------------------------
+
+
+                                                     NetRexxQueryFunction
+-------------------------------------------------------------------------
+    Syntax    : Call NetRexxQueryFunction( function-name )
+
+    Purpose   : Answer requests, if a function is available in the loaded
+                REXXLAN module.
+
+    Return    : 1 : function-name is available
+                0 : function is unknown
+
+    Parameter : Name of function to test
+
+    Variables : NONE
+
+-------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------
+                                                       2. ACCESS SECTION
+-------------------------------------------------------------------------
+
+
+                                                            NetAccessAdd
+-------------------------------------------------------------------------
+    Syntax    : ret = NetAccessAdd( server, level, rexx-buffer, dummy )
+
+    Purpose   : Add a access profile for the resource on a server
+                Implements NetAccessAdd (only level 1 info is supported)
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server      - UNC servername like \\SERVER1
+                level       - only level '1' is supported
+                rexx-buffer - name of  REXX variable containing the
+                              access_info_1 struct
+                dummy       - reserved to preserve NetApi compatibility
+
+    Variables : there needs to be a fully initialized Variable structure
+                to which the rexx-buffer name points.
+                E.g. rexx-buffer contains the name 'ACCESSINFO', there
+                will be the following variables:
+                (For a description, please refer to the 'Lan Application
+                Programmers Reference')
+
+                ACCESSINFO.ACC1_RESOURCENAME 
+                ACCESSINFO.ACC1_ATTR         
+                ACCESSINFO.ACC1_COUNT
+                ACCESSINFO.n.ACL_UGNAME
+                ACCESSINFO.n.ACL_ACCESS            (n: 0..ACC1_COUNT-1)
+
+
+
+
+                                                        NetAccessGetInfo
+-------------------------------------------------------------------------
+    Syntax    : ret = NetAccessGetInfo( server, resource, level,
+                                        rexx-buffer, dummy, dummy )
+
+    Purpose   : Get information about access profiles for the resource
+                on a server
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server      - UNC servername like \\SERVER1
+                resource    - name of the resource like C:\IBMLAN
+                level       - only level '1' is supported
+                rexx-buffer - name of  REXX variable containing the
+                              access_info_1 struct
+                dummy       - reserved to preserve NetApi compatibility
+
+    Variables : This call fills a variable struct of the type
+                access_info_1 with the name passed through the
+                rexx-name parameter  E.g. rexx-buffer contains the
+                name 'ACCESSINFO', there will be returned the following
+                variables:
+                (For a description, please refer to the 'Lan Application
+                Programmers Reference')
+
+                ACCESSINFO.ACC1_RESOURCENAME 
+                ACCESSINFO.ACC1_ATTR         
+                ACCESSINFO.ACC1_COUNT
+                ACCESSINFO.n.ACL_UGNAME
+                ACCESSINFO.n.ACL_ACCESS            (n: 0..ACC1_COUNT-1)
+
+
+
+
+                                                        NetAccessSetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAccessSetInfo( server, resource, level,
+                                        rexx-buffer, dummy, parmnum )
+
+    Purpose   : Set information about access profiles for the resource
+                on a server changes the access profile for the specified
+                resource. Only level 1 is supported. The paramnum option
+                is not implemented.
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server      - UNC servername like \\SERVER1
+                resource    - name of the resource like C:\IBMLAN
+                level       - only level '1' is supported
+                rexx-buffer - name of  REXX variable containing the
+                              access_info_1 struct
+                paramnum    - 0: change the complete ACL
+                              ACCESS_ATTR_PARAMNUM: not implemented !!!!!!
+                dummy       - reserved to preserve NetApi compatibility
+
+    Variables : This call fills a variable struct of type access_info_1
+                with the name passed through the rexx-name parameter
+                E.g. rexx-buffer contains the name 'ACCESSINFO', there
+                will be returned the following variables:
+                (For a description, please refer to the 'Lan Application
+                Programmers Reference')
+
+                ACCESSINFO.ACC1_RESOURCENAME 
+                ACCESSINFO.ACC1_ATTR         
+                ACCESSINFO.ACC1_COUNT
+                ACCESSINFO.n.ACL_UGNAME
+                ACCESSINFO.n.ACL_ACCESS            (n: 0..ACC1_COUNT-1)
+
+
+
+
+                                                          NetAccessCheck
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAccessCheck( resvd, user, resource, operation,
+                                      result )
+
+    Purpose   : Used to check that user can do the operation on resource
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : resvd      : must be ""
+                user       : name of user
+                resource   : name of resouce, e.g. UNC name
+                operation  : access control bitmask
+                result     : name of REXX variable, containing result
+                             result can contain 0 (access allowed) or
+                             ERROR_ACCESS_DENIED
+
+    Variables : NONE
+
+
+
+
+                                                   NetAccessGetUserPerms
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAccessGetUserPerms( server, user, resource,
+                                             perms )
+
+    Purpose   : Returns permissions for the resource on the specified
+                server for user in the REXX variable
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server :        server, which owns the resource
+                resource:       directory, pipe, etc.
+                perms:          name of REXX variable, that will contain
+                                the permission mask
+
+    Variables : NONE
+
+
+
+
+                                                           NetAccessEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAccessEnum( server, basepath, recursively, level,
+                                     buffer, dummy, total, dummy )
+
+
+    Purpose   : lists all resources with defined access profiles.
+                Only level 0 is supported                                                                *
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:       name of server, e.g. \\SERVER1
+                basepath:     display profiles for resources beginning
+                              with basepath (e.g. C:\ or \PIPE)
+                recursively:  1 = include all subdirectories
+                              0 = don't include subdirectories
+                level:        0
+                Rexx-buffer:  name of Rexx variable, containing the
+                              found profiles
+                Rexx-total:   Rexx variable containing the number of
+                              profiles found
+
+    Variables : This call fills a number of variable structs of the
+                type access_info_1 with the name passed through the
+                rexx-buffer parameter.
+                E.g. rexx-buffer contains the name 'ACCESSINFO', there
+                will be returned the following variables:
+
+                if level = 0:
+                ACCESSINFO.n.ACC0_RESOURCENAME
+
+                if level = 1:
+                ACCESSINFO.n.ACC1_RESOURCENAME
+                ACCESSINFO.n.ACC1_ATTR
+                ACCESSINFO.n.ACC1_COUNT
+                ACCESSINFO.n.o.ACL_UGNAME
+                ACCESSINFO.n.o.ACL_ACCESS            (o: 0..ACC1_COUNT-1)
+
+
+
+
+                                                            NetAccessDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAccessDel( server, resource )
+
+    Purpose   : Removes the access profile for the resource
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server :   name of server (e.g. "\\SERVER1")
+                resource:  directory, pipe, printer, etc.
+
+    Variables : NONE
+
+
+-------------------------------------------------------------------------
+                                                    3. REQUESTER SECTION
+-------------------------------------------------------------------------
+
+    Comments:
+                The API call NetWkstaSetUID will not be supported.
+                This API has been replaced by NetWkstaSetUID2.
+
+
+                                                         NetWkstaSetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetWkstaSetInfo( server, level, rexx-buffer,
+                                       dummy, dummy )
+
+    Purpose   : modifies actual LAN server parameter
+                the parmnum field is not supported
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing
+                                   wksta data
+
+    Variables : For Rexx-buffer = "BUFFER" and level = 0:
+  
+                BUFFER.WKI0_root
+                BUFFER.WKI0_computername
+                BUFFER.WKI0_username
+                BUFFER.WKI0_langroup
+                BUFFER.WKI0_ver_major
+                BUFFER.WKI0_ver_minor
+                BUFFER.WKI0_charwait
+                BUFFER.WKI0_chartime
+                BUFFER.WKI0_charcount
+                BUFFER.WKI0_keepconn
+                BUFFER.WKI0_keepsearch
+                BUFFER.WKI0_maxthreads
+                BUFFER.WKI0_maxcmds
+                BUFFER.WKI0_numworkbuf
+                BUFFER.WKI0_sizworkbuf
+                BUFFER.WKI0_maxwrkcache
+                BUFFER.WKI0_sesstimeout
+                BUFFER.WKI0_sizerror
+                BUFFER.WKI0_numalerts
+                BUFFER.WKI0_numservices
+                BUFFER.WKI0_errlogsz
+                BUFFER.WKI0_printbuftime
+                BUFFER.WKI0_numcharbuf
+                BUFFER.WKI0_sizcharbuf
+                BUFFER.WKI0_logon_server
+                BUFFER.WKI0_wrkheuristics
+                BUFFER.WKI0_mailslots
+
+                - For Rexx-buffer = "BUFFER" and level = 1:
+                BUFFER.WKI1_root
+                BUFFER.WKI1_computername
+                BUFFER.WKI1_username
+                BUFFER.WKI1_langroup
+                BUFFER.WKI1_ver_major
+                BUFFER.WKI1_ver_minor
+                BUFFER.WKI1_charwait
+                BUFFER.WKI1_chartime
+                BUFFER.WKI1_charcount
+                BUFFER.WKI1_keepconn
+                BUFFER.WKI1_keepsearch
+                BUFFER.WKI1_maxthreads
+                BUFFER.WKI1_maxcmds
+                BUFFER.WKI1_numworkbuf
+                BUFFER.WKI1_sizworkbuf
+                BUFFER.WKI1_maxwrkcache
+                BUFFER.WKI1_sesstimeout
+                BUFFER.WKI1_sizerror
+                BUFFER.WKI1_numalerts
+                BUFFER.WKI1_numservices
+                BUFFER.WKI1_errlogsz
+                BUFFER.WKI1_printbuftime
+                BUFFER.WKI1_numcharbuf
+                BUFFER.WKI1_sizcharbuf
+                BUFFER.WKI1_logon_server
+                BUFFER.WKI1_wrkheuristics
+                BUFFER.WKI1_mailslots
+                BUFFER.WKI1_logon_domain
+                BUFFER.WKI1_oth_domains
+                BUFFER.WKI1_numdgrambuf
+
+
+
+                                                         NetWkstaGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetWkstaGetInfo( server, level, rexx-buffer,
+                                       dummy, dummy )
+
+    Purpose   : query actual LAN server parameter
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1, 10
+                rexx-buffer:       name of rexx variable containing
+                                   wksta data
+
+    Variables : For Rexx-buffer = "BUFFER" and level = 0 or 1 the
+                variables used were described in NetWkstaSetInfo.
+                Additional level 10 is available.
+
+                - For Rexx-buffer = "BUFFER" and level = 10:
+
+                BUFFER.WKI10_computername
+                BUFFER.WKI10_username
+                BUFFER.WKI10_langroup
+                BUFFER.WKI10_ver_major
+                BUFFER.WKI10_ver_minor
+                BUFFER.WKI10_logon_domain
+                BUFFER.WKI10_oth_domains
+
+
+
+                                                          NetWkstaSetUID2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetWkstaSetUID2( dummy, domain, username, password,
+                                       parms, ucond, level, rexx-buffer,
+                                       dummy, dummy )
+
+    Purpose   : Logons/ Logoffs a user to/from the network and returns
+                statistics
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : domain:            name of logon domain
+                username:          name of user to log on (if "" a user
+                                   is logged off)
+                password:          password of user. (if "" the ID has
+                                   no password)
+                                   This field is CASE SENSITIVE !!
+                                   For compatibility to LAN Server
+                                   interface use only UPPER CHARACTERS !
+                parms:             In LAN Server environments it must be ""
+                ucond:             specifies what action to take if another
+                                   user name is logged on to the requester.
+                                   Defined are four values:
+
+                                   Value   Meaning
+                                   ___________________________________________
+                                   0       NetWkstaSetUID2 fails, and the
+                                           user's identification number (UID)
+                                           does not change.
+                                   1       Logs the current user name off,
+                                           disconnecting any connections to
+                                           redirected resources.
+                                   2       Cancels any connections and other
+                                           pending activities necessary.
+                                           Fails if any connection is used by
+                                           a process as the current drive.
+                                   3       Always succeeds and forces all
+                                           disconnections.
+                level:             must be 1.
+                rexx-buffer:       name of rexx variable containing user data
+
+    Variables : For Rexx-buffer = "BUFFER" and level = 1:
+
+                BUFFER.USRLOG1_code
+                BUFFER.USRLOG1_eff_name[UNLEN+1]
+                BUFFER.USRLOG1_priv
+                BUFFER.USRLOG1_auth_flags
+                BUFFER.USRLOG1_num_logons
+                BUFFER.USRLOG1_bad_pw_count
+                BUFFER.USRLOG1_last_logon
+                BUFFER.USRLOG1_last_logoff
+                BUFFER.USRLOG1_logoff_time
+                BUFFER.USRLOG1_kickoff_time
+                BUFFER.USRLOG1_password_age
+                BUFFER.USRLOG1_pw_can_change
+                BUFFER.USRLOG1_pw_must_change
+                BUFFER.USRLOG1_computer
+                BUFFER.USRLOG1_domain
+                BUFFER.USRLOG1_script_path
+
+                If username is "" (user logged off) the following variables
+                were used:
+
+                BUFFER.USRLOGF1_code
+                BUFFER.USRLOGF1_duration
+                BUFFER.USRLOGF1_num_logons
+
+
+-------------------------------------------------------------------------
+                                                        4. DOMAIN SECTION
+-------------------------------------------------------------------------
+
+                                                             NetGetDCName
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGetDCName( server, domain, DC-name, buffer )
+
+    Purpose   : Returns the name of the domain controller.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                domain:            s.o.
+                DC-name:           contains the name of the domain
+                                   controller after return.
+    Variables : NONE
+
+
+
+                                                             NetLogonEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetLogonEnum( server, level, buffer, dummy,
+                                    eread, dummy )
+
+    Purpose   : Supplies information about logged-on users
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 2
+                rexx-buffer:       name of rexx variable containing
+                                   logon data
+                eread              Number of logged on users
+
+    Variables : For level 0 these variables are used: (n=0..eread-1)
+                BUFFER.n.usrlog0_eff_name
+ 
+                For level 2:
+                BUFFER.n.usrlog2_eff_name
+                BUFFER.n.usrlog2_computer
+                BUFFER.n.usrlog2_fullname
+                BUFFER.n.usrlog2_usrcomment
+                BUFFER.n.usrlog2_logon_time
+
+
+
+-------------------------------------------------------------------------
+                                                           5. USE SECTION
+-------------------------------------------------------------------------
+
+
+                                                                NetUseAdd
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUseAdd( server, level, rexx-buffer, dummy )
+
+    Purpose   : Establishes a connection between a local device (or NULL)
+                and a remote resource.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            name of computer for which the connection
+                                   will be established. For server <> ""
+                                   you will need administrator priviledges,
+                                   for the local machine server must be ""
+                level:             1
+                rexx-buffer:       name of rexx variable containing use data
+
+    Variables : If rexx-buffer contains "BUFFER", the following variables
+                were used:
+
+                BUFFER.UI1_local
+                BUFFER.UI1_remote
+                BUFFER.UI1_password
+                BUFFER.UI1_status
+                BUFFER.UI1_asg_type
+                BUFFER.UI1_refcount
+                BUFFER.UI1_usecount
+
+
+
+                                                                NetUseDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUseDel( server, usename, ucond )
+
+    Purpose   : Ends a connection.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : servername:        points to an ASCIIZ string containing
+                                   the name of the remote server on which
+                                   the function is to execute. A null
+                                   pointer or string specifies a local
+                                   computer.
+                devicename         points to an ASCIIZ string that contains
+                                   the following information:
+                                   - If the connection is a device name
+                                     connection, the name specified must
+                                     be the name of the local device.
+                                   - If the connection is a UNC connection
+                                     (either implicit or explicit), the
+                                     name must be the UNC name.
+
+                forceflag          is one of three values specifying three
+                                   types of disconnection. The following
+                                   options are available:
+
+                                   Value  Meaning
+                                   ____________________________________________
+                                     0   Maintains the connection in a dormant
+                                         state, decrementing usecount.
+                                         A dormant session can quickly be
+                                         activated as soon as reconnection is
+                                         needed, improving system performance.
+                                     1   Connection is removed only if no file
+                                         directory, or drive is opened.
+                                         usecount is decremented for a local
+                                         device name connection and forced
+                                         to 0 for a UNC connection.
+                                     2   All files, directories, and drives
+                                         open  on the connection are forced
+                                         closed.
+
+
+
+                                                               NetUseEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUseEnum( server, level, rexx-buffer, dummy,
+                                  eread, dummy )
+
+    Purpose   : Lists all current connections
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing use data
+                eread:             rexx variable containing number of
+                                   connections found
+
+    Variables : For rexx-buffer containing "BUFFER" the following variables
+                were used: (n= 0..eread-1)
+
+                BUFFER.n.UI0_local[DEVLEN+1]
+                BUFFER.n.UI0_pad_1
+                BUFFER.n.UI0_remote
+
+                For level 1:
+
+                BUFFER.n.UI1_local[DEVLEN+1]
+                BUFFER.n.UI1_pad_1
+                BUFFER.n.UI1_remote
+                BUFFER.n.UI1_password
+                BUFFER.n.UI1_status
+                BUFFER.n.UI1_asg_type
+                BUFFER.n.UI1_refcount
+                BUFFER.n.UI1_usecount
+
+
+
+                                                            NetUseGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUseGetInfo( server, usename, level, rexx-buffer,
+                                     dummy, dummy )
+
+    Purpose   : Returns information about a connection.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                usename:           name of the connection
+                level:             1
+                rexx-buffer:       name of rexx variable containing
+                                   use data
+
+    Variables : For rexx-buffer containing "BUFFER" the following variables
+                were used:
+
+                BUFFER.UI1_local[DEVLEN+1]
+                BUFFER.UI1_pad_1
+                BUFFER.UI1_remote
+                BUFFER.UI1_password
+                BUFFER.UI1_status
+                BUFFER.UI1_asg_type
+                BUFFER.UI1_refcount
+                BUFFER.UI1_usecount
+
+
+-------------------------------------------------------------------------
+                                                       6. MESSAGE SECTION
+-------------------------------------------------------------------------
+
+                                                     NetMessageBufferSend
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageBufferSend( server, msgname, buffer,
+                                            dummy )
+
+    Purpose   : Send a buffer to selected messengers
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            where the message will be send
+                msgname:           receiver, for broadcast-messages enter "*"
+                buffer:            message to send
+
+    Variables : NONE
+
+
+
+                                                       NetMessageFileSend
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageFileSend( server, msgname, filename )
+
+    Purpose   : Send a buffer to selected messengers
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            where the message will be send
+                msgname:           receiver, for broadcast-messages enter "*"
+                filename:          file containing the message
+
+    Variables : NONE
+
+
+
+                                                       NetMessageNameEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageNameEnum( server, level, rexx-buffer,
+                                          dummy, eread, dummy )
+
+    Purpose   : lists the names in the message name table
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing
+                                   message data
+                eread:             number of entries
+
+    Variables : if rexx-buffer contains "BUFFER" these variables
+                were used:
+
+                level = 0:
+                BUFFER.n.MSGI0_NAME
+
+                level = 1:
+                BUFFER.n.msgi1_name
+                BUFFER.n.msgi1_forward_flag
+                BUFFER.n.msgi1_forward
+
+
+
+
+                                                        NetMessageNameAdd
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageNameAdd( server, name, fwd_action )
+
+    Purpose   : registers a name in the message name table
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                name:              name to register
+                fwd_action:        action to take if names is already
+                                   forwarded
+
+    Variables : NONE
+
+
+
+                                                        NetMessageNameDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageNameDel( server, name, fwd_action )
+
+    Purpose   : de-registers a name in the message name table
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                name:              name to de-register
+                fwd_action:        specifies the action to take if the
+                                   messages for name are being forwarded
+                                   to another name. If fwd_action is
+                                   non-zero, the forwarded name is deleted.
+                                   A 0 value prevents the name from being
+                                   deleted.
+
+    Variables : NONE
+
+
+
+                                                        NetMessageNameFwd
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageNameFwd( server, name, fwd_name, del_for )
+
+    Purpose   : modifies the message name table to forward messages to
+                another messaging name
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                name:              name in message name table
+                forwardname:       points to an ASCIIZ string specifying
+                                   the name to receive name's forwarded
+                                   messages.
+                delfor:            specifies the action to take if name
+                                   forwards messages to another name. If
+                                   non-zero, then any previous forwarded
+                                   user name is deleted; if 0, it is not
+                                   deleted and an error is returned.
+    Variables : NONE
+
+
+
+                                                    NetMessageNameGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageNameGetInfo( server, name, level, buffer,
+                                             dummy, dummy )
+
+    Purpose   : Get information about a registered name
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                name:              name to get information
+                level:             1
+                rexx-buffer:       name of rexx variable containing
+                                   name data
+
+    Variables : For rexx-buffer containing "BUFFER" these variables
+                are used:
+
+                BUFFER.msgi1_name
+                BUFFER.msgi1_forward_flag
+                BUFFER.msgi1_forward
+
+
+
+                                                      NetMessageNameUnFwd
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageNameUnFwd( server, name )
+
+    Purpose   : Unforwards a message name
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                name:              name whose message forwarding is to
+                                   be canceled
+
+    Variables : NONE
+
+
+
+                                                     NetMessageLogFileSet
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageLogFileSet( server, filename, on )
+
+    Purpose   : specifies a file to log messages received by registered
+                users and enables or disables logging.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                filename:          specifies the path name of the device
+                                   (LPTn or COMn) or file to which the
+                                   messages are logged.
+                                   If filename is "", no message file
+                                   will be used; in this case, the value
+                                   of on must be 0.
+                on:                specifies whether or not logging is
+                                   enabled.
+
+    Variables : NONE
+
+
+
+                                                     NetMessageLogFileGet
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetMessageLogFileGet( server, filename, dummy, pon )
+
+    Purpose   : specifies a file to log messages received by registered
+                users and enables or disables logging.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                filename:          rexx-variable that will contain the
+                                   name of the message file.
+                pon:               rexx-variable that will contain the
+                                   status of message logging
+    Variables : NONE
+
+
+-------------------------------------------------------------------------
+                                                        7. CONFIG SECTION
+-------------------------------------------------------------------------
+
+    The APIs NetConfigGet and NetConfigGetAll are replaced by their newer
+    counterparts NetConfigGet2 and NetConfigGetAll2
+
+
+
+                                                            NetConfigGet2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetConfigGet2( server, dummy, component, parameter,
+                                     rexx-buffer, dummy, dummy )
+
+    Purpose   : retrieves a specified parameter value from the IBMLAN.INI
+                file of a local computer or a remote server.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                component:         the name of the component to search.
+                parameter          the parameter whose value is to be
+                                   returned.
+                rexx-buffer:       name of rexx variable which will
+                                   contain the parameters value
+
+    Variables : NONE
+
+
+
+                                                         NetConfigGetAll2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetConfigGet2( server, dummy, parameter,
+                                     rexx-buffer, dummy, dummy, dummy )
+
+    Purpose   : retrieves a all parameter value for a component from the
+                IBMLAN.INI file of a local computer or a remote server.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                parameter:         the name of the component to search.
+                rexx-buffer:       name of rexx variable which will
+                                   contain the parameters values
+
+    Variables : If rexx-buffer contains "BUFFER", the following variables
+                are used:
+                BUFFER.0      number of parameters found in the component
+                              section
+                BUFFER.n      (n=1..BUFFER.0) A formatted line from the
+                              IBMLAN.INI like:
+                                 RCVSERVICE=REQUESTER,MESSENGER,NETPOPUP
+
+
+
+-------------------------------------------------------------------------
+                                                    8. CONNECTION SECTION
+-------------------------------------------------------------------------
+
+                                                        NetConnectionEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetConnectionEnum( server, qualifier, level, buffer,
+                                         dummy, eread, dummy )
+
+    Purpose   : gives a listing of connections made to a shared resource
+                of a server, or of all connections established from a
+                particular computer to a server.
+
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                qualifier:         specifies either the netname of the
+                                   shared resource whose connections will
+                                   be listed or the client name of the
+                                   requester whose connections to the
+                                   shared resource will be listed
+                                   (qualifier cannot be a null pointer
+                                   or string).
+                level:             1
+                rexx-buffer:       name of rexx variable containing
+                                   connection data
+                eread:             rexx-variable containing number of
+                                   entries found
+
+    Variables : With n = 0..eread-1
+
+                BUFFER.n.coni1_id
+                BUFFER.n.coni1_type
+                BUFFER.n.coni1_num_opens
+                BUFFER.n.coni1_num_users
+                BUFFER.n.coni1_time
+                BUFFER.n.coni1_username
+                BUFFER.n.coni1_netname
+
+
+-------------------------------------------------------------------------
+                                                         9. ERROR SECTION
+-------------------------------------------------------------------------
+
+   These APIs are not supported yet:
+    - NetErrorLogOpen
+    - NetErrorLogRead
+    - NetErrorLogWrite
+
+                                                         NetErrorLogClear
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetErrorLogClear( server, backupfile, dummy )
+
+    Purpose   : Clears (and optionally saves) the computers error log file
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                backupfile:        If not "", the error log is copied to
+                                   this file, before it is cleared.
+
+    Variables : NONE
+
+
+-------------------------------------------------------------------------
+                                                         10. FILE SECTION
+-------------------------------------------------------------------------
+
+    The following API were only held in the NETAPI libary for
+    compatibility reasons are are not supported by REXXLAN.
+      - NetFileClose           (replaced by NetFileClose2)
+      - NetFileEnum            (replaced by NetFileEnum2)
+      - NetFileGetInfo         (replaced by NetFileGetInfo2)
+
+
+
+                                                             NetFileEnum2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetFileEnum2( server, basepath, user, level, buffer,
+                                    dummy, eread, dummy, dummy )
+
+    Purpose   : supplies information about some or all open files on the
+                server.
+                The resume_key function, as described in the LAN
+                Application Programmers Reference, will not be passed
+                through the REXX API, the REXX function iterates the
+                NetFileEnum2 calls, until it retrieved all information.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                basepath:          base path for enumeration. If not NULL,
+                                   basepath serves as a qualifier to the
+                                   enumeration.  The entries returned are
+                                   limited to those whose name begins with
+                                   the qualifier string.
+                username:          indicates the name of the user. If not
+                                   NULL, username serves as a qualifier
+                                   to the enumeration.
+                                   The files returned are limited to those
+                                   whose opener username matches the
+                                   qualifier.
+                level:             2, 3
+                rexx-buffer:       name of rexx variable containing file
+                                   data
+                eread:             contains number of entries found
+
+    Variables : level = 2:         (n=0..eread-1)
+                BUFFER.n.fi2_id;
+
+                level = 3:
+                BUFFER.n.fi3_id
+                BUFFER.n.fi3_permissions
+                BUFFER.n.fi3_num_locks
+                BUFFER.n.fi3_pathname
+                BUFFER.n.fi3_username
+
+
+
+                                                          NetFileGetInfo2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetFileGetInfo2( server, file-ID, level, buffer,
+                                       dummy, dummy )
+
+    Purpose   : retrieves information about a particular opening of a
+                server resource.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                file-ID:           identifier of open file.
+                level:             3
+                rexx-buffer:       name of rexx variable containing
+                                   file data
+
+    Variables :
+                BUFFER.fi3_id
+                BUFFER.fi3_permissions
+                BUFFER.fi3_num_locks
+                BUFFER.fi3_pathname
+                BUFFER.fi3_username
+
+
+
+                                                            NetFileClose2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetFileClose2( server, file-ID )
+
+    Purpose   : forces a close to an open file
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                file-ID:           identifier of open file.
+
+    Variables : NONE
+
+
+-------------------------------------------------------------------------
+                                                       11. SERVER SECTION
+-------------------------------------------------------------------------
+
+    The API NetServerEnum was replaced by NetServerEnum2 and is not
+    supported.
+
+                                                    NetServerAdminCommand
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetServerAdminCommand( server, command, result,
+                                             dummy, dummy, dummy, dummy )
+
+    Purpose   : executes a command on a server. The output is queued
+                in the active REXX Queue.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                command:           contains the command to execute
+                rexx-buffer:       name of rexx variable containing the
+                                   result code of the command
+
+    Variables : NONE
+
+    Comment:    After the NetServerAdminCommand, the data is in the
+                REXX queue
+
+    Example:
+                /* REXX */
+                call rxfuncadd NetLoadFuncs, Rxlan30, NetLoadFuncs
+                CALL NetLoadFuncs
+
+                ret = NetServerAdminCommand( "\\SERVER", "DIR C:\",
+                                             "RESULT", "", "", "", "" )
+                IF ret = 0 THEN DO
+                   SAY "Result of DIR C:\ on Server \\SERVER: " || RESULT
+                   DO QUEUED()
+                      PULL line
+                      SAY line
+                      END
+                   END
+                CALL NetDropFuncs
+
+
+
+                                                        NetServerDiskEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetServerDiskEnum( server, level, buffer, dummy,
+                                         eread, dummy )
+
+    Purpose   : retrieves a list of disk drives on a workstation.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0
+                rexx-buffer:       name of rexx variable containing
+                                   list of found drives
+                eread:             number of entries found
+
+    Variables : Array of found drives (n=0..eread-1)
+
+                BUFFER.n
+
+
+
+                                                           NetServerEnum2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetServerEnum2( server, level, buffer, dummy,
+                                      eread, dummy, servertype, domain )
+
+    Purpose   : enumerates the set of all servers visible on the network.
+                The type of NetServerEnum2 matches the bit mask in the
+                field.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.(where the command will be executed)
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing
+                                   server data
+                eread:             number of found servers
+                servertype:        specifies the types of servers to
+                                   enumerate.
+                                   This parameter is tested against the
+                                   svx_type element of each entry. Entries
+                                   that match at least one of the specified
+                                   bits are included in the returned buffer
+                                   and in the counts returned.
+                                   svx_type, where x is 1, 2, or 3, and their
+                                   values defined:
+                                   Bit Mask        Type of Software
+                                   _________________________________________
+                                   0x00000001      Workstation
+                                   0x00000002      Server
+                                   0x00000004      SQL server
+                                   0x00000008      Domain controller
+                                   0x00000010      Backup domain controller
+                                   0x00000020      Time server
+                                   0x00000040      Apple** File Protocol
+                                                   (AFP) service
+                                   0x00000080      Novell** service
+                                   0xFFFFFFFF      All types of servers
+
+                domain             points to the servers in this domain.
+
+    Variables : level=0:           (n=0..eread-1)
+                BUFFER.n.sv0_name
+
+                level=1            (n=0..eread-1)
+                BUFFER.n.sv1_name[CNLEN + 1]
+                BUFFER.n.sv1_version_major
+                BUFFER.n.sv1_version_minor
+                BUFFER.n.sv1_type
+                BUFFER.n.sv1_comment
+
+
+
+                                                         NetServerGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetServerGetInfo( server, level, buffer, dummy,
+                                        dummy )
+
+    Purpose   : retrieves information about a particular server.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             1, 2, 3
+                rexx-buffer:       name of rexx variable containing
+                                   server data
+
+    Variables :
+                level=1
+                BUFFER.sv1_name
+                BUFFER.sv1_version_major
+                BUFFER.sv1_version_minor
+                BUFFER.sv1_type
+                BUFFER.sv1_comment
+
+                level = 2
+                BUFFER.SV2_name
+                BUFFER.SV2_version_major
+                BUFFER.SV2_version_minor
+                BUFFER.SV2_type
+                BUFFER.SV2_comment
+                BUFFER.SV2_ulist_mtime
+                BUFFER.SV2_glist_mtime
+                BUFFER.SV2_alist_mtime
+                BUFFER.SV2_users
+                BUFFER.SV2_disc
+                BUFFER.SV2_alerts
+                BUFFER.SV2_security
+                BUFFER.SV2_auditing
+                BUFFER.SV2_numadmin
+                BUFFER.SV2_lanmask
+                BUFFER.SV2_hidden
+                BUFFER.SV2_announce
+                BUFFER.SV2_anndelta
+                BUFFER.SV2_guestacct
+                BUFFER.SV2_pad1
+                BUFFER.SV2_userpath
+                BUFFER.SV2_chdevs
+                BUFFER.SV2_chdevq
+                BUFFER.SV2_chdevjobs
+                BUFFER.SV2_connections
+                BUFFER.SV2_shares
+                BUFFER.SV2_openfiles
+                BUFFER.SV2_sessopens
+                BUFFER.SV2_sessvcs
+                BUFFER.SV2_sessreqs
+                BUFFER.SV2_opensearch
+                BUFFER.SV2_activelocks
+                BUFFER.SV2_numreqbuf
+                BUFFER.SV2_sizreqbuf
+                BUFFER.SV2_numbigbuf
+                BUFFER.SV2_numfiletasks
+                BUFFER.SV2_alertsched
+                BUFFER.SV2_erroralert
+                BUFFER.SV2_logonalert
+                BUFFER.SV2_accessalert
+                BUFFER.SV2_diskalert
+                BUFFER.SV2_netioalert
+                BUFFER.SV2_maxauditsz
+                BUFFER.SV2_srvheuristics
+
+                level = 3
+                BUFFER.SV3_name
+                BUFFER.SV3_version_major
+                BUFFER.SV3_version_minor
+                BUFFER.SV3_type
+                BUFFER.SV3_comment
+                BUFFER.SV3_ulist_mtime
+                BUFFER.SV3_glist_mtime
+                BUFFER.SV3_alist_mtime
+                BUFFER.SV3_users
+                BUFFER.SV3_disc
+                BUFFER.SV3_alerts
+                BUFFER.SV3_security
+                BUFFER.SV3_auditing
+                BUFFER.SV3_numadmin
+                BUFFER.SV3_lanmask
+                BUFFER.SV3_hidden
+                BUFFER.SV3_announce
+                BUFFER.SV3_anndelta
+                BUFFER.SV3_guestacct
+                BUFFER.SV3_pad1
+                BUFFER.SV3_userpath
+                BUFFER.SV3_chdevs
+                BUFFER.SV3_chdevq
+                BUFFER.SV3_chdevjobs
+                BUFFER.SV3_connections
+                BUFFER.SV3_shares
+                BUFFER.SV3_openfiles
+                BUFFER.SV3_sessopens
+                BUFFER.SV3_sessvcs
+                BUFFER.SV3_sessreqs
+                BUFFER.SV3_opensearch
+                BUFFER.SV3_activelocks
+                BUFFER.SV3_numreqbuf
+                BUFFER.SV3_sizreqbuf
+                BUFFER.SV3_numbigbuf
+                BUFFER.SV3_numfiletasks
+                BUFFER.SV3_alertsched
+                BUFFER.SV3_erroralert
+                BUFFER.SV3_logonalert
+                BUFFER.SV3_accessalert
+                BUFFER.SV3_diskalert
+                BUFFER.SV3_netioalert
+                BUFFER.SV3_maxauditsz
+                BUFFER.SV3_srvheuristics
+                BUFFER.SV3_auditedevents
+                BUFFER.SV3_autoprofile
+                BUFFER.SV3_autopath
+    
+
+
+                                                         NetServerSetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetServerSetInfo( server, level, buffer, dummy,
+                                        parmnum )
+
+    Purpose   : changes information about a particular server.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             1, 2, 3
+                rexx-buffer:       name of rexx variable containing
+                                   server data
+                paramnum:          determines whether buf contains a
+                                   complete server_info data array or a
+                                   single data component.  If parmnum is 0,
+                                   buf must contain a server_info_1,
+                                   server_info_2, or server_info_3 data
+                                   structure.
+                                   Otherwise, parmnum must specify the
+                                   ordinal position value for one of the
+                                   following data structure components:
+                                    Value    Component
+                                   ______________________________________
+                                    5      svx_comment or sv1_comment
+                                   10      svx_disc
+                                   11      svx_alerts
+                                   16      svx_hidden
+                                   17      svx_announce
+                                   18      svx_anndelta
+                                   37      svx_alertsched
+                                   38      svx_erroralert
+                                   39      svx_logonalert
+                                   40      svx_accessalert
+                                   41      svx_diskalert
+                                   42      svx_netioalert
+                                   43      svx_maxauditsz
+                                   where x is equal to either 2 or 3.
+
+    Variables : For a list of used variables, please view the
+                NetServerGetInfo  API description above.
+    
+
+-------------------------------------------------------------------------
+                                                      12. SESSION SECTION
+-------------------------------------------------------------------------
+
+    The following API were only held in the NETAPI libary for
+    compatibility reasons are are not supported by REXXLAN.
+      - NetFileClose           (replaced by NetFileClose2)
+      - NetFileEnum            (replaced by NetFileEnum2)
+      - NetFileGetInfo         (replaced by NetFileGetInfo2)
+
+
+
+                                                           NetSessionEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetSessionEnum( server, level, buffer, dummy,
+                                      eread, dummy )
+
+    Purpose   : supplies information about all sessions on the server.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1, 2, 10
+                rexx-buffer:       name of rexx variable containing
+                                   session data
+                eread:             contains number of entries found
+
+    Variables : level=0            (n=0..eread-1)
+                BUFFER.n.SESI0_cname
+  
+                level=1            (n=0..eread-1)
+                BUFFER.n.SESI1_cname
+                BUFFER.n.SESI1_username
+                BUFFER.n.SESI1_num_cons
+                BUFFER.n.SESI1_num_opens
+                BUFFER.n.SESI1_num_users
+                BUFFER.n.SESI1_sess_time
+                BUFFER.n.SESI1_idle_time
+                BUFFER.n.SESI1_user_flags
+
+                level=2            (n=0..eread-1)
+                BUFFER.n.SESI2_cname
+                BUFFER.n.SESI2_username
+                BUFFER.n.SESI2_num_conns
+                BUFFER.n.SESI2_num_opens
+                BUFFER.n.SESI2_num_users
+                BUFFER.n.SESI2_sess_time
+                BUFFER.n.SESI2_idle_time
+                BUFFER.n.SESI2_user_flags
+                BUFFER.n.SESI2_cltype_name
+
+                level=10           (n=0..eread-1)
+                BUFFER.n.SESI10_cname
+                BUFFER.n.SESI10_username
+                BUFFER.n.SESI10_sess_time
+                BUFFER.n.SESI10_idle_time
+
+
+
+                                                        NetSessionGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetSessionGetInfo( server, client, level, buffer,
+                                         dummy, dummy )
+
+    Purpose   : retrieves information about a particular session on a server
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                client:            workstation name whose session is to
+                                   be monitored
+                level:             0, 1, 2, 10
+                rexx-buffer:       name of rexx variable containing
+                                   session data
+
+    Variables : level=0
+                BUFFER.SESI0_cname
+  
+                level=1
+                BUFFER.SESI1_cname
+                BUFFER.SESI1_username
+                BUFFER.SESI1_num_cons
+                BUFFER.SESI1_num_opens
+                BUFFER.SESI1_num_users
+                BUFFER.SESI1_sess_time
+                BUFFER.SESI1_idle_time
+                BUFFER.SESI1_user_flags
+
+                level=2
+                BUFFER.SESI2_cname
+                BUFFER.SESI2_username
+                BUFFER.SESI2_num_conns
+                BUFFER.SESI2_num_opens
+                BUFFER.SESI2_num_users
+                BUFFER.SESI2_sess_time
+                BUFFER.SESI2_idle_time
+                BUFFER.SESI2_user_flags
+                BUFFER.SESI2_cltype_name
+
+                level=10
+                BUFFER.SESI10_cname
+                BUFFER.SESI10_username
+                BUFFER.SESI10_sess_time
+                BUFFER.SESI10_idle_time
+
+
+
+                                                            NetSessionDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetSessionDel( server, client-name, dummy )
+
+    Purpose   : forces a close to a session
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                client-name:       name of client whose session is to
+                                   be closed
+
+    Variables : NONE
+
+
+-------------------------------------------------------------------------
+                                                        13. SHARE SECTION
+-------------------------------------------------------------------------
+
+                                                              NetShareAdd
+-------------------------------------------------------------------------
+    Syntax    : ret = NetShareAdd( server, level, rexx-buffer, dummy )
+
+    Purpose   : Adds a shared resource on a server
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server      - UNC servername like \\SERVER1
+                level         must be 2
+                rexx-buffer - name of  REXX variable containing the
+                              share info data
+
+    Variables :
+                The following variables must be set:
+                BUFFER.SHI2_netname
+                BUFFER.SHI2_type
+                BUFFER.SHI2_remark
+                BUFFER.SHI2_permissions
+                BUFFER.SHI2_max_uses
+                BUFFER.SHI2_current_uses
+                BUFFER.SHI2_path
+                BUFFER.SHI2_passwd
+
+
+
+                                                          NetShareGetInfo
+-------------------------------------------------------------------------
+    Syntax    : ret = NetShareGetInfo( server, netname, level,
+                                       rexx-buffer, dummy, dummy )
+
+    Purpose   : Get information a shared resource on a server
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:       UNC servername like \\SERVER1
+                netname:      Alias for a resource
+                level         0, 1, 2
+                rexx-buffer   name of  REXX variable containing the
+                              share info datas
+
+    Variables :
+                level = 0:
+                BUFFER.SHI0_netname
+
+                level = 1:
+                BUFFER.SHI1_netname
+                BUFFER.SHI1_type
+                BUFFER.SHI1_remark
+
+                level = 2:
+                BUFFER.SHI2_netname
+                BUFFER.SHI2_type
+                BUFFER.SHI2_remark
+                BUFFER.SHI2_permissions
+                BUFFER.SHI2_max_uses
+                BUFFER.SHI2_current_uses
+                BUFFER.SHI2_path
+                BUFFER.SHI2_passwd
+
+
+
+
+                                                          NetShareSetInfo
+-------------------------------------------------------------------------
+    Syntax    : ret = NetShareSetInfo( server, netname, level,
+                                       rexx-buffer, dummy, parmnum )
+
+    Purpose   : Set information a shared resource on a server
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:       UNC servername like \\SERVER1
+                netname:      Alias for a resource
+                level         1, 2
+                rexx-buffer   name of  REXX variable containing the
+                              share info datas
+                parmnum:      specifies whether a specific component of
+                              the share_info or the entire data structure
+                              is being set.  If parmnum is 0, then buf
+                              must contain a complete share_info data array.
+                              Otherwise, parmnum must pass the ordinal
+                              position value for one of the following
+                              share_info_2 data structure  components:
+
+                              Value       Component
+                              _________________________________________
+                                 4        shi1_remark or shi2_remark
+                                 6        shi2_max_uses
+
+    Variables :
+                Refer to NetShareGetInfo to get details of used variables.
+
+
+
+
+                                                            NetShareCheck
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAccessCheck( server, device, type )
+
+    Purpose   : queries whether a server is sharing a device.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:       contains the name of the remote server on
+                              which the function is to execute
+                device:       contains the name of the device to be
+                              checked.
+                type:         indicates the type of shared device:
+                              Value        Share Type
+                              _____________________________________________
+                                0          Disk drive
+                                1          Spooler queue
+                                2          Serial device
+                                3          Interprocess communication (IPC)
+
+    Variables : NONE
+
+
+                                                             NetShareEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetShareEnum( server, level, buffer, dummy, eread,
+                                    dummy )
+
+    Purpose   : lists shared resources
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:       name of server, e.g. \\SERVER1
+                level:        0, 1, 2
+                Rexx-buffer:  name of Rexx variable, containing the found
+                              resources
+                eread:        Rexx variable containing the number of
+                              resources found
+
+    Variables :
+                level = 0:    (n=0..eread-1)
+                BUFFER.n.SHI0_netname
+
+                level = 1:    (n=0..eread-1)
+                BUFFER.n.SHI1_netname
+                BUFFER.n.SHI1_type
+                BUFFER.n.SHI1_remark
+
+                level = 2:    (n=0..eread-1)
+                BUFFER.n.SHI2_netname
+                BUFFER.n.SHI2_type
+                BUFFER.n.SHI2_remark
+                BUFFER.n.SHI2_permissions
+                BUFFER.n.SHI2_max_uses
+                BUFFER.n.SHI2_current_uses
+                BUFFER.n.SHI2_path
+                BUFFER.n.SHI2_passwd
+
+
+
+
+                                                              NetShareDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetShareDel( server, netname, dummy )
+
+    Purpose   : Stops sharing a resource
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server :   name of server (e.g. "\\SERVER1")
+                netname:   name of the shared resource
+
+    Variables : NONE
+
+
+-------------------------------------------------------------------------
+                                                   14. STATISTICS SECTION
+-------------------------------------------------------------------------
+
+     The NetStatisticsGet and NetStatisticsClear are replaced by
+     NetStatisticsGet2 and are now obsolete.
+
+
+
+                                                        NetStatisticsGet2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetStatisticsGet2( server, service, dummy, dummy,
+                                         option, buffer, dummy, dummy )
+
+    Purpose   : retrieves and optionally clears operating statistics for
+                a service.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                servicename:       service name for which to get the
+                                   statistics.
+                                   Only SERVER and REQUESTER are allowed
+                                   for the servicename.  Other names will
+                                   produce the ERROR_NOT_SUPPORTED error
+                                   code.
+                level              must be 0
+                options:           The options parameter is bitmapped
+                                   as follows:
+                                   Bit    Mask   Meaning
+                                   ______________________________________
+                                   0      0x1    Clear statistics after
+                                                 retrieval.
+                                   1-31          Must be 0.
+   
+                rexx-buffer:       name of rexx variable containing
+                                   service data
+
+    Variables : If service = "REQUESTER"
+                BUFFER.STw0_start
+                BUFFER.STw0_numNCB_r
+                BUFFER.STw0_numNCB_s
+                BUFFER.STw0_numNCB_a
+                BUFFER.STw0_fiNCB_r
+                BUFFER.STw0_fiNCB_s
+                BUFFER.STw0_fiNCB_a
+                BUFFER.STw0_fcNCB_r
+                BUFFER.STw0_fcNCB_s
+                BUFFER.STw0_fcNCB_a
+                BUFFER.STw0_sesstart
+                BUFFER.STw0_sessfailcon
+                BUFFER.STw0_sessbroke
+                BUFFER.STw0_uses
+                BUFFER.STw0_usefail
+                BUFFER.STw0_autorec
+                BUFFER.STw0_bytessent_r_high
+                BUFFER.STw0_bytessent_r_low
+                BUFFER.STw0_bytesrcvd_r_high
+                BUFFER.STw0_bytesrcvd_r_low
+                BUFFER.STw0_bytessent_s_high
+                BUFFER.STw0_bytessent_s_low
+                BUFFER.STw0_bytesrcvd_s_high
+                BUFFER.STw0_bytesrcvd_s_low
+                BUFFER.STw0_bytessent_a_high
+                BUFFER.STw0_bytessent_a_low
+                BUFFER.STw0_bytesrcvd_a_high
+                BUFFER.STw0_bytesrcvd_a_low
+                BUFFER.STw0_reqbufneed
+                BUFFER.STw0_bigbufneed
+
+                If service = "SERVER"
+                BUFFER.STs0_start
+                BUFFER.STs0_fopens
+                BUFFER.STs0_devopens
+                BUFFER.STs0_jobsqueued
+                BUFFER.STs0_sopens
+                BUFFER.STs0_stimedout
+                BUFFER.STs0_serrorout
+                BUFFER.STs0_pwerrors
+                BUFFER.STs0_permerrors
+                BUFFER.STs0_syserrors
+                BUFFER.STs0_bytessent_high
+                BUFFER.STs0_bytessent_low
+                BUFFER.STs0_bytesrcvd_high
+                BUFFER.STs0_bytesrcvd_low
+                BUFFER.STs0_avresponse
+                BUFFER.STs0_reqbufneed
+                BUFFER.STs0_bigbufneed
+
+-------------------------------------------------------------------------
+                                                        15. GROUP SECTION
+-------------------------------------------------------------------------
+
+                                                              NetGroupAdd
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupAdd( server, level, buffer, dummy )
+
+    Purpose   : creates a new group account in the UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing
+                                   group data
+
+    Variables : level = 0
+                BUFFER.grpi0_name
+
+                level = 1
+                BUFFER.grpi1_name
+                BUFFER.grpi1_comment
+
+
+
+                                                             NetGroupEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupEnum( server, level, buffer, dummy,
+                                    eread, dummy )
+
+    Purpose   : Retrieves all group accounts in the UAS database
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing
+                                   group data
+                eread:             number of entries found
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.grpi0_name
+
+                level = 1          (n=0..eread-1)
+                BUFFER.n.grpi1_name
+                BUFFER.n.grpi1_comment
+
+
+
+                                                              NetGroupDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupDel( server, group )
+
+    Purpose   : removes a group account in the UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group:             name of group to remove
+
+    Variables : NONE
+
+
+
+                                                          NetGroupAddUser
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupAddUser( server, group, user )
+
+    Purpose   : Adds a user-ID to a group account in the UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group:             name of group
+                user:              name of user to add to group
+
+    Variables : NONE
+
+
+
+                                                          NetGroupDelUser
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupDelUser( server, group, user )
+
+    Purpose   : Removes a user-ID from a group account in the UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group:             name of group
+                user:              name of user to remove from group
+
+    Variables : NONE
+
+
+
+                                                          NetGroupGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupGetInfo( server, group, level, buffer,
+                                       dummy, dummy )
+
+    Purpose   : queries informmation about a group account in the UAS
+                database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group:             group to get information
+                level:             1
+                rexx-buffer:       name of rexx variable containing
+                                   group data
+
+    Variables : level = 1
+                BUFFER.grpi1_name
+                BUFFER.grpi1_comment
+
+
+
+                                                          NetGroupSetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupSetInfo( server, group, level, buffer,
+                                       dummy, dummy )
+
+    Purpose   : changes informmation about a group account in the
+                UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group:             group to get information
+                level:             1
+                rexx-buffer:       name of rexx variable containing group
+                                   data
+
+    Variables : level = 1
+                BUFFER.grpi1_name
+                BUFFER.grpi1_comment
+
+
+
+                                                         NetGroupGetUsers
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupGetUsers( server, group, level, buffer,
+                                        dummy, eread, dummy )
+
+    Purpose   : gets a list of all users of a group
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group              name of group to get user list
+                level:             0
+                rexx-buffer:       name of rexx variable containing user
+                                   list
+                eread:             number of entries found
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.grui0_name
+
+
+
+                                                         NetGroupSetUsers
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupSetUsers( server, group, level, buffer,
+                                        dummy, entries )
+
+    Purpose   : joins a list of users for a group
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group              name of group to set user list
+                level:             0
+                rexx-buffer:       name of rexx variable containing user
+                                   list
+                entries:           number of entries to set
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.grui0_name
+
+-------------------------------------------------------------------------
+                                                       16.  USER SECTION
+-------------------------------------------------------------------------
+
+
+                                                              NetUserAdd
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserAdd( server, level, buffer, dummy )
+
+    Purpose   : creates a new user account in the UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             1, 2
+                rexx-buffer:       name of rexx variable containing
+                                   user data
+
+    Variables : level = 1
+                BUFFER.USRI1_name
+                BUFFER.USRI1_pad_1
+                BUFFER.USRI1_password
+                BUFFER.USRI1_password_age
+                BUFFER.USRI1_priv
+                BUFFER.USRI1_home_dir
+                BUFFER.USRI1_comment
+                BUFFER.USRI1_flags
+                BUFFER.USRI1_script_path
+
+                level = 2
+                BUFFER.USRI2_name
+                BUFFER.USRI2_password
+                BUFFER.USRI2_password_age
+                BUFFER.USRI2_priv
+                BUFFER.USRI2_home_dir
+                BUFFER.USRI2_comment
+                BUFFER.USRI2_flags
+                BUFFER.USRI2_script_path
+                BUFFER.USRI2_auth_flags
+                BUFFER.USRI2_full_name
+                BUFFER.USRI2_usr_comment
+                BUFFER.USRI2_parms
+                BUFFER.USRI2_workstations
+                BUFFER.USRI2_last_logon
+                BUFFER.USRI2_last_logoff
+                BUFFER.USRI2_acct_expires
+                BUFFER.USRI2_max_storage
+                BUFFER.USRI2_units_per_week
+                BUFFER.USRI2_logon_hours
+                BUFFER.USRI2_bad_pw_count
+                BUFFER.USRI2_num_logons
+                BUFFER.USRI2_logon_server
+                BUFFER.USRI2_country_code
+                BUFFER.USRI2_code_page
+
+
+
+                                                             NetUserEnum
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserEnum( server, level, buffer, dummy, eread,
+                                   dummy )
+
+    Purpose   : Retrieves all user accounts in the UAS database
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1, 2, 10
+                rexx-buffer:       name of rexx variable containing user
+                                   data
+                eread:             number of entries found
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.usri0_name
+
+                level = 1          (n=0..eread-1)
+                BUFFER.n.USRI1_name
+                BUFFER.n.USRI1_pad_1
+                BUFFER.n.USRI1_password
+                BUFFER.n.USRI1_password_age
+                BUFFER.n.USRI1_priv
+                BUFFER.n.USRI1_home_dir
+                BUFFER.n.USRI1_comment
+                BUFFER.n.USRI1_flags
+                BUFFER.n.USRI1_script_path
+
+                level = 2          (n=0..eread-1)
+                BUFFER.n.USRI2_name
+                BUFFER.n.USRI2_password
+                BUFFER.n.USRI2_password_age
+                BUFFER.n.USRI2_priv
+                BUFFER.n.USRI2_home_dir
+                BUFFER.n.USRI2_comment
+                BUFFER.n.USRI2_flags
+                BUFFER.n.USRI2_script_path
+                BUFFER.n.USRI2_auth_flags
+                BUFFER.n.USRI2_full_name
+                BUFFER.n.USRI2_usr_comment
+                BUFFER.n.USRI2_parms
+                BUFFER.n.USRI2_workstations
+                BUFFER.n.USRI2_last_logon
+                BUFFER.n.USRI2_last_logoff
+                BUFFER.n.USRI2_acct_expires
+                BUFFER.n.USRI2_max_storage
+                BUFFER.n.USRI2_units_per_week
+                BUFFER.n.USRI2_logon_hours
+                BUFFER.n.USRI2_bad_pw_count
+                BUFFER.n.USRI2_num_logons
+                BUFFER.n.USRI2_logon_server
+                BUFFER.n.USRI2_country_code
+                BUFFER.n.USRI2_code_page
+ 
+                level = 10         (n=0..eread-1)
+                BUFFER.n.USRI10_name
+                BUFFER.n.USRI10_comment
+                BUFFER.n.USRI10_usr_comment
+                BUFFER.n.USRI10_full_name
+
+
+
+                                                               NetUserDel
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserDel( server, user )
+
+    Purpose   : removes a user account in the UAS database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              name of user to remove
+
+    Variables : NONE
+
+
+
+                                                           NetUserGetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserGetInfo( server, user, level, buffer, dummy,
+                                      dummy )
+
+    Purpose   : queries informmation about a user account in the UAS
+                database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              user to get information
+                level:             0, 1, 2, 10, 11
+                rexx-buffer:       name of rexx variable containing
+                                   user data
+
+    Variables : level = 0
+                BUFFER.usri0_name
+
+                level = 1
+                BUFFER.USRI1_name
+                BUFFER.USRI1_pad_1
+                BUFFER.USRI1_password
+                BUFFER.USRI1_password_age
+                BUFFER.USRI1_priv
+                BUFFER.USRI1_home_dir
+                BUFFER.USRI1_comment
+                BUFFER.USRI1_flags
+                BUFFER.USRI1_script_path
+
+                level = 2
+                BUFFER.USRI2_name
+                BUFFER.USRI2_password
+                BUFFER.USRI2_password_age
+                BUFFER.USRI2_priv
+                BUFFER.USRI2_home_dir
+                BUFFER.USRI2_comment
+                BUFFER.USRI2_flags
+                BUFFER.USRI2_script_path
+                BUFFER.USRI2_auth_flags
+                BUFFER.USRI2_full_name
+                BUFFER.USRI2_usr_comment
+                BUFFER.USRI2_parms
+                BUFFER.USRI2_workstations
+                BUFFER.USRI2_last_logon
+                BUFFER.USRI2_last_logoff
+                BUFFER.USRI2_acct_expires
+                BUFFER.USRI2_max_storage
+                BUFFER.USRI2_units_per_week
+                BUFFER.USRI2_logon_hours
+                BUFFER.USRI2_bad_pw_count
+                BUFFER.USRI2_num_logons
+                BUFFER.USRI2_logon_server
+                BUFFER.USRI2_country_code
+                BUFFER.USRI2_code_page
+ 
+                level = 10
+                BUFFER.USRI10_name
+                BUFFER.USRI10_comment
+                BUFFER.USRI10_usr_comment
+                BUFFER.USRI10_full_name
+ 
+                level = 11
+                BUFFER.USRI11_name
+                BUFFER.USRI11_comment
+                BUFFER.USRI11_usr_comment
+                BUFFER.USRI11_full_name
+                BUFFER.USRI11_priv
+                BUFFER.USRI11_auth_flags
+                BUFFER.USRI11_password_age
+                BUFFER.USRI11_home_dir
+                BUFFER.USRI11_parms
+                BUFFER.USRI11_last_logon
+                BUFFER.USRI11_last_logoff
+                BUFFER.USRI11_bad_pw_count
+                BUFFER.USRI11_num_logons
+                BUFFER.USRI11_logon_server
+                BUFFER.USRI11_country_code
+                BUFFER.USRI11_workstations
+                BUFFER.USRI11_max_storage
+                BUFFER.USRI11_units_per_week
+                BUFFER.USRI11_logon_hours
+                BUFFER.USRI11_code_page
+
+
+
+                                                           NetUserSetInfo
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserSetInfo( server, user, level, buffer, dummy,
+                                      parmnum )
+
+    Purpose   : changes information about a user account in the UAS
+                database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                group:             group to get information
+                level:             1, 2
+                parmnum            determines whether buf contains a
+                                   complete user_info data structure or
+                                   a single component.  If parmnum is 0,
+                                   level can be 1 or 2, and buf must
+                                   contain a complete user_info_1 or
+                                   user_info_2 data structure.
+                                   Otherwise, parmnum must specify the
+                                   ordinal position value for one of the
+                                   following data structure components:
+                                   Value      Component
+                                   ___________________________________
+                                       0      user_info_x
+                                       1      usrix_name
+                                       2      usrix_pad_1
+                                       3      usrix_password
+                                       4      usrix_password_age
+                                       5      usrix_priv
+                                       6      usrix_home_dir
+                                       7      usrix_comment
+                                       8      usrix_flags
+                                       9      usrix_script_path
+                                      10      usri2_auth_flags
+                                      11      usri2_full_name
+                                      12      usri2_usr_comment
+                                      13      usri2_parms
+                                      14      usri2_workstations
+                                      15      usri2_last_logon
+                                      16      usri2_last_logoff
+                                      17      usri2_acct_expires
+                                      18      usri2_max_storage
+                                      19      usri2_units_per_week
+                                      20      usri2_logon_hours
+                                      21      usri2_bad_pw_count
+                                      22      usri2_num_logons
+                                      23      usri2_logon_server
+                                      24      usri2_country_code
+                                      25      usri2_code_page
+                                     100      usrix_password_age
+                                    Note:  x = 1 or 2.
+                
+                rexx-buffer:       name of rexx variable containing group
+                                   data
+
+    Variables : For a description of the used variables, please refer
+                to the NetUserGetInfo section.
+
+
+
+                                                         NetUserGetGroups
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetGroupGetUsers( server, user, level, buffer,
+                                        dummy, eread, dummy )
+
+    Purpose   : gets a list groups a user belongs to
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user               name of user to get group list
+                level:             0
+                rexx-buffer:       name of rexx variable containing
+                                   group list
+                eread:             number of entries found
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.grpi0_name
+
+
+
+                                                         NetUserSetGroups
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserSetGroups( server, user, level, buffer,
+                                        dummy, entries )
+
+    Purpose   : user joins the groups in the list specified
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user               name of user to set group list
+                level:             0
+                rexx-buffer:       name of rexx variable containing
+                                   group list
+                entries:           number of entries to set
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.grpi0_name
+
+
+                                                       NetUserPasswordSet
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserPasswordSet( server, user, old, new )
+
+    Purpose   :
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              user-ID whose password to change
+                old                the currently used password
+                new:               the new password to set
+
+    Variables : NONE
+
+    Comment:    NOTE !
+                The Password API is CASE SENSITIVE !
+                It is strongly recommended, to use only upper case
+                character and only standard ASCII character, because
+                the LAN servers and user profile interface only accept
+                these characters.
+
+
+
+                                                         NetUserModalsGet
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserModalsGet( server, level, buffer, dummy,
+                                        dummy )
+
+    Purpose   : gets global modals-related information for all users and
+                groups in the user accounts subsystem (UAS) database.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing modal
+                                   data
+
+    Variables : level = 0
+                BUFFER.USRMOD0_min_passwd_len
+                BUFFER.USRMOD0_max_passwd_age
+                BUFFER.USRMOD0_min_passwd_age
+                BUFFER.USRMOD0_force_logoff
+                BUFFER.USRMOD0_password_hist_len
+
+                level = 1
+                BUFFER.USRMOD1_role
+                BUFFER.USRMOD1_primary
+
+
+
+                                                         NetUserModalsSet
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserModalsGet( server, level, buffer, dummy,
+                                        dummy )
+
+    Purpose   : sets global modals-related information for all users and
+                groups in the user accounts subsystem (UAS) database.
+                The parmnum field is not supported.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1
+                rexx-buffer:       name of rexx variable containing modal
+                                   data
+
+    Variables : For a description of the used variables, please refer to
+                NetUserModalsGet
+
+
+
+                                                         NetUserValidate2
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserValidate2( dummy, level, buffer, dummy,
+                                        dummy, dummy )
+
+    Purpose   : validates a user with its password. It checks if the user can
+                log on based on logon restrictions defined for the account.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : level              specifies the level of detail (1) supplied
+                                   to the user_logon data structure.
+                rexx-buffer:       At logon the rexx-buffer contains the name
+                                   of the variable, containing a
+                                   user_logon_req_1 array.
+                                   The API creates variables supplying a
+                                   user_logon_info_1 array.
+
+    Variables : Before calling the API, these variables are neccessary:
+                BUFFER.USRreq1_name
+                BUFFER.USRreq1_password
+                BUFFER.USRreq1_workstation
+ 
+                On return, these variables are found.
+                BUFFER.USRlog1_code
+                BUFFER.USRlog1_eff_name
+                BUFFER.USRlog1_priv
+                BUFFER.USRlog1_auth_flags
+                BUFFER.USRlog1_num_logons
+                BUFFER.USRlog1_bad_pw_count
+                BUFFER.USRlog1_last_logon
+                BUFFER.USRlog1_last_logoff
+                BUFFER.USRlog1_logoff_time
+                BUFFER.USRlog1_kickoff_time
+                BUFFER.USRlog1_password_age
+                BUFFER.USRlog1_pw_can_change
+                BUFFER.USRlog1_pw_must_change
+                BUFFER.USRlog1_computer
+                BUFFER.USRlog1_domain
+                BUFFER.USRlog1_script_path
+
+
+                                          NetUserDCDBInit (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserDCDBInit( server, user, dummy )
+
+    Purpose   : initializes the domain control database for the
+                specified user.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              specifies the user ID of a user that
+                                   is defined on the domain.
+
+    Variables : NONE
+    
+
+
+                                         NetUserGetAppSel (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserGetAppSel( server, user, level, type,
+                                        buffer, dummy, dummy )
+
+    Purpose   : retrieves information about all specified types of
+                applications contained in the user's desktop application
+                folders.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              specifies the user ID of a user that
+                                   is defined on the domain.
+                level              specifies the level of information
+                                   requested.  Currently, only level 1 is
+                                   supported.
+                type:              indicates the types of application to
+                                   retrieve:
+                                   Value     Meaning
+                                   ___________________________________
+                                   0x1       Public DOS applications
+                                   0x2       Public OS/2 applications
+                                   0x4       Private OS/2 applications
+                                   0x7       All applications
+                rexx-buffer:       name of rexx variable containing
+                                   application data
+
+    Variables :
+                BUFFER.asi1_count
+
+                Followed by (n=0..BUFFER.asi1_count) arrays:
+                BUFFER.n.asl_appname
+                BUFFER.n.asl_apptype
+
+
+
+                                         NetUserSetAppSel (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserGetAppSel( server, user, level, buffer,
+                                        dummy )
+
+    Purpose   : changes information about all specified types of
+                applications contained in the user's desktop
+                application folders.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              specifies the user ID of a user that
+                                   is defined on the domain.
+                level              specifies the level of information
+                                   requested.  Currently, only level 1
+                                   is supported.
+                rexx-buffer:       name of rexx variable containing
+                                   application data
+
+    Variables : The variables used are matching these of the
+                NetUserGetApp API.
+
+
+
+                                       NetUserGetLogonAsn (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserGetLogonAsn( server, user, level, type,
+                                          buffer, dummy, dummy )
+
+    Purpose   : retrieves information about logon assignments for a user.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              name of user to modify logon
+                                   assignments
+                level:             1
+                type:              indicates the types of logon
+                                   assignments:
+                                   Bit Mask   Meaning
+                                   _____________________________________
+                                   0x0001    Network nickname used
+                                             for a file.
+                                   0x0002    Network nickname used
+                                             for a printer.
+                                   0x0004    Network nickname used
+                                             for a serial device.
+                rexx-buffer:       name of rexx variable containing
+                                   assignment data
+
+    Variables : BUFFER.lai1_count
+
+                followed by n=0..BUFFER.lai1_count alias arrays:
+                BUFFER.n.lal_alias
+                BUFFER.n.lal_type
+                BUFFER.n.lal_device
+
+
+
+                                       NetUserSetLogonAsn (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetUserSetLogonAsn( server, user, level, buffer,
+                                          dummy )
+
+    Purpose   : sets information about logon assignments for a user.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              name of user to modify logon
+                                   assignments
+                level:             1
+                rexx-buffer:       name of rexx variable containing
+                                   assignment data
+
+    Variables : BUFFER.lai1_count
+
+                followed by n=0..BUFFER.lai1_count alias arrays:
+                BUFFER.n.lal_alias
+                BUFFER.n.lal_type
+                BUFFER.n.lal_device
+
+
+-------------------------------------------------------------------------
+                                                        17. ALIAS SECTION
+-------------------------------------------------------------------------
+
+                                              NetAliasAdd (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAliasAdd( server, level, buffer, dummy )
+
+    Purpose   : creates an alias definition
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             2
+                rexx-buffer:       name of rexx variable containing
+                                   alias data
+
+    Variables :
+                BUFFER.AI2_alias
+                BUFFER.AI2_remark
+                BUFFER.AI2_type
+                BUFFER.AI2_location
+                BUFFER.AI2_server
+                BUFFER.AI2_mode
+                BUFFER.AI2_maxuses
+                BUFFER.AI2_netname
+                BUFFER.AI2_queue
+                BUFFER.AI2_path
+                BUFFER.AI2_priority
+                BUFFER.AI2_device_pool
+
+
+
+
+                                              NetAliasDel (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAliasDel( server, alias, dummy )
+
+    Purpose   : deletes an alias definition
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                alias:             name of alias to delete
+
+    Variables : NONE
+
+
+
+                                             NetAliasEnum (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAliasEnum( server, level, type, buffer, dummy,
+                                    eread, dummy )
+
+    Purpose   : Returns a list of all aliases of a given type
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                level:             0, 1, 2
+                type               indicates the kind of alias to be
+                                   enumerated:
+                                   Bit Mask     Meaning
+                                   ______________________________________
+                                   0x0001       Files alias
+                                   0x0002       Printer alias
+                                   0x0004       Serial device alias
+
+                rexx-buffer:       name of rexx variable containing
+                                   alias data
+                eread:             number of entries found
+
+    Variables : level = 0
+                BUFFER.n.ai0_alias
+
+                level = 1
+                BUFFER.n.ai1_alias
+                BUFFER.n.ai1_remark
+                BUFFER.n.ai1_type
+
+                level = 2
+                BUFFER.n.AI2_alias
+                BUFFER.n.AI2_remark
+                BUFFER.n.AI2_type
+                BUFFER.n.AI2_location
+                BUFFER.n.AI2_server
+                BUFFER.n.AI2_mode
+                BUFFER.n.AI2_maxuses
+                BUFFER.n.AI2_netname
+                BUFFER.n.AI2_queue
+                BUFFER.n.AI2_path
+                BUFFER.n.AI2_priority
+                BUFFER.n.AI2_device_pool
+
+
+
+                                          NetAliasGetInfo (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAliasGetInfo( server, alias, level, buffer,
+                                       dummy, dummy )
+
+    Purpose   : returns information about a given alias
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                alias:             name of alias to get information
+                level:             0, 1, 2
+                rexx-buffer:       name of rexx variable containing
+                                   alias data
+
+    Variables : level = 0
+                BUFFER.ai0_alias
+
+                level = 1
+                BUFFER.ai1_alias
+                BUFFER.ai1_remark
+                BUFFER.ai1_type
+
+                level = 2
+                BUFFER.AI2_alias
+                BUFFER.AI2_remark
+                BUFFER.AI2_type
+                BUFFER.AI2_location
+                BUFFER.AI2_server
+                BUFFER.AI2_mode
+                BUFFER.AI2_maxuses
+                BUFFER.AI2_netname
+                BUFFER.AI2_queue
+                BUFFER.AI2_path
+                BUFFER.AI2_priority
+                BUFFER.AI2_device_pool
+
+
+
+                                          NetAliasSetInfo (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAliasSetInfo( server, alias, level, buffer,
+                                       dummy, parmnum )
+
+    Purpose   : set information about a given alias
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                alias:             name of alias to get information
+                level:             0, 1, 2
+                rexx-buffer:       name of rexx variable containing alias
+                                   data
+                parmnum:           determines whether buf contains a
+                                   complete alias_info data structure or
+                                   a single component.
+                                   If parmnum is 0, level can be 1 or 2,
+                                   and buf must contain a complete
+                                   alias_info data structure.  Otherwise,
+                                   parmnum must specify the ordinal
+                                   position value for one of the following
+                                   data structure components:
+                                   Value  Component       Comment
+                                   ___________________________________
+                                     3   aix_remark        -
+                                     7   aix_mode          -
+                                     8   aix_maxuses       -
+                                    13   aix_path          Valid for files
+                                                          aliases only
+                                    14   aix_priority      Valid for serial
+                                                          device aliases only
+                                    15   aix_device_pool   Valid for serial
+                                                          device aliases only
+                
+    Variables : For further information about used variables, please refer
+                to NetAliasGetInfo
+
+
+-------------------------------------------------------------------------
+                                                  18. APPLICATION SECTION
+-------------------------------------------------------------------------
+
+
+
+                                                NetAppAdd (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAppAdd( server, user, level, buffer, dummy )
+
+    Purpose   : Adds an application definition
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              indicates the application type. If
+                                   userid is NULL, the application is
+                                   considered to be a public application.
+                                   Otherwise, userid contains the user ID
+                                   of a user defined on the domain. A
+                                   userid that is not "" indicates
+                                   that the application to be added is
+                                   private.
+                level:             3
+                rexx-buffer:       name of rexx variable containing app
+                                   data
+
+    Variables : The API needs a app_info_3 array:
+                BUFFER.APP3_name
+                BUFFER.APP3_remark
+                BUFFER.APP3_command
+                BUFFER.APP3_command_parms
+                BUFFER.APP3_app_alias_or_drv
+                BUFFER.APP3_app_drive
+                BUFFER.APP3_app_path_to_dir
+                BUFFER.APP3_wrkdir_alias_or_drv
+                BUFFER.APP3_wrkdir_drive
+                BUFFER.APP3_wrkdir_path_to_dir
+                BUFFER.APP3_prompt
+                BUFFER.APP3_interface
+                BUFFER.APP3_apptype
+                BUFFER.APP3_res_count
+
+                followed by BUFFER.APP3_res_count app_res_list arrays.
+                                          (n=0..BUFFER.APP3_res_count-1)
+                BUFFER.n.ARL_alias
+                BUFFER.n.ARL_device
+
+
+
+
+                                                NetAppDel (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAppDel( server, user, appname, dummy )
+
+    Purpose   : deletes an application definition
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              indicates the application type. If
+                                   userid is NULL, the application is
+                                   considered to be a public application.
+                                   Otherwise, userid contains the user ID
+                                   of a user defined on the domain. A
+                                   userid that is not "" indicates that
+                                   the application to be removed is private.
+                appname:           name of application to delete
+
+    Variables : NONE
+
+
+
+                                               NetAppEnum (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAppEnum( server, userid, level, type, buffer,
+                                  dummy, eread, dummy )
+
+    Purpose   : enumerates all application of a given type.
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              indicates the application type. If
+                                   userid is NULL, the applications are
+                                   considered to be public applications.
+                                   Otherwise, userid contains the user ID
+                                   of a user defined on the domain. A
+                                   userid that is not "" indicates that
+                                   the applications to be enumerated are
+                                   private.
+                level:             0, 1, 2, 3
+                type               indicates the kind of application to be
+                                   enumerated:
+                                   Bit Mask     Meaning
+                                   _________________________________________
+                                   0x1          Public DOS applications
+                                   0x2          Public OS/2 applications
+                                   0x4          Private OS/2 applications
+                                   0x7          All applications
+                rexx-buffer:       name of rexx variable containing
+                                   app data
+
+    Variables : level = 0          (n=0..eread-1)
+                BUFFER.n.app0_name
+ 
+                level = 1          (n=0..eread-1)
+                BUFFER.n.app1_name
+                BUFFER.n.app1_remark
+ 
+                level = 2          (n=0..eread-1)
+                BUFFER.n.APP2_name
+                BUFFER.n.APP2_remark
+                BUFFER.n.APP2_command
+                BUFFER.n.APP2_command_parms
+                BUFFER.n.APP2_app_alias_or_drv
+                BUFFER.n.APP2_app_drive
+                BUFFER.n.APP2_app_path_to_dir
+                BUFFER.n.APP2_wrkdir_alias_or_drv
+                BUFFER.n.APP2_wrkdir_drive
+                BUFFER.n.APP2_wrkdir_path_to_dir
+                BUFFER.n.APP2_prompt
+                BUFFER.n.APP2_interface
+                BUFFER.n.APP2_apptype
+
+                level = 3          (n=0..eread-1)
+                BUFFER.n.APP3_name
+                BUFFER.n.APP3_remark
+                BUFFER.n.APP3_command
+                BUFFER.n.APP3_command_parms
+                BUFFER.n.APP3_app_alias_or_drv
+                BUFFER.n.APP3_app_drive
+                BUFFER.n.APP3_app_path_to_dir
+                BUFFER.n.APP3_wrkdir_alias_or_drv
+                BUFFER.n.APP3_wrkdir_drive
+                BUFFER.n.APP3_wrkdir_path_to_dir
+                BUFFER.n.APP3_prompt
+                BUFFER.n.APP3_interface
+                BUFFER.n.APP3_apptype
+                BUFFER.n.APP3_res_count
+
+                followed by BUFFER.APP3_res_count app_res_list arrays.
+                                          (i=0..BUFFER.n.APP3_res_count-1)
+                BUFFER.n.i.ARL_alias
+                BUFFER.n.i.ARL_device
+
+
+                                            NetAppGetInfo (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAppGetInfo( server, user, appname, level,
+                                     buffer, dummy, dummy )
+
+    Purpose   : returns information about a given application
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              s.o.
+                appname:           name of application to get information
+                level:             0, 1, 2, 3
+                rexx-buffer:       name of rexx variable containing
+                                   app data
+
+    Variables : level = 0
+                BUFFER.app0_name
+ 
+                level = 1
+                BUFFER.app1_name
+                BUFFER.app1_remark
+ 
+                level = 2
+                BUFFER.APP2_name
+                BUFFER.APP2_remark
+                BUFFER.APP2_command
+                BUFFER.APP2_command_parms
+                BUFFER.APP2_app_alias_or_drv
+                BUFFER.APP2_app_drive
+                BUFFER.APP2_app_path_to_dir
+                BUFFER.APP2_wrkdir_alias_or_drv
+                BUFFER.APP2_wrkdir_drive
+                BUFFER.APP2_wrkdir_path_to_dir
+                BUFFER.APP2_prompt
+                BUFFER.APP2_interface
+                BUFFER.APP2_apptype
+
+                level = 3
+                BUFFER.APP3_name
+                BUFFER.APP3_remark
+                BUFFER.APP3_command
+                BUFFER.APP3_command_parms
+                BUFFER.APP3_app_alias_or_drv
+                BUFFER.APP3_app_drive
+                BUFFER.APP3_app_path_to_dir
+                BUFFER.APP3_wrkdir_alias_or_drv
+                BUFFER.APP3_wrkdir_drive
+                BUFFER.APP3_wrkdir_path_to_dir
+                BUFFER.APP3_prompt
+                BUFFER.APP3_interface
+                BUFFER.APP3_apptype
+                BUFFER.APP3_res_count
+
+                followed by BUFFER.APP3_res_count app_res_list arrays.
+                                          (i=0..BUFFER.APP3_res_count-1)
+                BUFFER.i.ARL_alias
+                BUFFER.i.ARL_device
+
+
+
+                                            NetAppSetInfo (ONLY WITH 3.0)
+-------------------------------------------------------------------------
+
+    Syntax    : ret = NetAppSetInfo( server, user, appname, level,
+                                     buffer, dummy, dummy )
+
+    Purpose   : returns information about a given application
+
+    Return    : NETAPI return code (0 = successful completion)
+
+    Parameter : server:            s.o.
+                user:              s.o.
+                appname:           name of application to get information
+                level:             0, 1, 2, 3
+                rexx-buffer:       name of rexx variable containing
+                                   app data
+                parmnum:           determines whether buf contains a
+                                   complete app_info data structure or a
+                                   single component. If parmnum is 0,
+                                   level can be 1, 2, or 3, and buf must
+                                   contain a complete alias_info data
+                                   structure.  Otherwise, parmnum must
+                                   specify the ordinal position value for
+                                   one of the data structure components:
+                                   Value   Component
+                                   ______________________________
+                                     3     appx_remark
+                                     4     appx_command
+                                     5     appx_command_parms
+
+    Variables : For further information about the used variables, refer to
+                NetAppGetInfo.
+
+
+

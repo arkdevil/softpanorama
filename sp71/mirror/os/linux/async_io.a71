@@ -1,0 +1,136 @@
+From: jkimble@repoman.kla.com (Jim Kimble)
+Newsgroups: comp.os.ms-windows.advocacy,alt.fan.bill-gates,comp.unix.advocacy
+Subject: Async I/O and water-cooled hardware
+Date: 15 Dec 1994 21:34:55 GMT
+Organization: The Pros From Dover
+Message-ID: <3cqcq0$p2s@kla.com>
+
+In article <...>, ig25@fg30.rz.uni-karlsruhe.de (Thomas Koenig) writes:
+>
+> I don't see a way, under standard UNIX, of reading from three disk files
+> at the same time, in the same processs, and doing something CPU -
+> intensive at the same time.  I'm not, however, familiar with POSIX
+> threads.
+
+Async I/O exists under modern UNIX.  When an application uses async I/O,
+the read() or write() calls return immediately even though the requested
+data has neither been sent nor received;  the I/O operation has been 
+effectively "scheduled."
+
+The application just goes about its merry way doing whatever it wants
+(CPU-intensive stuff, etc.) until it's asynchronously notified of the
+pending read/write's completion.
+
+Notification is an ordinary  UNIX signal (SIGIO) which causes whatever
+function (signal handler) the application had previously "registered"
+(via signal(), sigaction(), etc.) to be invoked.
+
+When the user's signal handler returns, the application automagically
+resumes whatever it was doing prior to being interruted/notified (as
+if nothing had happened).  ...or the app can do something else because
+of the just-completed I/O operation, it's up to the programmer.
+
+> Of course, I can impose records on a byte stream.  However, I can't
+> (using current UNIX paradigms, easily) have this work done by an
+> intelligant peripheral.
+
+UNIX supports both "character" and "block" devices.  Character devices
+provide the data stream you're talking about:  the data just looks like 
+a stream of bytes, regardless of whence it came.  This is how files, serial
+ports, sockets and almost everything else appears.
+
+Disk drives and other devices that perform block-oriented I/O are handled
+by the operating system.  If you access such a device through its normal
+/dev filename, it will look like a block device;  if you access it through
+its so-called "raw" /dev filename, it will appear as a character device
+(the OS will transparently do the reads/writes in blocks and buffer the
+I/O so its handled correctly without any special hoops for programmers
+to jump through).
+
+> Take a look at the IBM mainframe range, and MVS.
+
+The I/O channels of mainframes are much more "intelligent" than my
+average intelligent device... They're mini-mainframes unto themselves
+(or so it appears -- are they?).
+
+Async I/O isn't very pleasant to use under UNIX if you're trying to
+read/write on more than one device at the same time.  This is because
+the application is just notified of the completed I/O operation -- *which*
+I/O operation just completed is an exercise left to the programmer.
+
+While contracting at American Express I saw lots of IBM mainframes.  I
+don't subscribe to the "junk the big iron" theory since I never seen a
+more robust environment for managing gigantic DASD farms (via HSM or
+whatever) nor have I seen such incredible bandwidth for basic I/O
+*and* for transactions (like IMS).
+
+Distributed databases are the big rage right now, but the data
+synchronization, duplication and availability ("uptime") problems are
+enormous and largely unsolved for that environment.  Heck, just trying
+to distribute/install patched or upgraded software is a bitch because
+you often need to make near-simultanious changes to multiple machines.
+But not so for the mighty mainframe... 
+
+I'm a UNIX bigot and like to think that I was client/server before
+client/server was cool, but I still think the mainframes aren't going
+to be leaving the really big shops just yet... they're too valuable as
+giant transaction servers or file servers because of their bullet-proof
+reliability.
+
+Trying to handle zillions of TPS on two or more workstations is more hassle
+than the casual observer might realize, IMHO (and by "casual observer" I am
+refering to 99.8% of the industry press -- the same people that probably 
+believe Microsoft's ship dates).
+
+
+> UNIX isn't suited as well for this kind of throughput; the people who
+> run MVS don't do so out of stupidity, but because AIX is slower on
+> the same hardware.
+
+No argument there.  But then again, I've yet to see a MVS/VM shop that
+embraced UNIX et al with open arms...  Where in the hell would they put
+all those damned operator consoles?  :-)  :-)
+
+---
+--Jim Kimble                                j_kimble@kla.com
+Yet Another UNIX Contractor                 "I neither work nor speak for KLA."
+
+"ALPO is 99 cents a can... that's almost SEVEN dog dollars!!"
+
+
+From ankh.iia.org!uunet!svc.portal.com!shell.portal.com!mec Sat Dec 17 14:40:50 1994
+Path: ankh.iia.org!uunet!svc.portal.com!shell.portal.com!mec
+From: mec@shell.portal.com (Michael Edward Chastain)
+Newsgroups: comp.os.ms-windows.advocacy,alt.fan.bill-gates,comp.unix.advocacy
+Subject: Re: Async I/O and water-cooled hardware
+Date: 17 Dec 1994 08:42:51 GMT
+Organization: Portal Communications Company
+Lines: 22
+Message-ID: <3cu8ab$keb@news1.shell>
+References: <3cnieu$2kt@nz12.rz.uni-karlsruhe.de> <3cqcq0$p2s@kla.com>
+NNTP-Posting-Host: jobe.shell.portal.com
+Xref: ankh.iia.org comp.os.ms-windows.advocacy:30731 alt.fan.bill-gates:5931 comp.unix.advocacy:2262
+
+In article <3cqcq0$p2s@kla.com>, Jim Kimble <jkimble@newkla.kla.com> wrote:
+> Async I/O exists under modern UNIX.  When an application uses async I/O,
+> the read() or write() calls return immediately even though the requested
+> data has neither been sent nor received;  the I/O operation has been 
+> effectively "scheduled."
+
+I think you're misrepresenting how 'read()' works in Unix.
+
+The 'read()' system call in V7 Unix, BSD Unix, SunOS and Linux blocks
+the process until the requested data is in the user's data space.  In
+this regard, historical and popular versions of 'modern Unix' do not
+have asynchronous reading.
+
+> The application just goes about its merry way doing whatever it wants
+> (CPU-intensive stuff, etc.) until it's asynchronously notified of the
+> pending read/write's completion.
+
+Maybe your flavor of Unix has asynchronous reading.  How about a
+reference?
+
+Michael Chastain
+mec@shell.portal.com
+

@@ -1,0 +1,332 @@
+$macro_file gsv_text;
+{ Различные операции с текстом }
+
+
+$macro gsv_datetime from EDIT TRANS;
+{ вывод даты и времени от текущей позиции текста
+  Опции: /ONLYD=1 - выводить только дату
+         /ONLYT=1 - выводить только время
+}
+  def_int(month, tmp, flag);
+  flag := 0;
+  if parse_int('/ONLYT=', mparm_str) <> 1 then
+    text(copy(date, 1, 2) + '-');
+    tmp := val(month,  copy(date, 4, 2));
+    text(copy('янв-фев-мар-апр-мая-июн-июл-авг-сен-окт-ноя-дек-',
+              (month - 1) * 4 + 1, 4));
+    text(copy(date, 7, 2));
+    flag := 1;
+  end;
+  if parse_int('/ONLYD=', mparm_str) <> 1 then
+    if flag = 1 then
+      text(' ');
+    end;
+    text(copy(time, 1, 5));
+  end;
+end_macro;
+
+
+$macro gsv_swreg from EDIT;
+{ переключение регистра русских и латинских букв слова на противоположный
+  маленькие буквы в большие и наоборот.
+    - если слово содержит только маленькие буквы, то все слово переводится
+      в верхний регистр,
+    - если слово содержит маленькие и большие буквы, то предлагается меню:
+      в какой регистр переводить слово,
+    - если слово содержит только большие буквы, то все слово переводится в
+      нижний регистр
+}
+  def_int(cod_key,    {код клавиши}
+          pred_mode,  {предыдущий режим вставки / замены}
+          x0, x1,     {координаты начала и конца обрабатываемого слова}
+          l, h,       {признаки букв нижнего и верхнего регистра}
+          flag,       {перевод: 0 - в нижний, 1 - в верхний}
+          x, y
+         );
+
+  pred_mode   := insert_mode;
+  insert_mode := FALSE;      
+  refresh     := FALSE;
+  l := 0;
+  h := 0;
+  push_undo;
+
+  x0 := c_col;                {начальная координата слова}
+  while (TRUE) do             {цикл по буквам слова}
+    if    (((cur_char >= 'A') and (cur_char <= 'Z'))  or
+           ((cur_char >= 'А') and (cur_char <= 'Я'))) then h := 1; right;
+    elsif (((cur_char >= 'a') and (cur_char <= 'z'))  or
+           ((cur_char >= 'а') and (cur_char <= 'п'))  or
+           ((cur_char >= 'р') and (cur_char <= 'я'))) then l := 1; right;
+    elsif (((cur_char >= '0') and (cur_char <= '9'))  or
+            (cur_char =  '_')                       ) then right;
+    else goto end_word;
+    end;
+  end;
+end_word:
+
+  x1 := c_col;                {начальная координата следующего слова}
+  goto_col(x0);
+  if    ((h = 1) and (l = 0)) then flag := 0;
+  elsif ((h = 0) and (l = 1)) then flag := 1;
+  elsif ((h = 0) and (l = 0)) then goto end_program;
+  else
+    if ((wherex + 21) > screen_width) then x := screen_width - 21;
+    else                                   x := wherex;
+    end;
+    if ((wherey + 7) > screen_length) then y := wherey - 5;
+    else                                   y := wherey + 1;
+    end;
+    run_macro('userin^xmenu /X=' + str(x) + '/Y=' + str(y) + '/B=1/T=1/S=1' +
+              '/L= Перевод в /M= нижний регистр () верхний регистр ()');
+    if return_int = 0 then goto end_program;
+    else                   flag := return_int - 1;
+    end;
+  end;
+
+  while (c_col < x1) do
+    cod_key := ASCII(cur_char);
+    if    ((((cod_key >=  65) and (cod_key <=  90))   or       {A..Z}
+            ((cod_key >= 128) and (cod_key <= 143)))  and      {А..П}
+             (flag = 0)                             ) then
+      cod_key := cod_key + 32;
+    elsif ((((cod_key >=  97) and (cod_key <= 122))   or       {a..z}
+            ((cod_key >= 160) and (cod_key <= 175)))  and      {а..п}
+             (flag = 1)                             ) then
+      cod_key := cod_key - 32;
+    elsif ( ((cod_key >= 144) and (cod_key <= 159))   and      {Р..Я}
+             (flag = 0)                             ) then
+      cod_key := cod_key + 80;
+    elsif ( ((cod_key >= 224) and (cod_key <= 239))   and      {р..я}
+             (flag = 1)                             ) then
+      cod_key := cod_key - 80;
+    end;
+    text(char(cod_key));
+  end;
+
+end_program:
+  word_right;
+  pop_undo;
+  refresh := TRUE;
+  insert_mode := pred_mode;
+  redraw;
+end_macro;
+
+
+$macro rcorr from EDIT;
+  {корректировка слова, ошибочно набранного не на том регистре}
+  {Л.Г.Бунич 24.09.90}
+  {исправлено (Гурин С.В. 22-ноя-90 11:57):
+   - установка маркера на исходную позицию,
+   - сохранение режима вставки/замены,
+   - запись в стек UNDO,
+   - запрет изменения изображения}
+
+  def_int(i,k,
+          tmp_insert_mode,
+          src_col);
+  def_char(c);
+  def_str(cyr,lat);
+
+  push_undo;
+  refresh         := FALSE;
+  tmp_insert_mode := insert_mode;
+  src_col         := c_col;
+  insert_mode     := false; 
+  i               := 0;
+  lat             := '%^&qwertyuiop[]asdfghjkl;''zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:"ZXCVBNM<>';
+  cyr             := ':,.йцукенгшщзхъфывапролджэячсмитьбюЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ';
+
+process:
+  if c_col < 2 then goto wordend; end;
+  left;
+  if i = 0 then
+    if ascii(cur_char) < 128 then i := 1; 
+    else                          i := 2; 
+    end;
+  end;
+  k := 1;
+  while (k <= length(lat)) do
+    if i = 1 then
+      if cur_char = copy(lat, k, 1) then
+        text(copy(cyr, k, 1));
+        left; 
+        goto process;
+      end;
+    else
+      if cur_char = copy(cyr, k, 1) then
+        text(copy(lat, k, 1));
+        left; 
+        goto process;
+      end;
+    end;
+    k := k + 1;
+  end;
+
+wordend:
+  goto_col(src_col);
+  insert_mode := tmp_insert_mode;
+  refresh     := TRUE;
+  pop_undo;
+end_macro;
+
+
+{ Макрос сдвигает текстовую часть строки к началу строки или к маркеру.
+  Выбор направления сдвига задается опцией макроса:
+   /L - сдвиг влево (умолчание)
+   /R - сдвиг вправо
+  Если задан сдвиг влево, то текстовая часть строки прижимается к первой
+  позиции. Маркер при этом смещается на столько же. Если задан сдвиг вправо,
+  то текстовая часть строки слева от маркера прижимается к маркеру. Позиция
+  маркера при этом не изменяется.
+}
+$macro gsv_text_shift from EDIT;
+  def_int(current_position, 
+          current_expression_status,
+          current_block_move_style, 
+          cursor_shift);
+  refresh := FALSE;
+  push_undo;
+  current_expression_status := reg_exp_stat;
+  reg_exp_stat              := TRUE;
+  current_block_move_style  := column_move_style;
+  column_move_style         := 0;
+  current_position          := c_col;
+  if (pos('R', caps(mparm_str))) then         { Сдвиг вправо к маркеру }
+    eol;
+    if search_bwd('[~|32|9]', 1) = TRUE then
+      if c_col < current_position then
+        make_message('Прижатие строки вправо к маркеру');
+        goto_col(1);
+        search_fwd('[~|32|9]', 1);
+        col_block_begin;
+        goto_col(current_position);
+        search_bwd('[~|32|9]', 1);
+        block_end;
+        goto_col(block_col1 + (current_position - block_col2));
+        move_block;
+      end;
+    end;
+    goto_col(current_position);
+  else                                        { Сдвиг влево к началу строки }
+    goto_col(1);
+    cursor_shift := 0;
+    if search_fwd('[~|32|9]', 1) = TRUE then
+      make_message('Прижатие строки к первой позиции');
+      col_block_begin;
+      cursor_shift := block_col1 - 1;
+      eol;
+      block_end;
+      goto_col(1);
+      move_block;
+    end;
+    goto_col(current_position - cursor_shift);
+  end;
+  reg_exp_stat := current_expression_status;
+  column_move_style := current_block_move_style;
+  block_off;
+  pop_undo;
+  refresh := TRUE;
+  redraw;
+end_macro;
+
+
+$macro gsv_block_menu TRANS;
+{ Меню различных интересных операций с блоками.
+  Используются макросы Алексея Романова }
+
+  set_global_str('gsvbm_1', '/N=1. ''текст между одиночными кавычками'' ' +
+                 global_str('!gsv_markquo1') + '/S=2/M=augmenta^markquo1');
+  set_global_str('gsvbm_2', '/N=2. "текст между двойными кавычками"   ' +
+                 global_str('!gsv_markquo2') + '/S=2/M=augmenta^markquo2');
+  set_global_str('GSVBM_3', '/N=3. ║строка таблицы║  │строка таблицы│ ' +
+                 global_str('!gsv_mark_entry') + '/S=2/M=augmenta^mark_entry');
+  set_global_str('GSVBM_4', '/N=4. (текст в скобках слева)  {} <> []  ' +
+                 global_str('!gsv_mark_left_pare') + '/S=2/M=augmenta^mark_left_pare');
+  set_global_str('GSVBM_5', '/N=5. (текст в скобках справа) {} <> []  ' +
+                 global_str('!gsv_mark_right_pare') + '/S=2/M=augmenta^mark_right_pare');
+  set_global_str('GSVBM_6', '/N=6. функция (список аргументов)        ' +
+                 global_str('!gsv_mark_func_args') + '/S=2/M=augmenta^mark_func_args');
+  set_global_str('GSVBM_7', '/N=7. массив[индексное выражение]        ' +
+                 global_str('!gsv_markarray') + '/S=2/M=augmenta^markarray');
+  set_global_str('GSVBM_8', '/N=8. текст_между_пробелами              ' +
+                 global_str('!gsv_markspac') + '/S=2/M=augmenta^markspac');
+  set_global_str('GSVBM_9', '/N=9. текст до конца строки              ' +
+                 global_str('!gsv_mark_to_eol') + '/S=2/M=augmenta^mark_to_eol');
+
+  run_macro('userin^submenu /#=9/G=gsvbm_/L=Различные способы выделения блоков' +
+     '/S=' + str(global_int('gsv_block_menu_item'))
+    );
+  if return_int > 0 Then
+    set_global_int('gsv_block_menu_item', return_int);
+  end;
+end_macro;
+
+
+$macro gsv_text_menu TRANS;
+{ Меню различных интересных операций с текстом.
+  Используются макросы Алексея Романова, Льва Альперовича, Л.Г.Бунича и мои}
+
+  set_global_str('gsvbm_1', '/N=1. Штамп даты и времени            ' +
+                 global_str('!TXM_KEY8') + '/S=2/M=gsv_text^gsv_datetime');
+  set_global_str('gsvbm_2', '/N=2. Изменение регистра букв слова   ' +
+                 global_str('!gsv_swreg') + '/S=2/M=gsv_text^gsv_wreg');
+  set_global_str('gsvbm_3', '/N=3. Исправление регистра букв слова ' +
+                 global_str('!gsv_rcorr') + '/S=2/M=gsv_text^rcorr');
+  set_global_str('gsvbm_4', '/N=4. Капитализация слова             ' +
+                 global_str('!gsv_capitalize') + '/S=2/M=augmenta^capitalize');
+  set_global_str('gsvbm_5', '/N=5. Раздвижка букв слова            ' +
+                 global_str('!gsv_spaceout') + '/S=2/M=augmenta^spaceout');
+  set_global_str('gsvbm_6', '/N=6. Обмен слова с предыдущим        ' +
+                 global_str('!gsv_drag_word_left') + '/S=2/M=augmenta^drag_word_left');
+  set_global_str('gsvbm_7', '/N=7. Обмен слова со следующим        ' +
+                 global_str('!gsv_drag_word_right') + '/S=2/M=augmenta^drag_word_right');
+  set_global_str('gsvbm_8', '/N=8. Форматирование параграфа        ' +
+                 global_str('!gsv_russ_reformat') + '/H=REFORMAT' +
+                 '/S=2/M=reformat^russ_reformat');
+  set_global_str('gsvbm_9', '/N=9. Меню форматирования             ' +
+                 global_str('!gsv_control_hyphens') + '/H=REFORMAT' +
+                 '/S=2/M=reformat^control_hyphens');
+  set_global_str('gsvbm_10', '/N=A. Резидентный форматтер           ' +
+                 global_str('!gsv_russ_reform_s') + '/H=REFORMAT' +
+                 '/S=2/M=reformat^russ_reformat /___S/IC=48');
+  set_global_str('gsvbm_11', '/N=C. Удаление начальных пробелов     ' +
+                 global_str('!gsv_text_shiftl') + '/S=2/M=gsv_text^gsv_text_shift');
+  set_global_str('gsvbm_12', '/N=D. Сдвиг строки вправо к маркеру   ' +
+                 global_str('!gsv_text_shiftr') + '/S=2/M=gsv_text^gsv_text_shift /R');
+  set_global_str('gsvbm_13', '/N=E. Шестнадцатиричный дамп строки   ' +
+                 global_str('!gsv_lgb_dump') + '/S=2/M=lgb^dump');
+
+  run_macro('userin^submenu /#=13/G=gsvbm_/L=Различные операции с текстом' +
+     '/S=' + str(global_int('gsv_text_menu_item'))
+    );
+  if return_int > 0 Then
+    set_global_int('gsv_text_menu_item', return_int);
+  end;
+end_macro;
+
+
+$macro gsv_stat_key from ALL TRANS;
+{ По мотивам макроса Корзуна Е.Г. 
+  Определение кодов клавиши и назначения клавиши на макрос.
+}
+   def_str(key_name, macro_name, mes);
+   def_int(assign);
+
+   return_str := 'Нажмите нужную клавишу';
+   run_macro('gsv_stat^gsv_message');
+   read_key;
+   kill_box;
+
+   run_macro('setup^makekey /K1=' + str(key1) + '/K2=' + str(key2));
+   key_name := return_str;
+   assign := inq_key(key1, key2, mode, macro_name);
+   mes := key_name + '  (' + str(key1) + ',' + str(key2) + ')  ';
+
+   if    assign = 0 then make_message(mes);
+   elsif assign = 1 then make_message(mes + 'Макро: ' + macro_name);
+   elsif assign = 2 then make_message(mes + 'Клавишное макро');
+   else                  make_message(mes + 'Команда: ' + str(assign));
+   end;
+end_macro;
+

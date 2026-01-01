@@ -1,0 +1,57 @@
+$MACRO swreg;
+  {переключение регистра русских и латинских букв слова на противоположный}
+  {разработчик Гурин С.В.}
+
+  DEF_INT(cod_key,    {код клавиши}
+          pred_mode,  {предыдущий режим вставки / замены}
+          X0, X1      {координаты X начала и конца обрабатываемого слова}
+         );
+
+  pred_mode   := INSERT_MODE; {сохранение текущего режима вставки}
+  insert_mode := FALSE;       {установка режима наложения}
+  refresh     := FALSE;
+  push_undo;                  {открытие UNDO-записи, чтобы иметь
+                               возможность восстановить операцию
+                               переключения регистров полностью
+                               за одну операцию UNDO}
+
+  X0 := c_col;                {начальная координата слова}
+  mark_pos;
+  word_right;
+  X1 := c_col;                {начальная координата следующего слова}
+  goto_mark;
+  while (X0 < X1) Do          {цикл по буквам слова}
+    call trans;
+    X0 := X0 + 1;
+  end;
+  goto end_program;
+
+trans:                        {процедура преобразования и вывода одной буквы}
+  cod_key := ASCII(cur_char);
+  if (((cod_key >= 65)  and  (cod_key <= 90))    or          {A..Z}
+      ((cod_key >= 128)  and  (cod_key <= 143))) then        {А..П}
+    cod_key := cod_key + 32;
+  else
+    if (((cod_key >= 97)  and  (cod_key <= 122))   or        {a..z}
+        ((cod_key >= 160)  and  (cod_key <= 175))) then      {а..п}
+      cod_key := cod_key - 32;
+    else
+      if ((cod_key >= 144)  and  (cod_key <= 159))  then     {Р..Я}
+        cod_key := cod_key + 80;
+      else
+        if ((cod_key >= 224)  AND  (cod_key <= 239))  then   {р..я}
+          cod_key := cod_key - 80;
+        end;
+      end;
+    end;
+  end;
+  text(char(cod_key));
+ret;
+
+end_program:
+  pop_undo;
+  refresh := TRUE;
+  insert_mode := pred_mode;
+  redraw;
+  make_message('Изменение регистра букв слова');
+end_macro;

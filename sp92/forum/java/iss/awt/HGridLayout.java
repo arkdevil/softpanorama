@@ -1,0 +1,138 @@
+/********************************************************************************
+ ** HGridLayout is a layout manager which arranges components in a 
+ ** single row, and provides many options for doing so. The usage is:
+ **
+ ** hgrid = new HGridLayout(Insets insets, int interval, int notUsed);
+ ** container.setLayout(hgrid);
+ ** hgrid.setConstraints(comp1, percent); container.add(comp1);
+ ** hgrid.setConstraints(comp2, percent); container.add(comp2);
+ **                             :
+ **                             :
+ **
+ ** 'insets' is the top, bottom, left and right margins in pixels.
+ ** 'interval' is the spacing between components in pixels.
+ ** 'notUsed' is the percentage of space to be left unused from the left.
+ ** 'percent' is the percentage of space that the component will occupy.
+ **      0 means the component will occupy its preferred size.
+ **
+ ** HGridLayout combined with VGridLayout will provide a powerful way of
+ ** laying out components.
+ **
+ ********************************************************************************
+ ** Author: Chew Wei Yih, Victor (c) 1996.
+ ********************************************************************************/
+
+package iss.awt;
+
+import java.awt.*;
+import java.util.*;
+import java.lang.*;
+
+public class HGridLayout implements LayoutManager
+{
+    Insets insets;
+    int interval, notUsed;
+    Hashtable constraints = new Hashtable();
+    
+    public HGridLayout(Insets insets, int interval, int notUsed)
+    {
+        this.insets = insets;
+        this.interval = interval;
+        this.notUsed = notUsed;
+    }
+    
+    public void addLayoutComponent(String name, Component comp)
+    {
+    }
+
+    public void removeLayoutComponent(Component comp)
+    {
+	constraints.remove(comp);
+    }
+
+    public Dimension preferredLayoutSize(Container target)
+    {
+        return minimumLayoutSize(target);
+    }
+
+    public Dimension minimumLayoutSize(Container target)
+    {
+        int width=0, height=0, numComp = target.countComponents();
+        int[] compWidth = new int[numComp];
+        int[] compPercent = new int[numComp];
+        double unitSize = 0.0;
+        Component comp = null;
+        Dimension dim = null;
+        Insets bounds = target.insets();
+
+        for (int i=0; i<numComp; i++)
+        {
+            comp = (Component)target.getComponent(i);
+            dim = comp.preferredSize();
+            compWidth[i] = dim.width;
+            compPercent[i] = ((Integer)constraints.get(comp)).intValue();
+
+            if (compPercent[i] != 0)
+            {
+                double tmp = (double)dim.width/(double)compPercent[i];
+                if (unitSize < tmp) unitSize = tmp;
+            }
+
+            if (height < dim.height) height = dim.height;
+        }            
+
+        for (int i=0; i<numComp; i++)
+        {
+            if (compPercent[i] == 0) width += compWidth[i];
+            else width += (int)(compPercent[i] * unitSize);
+        }
+
+        width += bounds.left + insets.left + interval*(numComp-1) +insets.right + bounds.right;
+        height += bounds.top + bounds.bottom + insets.top + insets.bottom;
+
+        dim = new Dimension(width, height);
+        return dim;
+    }
+
+    public void setConstraints(Component comp, int percent)
+    {
+        constraints.put(comp, new Integer(percent));
+    }
+
+    public void layoutContainer(Container target)
+    {
+        int numComp = target.countComponents();
+        int x, y;
+        Component[] comp = new Component[numComp];
+        int[] percent = new int[numComp];
+        int[] width = new int[numComp];
+
+        Insets tbounds = target.insets();
+        Dimension dim = target.size();
+        int twidth = dim.width;
+        int theight = dim.height - tbounds.top - tbounds.bottom - insets.top - insets.bottom;
+
+        int widthAvail = twidth - tbounds.left - tbounds.right - insets.left - insets.right - (numComp-1)*interval;
+        int widthUnavail = notUsed * widthAvail / 100;
+        widthAvail -= widthUnavail;
+
+        int widthFixed = 0;
+        for (int i=0; i<numComp; i++)
+        {
+            comp[i] = target.getComponent(i);
+            percent[i] = ((Integer)constraints.get(comp[i])).intValue();
+            width[i] = comp[i].preferredSize().width;
+            if (percent[i] == 0) widthFixed += width[i];
+        }
+        widthAvail -= widthFixed;
+
+        x = tbounds.left + insets.left + widthUnavail;
+        y = tbounds.top +insets.top;
+        for (int i=0; i<numComp; i++)
+        {
+            if (percent[i] != 0) width[i] = (widthAvail * percent[i]) / 100;
+            comp[i].reshape(x, y, width[i], theight);
+            x += width[i] + interval;
+        }
+    }
+}

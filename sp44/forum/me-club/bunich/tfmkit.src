@@ -1,0 +1,95 @@
+$Macro_File TFMKit;
+{
+  Меню текстового форматтера (Л.З.Альперович) -- Л.Г.Бунич -- Multi-Edit 5.00P
+
+  TFMKIT - меню форматтера и настройка среды
+}
+
+$Macro TFMKit;
+
+  Def_Int(k,BG,FG,X1,Y1,X2,Y2);
+  Def_Int(l, r, a, old_a, rs := 66, im);
+  Def_Str(id);
+
+Open:
+  BG := M_T_Color shr 4;
+  FG := M_T_Color and $0F;
+  X1 := 10; Y1 := 7; X2 := 74; Y2 := 21;
+  id := get_extension(file_name) + str(window_id);
+  l := GLOBAL_INT('leftpoint' + id);
+  a := GLOBAL_INT('dleftpoint' + id);
+  r := GLOBAL_INT('rightpoint' + id);
+  if r = 0 then r := 66; end;
+
+  Mark_Pos;
+  Put_Box(X1,Y1,X2,Y2,BG,FG,' T e x t   F o r m a t t e r ',1);
+  Write('Adjust margins.....принять текущий рельеф абзаца',    X1+3,Y1+02,BG,FG);
+  Write('Change margins.....установить параметры рельефа',     X1+3,Y1+03,BG,FG);
+  Write('Free style.........установить l=0, a=0, r=' + str(r), X1+3,Y1+04,BG,FG);
+  Write('Global formatting..глобальное форматирование',        X1+3,Y1+05,BG,FG);
+       Write('(Курсор установите на старый отступ)',        X1+22,Y1+06,BG,FG);
+  Write('Information........выяснить текущие параметры',       X1+3,Y1+07,BG,FG);
+  Write('Reject formatting..прекратить форматирование',        X1+3,Y1+08,BG,FG);
+  Write('Standard style.....установить l=1, a=4, r=' + str(rs),X1+3,Y1+09,BG,FG);
+  Write('TFORM run..........вызвать программу TFORM',          X1+3,Y1+10,BG,FG);
+       Write('(Курсор установите на старый отступ)',        X1+22,Y1+11,BG,FG);
+
+  Write(' Нажмите одну из указанных клавиш (ESC - отказ) ',X1+4,Y2-1,
+        M_S_Color shr 4, M_S_Color and $0F);
+
+  k := Y1+2; While k < (Y2-2) do;
+    if (k - Y1 <> 6) and (k - Y1 <> 11) then
+      Draw_Attr(X1+3,k,M_H_Color,1);
+    end;
+    ++k;
+  end;
+  GoToXY(0,0);
+  Read_Key; Kill_Box; GoTo_Mark;
+
+  if KEY2 = 1 then goto Finish; end;
+  if Inq_Macro('TFM') = FALSE then
+     Load_Macro_File('TFM');             {Загружаем TFM}
+     if Error_Level <> 0 then goto Finish; end;
+  end;
+  Doc_Mode := 1;
+  Macro_To_Key(<CtrlF11>,'abz_blo',edit);
+  Macro_To_Key(<CtrlF12>,'abz_go',edit);
+
+  if KEY2 = 30 then                          {Adjust}
+    Mark_Pos;
+    EOL; Home; l := C_Col;
+AdjLoop:
+    Up; EOL; Home;
+    if (C_Col = l) and (C_Line > 1) then goto AdjLoop; end;
+    a := C_Col; EOL; r := C_Col - 1;
+    RM('TFM /a=' + str(a) + '/l=' + str(l) + '/r=' + str(r));
+    GoTo_Mark;
+  elsif KEY2 = 46 then                       {Change}
+    RM('TFM^TP');
+  elsif KEY2 = 33 then                       {Free style}
+    RM('TFM /a=0/l=0/r=' + str(r));
+  elsif KEY2 = 34 then                       {Global}
+    RM('TFM^TG /n=1');
+  elsif KEY2 = 23 then                       {Info}
+    RM('TFM^TI');
+  elsif KEY2 = 19 then                       {Reject}
+    RM('TFM^TU');
+  elsif KEY2 = 31 then                       {Standard style}
+    RM('TFM /a=4/l=1/r=' + str(rs));
+    if Length(Get_Line) = 0 then GoTo_Col(4); else EOL; end;
+  elsif KEY2 = 20 then                       {TFORM}
+    old_a := C_Col;
+    push_undo; refresh := FALSE;
+    im := insert_mode; insert_mode := TRUE;
+    Save_File;
+    Shell_To_Dos('TFORM ' + File_Name + ' A' + Str(old_a) + '-' + Str(a) +
+      'L' + Str(l) + ' R' + Str(r) + ' F' + ' V0', TRUE);
+    Load_File(File_Name);
+    refresh := TRUE; insert_mode := im; pop_undo;
+  else GoTo Open;
+  end;
+  r := GLOBAL_INT('rightpoint' + id);  Right_Margin := r;
+  RM('TI');
+Finish:
+  Error_Level := 0;
+End_Macro;

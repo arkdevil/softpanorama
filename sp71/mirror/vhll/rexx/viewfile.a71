@@ -1,0 +1,233 @@
+Newsgroups: comp.lang.rexx
+Subject: Re: Routine for Viewing a file...
+Message-ID: <barryn.791150012@BIX.com>
+From: barryn@BIX.com (barryn on BIX)
+Date: 26 Jan 95 19:53:32 GMT
+Organization: Delphi Internet Services Corporation
+
+dsanoy@netcom.com (Darwin Sanoy) writes:
+:I am looking for a VX-REXX or other PM routing that can be called from 
+:VX-REXX that will simply view a file.  
+
+Perhaps the following VX-REXX code (a VRX file) might help.
+
+Barry Nance
+   author, "Using OS/2 Warp", "Introduction to Networking",
+   "Client/Server LAN Programming", "Networking Windows for Workgroups",
+   and "Connecting with LAN Server". 
+-------------------------------------------------------------------
+/*:VRX         Main
+*/
+/*  Main
+*/
+Main:
+/*  Process the arguments.
+    Get the parent window.
+*/
+    parse source . calledAs .
+    parent = ""
+    argCount = arg()
+    argOff = 0
+    if( calledAs \= "COMMAND" )then do
+        if argCount >= 1 then do
+            parent = arg(1)
+            argCount = argCount - 1
+            argOff = 1
+        end
+    end
+    InitArgs.0 = argCount
+    if( argCount > 0 )then do i = 1 to argCount
+        InitArgs.i = arg( i + argOff )
+    end
+    drop calledAs argCount argOff
+
+/*  Load the windows
+*/
+    call VRInit
+    parse source . . spec
+    _VREPrimaryWindowPath = ,
+        VRParseFileName( spec, "dpn" ) || ".VRW"
+    _VREPrimaryWindow = ,
+        VRLoad( parent, _VREPrimaryWindowPath )
+    drop parent spec
+    if( _VREPrimaryWindow == "" )then do
+        call VRMessage "", "Cannot load window:" VRError(), ,
+            "Error!"
+        _VREReturnValue = 32000
+        signal _VRELeaveMain
+    end
+
+/*  Process events
+*/
+    call Init
+    signal on halt
+    do while( \ VRGet( _VREPrimaryWindow, "Shutdown" ) )
+        _VREEvent = VREvent()
+        interpret _VREEvent
+    end
+_VREHalt:
+    _VREReturnValue = Fini()
+    call VRDestroy _VREPrimaryWindow
+_VRELeaveMain:
+    call VRFini
+exit _VREReturnValue
+
+VRLoadSecondary: procedure
+    name = arg( 1 )
+
+    window = VRLoad( VRWindow(), VRWindowPath(), name )
+    call VRMethod window, "CenterWindow"
+    call VRSet window, "Visible", 1
+    call VRMethod window, "Activate"
+return window
+
+/*:VRX         Fini
+*/
+Fini:
+    window = VRWindow()
+    call VRSet window, "Visible", 0
+    drop window
+return 0
+
+/*:VRX         Halt
+*/
+Halt:
+    signal _VREHalt
+return
+
+/*:VRX         Init
+*/
+Init:
+    window = VRWindow()
+    call VRMethod window, "CenterWindow"
+    call VRSet window, "Visible", 1
+    call VRMethod window, "Activate"
+    drop window
+return
+
+/*:VRX         M_COPYID_Click
+*/
+M_COPYID_Click:
+
+    TransferData = VRGet("TextMLE", "SelectedText")
+    button.0 = 1
+    button.1 = "Ok"
+    rc = VRMessage(VRWindow(), "Please use Ctrl-Ins", "Copy to ClipBoard",
+"I", "button.", 1)
+
+    return
+
+/*:VRX         M_HELPID_Click
+*/
+M_HELPID_Click:
+
+    button.0 = 1
+    button.1 = "Ok"
+    rc = VRMessage(VRWindow(), "There's no help.", "Help", "I", "button.", 1)
+    return
+
+/*:VRX         M_OPENID_Click
+*/
+M_OPENID_Click:
+    filespec = VRFileDialog(VRWindow(), "Open File", "O")
+    if filespec = "" then do
+        return
+        end
+    call ReadFile
+    return
+
+ReadFile:
+    button.0 = 1
+    button.1 = "Ok"
+    Buffer = ""
+    CRLF   = "0d0a"x
+
+/*
+    rc = VRMessage(VRWindow(), "Look for >" || filespec || "<", "Test",
+"I", "button.")
+*/
+
+    exists = VRFileExists(filespec)
+    if exists = 0 then do
+        rc = VRMessage(VRWindow(), "File " || filespec || " not found.",
+"Open", "E", "button.")
+        return
+        end
+
+    call VRSet VRWindow(), "StatusArea", "Bottom"
+    call VRSet VRWindow(), "StatusText", "Please wait..."
+    do forever
+        if Lines(filespec) = 0 then do
+            leave
+            end
+        Buffer = Buffer || LineIn(filespec) || CRLF
+        end
+
+    call VRSet "TextMLE", "Value", Buffer
+    call VRSet VRWindow(), "StatusArea", "Bottom"
+    call VRSet VRWindow(), "StatusText", " "
+    call VRSet VRWindow(), "Caption", "Text File Viewer (" || filespec || ")"
+    return
+/*:VRX         M_QUITID_Click
+*/
+M_QUITID_Click:
+
+    call VRSet VRWindow(), "ShutDown", 1
+
+    return
+
+/*:VRX         M_SELECTALLID_Click
+*/
+M_SELECTALLID_Click:
+
+    last = Length(Buffer)
+    call VRSet "TextMLE", "SelectedStart", 1
+    call VRSet "TextMLE", "SelectedEnd", last + 1
+    return
+
+/*:VRX         Quit
+*/
+Quit:
+    window = VRWindow()
+    call VRSet window, "Shutdown", 1
+    drop window
+return
+
+/*:VRX         Win1_Close
+*/
+Win1_Close:
+    call Quit
+return
+
+/*:VRX         Win1_Create
+*/
+Win1_Create:
+
+    if InitArgs.0 < 1 then do
+        return
+        end
+
+    if InitArgs.1 = "" then do
+        return
+        end
+
+    filespec = InitArgs.1
+    call ReadFile
+
+return
+
+/*:VRX         Win1_Resize
+*/
+Win1_Resize:
+
+    window = VRWindow()
+    width  = VRGet(window, "InteriorWidth") - 20
+    height = VRGet(window, "InteriorHeight") - 50
+
+    call VRSet "TextMLE", "Width", width
+    call VRSet "TextMLE", "Height", height
+
+return
+
+
+

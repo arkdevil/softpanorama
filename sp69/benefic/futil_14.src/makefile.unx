@@ -1,0 +1,288 @@
+# Makefile for the GNU file utilities.
+# Copyright (C) 1986, 1988, 1989, 1990 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 1, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+SHELL = /bin/sh
+# If you use gcc, you should either run the fixincludes script that
+# comes with it or else use gcc with the -traditional option.  Otherwise
+# ioctl calls will be compiled incorrectly on some systems.
+CC = gcc -O
+
+YACC = bison -y
+
+# Things you might add to DEFS:
+# -DSTDC_HEADERS	If you have ANSI C headers and libraries.
+# -D_POSIX_SOURCE	If you have POSIX.1 headers and libraries.
+#			Also need to define -DDIRENT.
+# -DSIGTYPE=int		If your signal handlers return int, not void.
+# -DUSG			System V strings, headers, ndir.h.
+# -DDIRENT		If you have dirent.h.
+# -DSYSNDIR		Old Xenix systems (selects sys/ndir.h).
+# -DINT_16_BITS		If sizeof long > sizeof int.
+# -DHPUX_NFS_BUG	On HP/UX (6.5 at least) where NFS files have
+#			reported st_blocks twice the correct size.
+# -DVPRINTF_MISSING	If you lack vprintf function (but have _doprnt).
+# -DDOPRNT_MISSING	If you lack _doprnt function.  Also need to define
+#			-DVPRINTF_MISSING.
+# -DMKTIME_MISSING	If you lack mktime function.
+# -DMKDIR_MISSING	If you lack mkdir and rmdir system calls.
+# -DMKFIFO_MISSING	If you lack mkfifo system call, but have FIFOs.
+# -DFCHMOD_MISSING	If you lack fchmod system call.
+# -DRENAME_MISSING	If you lack rename system call.
+# -DSTBLOCKS_MISSING	If your `struct stat' lacks st_blocks and st_blksize.
+# -DUTIME_NULL_MISSING	If your utime system call does not use the
+#			current time when passed a null time pointer.
+
+# BSD
+#DEFS = -DSIGTYPE=int -DVPRINTF_MISSING -DUTIME_NULL_MISSING \
+#	-DMKTIME_MISSING -DMKFIFO_MISSING
+#LIBS = $(LIBOBJS)
+
+# SunOS 4.[01]
+DEFS = -DDIRENT -DMKTIME_MISSING -DMKFIFO_MISSING
+LIBS = $(LIBOBJS)
+
+# Ultrix 4.0
+#DEFS = -DDIRENT
+#LIBS = $(LIBOBJS)
+
+# Typical System V
+#DEFS = -DUSG -DMKDIR_MISSING -DFCHMOD_MISSING -DMKTIME_MISSING \
+#	-DRENAME_MISSING -DSTBLOCKS_MISSING -DMKFIFO_MISSING \
+#	-DMVDIR=\"$(LIBDIR)/mvdir\"
+#LIBPROGS = mvdir
+#LIBINSTALL = install_lib
+# Non-gcc users need -lPW to get alloca.
+#LIBS = $(LIBOBJS) -lndir #-lPW
+
+# SCO Xenix 386
+# Recent versions have both sys/dir.h, linked with -lx,
+# and dirent.h, linked with -ldir.  In some versions, the -ldir
+# library is buggy.  But the -ldir routines are the only way to
+# access network disks.
+# The current version of regex.c appears to fun afoul of a bug in the
+# Microsoft C compiler; you might need gcc to compile it on Xenix.
+#DEFS = -DUSG -DFCHMOD_MISSING -DMKTIME_MISSING -DMKFIFO_MISSING \
+#	-DRENAME_MISSING -DSTBLOCKS_MISSING \
+#	-DDIRENT -DMVDIR=\"$(LIBDIR)/mvdir\"
+#LIBPROGS = mvdir
+#LIBINSTALL = install_lib
+# Non-gcc users need to get alloca from somewhere, like emacs or bash,
+# and add alloca.o to LIBOBJS.
+#LIBS = $(LIBOBJS) -ldir -lx
+
+# HP/UX
+#DEFS = -DUSG -DVPRINTF_MISSING -DMKTIME_MISSING -DMKFIFO_MISSING \
+#	-DHPUX_NFS_BUG
+#LIBS = $(LIBOBJS)
+
+# Minix with gcc
+#DEFS = -DUSG -DSTDC_HEADERS -D_POSIX_SOURCE -DFCHMOD_MISSING -DDIRENT \
+#	-DFTRUNCATE_MISSING -DSTBLOCKS_MISSING -DDEV_BSIZE=1024 -D_MINIX
+#LIBS = $(LIBOBJS)
+
+CFLAGS = -I. -g $(DEFS)
+LDFLAGS = -g
+
+# Object files that are linked with every program except dd.
+LIBOBJS = getopt.o getopt1.o
+
+# Where to install the executables.
+BINDIR = /usr/local/gnubin
+# Where to put mvdir on systems lacking the rename system call.
+LIBDIR = /usr/local/lib
+# Where to put the Unix-style manual pages.
+MANDIR = /usr/local/man/man1
+
+# Executable files in this directory.
+PROGS = cat chmod cmp cp cut dd du ginstall head ln dir vdir ls \
+	mkdir mkfifo mv paste rm rmdir tac tail touch
+
+# Version of fileutils release.
+VERSION = 1.4
+
+MISC = COPYING ChangeLog Makefile README
+SRC = backupfile.c cat.c chmod.c cmp.c cp-aux.c cp-hash.c cp.c cp.h \
+	dd.c dirlib.c du.c eaccess.c error.c filemode.c \
+	getopt.c getopt1.c globmat.c head.c ln.c ls.c mkdir.c mkfifo.c \
+	modechange.c modechange.h mv.c mvdir.c rm.c rmdir.c tail.c \
+	tac.c regex.c getversion.c argmatch.c fileblocks.c install.c \
+	touch.c getdate.y posixtime.y mktime.c \
+	cut.c paste.c savedir.c backupfile.h getopt.h system.h regex.h
+MAN = man/gcat.1 man/gcut.1 man/ginstall.1 man/gmkfifo.1 man/grmdir.1 \
+	man/gchmod.1 man/gdd.1 man/gln.1 man/gmv.1 man/gtac.1 \
+	man/gcmp.1 man/gdu.1 man/gls.1 man/gpaste.1 man/gtail.1 \
+	man/gcp.1 man/ghead.1 man/gmkdir.1 man/grm.1 man/gtouch.1
+# Files to include in the distribution archive.
+DISTFILES = $(MISC) $(SRC) $(MAN)
+
+# The name of the distribution archive.
+TARFILE = fileutils-$(VERSION).tar.Z
+
+all: $(PROGS) $(LIBPROGS)
+.PHONY: all
+
+$(PROGS) $(LIBPROGS):	$(LIBOBJS)
+
+install:	install_progs $(LIBINSTALL) install_man 
+.PHONY: install
+
+install_progs: $(PROGS)
+	./ginstall $(PROGS) $(BINDIR)
+	cd $(BINDIR); ./ln -f dir d; ./ln -f vdir v; ./mv -f ginstall install
+.PHONY: install_progs
+
+install_lib:	$(LIBPROGS)
+	./ginstall -o root -m 4755 $(LIBPROGS) $(LIBDIR)
+.PHONY: install_lib
+
+install_man: $(MAN)
+	./ginstall -m 644 $(MAN) $(MANDIR)
+.PHONY: install_man
+
+# Linking rules.
+
+cat: cat.o error.o
+	$(CC) $(LDFLAGS) -o $@ cat.o error.o $(LIBS)
+
+chmod: chmod.o modechange.o filemode.o error.o savedir.o
+	$(CC) $(LDFLAGS) -o $@ chmod.o modechange.o filemode.o error.o \
+	savedir.o $(LIBS)
+
+cmp: cmp.o error.o
+	$(CC) $(LDFLAGS) -o $@ cmp.o error.o $(LIBS)
+
+cp: cp.o cp-hash.o cp-aux.o dirlib.o eaccess.o error.o backupfile.o \
+	getversion.o argmatch.o savedir.o
+	$(CC) $(LDFLAGS) -o $@ cp.o cp-hash.o cp-aux.o dirlib.o \
+	eaccess.o error.o backupfile.o getversion.o argmatch.o \
+	savedir.o $(LIBS)
+
+cut: cut.o error.o
+	$(CC) $(LDFLAGS) -o $@ cut.o error.o $(LIBS)
+
+dd: dd.o error.o
+	$(CC) $(LDFLAGS) -o $@ dd.o error.o
+
+dir: dir.o filemode.o globmat.o error.o argmatch.o fileblocks.o
+	$(CC) $(LDFLAGS) -o $@ dir.o filemode.o globmat.o error.o \
+	argmatch.o fileblocks.o $(LIBS)
+
+du: du.o error.o fileblocks.o savedir.o
+	$(CC) $(LDFLAGS) -o $@ du.o error.o fileblocks.o savedir.o $(LIBS)
+
+ginstall: install.o dirlib.o error.o
+	$(CC) $(LDFLAGS) -o $@ install.o dirlib.o error.o $(LIBS)
+
+head: head.o error.o
+	$(CC) $(LDFLAGS) -o $@ head.o error.o $(LIBS)
+
+ln: ln.o error.o backupfile.o getversion.o dirlib.o argmatch.o
+	$(CC) $(LDFLAGS) -o $@ ln.o error.o backupfile.o \
+	getversion.o dirlib.o argmatch.o $(LIBS)
+
+ls: ls.o filemode.o globmat.o error.o argmatch.o fileblocks.o
+	$(CC) $(LDFLAGS) -o $@ ls.o filemode.o globmat.o error.o \
+	argmatch.o fileblocks.o $(LIBS)
+
+mkdir: mkdir.o modechange.o dirlib.o error.o
+	$(CC) $(LDFLAGS) -o $@ mkdir.o modechange.o dirlib.o error.o $(LIBS)
+
+mkfifo: mkfifo.o modechange.o error.o
+	$(CC) $(LDFLAGS) -o $@ mkfifo.o modechange.o error.o $(LIBS)
+
+mv: mv.o error.o backupfile.o getversion.o dirlib.o argmatch.o
+	$(CC) $(LDFLAGS) -o $@ mv.o error.o backupfile.o \
+	getversion.o dirlib.o argmatch.o $(LIBS)
+
+mvdir: mvdir.o error.o
+	$(CC) $(LDFLAGS) -o $@ mvdir.o error.o
+
+paste: paste.o error.o
+	$(CC) $(LDFLAGS) -o $@ paste.o error.o $(LIBS)
+
+rm: rm.o dirlib.o eaccess.o error.o
+	$(CC) $(LDFLAGS) -o $@ rm.o dirlib.o eaccess.o error.o $(LIBS)
+
+rmdir: rmdir.o dirlib.o error.o
+	$(CC) $(LDFLAGS) -o $@ rmdir.o dirlib.o error.o $(LIBS)
+
+tac: tac.o error.o regex.o
+	$(CC) $(LDFLAGS) -o $@ tac.o error.o regex.o $(LIBS)
+
+tail: tail.o error.o
+	$(CC) $(LDFLAGS) -o $@ tail.o error.o $(LIBS)
+
+touch: touch.o getdate.o posixtime.o mktime.o error.o argmatch.o
+	$(CC) $(LDFLAGS) -o $@ touch.o getdate.o posixtime.o \
+	mktime.o error.o argmatch.o $(LIBS)
+
+vdir: vdir.o filemode.o globmat.o error.o argmatch.o fileblocks.o
+	$(CC) $(LDFLAGS) -o $@ vdir.o filemode.o globmat.o error.o \
+	argmatch.o fileblocks.o $(LIBS)
+
+# Compilation rules.
+
+chmod.o mkdir.o mkfifo.o modechange.o: modechange.h
+
+cp.o mv.o ln.o backupfile.o getversion.o: backupfile.h
+
+cp.o cp-hash.o cp-aux.o: cp.h
+
+tac.o regex.o: regex.h
+
+getdate.c: getdate.y
+	@echo expect 8 shift/reduce conflicts
+	$(YACC) getdate.y
+	mv y.tab.c getdate.c
+
+posixtime.c: posixtime.y
+	$(YACC) posixtime.y
+	sed -e 's/yy/zz/g' y.tab.c > posixtime.c
+	rm y.tab.c
+
+# C compilers that can't handle -c and -o together need the following:
+#dir.o:		ls.c
+#	$(CC) $(CFLAGS) -DMULTI_COL -c ls.c
+#	mv ls.o dir.o
+#
+#vdir.o:		ls.c
+#	$(CC) $(CFLAGS) -DLONG_FORMAT -c ls.c
+#	mv ls.o vdir.o
+
+dir.o:		ls.c
+	$(CC) $(CFLAGS) -DMULTI_COL -o dir.o -c ls.c
+
+vdir.o:		ls.c
+	$(CC) $(CFLAGS) -DLONG_FORMAT -o vdir.o -c ls.c
+
+# Use /bin/rm instead of ./rm in case ./rm is compiled for a different
+# architecture.
+clean:
+	/bin/rm -f $(PROGS) $(LIBPROGS) *.o tags TAGS a.out core \
+	posixtime.c getdate.c
+.PHONY: clean
+
+dist:	$(TARFILE)
+.PHONY: dist
+
+$(TARFILE):	$(DISTFILES)
+	rm -rf fileutils-$(VERSION)
+	mkdir fileutils-$(VERSION) fileutils-$(VERSION)/man
+	ln $(MISC) $(SRC) fileutils-$(VERSION)
+	ln $(MAN) fileutils-$(VERSION)/man
+	tar chZf $(TARFILE) fileutils-$(VERSION)
+	rm -rf fileutils-$(VERSION)

@@ -1,0 +1,285 @@
+// WebGrep - search a web subtree for a pattern
+//
+// This is basically "grep" for the web.  You give it one or more URLs
+// as arguments.  It enumerates the files reachable at or below those
+// URLs, and searches their contents for the given pattern.
+//
+// Options:
+//
+//   -i
+//     case-insensitive search
+//   -t timeout
+//     How many seconds to allow for a fetch, before killing it.  Default
+//     is 120.
+//   -p threads
+//     The maximum number of threads to run in parallel.  Default is 5.
+//
+// Copyright (C) 1996 by Jef Poskanzer <jef@acme.com>.  All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+//
+// Visit the ACME Labs Java page for up-to-date versions of this and other
+// fine Java utilities: http://www.acme.com/java/
+
+import java.util.*;
+import java.net.*;
+import java.io.*;
+
+public class WebGrep extends Acme.Application
+    {
+
+    static final String progName = "WebGrep";
+
+    // Old-style main() routine.  Calls compatibility routine for newMain().
+    public static void main( String[] args )
+        {
+        (new WebGrep()).compat( args );
+        }
+
+    // Timeout for starting fetches.
+    private static final int defInitialTimeOut = 15;
+
+    // Timeout for killing stalled fetches.
+    private static final int defTimeOut = 120;
+    private static final int minTimeOut = 30;
+
+    // Number of parallel fetchers.
+    private static final int defNThreads = 5;
+    private static final int minNThreads = 1;
+    private static final int maxNThreads = 100;
+
+    boolean ignoreCase = false;
+    int initialTimeOut = defInitialTimeOut;
+    int timeOut = defTimeOut;
+    private int nThreads = defNThreads;
+
+    public int newMain( String[] args )
+	{
+	int argc = args.length;
+	int argn;
+
+	// Parse args.
+	for ( argn = 0; argn < argc && args[argn].charAt( 0 ) == '-'; ++argn )
+	    {
+	    if ( args[argn].equals( "-i" ) )
+		ignoreCase = true;
+	    else if ( args[argn].equals( "-t" ) )
+		{
+		++argn;
+		timeOut = Integer.parseInt( args[argn] );
+		}
+	    else if ( args[argn].equals( "-p" ) )
+		{
+		++argn;
+		nThreads = Integer.parseInt( args[argn] );
+		}
+	    else
+		{
+		usage();
+		return -1;
+		}
+	    }
+
+	// Check flag values.
+	if ( timeOut < minTimeOut )
+	    {
+	    err.println( "Timeout must be at least " + minTimeOut );
+	    return -1;
+	    }
+	 if ( nThreads < minNThreads )
+	    {
+	    err.println( "Number of threads must be at least " + minNThreads );
+	    return -1;
+	    }
+	if ( nThreads > maxNThreads )
+	    {
+	    err.println( "Number of threads must be at most " + maxNThreads );
+	    return -1;
+	    }
+
+	if ( argc - argn < 2 )
+	    {
+	    usage();
+	    return -1;
+	    }
+
+	String pat = args[argn];
+	if ( ignoreCase )
+	    pat = pat.toLowerCase();
+
+	Acme.Spider spider = new Acme.Spider();
+	for ( ++argn; argn < argc; ++argn )
+	    try
+		{
+		spider.addUrl( args[argn] );
+		}
+	    catch ( MalformedURLException e )
+		{
+		err.println( e );
+		return -1;
+		}
+
+	findIt( pat, ignoreCase, spider );
+	return 0;
+	}
+
+    private void usage()
+	{
+	err.println( "usage:  " + progName + " [-i] [-t timeout] [-p threads] string url ..." );
+	}
+
+    private synchronized void findIt( String pat, boolean ignoreCase, Acme.Spider spider )
+	{
+	Thread[] threads = new Thread[nThreads];
+	int i, freeSlot, nAlive;
+	boolean more;
+
+	for ( i = 0; i < nThreads; ++i )
+	    threads[i] = null;
+
+	for (;;)
+	    {
+	    // Check state.
+	    nAlive = 0;
+	    freeSlot = -1;
+	    long current = System.currentTimeMillis();
+	    for ( i = 0; i < nThreads; ++i )
+		{
+		if ( threads[i] == null )
+		    freeSlot = i;
+		else if ( ! threads[i].isAlive() )
+		    {
+		    threads[i] = null;
+		    freeSlot = i;
+		    }
+		else
+		    ++nAlive;
+		}
+	    more = spider.hasMoreElements();
+
+	    // Are we completely done?
+	    if ( nAlive == 0 && ! more )
+		break;
+
+	    // Can we start a new thread?
+	    if ( freeSlot != -1 && more )
+		threads[freeSlot] = new WebGrepThread(
+		    pat, ignoreCase, spider, this, out, err );
+
+	    // And pause a bit.
+	    try
+		{
+		wait( 5000 );
+		}
+	    catch ( InterruptedException e ) {};
+	    }
+	}
+
+    protected synchronized void proxyNotify()
+	{
+	notify();
+	}
+
+    }
+    
+
+class WebGrepThread extends Thread
+    {
+
+    private String pat;
+    private boolean ignoreCase;
+    private Acme.Spider spider;
+    private WebGrep parent;
+    private PrintStream out;
+    private PrintStream err;
+
+    /// Constructor.
+    public WebGrepThread( String pat, boolean ignoreCase, Acme.Spider spider, WebGrep parent, PrintStream out, PrintStream err )
+	{
+	super();
+	this.pat = pat;
+	this.ignoreCase = ignoreCase;
+	this.spider = spider;
+	this.parent = parent;
+	this.out = out;
+	this.err = err;
+	start();
+	}
+
+    /// The thread routine.  All it does is search one HTML file and then exit.
+    // It's a separate thread so that we can put a timeout on it and kill it
+    // if it takes too long.  Also so we can run multiple fetches in parallel.
+    public void run()
+	{
+	Thread me = Thread.currentThread();
+	me.setPriority( Thread.MIN_PRIORITY );
+	URLConnection conn;
+	Acme.TimeKiller tk =
+	    new Acme.TimeKiller( me, parent.initialTimeOut * 1000 );
+        try
+	    {
+	    conn = (URLConnection) spider.nextElement();
+	    }
+	catch ( ThreadDeath e )
+	    {
+	    parent.proxyNotify();
+	    throw e;
+	    }
+
+	if ( conn != null )
+	    {
+	    tk.reset( parent.timeOut * 1000 );
+
+	    URL thisUrl = conn.getURL();
+	    String thisUrlStr = thisUrl.toExternalForm();
+	    try
+		{
+		InputStream in = conn.getInputStream();
+		DataInputStream din = new DataInputStream( in );
+		String line;
+		while ( ( line = din.readLine() ) != null )
+		    {
+		    int r;
+		    if ( ignoreCase )
+			{
+			String lcline = line.toLowerCase();
+			r = lcline.indexOf( pat );
+			}
+		    else
+			r = line.indexOf( pat );
+		    if ( r != -1 )
+			out.println( thisUrlStr + ": " + line );
+		    }
+		din.close();
+		}
+	    catch ( ThreadDeath e )
+		{
+		parent.proxyNotify();
+		throw e;
+		}
+	    catch ( IOException e ) {}
+	    }
+	tk.done();
+	parent.proxyNotify();
+	}
+
+    }

@@ -1,0 +1,420 @@
+Paradox 3.5 Memory Management Overview
+
+by Alan Zenreich & Jim Kocis
+
+Paradox 3.5's memory management differs significantly from its
+predecessors.  On one hand, it has been made much easier to run Paradox
+in limited memory situations; on the other hand, there is more to think
+about when doing performance tuning.
+
+Although many of those who have used Paradox for a long time tend not to
+reread the Paradox manuals with each new release, there are some
+significant changes in the new manuals that you should pay attention to.
+ Most of the typos that have been reported to Borland have been fixed.
+The Performance and Resource Tuning chapter of the PAL User's Guide has
+been rewritten to explain the control you have over memory management.
+It is also worth rereading the Advanced Topics chapter of the Paradox
+User's Guide and pay particular attention to the section on How Paradox
+Uses Memory  (which does a good job of explaining the difference between
+real and protected mode operation).  Also look at the new Command Line
+Options.
+
+Borland uses a new state-of-the-art memory management system in Paradox
+3.5.  It is called VROOMM with TurboDrive.  We'll discuss the features
+of the new system, how it differs from Paradox 3.0, and what impact it
+has on your PAL programming.
+
+What is VROOMM?
+
+VROOMM stands for Virtual Runtime Object Oriented Memory Management.  It
+was first introduced in Quattro Pro and Reflex as a way of getting an
+advanced feature to work in limited memory situations.  This "core"
+technology now is integrated into the new Paradox.
+
+Conventional coding techniques rely on executable files coupled with
+overlay files.  Entire overlay files get read into memory as needed.
+However, it is not uncommon for a user to need features that are found
+in different overlays.  When this happens there is usually a lot of disk
+access as the memory is purged, and the next overlay is read in to
+replace it.  VROOMM behaves quite differently.  Instead of loading
+entire overlays, it breaks the code into smaller "objects" that can be
+loaded dynamically whenever needed.  Therefore, code fragments that
+would otherwise be in conflicting overlays can reside in memory with
+those from other overlays (without carrying the "baggage" of the rest of
+the overlay).  VROOMM uses algorithms that keep recently used code in
+memory, so there is to keep disk activity to a minimum.
+
+In addition to managing the memory for Paradox program code, VROOMM is
+also responsible for managing Expanded (EMS); and Extended memory (as a
+caching device).
+
+TurboDrive
+
+Although VROOMM exists in other Borland products, Paradox 3.5 introduces
+TurboDrive to support both Real and Protected mode operation.  Real mode
+works just as it always has with the ever present 640kb DOS barrier.
+However, if your computer uses an 80286, 80386 or 80486 microprocessor,
+Paradox can make use of the extended memory for direct program use (as
+opposed to a simple caching device).  This "Protected Mode" operation
+can significantly improve performance when dealing with large tables.
+After years of struggling over tweaking every last bit of MEMLEFT()
+available, it is a pleasure to see MEMLEFT() values of several megabytes
+(on machines with available memory).  As of this writing, memory prices
+have fallen, so it is not unusual to see machines with several megabytes
+of memory on board.  Up until recently there haven't been many good
+reasons to equip a machine with extended memory, but Paradox 3.5 can
+exploit up to 16 megabytes of memory directly for active program use.
+When Paradox 3.5 is running in protected mode with large amounts of
+extended memory, tasks like sorting tables can often be done entirely in
+memory, resulting in dramatic performance gains.  Remember that although
+your PAL code might not do much sorting, sorting is an integral part of
+the query and report mechanism, with Paradox sorting data behind the
+scenes.
+
+Paradox 2.0 and 3.0 were able to use expanded memory as a swap device,
+used to hold procedures that would no longer fit in active memory, and
+also as a disk cache.  Paradox 3.5's new caching scheme is more
+intelligent and interacts better with the rest of the Paradox
+environment.
+
+Memory Consumers
+
+There are many parts of Paradox that have to share the available memory.
+Let's take a look at these "consumers" and what their jobs are.
+
+The diagram below is a rough visual representation of the way Paradox
+uses memory.  The bottom of the diagram is the lowest area of DOS
+memory.  The dotted horizontal lines represent boundaries that can be
+moved dynamically, while solid horizontal lines cannot be moved.
+
+_________________
+|		|
+|Code Pool	|    Dynamically loaded Paradox code
+|		|
+|----------------------------	|
+|		|
+|Heap	|    Cache
+|		|    PAL Procedures and variables
+|		|    Workspace
+|		|    Other
+|----------------------------	|
+|SwapMgr	|    Table data
+|		|
+|----------------------------	|
+|		|
+|Fixed Code	|    150 - 200kb
+|		|
+|_______________	|
+
+Now  for an overview of the various memory users in the diagram.
+
+The Fixed Paradox Code
+
+When Paradox is started, it must load a certain amount of its own code
+directly into memory to get itself up and running.  This fixed code
+stays in place for the rest of the session.
+
+The Code Pool
+
+The VROOM mechanism dynamically loads portions of the rest of the
+Paradox program code as needed.  The "objects" are actually small pieces
+of code that Paradox requires for the task at hand.
+
+The Swap Manager
+
+Some memory is set aside to act as an input/output buffer.  This Swap
+Manager (abbreviated SwapMgr, and nicknamed the Swap Mugger) is not to
+be confused with the mechanism that controls procedure swapping.  The
+SwapMgr is used to pass blocks of table data for tables on the workspace
+to Paradox and back out to disk.  As you page down through a table on
+the workspace, Paradox goes to disk to get the data, places it into the
+SwapMgr and then onto the workspace.  As the SwapMgr fills up, the
+overflow can be directed into the cache device.
+
+The Cache
+
+The cache memory is used to store table data, forms, libraries and other
+Paradox objects previously read from disk (even its own overlays).  In
+earlier versions of Paradox, the amount of cache memory was taken from
+expanded memory (or extended memory in PDOX386).  You had to
+predetermine how much of the memory was to be used for a cache, and set
+it aside.  Paradox 3.5 on the other hand, can dynamically re-size the
+cache as needed.  That is, when you first start up Paradox, there is
+very little in the cache (because you haven't done anything yet).
+However, the cache is considered "free" memory because it can be given
+back to Paradox whenever it is needed.  So when evaluating MEMLEFT() it
+will always include the memory used by the cache because that memory is
+available for the next command.
+
+PAL Procedures and Variables
+
+Procedures defined on the fly or read from procedure libraries take some
+memory.  Variables remain in memory until release, but procedures can be
+swapped out if necessary to free some additional memory.  It is worth
+noting that if you are running in protected mode, and there is no memory
+devoted solely as a "swap device" (like Paradox3's use of expanded
+memory), the swapped procedures don't actually get moved to a new
+location in memory.  Excess procedures are simply discarded with the
+idea that they can often be found in the cache or reread from the
+procedure library.  The amount of procedure swapping is subject to the
+overall amount of memory and how high you've set your SETSWAP point; but
+more about that later.
+
+The Workspace
+
+Paradox needs a small amount of memory for formatting and displaying
+each image on the workspace.
+
+What else?
+
+There are other memory consumers that are by and large transient.  For
+example, Paradox needs some memory to display and keep track of the menu
+tree.  Similarly, each time you are prompted to type in a response, some
+memory is allocated.  These "other" users come and go, so it is a bit
+difficult to account for all memory at any given time, so don't be too
+concerned.
+
+Error procedures and Code Pool invasion
+
+Although one of the joys of 3.5 is the ability to exploit vast amounts
+of memory, there are a few fundamental differences between the way 3.0
+dealt with low memory situations and the implementation in 3.5.
+
+The first thing to consider is that in Paradox 3.0, when MEMLEFT()
+reaches 0 and there are no procedures left to swap out, the script runs
+out of memory and ceases (it cannot even trip an errorproc because there
+is no memory left to do so).  In 3.5 however, there is a sort of safety
+net.  When MEMLEFT() =0 and you still need more memory, Paradox can take
+some memory that is otherwise normally used by the Code Pool itself.
+When this happens, the Code Pool is said to have been invaded.  The PAL
+User's Guide gives an overview of code pool invasion but there are some
+things to think about.
+
+If you use the checking account analogy proposed in the User's Guide,
+you can think of the Code Pool as overdraft protection.  It's not a
+particularly good idea to invade the code pool because overall Paradox
+performance will suffer.  We'd also like to point out that, generally,
+setting a SETSWAP point will avoid code pool invasions; if the MEMLEFT()
+is never allowed to get to 0, then you cannot possibly invade the code
+pool.   However, if you do invade the code pool, here is what is going
+on.
+
+Code Pool Diagram:
+
+ ________________
+|		|
+|		|
+|		|
+|		|
+|		|
+|		|
+|_______________	|-  96k   Resource Limit Exceeded point
+|		|
+|		|
+|		|
+|_______________	|-  142k  Low Memory Warning Threshold
+|		|
+|		|
+|_______________	|-  167k  Startup Memory
+
+At startup, the code pool is a 167kb area of memory.  If your program
+invades the code pool, nothing will happen if Paradox needs to take less
+than 25kb of memory (it will not trip a run error).  However, if it
+needs more than 25kb, it will cross the 142kb threshold and trigger a
+script error.  If you have an errorproc in place Paradox will set the
+ERRORCODE() = 44 (Low Memory Warning), and let your errorproc take over.
+ This gives you the opportunity to take some corrective action
+(typically freeing some memory by releasing procedures, variables or
+images).  In any event, when the errorproc is finished, Paradox will
+retry the statement that flagged the errorproc in the first place, even
+if you set RETURN 1 to attempt to skip over the problem).  It is also
+important to know that once you are below the threshold, low memory
+warnings no longer exist.  That is, the warning only comes when you
+actively cross over the threshold because once you're in a low memory
+situation and have been warned, additional invocations of the errorproc
+would be useless and tie up memory.  Once you've crossed the threshold,
+you have a maximum of about 46kb of additional memory available before
+reaching the point where you'll get a Resource Limit Exceeded error.
+
+The RMEMLEFT() function returns the amount of memory available to be
+borrowed from the code pool.  This reserved memory is 67kb at startup,
+the difference between the 167kb available in the code pool and the
+point slightly above the 96kb resource limit point.  You really only
+need to know the current RMEMLEFT() if you are in an errorproc trying to
+deal with a low memory situation.  If you need to know the amount of
+code pool invasion from point to point, you could store RMEMLEFT() to a
+variable when you start your application and have your errorproc check
+the current MEMLEFT() and RMEMLEFT() to decide how best to proceed.
+Sometimes, if there is still enough RMEMLEFT() available, it is best to
+call a subordinate procedure to handle an error.  In other cases you
+might use SETSWAP or RELEASE VARS to gain some memory and take the
+strain off the code pool.
+
+Remember that MEMLEFT() is the amount of memory above the code pool and
+that a code pool invasion won't happen until MEMLEFT() is allowed to go
+to 0.  Setting SETSWAP will usually avoid this condition in the first
+place (unless you've really run out of memory altogether).  If you don't
+set a SETSWAP point explicitly, it is likely that the default SETSWAP 0
+will eventually intrude on the code pool.
+
+More about Error Procedures
+
+Most Paradox run errors can be handled by error procedures.  There have
+been some changes in the way the 3.5 version works.
+
+In Paradox 3.0 you have to explicitly read in an error procedure prior
+to a run error.  3.5 allows Paradox to search the libraries contained in
+the AUTOLIB for the location of the specified errorproc.
+
+Because of the availability of the code pool, a 3.5 errorproc can use up
+to 46k more before triggering a resource limit error.
+
+In the event of a low memory warning, ERRORCODE()=44, you should try to
+back out of the code pool because the offending statement will always be
+retried.
+
+The Swap Manager
+
+As mentioned earlier, the SwapMgr handles blocks of data for tables on
+the workspace.  It is not to be confused with the cache which resides in
+a different area of memory.  The cache feeds data to and accepts data
+from the SwapMgr.  One important point is that the SwapMgr is not a
+direct Write-Through device.  It does not automatically send all output
+back to disk immediately.  For example, if you empty a table, the table
+is removed from disk, but the new empty copy may not be written to disk
+yet (unless you're on a network where things must be kept up to date).
+Paradox will send data to disk from time to time (as part of the
+autosave feature), but keeping the disk access to a minimum improves
+performance.  If you need to explicitly flush the data in the SwapMgr to
+disk you can use the new SAVETABLES command or the RESET command (which
+also removes locks and private table declarations).
+
+The SwapMgr is allocated approximately 25kb to 100kb of memory by
+default (depending on how much memory is available), but you can
+explicitly control it by using the  -TABLEK command line option.
+Although you can control the amount of memory available to the SwapMgr,
+it is probably better to let Paradox handle it because if you don't use
+the -TABLEK option, it can be expanded and contracted dynamically
+depending on the operation.
+
+The Cache
+
+Paradox 3.5 has an improved caching mechanism.  Before we discuss the
+features, a short mention of external disk caches is in order.  A good
+commercial disk cache (like SuperPckwik from MultiSoft) differs from the
+Paradox cache in a few ways:
+
+1) High performance caching is their main business.
+
+2) They can be used with your other programs, generally speeding up all
+disk operations.
+
+3) They can generally do full track reads.
+
+4) They usually cannot  cache network drives.
+
+In our testing, SuperPckwik seems to coexist well with Paradox 3.5's
+cache when we allocate 500kb to 1000kb of memory to the external cache.
+Our tests also show that overall Paradox performance improves when an
+external cache is in place, providing, of course, that you don't steal
+too much memory away from Paradox's use.
+
+You can think of Paradox's cache as an overflow device for the SwapMgr.
+In addition to storing table data recently read from disk, it can also
+hold forms, procedure libraries, and (if memory permits in protected
+mode) the overlays for Paradox program code.
+
+Unlike the SwapMgr, the cache is Write-Through so all changed data that
+is written to the cache also goes to the disk immediately.
+
+Paradox 3.0 allocated the cache in a separate area of memory, that could
+only be used for caching.  That memory area was split up into two
+sections: one to cache data, and one to act as an area where procedures
+could be swapped.  The cache memory could not be used for anything else.
+ The cache worked at a disk sector level, and could not be used on
+network drives or drives larger than 32 megabytes.
+
+Paradox 3.5, on the other hand, integrates the cache as part of the
+overall memory scheme.  In this way, the cache is considered a very low
+priority user of memory.  All the memory used by the cache is considered
+available to the next PAL statement.  If Paradox needs memory, it will
+throw data out of the cache to make room.  Because the 3.5 cache knows
+that a table is an object, it can also know that if (on a network) a
+table is changed by another user, it can flag the cache memory as
+immediately available.  By looking at the time and date stamp on the
+files, Paradox can also know if the data for a table is up to date in
+the cache.  Consequently 3.5 can cache network drives.
+
+We mentioned before that unlike Paradox 3.0 , when you're running 3.5 in
+protected mode, there is no "swap area" for procedures.  Active
+procedures stay in memory, and when they get "swapped out" they are
+simply discarded.  There is a good chance, however, that the area of the
+library that contains the procedure is still in the cache.  This brings
+us to a discussion of how the cache interacts with the swapping
+mechanism and it's impact on performance.
+
+Procedure Swapping and Swap devices
+
+If you are using Paradox 3.5 in REAL mode and there is additional
+Expanded (EMS) or extended memory available, Paradox will use the
+additional memory as a "swap device".  This area of memory is used to
+store recently used procedures and as a disk cache.  Like 3.0, code does
+not execute from within a swap device, but must be copied from the
+device into the more limited active memory.  The swap device can further
+be divided to account for the area used to store swapped procedures vs
+table data (with the ─CACHEK command line option).
+
+However, if you use Paradox 3.5 in PROTECTED mode, memory is handled
+quite differently.  First of all, there is no swap device, all memory is
+treated as active.  Procedures are kept in and executed directly from
+the central pool of memory, which is shared between all memory
+"consumers".  As procedures are called from libraries, they go directly
+into the central pool, and if necessary, push cached data out of the way
+to make room.  This brings us to a fundamental difference between the
+proper SETSWAP point in 3.0 vs. 3.5.
+
+In 3.0 the general rule of thumb is that you want to keep your SETSWAP
+point to the lowest possible value that still allows Paradox to execute
+your commands.  You need enough free memory to step through your next
+single PAL statement.  If you set the swap point too high, procedures
+are swapped out of memory needlessly, and Paradox does not exploit the
+available memory for anything else.  That is, a query doesn't run any
+faster with a swap point at 30,000 than it would with a swap point of
+100,000, either it runs or it doesn't.
+
+Paradox 3.5 running in protected mode changes the rules somewhat.  Let's
+assume that you have a 2 megabyte machine running in protected mode.
+When you start Paradox, you'll probably get a MEMLEFT() value of about
+1,200 kb (that's 1.2 megabytes).  Obviously this is dramatically more
+memory than the equivilant 3.0 installation where 130kb is about normal.
+ When you run your application, procedures are read from libraries and
+placed into memory.  As you work with tables, they too are placed in
+memory, in the cache.  As you continue using the application, more and
+more procedures get read in (possibly taking memory away from the
+cache), and eventually you have to come to a decision:
+
+Which is more important, the PAL code or the data?
+
+The answer is not very simple.  If you have very small procedure
+libraries and lots of data, it probably doesn't matter very much.  But
+if you have a lot of PAL code, performance may suffer if you have a low
+SETSWAP because as a session goes on, procedures are loaded at the
+expense of the cache.  It is conceivable, and even likely, that you
+could fill up memory with procedures and not leave any room for caching
+at all, at which point table access will bog down.  So, in this case, it
+is probably better to try and decide how much memory should be reserved
+for non-procedure use.  You do this by setting the SETSWAP point.  In
+the example above, you might want to set a swap point of 500,000 bytes,
+so that you'll guarantee 1/2 megabyte of memory for non-procedure use.
+This can hold the tables and other cached objects.  On the other hand,
+if you have a lot of code that you want to remain in memory, at the
+expense of the cache, you can set the swap point rather low.
+
+There seem to be no hard and fast rules, but the point is that you do
+have control over the use.  Evaluating memory at the start of the
+application can give you an idea of the best SETSWAP setting.  A little
+experimentation can help fine tune the performance.  You might also
+consider not hard coding the swap point into your code, but instead
+making it flexible (usually as a variable), either picked up from a
+table or some other initialization script.  This way you can change the
+value without changing the code.

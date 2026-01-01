@@ -1,0 +1,367 @@
+        M4.DOC                     12 November 86           Page 1
+
+
+        Copyright 1986  Michael M Rubenstein
+
+        M4 is a MSDOS version of the Unix (tm) m4 macro processor.  All
+        functions of the Unix version 7 m4 are supported as well as a
+        number of extensions.  This version was written without reference
+        to the Unix source and should not be expected to match the Unix
+        version if used in an undocumented manner.
+
+        M4 requires MSDOS or PCDOS version 2.0 or higher.  No particular
+        IBM compatibility should be required.
+
+
+
+        Usage
+
+        M4 is invoked with the command
+
+             m4 [<input file>...]
+
+        For example, to apply m4 to the files file1.m4 file2 file3.fil,
+        the command
+
+             m4 file1.m4 file2 file3.fil
+
+        is used.  Output is always to stdout, which is usually
+        redirected.  If no input files are given, input is taken from
+        stdin.  Any of the input files may be specified as -, in which
+        case it is taken from stdin.
+
+
+
+        Description
+
+        M4 reads one or more text files and writes the modified output to
+        stdout (which may, of course, be redirected).  When a macro is
+        encountered, it is evaluated and the result is rescanned.  Text
+        may be quoted by enclosing it in `' (note that these are not the
+        same character).  When quoted text is encountered, the quotes are
+        removed and the text is not scanned for macros.  However, if the
+        text is used in a macro evaluation and is rescanned, macro
+        substitution will take place.  Quotes may be nested to allow text
+        to be rescanned several times without evaluation.
+
+        The "define" built in macro permits definition of new macros.
+        For example
+
+             define(A, 3)
+
+        defines A to be 3.  No space is permitted between the macro name,
+        "define", and the left parenthesis.  If a macro name is not
+        followed immediately by a left parenthesis, it has no arguments.
+
+        Macro names consist of letters, underscores, and digits and must
+        begin with a letter or underscore.  Case is significant.  Macro
+        names are recognized only when they appear as words (i.e.,
+
+
+                                    1
+        M4.DOC                     12 November 86           Page 2
+
+
+        surrounded by characters which may not appear in a macro name).
+
+        Macros are expanded at the earliest opportunity.  Therefore, the
+        sequence
+
+             define(A, 3)
+             define(B, A)
+
+        would define A and B as 3.  However, since the "A" in the second
+        line is replaced by 3 before definition takes place, changing the
+        value of A will not affect B.  If the order of the definitions
+        were changed to
+
+             define(B, A)
+             define(A, 3)
+
+        the value of B would change with that of A (actually, B would be
+        replaced by A which would then be replaced by it's value, 2).
+
+        Alternatively, one could
+
+             define(A, 3)
+             define(B, `A')
+
+        The quotes prevent A from being evaluated in the second line, so
+        B is again defined as A.  In general, quoting the second argument
+        of "define" is useful to prevent evaluation before definition.
+
+        M4 always strips off one level of quotes when it evaluates
+        something.  Thus, if one wishes to use the word "define" in the
+        text, it must be quoted.
+
+             int `define';
+
+        will be changed to
+
+             int define;
+
+        by M4.
+
+        Quoting is necessary when redefining a macro.  For example, the
+        sequence
+
+             define(A, 2)
+             define(A, 3)
+
+        would leave A defined as 2 since the second line would expand to
+
+             define(2, 3)
+
+        The proper sequence is
+
+             define(A, 2)
+             define(`A', 3)
+
+
+
+                                    2
+        M4.DOC                     12 November 86           Page 3
+
+
+        Macros may have arguments.  The definition
+
+             define(sum, `($1 + $2)')
+
+        could be used to generate code to add two numbers.  For example,
+
+             sum(a, 3)
+
+        would generate
+
+             (a + 3)
+
+        Omitted arguments are replaced by a null string, so
+
+             sum(a)
+
+        would generate
+
+             (a +)
+
+        Excess arguments are ignored.
+
+        A macro may use up to 9 arguments, $1, $2, ..., $9.  $0 is the
+        name of the macro.
+
+        Software Tools (B. W. Kernighan and P. J. Plauger, Addison-
+        Wesley, Inc., 1976) contains a similar macro processor and much
+        more extensive discussion of it's usage.
+
+
+
+        Built In Macros
+
+        aquote(<leftquote>,<rightquote>,...)
+             Defines up to 4 pairs of alternate quotes.  Alternate quotes
+             prevent scanning for macros, but, unlike regular quotes, are
+             not removed from the text.  Default is no alternate quotes.
+             This is an extension in this version of M4.  It's primary
+             purpose is to prevent evaluation of macros in strings of a
+             language being preprocessed.
+
+        changequote(<leftquote>, <rightquote>)
+             Changes the quote characters.  Default quotes are `'.
+
+        changarg(<character>)
+             Changes the argument flag character (default "$").  Note
+             that the argument flag character is processed at expansion
+             time, not at definition time.  This can lead to strange
+             results if this macro appears after any definitions.
+
+        comment(<character>)
+             Changes the comment character (default #).  All input
+             from a comment character to the end of the line is simply
+             passed to the output.  If no argument, there will be no
+             comment character.
+
+
+                                    3
+        M4.DOC                     12 November 86           Page 4
+
+
+
+        decr(<integer>)
+             <integer> - 1
+
+        define(<name>,<value>)
+             Defines <name> to as <value>.  Up to 9 arguments may be
+             used.  Arguments are referenced in the definition (<value>)
+             by preceding a digit (1-9) by a special character (default
+             "$").  Argument 0 is the name of the macro.
+
+             See also, changearg.
+
+        divert(<integer>)
+             Sends output to diversion file <integer> if <integer> is
+             from 1 to 9.  Restores normal output if <integer> is 0 or
+             omitted.  Ignores output if <integer> is outside of the
+             range 0 through 9.
+
+             Diversions are normally copied to the output in numeric
+             order after all input.  This can be modified by undivert
+             (q.v.).
+
+        divnum
+             The number of the currently active diversion.  0 if no
+             diversion.
+
+        dnl
+             Deletes all characters through the next newline.  This is
+             useful for preventing excess new lines from being translated
+             during definition.  For example, the sequence
+
+                  define(A, something)
+                  define(B, somethingelse)
+
+             will be translated into two new lines.  By adding "dnl" to
+             the end of each line, this can be prevented.
+
+        dumpdef(<name1>,<name2>,...)
+             Displays the definitions of <name1>, etc. on stderr.  For
+             obvious reasons, <name1>, etc. should usually be quoted.  If
+             there are no arguments, all definitions are displayed.
+
+        errprint(<format>,<string1>,...,<string8>)
+             Prints to stderr.  <format> is as in C fprintf.  This will
+             not be meaningful if <format> contains any non-string format
+             codes.
+
+        eval(<expression>)
+             The evaluation of the integer expression <expression>.
+             Permitted operators in decreasing order of precedence are
+
+                  + (unary), - (unary)
+                  *, /, %
+                  + (binary), - (binary)
+                  ==, !=, <, <=, >, >=
+
+
+                                    4
+        M4.DOC                     12 November 86           Page 5
+
+
+                  !
+                  & or &&
+                  | or ||
+
+             Note that "&" and "&&" are equivalent, as are "|" and "||".
+             "a && b" gives 1 if both a and b are nonzero, 0 otherwise.
+             "a || b" gives 1 if either a or b is nonzero, 1 otherwise.
+             Unlike the similar C expressions, however, evaluation is not
+             stopped once the value can be determined.
+
+
+        ifdef(<name>,<value1>,<value2>)
+             If <name> is defined then <value1> else <value2>.  For
+             obvious reasons, <name> should usually be quoted.
+
+        ifelse(<str1>,<str2>,<value1>,<value2>)
+             If <str1>=<str2> then <value1> else <value2>.
+
+             <value2> can be replaced by <str3>,<str4>,<valu3>,<value4>,
+             in which case the result is
+
+                  if <str1>=<str2> then <value1>
+                  else if <str3>=<str4> then <value3>
+                       else <value4>
+
+             This can be extended in the obvious manner.
+
+        include(<filename>)
+             The contents of the file <filename>.  It is an error for
+             <filename> not to  exist.  See also sinclude.
+
+        incr(<integer>)
+             <integer> + 1
+
+        index(<string1>,<string2>)
+             The position (origin 0) in <string1> where <string2> begins.
+             -1 if <string2> does not occur in <string1>.
+
+        len(<string>)
+             The length of <string>.
+
+        macro(<character>)
+             Defines the macro character.  Macros will only be recognized
+             if preceded by the macro character.  Note that this only
+             applies to macro invocations.  The macro character is not
+             used in the definition of a macro.  If no argument, macros
+             will always be recognized.  For example, to define `this' as
+             `that' when the macro character is &, the definition would
+             be
+
+                  &define(`this', `that')
+
+             "&this" would be changed to "that", but "this" would be
+             unchanged.
+
+
+
+                                    5
+        M4.DOC                     12 November 86           Page 6
+
+
+        mktemp(<string>)
+             Generates a unique filename.  String should contain a
+             substring of several "X"s which are changed in such a way
+             the result is a unique file name.
+
+        msdos
+             Defined as null.  The Unix version defines "unix" as null,
+             so a macro script can determine the operating environment.
+
+        nobuiltin
+             Removes the definitions of all built in macros.  Deletes all
+             characters through the next newline.
+
+             This is an extension in this version of M4 to facilitate use
+             as a preprocessor.
+
+        sinclude(<filename>)
+             The contents of the file <filename>.  If <filename> does not
+             exist, null.  See also include.
+
+        substr(<string>,<start>,<length>)
+             The substring of <string> starting at position <start>
+             (origin 0) and length <length>.  If <length> is omitted, the
+             result is the rest of the string.
+
+        syscmd(<string>)
+             The operating system command <string> is executed.
+
+        translit(<string1>,<string2>,<string3>)
+             <string1> with characters in <string2> replaced by the
+             corresponding characters in <string3>.  If <string3> is
+             shorter than <string2>, characters without an entry in
+             <string3> are deleted.
+
+        undefine(<name>)
+             Removes the definition of <name>.  For obvious reasons,
+             <name> should usually be quoted.
+
+        undivert(<integer>)
+             Copies (and empties) diversion <integer>.  If <integer> is
+             omitted, all diversions are copied.  The diversions are not
+             rescanned for macros.
+
+
+
+        For the Hacker
+
+        Source code is provided.  M4 was compiled with Aztec C, but it
+        should be very easy to modify for other C compilers.
+
+
+
+
+
+
+
+
+                                    6
+

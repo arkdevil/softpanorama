@@ -1,0 +1,333 @@
+$Macro_File WordKit;
+{
+  Меню операций со словами -- Л.Г.Бунич -- Multi-Edit 5.00P
+
+  WORDKIT........... меню для обработки слов и символов
+  MARK_WORD......... отметка текущего слова как непрерывного блока
+  SWCASE............ изменение регистра русского и латинского текста
+  WORD_CASE......... изменение регистра русских и латинских слов
+  WORD_SCH.......... поиск/замена слов, ограниченных с обеих сторон
+                     не алфавитно-цифровыми символами
+}
+
+$Macro WordKit;
+
+  Def_Int(k,BG,FG,X1,Y1,X2,Y2);
+  Def_Int(im);
+
+  BG := M_T_Color shr 4;
+  FG := M_T_Color and $0F;
+  X1 := 12; Y1 := 5; X2 := 72; Y2 := 23;   {координаты плитки с подсказками}
+Open:
+  Mark_Pos;
+  Put_Box(X1,Y1,X2,Y2,BG,FG,' W o r d   P r o c e s s i n g   K i t ',1);
+  Write('Capitalize.....начать слово с заглавной буквы',    X1+6,Y1+02,BG,FG);
+  Write('Export.........занести число в окно калькулятора', X1+6,Y1+03,BG,FG);
+  Write('Lower case.....преобразовать в строчный регистр',  X1+6,Y1+04,BG,FG);
+  Write('Mark word......отметить текущее слово как блок',   X1+6,Y1+05,BG,FG);
+  Write('Replace words..замена слов',                       X1+6,Y1+06,BG,FG);
+  Write('Search words...поиск слов',                        X1+6,Y1+07,BG,FG);
+  Write('Upper case.....преобразовать в заглавный регистр', X1+6,Y1+08,BG,FG);
+  Write('Word list......составить список всех слов в файле',X1+6,Y1+09,BG,FG);
+
+  Write('-.....поменять местами данное и предыдущее слова',  X1+5,Y1+11,BG,FG);
+    Draw_Attr(X1+5,Y1+11,M_H_Color,2);
+  Write('-.....поменять местами данное и следующее слова',   X1+5,Y1+12,BG,FG);
+    Draw_Attr(X1+5,Y1+12,M_H_Color,2);
+  Write('space.....выполнить разрядку букв текущего слова',   X1+2,Y1+13,BG,FG);
+    Draw_Attr(X1+2,Y1+13,M_H_Color,5);
+  Write('Grey+....."мягкий сдвиг" направо (за счет пробелов)',X1+2,Y1+14,BG,FG);
+    Draw_Attr(X1+2,Y1+14,M_H_Color,5);
+  Write('Grey-....."мягкий сдвиг" налево (за счет пробелов)', X1+2,Y1+15,BG,FG);
+    Draw_Attr(X1+2,Y1+15,M_H_Color,5);
+
+  Write(' ESC: отказ; Shift+клавиша: не выходить из WORDKIT ',X1+5,Y2-1,
+        M_S_Color shr 4, M_S_Color and $0F);
+
+  k := Y1+2; While k < (Y2-8) do;
+    Draw_Attr(X1+6,k,M_H_Color,1); ++k;
+  end;
+  GoToXY(0,0);
+  Read_Key; Kill_Box; GoTo_Mark;
+
+KeyProc:
+  Make_Message('');
+  if    KEY2 = 46 then       {Capitalize}
+    RM ('Word_Case');
+  elsif KEY2 = 18 then       {Export}
+    RM ('ROMANOV^Special_Calc');
+  elsif KEY2 = 38 then       {Lower}
+    RM ('Word_Case /o=l');
+  elsif KEY2 = 50 then       {Mark}
+    RM ('Mark_Word');
+  elsif KEY2 = 19 then       {Replace}
+    RM ('Word_Sch /R');
+  elsif KEY2 = 31 then       {Search}
+    RM ('Word_Sch');
+  elsif KEY2 = 22 then       {Upper}
+    RM ('Word_Case /o=u');
+  elsif KEY2 = 17 then       {Word list}
+    Working;  Make_Message('Word list generating - wait...');
+    RM ('CybMacs^WordCnt');
+    Redraw;  Make_Message('');
+  elsif KEY2 = 75 then       {<-...... Left drag}
+    RM ('ROMANOV^DRAG_WORD_LEFT');
+  elsif KEY2 = 77 then       {->...... Right drag}
+    RM ('ROMANOV^DRAG_WORD_RIGHT');
+  elsif KEY2 = 57 then       {Space... Erase word}
+    Push_Undo; Refresh := FALSE;
+    im := Insert_Mode; Insert_Mode := TRUE;
+    If Xpos(Cur_Char,Word_Delimits,1) Then
+      Word_Right;                 { мы вне слова }
+    Else
+      Right; Word_Left;           { мы внутри слова }
+    End;
+    While Xpos(Cur_Char,Word_Delimits,1) = 0 Do
+      Text (' '); Right;
+    End;
+    Text (' '); Insert_Mode := im;
+    Refresh := TRUE; Pop_Undo;
+  elsif KEY2 = 78 then       {Grey+... Soft right shift}
+    RM ('ENTELIS^ASE_RS');
+  elsif KEY2 = 74 then       {Grey-... Soft left shift}
+    RM ('ENTELIS^ASE_LS');
+  elsif KEY2 <> 1 then
+    Make_Message('Нажата недопустимая клавиша.');
+    GoTo Open;
+  end;
+
+  if Peek(0,$417) and $03 then     { проверка: нажат ли Shift }
+    Write(' WORDKIT ', WORKING_COL, STATUS_ROW,
+          WORKING_Color shr 4, WORKING_Color and $0F);
+    Read_Key; GoTo KeyProc;
+  end;
+  Redraw;
+
+End_Macro;
+
+$Macro Mark_Word TRANS2;
+
+  Push_Undo;
+  If Xpos(Cur_Char,Word_Delimits,1) Then
+    Word_Right;                 { мы вне слова }
+  Else
+    Right; Word_Left;           { мы внутри слова }
+  End;
+  if (Peek(0,$417) and $03) then     { проверка: нажат ли Shift }
+    if Block_Stat then
+      Refresh := FALSE; Mark_Pos;
+      RM('MESYS^TOPBLOCK');
+      if Block_Stat = 1 then
+        Block_Begin;
+      elsif Block_Stat = 2 then
+        Col_Block_Begin;
+      else
+        Str_Block_Begin;
+      end;
+      GoTo_Mark; Refresh := TRUE;
+      GoTo To_Word_End;
+    end;
+  end;
+  Col_Block_Begin;
+To_Word_End:
+  Forward_Till(Word_Delimits);
+  Left;  Block_End; Right;
+  Make_Message('Слово отмечено.');
+  Pop_Undo;
+
+End_Macro;
+
+$Macro Swcase TRANS2;
+  { Изменение регистра русских и латинских букв
+
+    Параметры:
+      /t=e  - конвертирование идет до конца строки
+      /t=l  - конвертируется одна (текущая) буква
+              (если /t опущено, конвертирование идет до конца слова)
+      /o=u  - преобразование в заглавные буквы
+      /o=l  - преобразование в строчные буквы
+              (если /o опущено, регистр букв переключается, т.е. заглавные
+               буквы преобразуются в строчные, а строчные - в заглавные)
+  }
+  Def_Int(n,im,d := 0,k);
+  Def_Char(c);
+  Def_Str(t,o);
+
+  t := Parse_Str('/T=',Mparm_Str);
+  If t = '' Then t := Parse_Str('/t=',Mparm_Str); End;
+  t := Lower(t);
+  If (t <> '') And (t <> 'e') And (t <> 'l') Then
+    Make_Message('SWCASE: invalid parameter /t');
+    Beep; GoTo F;
+  End;
+  o := Parse_Str('/O=',Mparm_Str);
+  If o = '' Then o := Parse_Str('/o=',Mparm_Str); End;
+  o := Lower(o);
+  If (o <> '') And (o <> 'u') And (o <> 'l') Then
+    Make_Message('SWCASE: invalid parameter /o');
+    Beep; GoTo F;
+  End;
+  k := 0; im := Insert_Mode;
+  Push_Undo; Insert_Mode := False; Refresh := False;
+process:
+  If At_EOF Then GoTo Finish; End;
+  If At_EOL Then
+    If t <> 'e' Then Down; Home; End;
+    GoTo Finish;
+  End;
+  n := ASCII(Cur_Char);
+  If n < 65  Then GoTo NextChar; End;
+  If n < 91  Then GoTo lower; End;                         {A-Z}
+  If n < 97  Then GoTo NextChar; End;
+  If n < 123 Then GoTo upper; End;                         {a-z}
+  If n < 128 Then GoTo NextChar; End;
+  If n < 144 Then GoTo lower; End;                         {А-П}
+  If n < 160 Then                                          {Р-Я}
+     d := 1;
+     If o = 'u' Then GoTo NextChar; End;
+     c := Char(n + 80); GoTo convert;
+  End;
+  If n < 176 Then GoTo upper; End;                         {а-п}
+  If n < 224 Then GoTo NextChar; End;
+  If n > 239 Then GoTo NextChar; End;
+  d := 1;                                                  {р-я}
+  If o = 'l' Then GoTo NextChar; End;
+  c := Char(n - 80); GoTo convert;
+upper:
+  d := 1;
+  If o = 'l' Then GoTo NextChar; End;
+  c := Char(n - 32); GoTo convert;
+lower:
+  d := 1;
+  If o = 'u' Then GoTo NextChar; End;
+  c := Char(N + 32);
+convert:
+  d := 1;
+  Text(c); k := k + 1; GoTo ChkOpt;
+NextChar:
+  If (t = '') and (d) Then
+    If Xpos(Cur_Char,Word_Delimits + '_',1) Then GoTo Finish; End;
+  End;
+  Right;
+ChkOpt:
+  If t <> 'l' Then GoTo process; End;
+Finish:
+  Pop_Undo;
+  Make_Message(Str(k)+' letters converted.');
+  Insert_Mode := im;
+  Refresh := True;
+F:
+End_Macro;
+
+$Macro Word_Case TRANS2;
+  { Изменение регистра русских и латинских слов
+
+    Параметры:
+      /o=u  - преобразование в заглавные буквы
+      /o=l  - преобразование в строчные буквы
+              (если /o опущено, первая буква слова становится заглавной,
+              а остальные - строчными)
+  }
+
+  Def_Str(o);
+
+  o := Parse_Str('/O=',Mparm_Str);
+  If o = '' Then o := Parse_Str('/o=',Mparm_Str); End;
+  o := Lower(o);
+  If (o <> '') And (o <> 'u') And (o <> 'l') Then
+    Make_Message('SWCASE: invalid parameter /o');
+    Beep; GoTo F;
+  End;
+  Push_Undo;
+  Refresh := False;
+  If Xpos(Cur_Char,Word_Delimits,1) Then      { мы вне слова }
+    Word_Right; GoTo FixBegin;
+  End;
+SmartStep:                                    { мы внутри слова }
+  If Xpos(Cur_Char,Word_Delimits + '_',1) Then
+    Right; GoTo FixBegin; End;
+  If C_Col > 1 Then
+    Left; GoTo SmartStep; End;
+FixBegin:
+  if o = '' then
+    RM ('SWCASE /O=U/T=L');
+    RM ('SWCASE /O=L');
+  elsif o = 'u' then
+    RM ('SWCASE /O=U');
+  elsif o = 'l' then
+    RM ('SWCASE /O=L');
+  end;
+  Pop_Undo; Refresh := True;
+  Make_Message('Word converted.');
+F:
+End_Macro;
+
+$Macro Word_Sch TRANS2;
+{ Параметр:
+        опущен - поиск слов
+        /R     - замена слов
+}
+  Def_Int(i,res);
+  Def_Str(w,ss);
+  Def_Str(dlm  := '[~0-9A-Z_a-zА-пр-я]');
+  Def_Str(meta := '?%$*+[]{}||@');
+
+  Push_Undo;
+  If Xpos(Cur_Char,Word_Delimits,1) Then
+    Word_Right;                 { мы вне слова }
+  Else
+    Right; Word_Left;           { мы внутри слова }
+  End;
+  Return_Str := Get_Word(Word_Delimits);   { формируем умалчиваемое слово }
+  res := Reg_Exp_Stat;  Reg_Exp_Stat := True;
+  If XPos('/R',Caps(Mparm_str),1) = 0 Then      { просто поиск }
+    RM('USERIN^QUERYBOX /W=60/T=Поиск слов/P= Введите слово');
+    If Return_Int = 0 Then GoTo F; End;
+    Call PrePro;
+    ss := Global_Str('SWITCHES');
+    w := ss; i := XPos('X',ss,1);               { отменим режим X }
+    If i > 0 Then w := Str_Del(ss,i,1); End;
+    Set_Global_Str('SWITCHES',w);
+    Push_Key(9,15); Push_Key(9,15);
+    RM('MEUTIL2^SEARCH');
+    Set_Global_Str('SWITCHES', ss) ;            { восстановим режимы }
+  Else                                          { поиск с заменой }
+    RM('USERIN^QUERYBOX /W=60/T=Поиск и замена слов/P= Введите слово');
+    If Return_Int = 0 Then GoTo F; End;
+    Call PrePro;
+    RM('USERIN^QUERYBOX /W=60/T=Поиск ' + Return_Str + '/P= Заменить на');
+    If Return_Int = 0 Then GoTo F; End;
+    w := Return_Str; i := 0;
+prloop:  ++i;
+    If Xpos(Str_Char(w,i),'$%&#^@',1) Then
+      w := Str_Ins('@',w,i); ++i;               { метасимволы допускаются }
+    End;
+continueR:
+    If i < Length(w) Then GoTo prloop; End;
+    Set_Global_Str('REPLACE_STR', '#1' + w + '#3') ;
+    ss := Global_Str('REPL_SWITCHES');
+    w := ss; i := XPos('X',ss,1);               { отменим режим X }
+    If i > 0 Then w := Str_Del(ss,i,1); End;
+    Set_Global_Str('REPL_SWITCHES',w);
+    Push_Key(9,15); Push_Key(9,15); Push_Key(9,15);
+    RM('MEUTIL2^S_REPL');
+    Set_Global_Str('REPL_SWITCHES', ss) ;       { восстановим режимы }
+  End;
+  GoTo F;
+
+PrePro:
+  w := Return_Str; i := 0;
+pploop:  ++i;
+  If Xpos(Str_Char(w,i),meta,1) Then
+    w := Str_Ins('@',w,i); ++i;                 { метасимволы допускаются }
+  End;
+continue:
+  If i < Length(w) Then GoTo pploop; End;
+  Set_Global_Str('SEARCH_STR', '{%}||{' + dlm + '}' + w
+               + '{$}||{' + dlm + '}') ;
+  Ret;
+
+F:
+  Reg_Exp_Stat := res;
+  Pop_Undo;
+End_Macro;

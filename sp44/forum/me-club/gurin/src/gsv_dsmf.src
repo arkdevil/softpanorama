@@ -1,0 +1,957 @@
+$macro_file gsv_dsmf;
+
+{ DIR SHELL. Макросы, ассоциированные с F-клавишами.
+             Дополнительный файл к gsv_shel.
+  Разработчик: Гурин C.В. Томский политехнический институт, кафедра
+               электрических станций, раб. тел. 49-25-07
+  Версия Multi-Edit: 5.00P
+}
+
+
+$macro gsvds_viewer from DOS_SHELL;
+{ Умалчиваемый макрос просмотра текста }
+  def_int(cw, x, y, flag_continue);
+
+  cw := window_id;
+  x  := wherex;
+  y  := wherey;
+  save_box(1, 1, screen_width, screen_length);
+  make_message('Для выхода из программы просмотра нажмите Esc или правую клавишу мышки');
+  mode := EDIT;
+  push_labels;
+  flabel('Поиск',  5, 255);
+  flabel('Поиск',   6, 255);
+  flabel('Поиск*',  7, 255);
+  create_window;
+  if (error_level <> 0) then
+    run_macro('meerror');
+  else
+    load_file(dir_entry);
+    if (error_level <> 0) then
+      run_macro('meerror');
+    else
+      read_only := 1;
+      tof;
+      flag_continue := TRUE;
+      while (flag_continue) do
+        read_key;
+        if (((key1 = 27) and (key2 =   1))  or    { Esc }
+            ((key1 =  0) and (key2 = 251))) then  { Right Mouse }
+          flag_continue := FALSE;
+        end;
+        if (key1 = 0) then
+          if    (key2 =  72) then up;
+          elsif (key2 =  80) then down;
+          elsif (key2 =  75) then left;
+          elsif (key2 =  77) then right;
+          elsif (key2 =  71) then goto_col(1);
+          elsif (key2 =  79) then eol;
+          elsif (key2 = 119) then tof;
+          elsif (key2 = 117) then eof;
+          elsif (key2 =  73) then page_up;
+          elsif (key2 =  81) then page_down;
+          elsif (key2 = 118) then next_page_break;
+          elsif (key2 = 132) then last_page_break;
+          elsif (key2 = 250) then run_macro('gsv_mouevent');
+          elsif (key2 =  59) then run_macro('mehelp^mehelp /F=gsv_shel/LK=F3');
+          elsif (key2 =  63) then run_macro('gsv_sup^gsv_search REPEAT');
+          elsif (key2 =  64) then run_macro('gsv_sup^gsv_search');
+          elsif (key2 =  65) then run_macro('gsv_sup^gsv_search WORD');
+          end; {if}
+        end; {if}
+      end; {while}
+    end; {if}
+    delete_window;
+  end; {if}
+  refresh := FALSE;
+  switch_win_id(cw);
+  pop_labels;
+  mode := DOS_SHELL;
+  kill_box;
+  refresh := TRUE;
+  update_status_line;
+  gotoxy(x, y);
+end_macro; { gsvds_viewer }
+
+ { F2 }
+$macro gsvds_menu from DOS_SHELL;
+{ Пользовательское меню Dir Shell }
+  def_int(type, x);
+  def_str(par[500], command[128]);
+  run_macro('userin^db /F=meconfig.db/DPT=DIRMENU.DB/HPT=USER.DB/NDF=1/NDH=1' +
+            '/PRE=gsvds_mm_/GLO=gsvds_return_str/LO=1/ABT=Запуск/CBT=Выход/2TOP=1' +
+            '/LT= Mеню Dir Shell /DT= Редактирование пункта меню Dir Shell ' +
+            '/H=gsv_shel^F2');
+  if return_int <> 0 then
+    par := global_str('gsvds_return_str');
+    type := parse_int('TYPE=', par);
+    command := parse_str('CMD=', par);
+    if type = 1 then
+      return_str := par;
+      run_macro('gsv_run_db');
+    elsif type = 2 then
+      run_macro('gsvds_change_dir');
+      run_macro('gsvds_save_parm');
+      return_str := par;
+      make_message(return_str);
+      run_macro('gsv_exec_db ' + dir_entry);
+      run_macro('gsvds_create_win');
+    elsif type = 3 then
+      x := xpos('^', command, 1);
+      if (x = 0) then
+        make_message('Не задан индекс в help-файле ' + command);
+      else
+        run_macro('mehelp^mehelp /CX=1/F=' + copy(command, 1,     x - 1) +
+                                '/LK='     + copy(command, x + 1, 2048)  );
+      end;
+    else
+      make_message('Тип команды "Текст" в меню Dir Shell не поддерживается');
+    end;
+  end;
+end_macro;
+
+ { F3 }
+$macro gsvds_view from DOS_SHELL;
+  def_str(par[500], command[128], ext[3]);
+  def_int(type, cw, ic, res);
+  if (dos_file_attr and $10) = 0 then { файл }
+    { Загрузка meconfig.db, если он не был загружен и переход к базе
+      данных viewmenu.db }
+    run_macro('userin^db /F=meconfig.db/HPT=USER.DB/DPT=VIEWMENU.DB' +
+              '/RR=1/NDF=1/NDH=1');
+    ic           := ignore_case;
+    res          := reg_exp_stat;
+    ignore_case  := TRUE;
+    reg_exp_stat := FALSE;
+    refresh      := FALSE;
+    cw           := window_id;
+    par          := '';
+    ext          := get_extension(dir_entry);
+    if switch_file(me_path + 'MECONFIG.DB') = TRUE then { meconfig.db есть }
+      loop:   { цикл по строка базы данных viewmenu.db }
+        home;
+        if (ascii(cur_char) = 12) then { конец базы данных viewmenu.db }
+          par := '';
+        elsif (search_fwd('NAME=' + ext, 1) = FALSE) then
+          down;
+          goto loop;
+        else { найдена подстрока NAME, первые символы которой - расширение }
+          par := get_line; { получение полной строки параметров }
+        end; {if}
+    end; { if }
+    ignore_case  := ic;
+    reg_exp_stat := res;
+    switch_win_id(cw);
+    refresh := TRUE;
+    if (par = '') then                    { расширение не найдено }
+      run_macro('gsvds_viewer');          { используется стандартный вьюер }
+    else
+      type := parse_int('TYPE=', par);
+      command := parse_str('CMD=', par);
+      if type = 1 then
+        return_str := par;
+        run_macro('gsv_run_db');
+      elsif type = 2 then
+        run_macro('gsvds_change_dir');
+        run_macro('gsvds_save_parm');
+        return_str := par;
+        make_message(return_str);
+        run_macro('gsv_exec_db ' + dir_entry);
+      else
+        make_message('Типы "Help-файл" и "Текст" не поддерживаются');
+      end;
+    end;
+  end;
+end_macro;
+
+ { Alt F3 }
+$macro gsvds_menu_view from DOS_SHELL;
+{ Меню программ просмотра файлов }
+  def_int(type);
+  def_str(par[300], command[128]);
+  if (dos_file_attr and $10) = 0 then { файл }
+    run_macro('userin^db /F=meconfig.db/HPT=USER.DB/DPT=VIEWMENU.DB' +
+              '/NDF=1/NDH=1' +
+              '/PRE=gsvds_vm_/GLO=gsvds_return_str/LO=1/ABT=Просмотр/CBT=Выход' +
+              '/LT= Выберите программу просмотра ' +
+              '/DT= Программа просмотра ' +
+              '/H=gsv_shel^AltF3');
+    if return_int <> 0 then
+      par := global_str('gsvds_return_str');
+      type := parse_int('TYPE=', par);
+      command := parse_str('CMD=', par);
+      if type = 1 then
+        return_str := par;
+        run_macro('gsv_run_db');
+      elsif type = 2 then
+        run_macro('gsvds_change_dir');
+        run_macro('gsvds_save_parm');
+        return_str := par;
+        make_message(return_str);
+        run_macro('gsv_exec_db ' + dir_entry);
+      else
+        make_message('Типы "Help-файл" и "Текст" не поддерживаются');
+      end;
+    end;
+  end;
+end_macro;
+
+ { F4 }
+$macro gsvds_edit from DOS_SHELL;
+{ Редактирование текущего файла }
+  if (dos_file_attr and $10) = 0 then { файл }
+    run_macro('userin^verify /S=0/H=gsv_shel^*/T= Редактировать файл ' +
+                lower(truncate_path(dir_entry)) + '? ');
+    if return_int = TRUE then
+      return_str := dir_entry;
+      run_macro('gsv_load');
+      if (return_int = 1) then
+        make_message('Файл ' + lower(return_str) + ' уже загружен');
+      elsif (return_int = 2) then
+        make_message('Файл ' + lower(return_str) + ' загружен');
+      end;
+      return_int := 31415926;  { пароль для выхода из Dir Shell }
+    end;
+  end;
+end_macro;
+
+ { F5 }
+$macro gsvds_copy from DOS_SHELL;
+{ Копирование текущего или отмеченных файлов }
+  def_int(num_mark, count, cur, len, x, y);
+  def_str(name[80], source[80], dest[80], nm[12], dest_file[80]);
+  goto start;
+
+norm_dest: { нормализация имени каталога для копирования }
+  len := svl(dest);
+  if (str_char(dest, len) = '\') then
+    dest := copy(dest, 1, len - 1);
+  end;
+  ret;
+
+verify_exist: { проверка существования файла в каталоге назначения }
+  if file_exists(dest_file) then
+    beep;
+    run_macro('userin^verify /S=1/H=gsv_shel^F5/BL= Копировать? ' +
+              '/T= Файл ' + lower(dest_file) + ' уже существует ');
+    if return_int = TRUE then
+      set_file_attr(dest_file, 0);
+    end;
+  else
+    return_int := TRUE;
+  end;
+  ret;
+
+redir: { перерисовка соседней панели }
+  run_macro('gsvds_tgwin');
+  return_int := dir_num;
+  run_macro('gsvds_setcur /M=1');
+  run_macro('gsvds_tgwin');
+  ret;
+
+start:
+  cur  := dir_num;
+  x    := (screen_width - 30) / 2;
+  run_macro('gsvds_num_mark');
+  num_mark := return_int;
+  refresh := FALSE;
+  switch_dir((global_int('gsvds_wn') and 1) + 1);
+  dest := lower(get_path(dir_mask));
+  switch_dir(global_int('gsvds_wn'));
+  refresh := TRUE;
+  call norm_dest;
+  source := lower(dir_entry);
+  if num_mark <> 0 then
+    rep_menu:
+    set_global_str('iparm_1', '/TP=0/C=2/L=1/W=44/T=в каталог/GO=1' +
+                              '/HISTORY=gsvds_dest_history');
+    set_global_str('istr_1',  dest);
+    set_global_str('iparm_2', '/TP=10/C=2/L=2/T=Число отмеченных файлов: ' +
+                              str(num_mark));
+    set_global_str('iparm_3', '/TP=10/C=2/L=3/T=Выбор по дереву');
+    set_global_str('iparm_4', '/TP=11/C=18/L=3/KC=<F9>/K1=0/K2=67/R=10');
+    run_macro('userin^data_in /#=4/H=gsv_shel^F5' +
+              '/T= Копировать отмеченные файлы ');
+    if (return_int = 10) then
+      run_macro('gsv_tree^gsv_tree');
+      dest := lower(return_str);
+      goto rep_menu;
+    end; {if}
+    dest := global_str('istr_1');
+    if return_int <> 0 then
+      call norm_dest;
+      return_str := dest;
+      run_macro('gsvds_change_dir /UD=1');
+      if (return_int <> 0) then
+        beep;
+        run_macro('gsvds_change_dir');
+        make_message('Каталог ' + dest + ' не найден');
+        goto rep_menu;
+      end; { if error }
+      run_macro('gsvds_change_dir');
+      refresh := FALSE;
+      dos_home;
+      count := 0;
+      y := ((screen_length - 4) / 2) + 2;
+      put_box(x - 2, y - 6, x + 35, y + 3, 0, m_b_color,
+              ' Групповое копирование файлов ', 1);
+      draw_char(176, x, y - 2, m_h_color, 32);
+      loop:
+        if file_marked then
+          name      := dir_entry;
+          nm        := lower(truncate_path(name));
+          dest_file := dest + '\' + nm;
+          call verify_exist;
+          if return_int = TRUE then
+            draw_char(32, x + 10, y - 4, m_t_color, 12);
+            write(nm, x + ((32 - svl(nm)) / 2), y - 4, 0, m_t_color);
+            rep_copy_group:
+              return_str := name;
+              set_global_str('gsv_return_str', dest_file);
+              run_macro('gsv_dos /F=4/L=32/X=' + str(x) + '/Y=' + str(y));
+              if    return_int = 1 then goto rep_copy_group;
+              elsif return_int = 2 then goto end_loop;
+              end;
+            ++count;
+            mark_file;
+            draw_char(219, x, y - 2, m_h_color, ((32 * count) / num_mark));
+          end;
+        end;
+        if (dir_num < dir_total) then
+          dos_right;
+          goto loop;
+        end;
+      end_loop:
+        kill_box;
+        make_message('Скопировано файлов: ' + str(count));
+        return_int := cur;
+        run_macro('gsvds_setcur');
+        call redir;
+    end;
+  else
+    if (dos_file_attr and $10) <> 0 then { каталог }
+      beep;
+      make_message('');
+    else
+      rep_menu1:
+      set_global_str('iparm_1', '/TP=0/C=2/L=1/W=44/T=в каталог/GO=1' +
+                                '/HISTORY=gsvds_dest_history');
+      set_global_str('istr_1',  dest);
+      set_global_str('iparm_2', '/TP=10/C=2/L=2/T=Выбор по дереву');
+      set_global_str('iparm_3', '/TP=11/C=18/L=2/KC=<F9>/K1=0/K2=67/R=10');
+      run_macro('userin^data_in /#=3/H=gsv_shel^F5' +
+                '/T= Копировать файл ' + truncate_path(source) + ' ');
+      if (return_int = 10) then
+        run_macro('gsv_tree^gsv_tree');
+        dest := lower(return_str);
+        goto rep_menu1;
+      end; {if}
+      dest := global_str('istr_1');
+      if return_int <> 0 then
+        call norm_dest;
+        return_str := dest;
+        run_macro('gsvds_change_dir /UD=1');
+        if (return_int = TRUE) then
+          beep;
+          run_macro('gsvds_change_dir');
+          make_message('Каталог ' + dest + ' не найден');
+          goto rep_menu1;
+        end; { if error }
+        run_macro('gsvds_change_dir');
+        name      := dir_entry;
+        nm        := lower(truncate_path(name));
+        dest_file := dest + '\' + nm;
+        call verify_exist;
+        if return_int = TRUE then
+          y := ((screen_length - 3) / 2) + 2;
+          put_box(x - 2, y - 4, x + 35, y + 3, 0, m_b_color,
+                  ' Копирование файла ', 1);
+          write(nm, x + ((32 - svl(nm)) / 2), y - 2, 0, m_t_color);
+          rep_copy:
+            return_str := name;
+            set_global_str('gsv_return_str', dest_file);
+            run_macro('gsv_dos /F=4/L=32/X=' + str(x) + '/Y=' + str(y));
+            if    return_int = 1 then goto rep_copy;
+            elsif return_int = 0 then make_message('Файл скопирован');
+            end;
+          kill_box;
+          call redir;
+        end;
+      end;
+    end;
+  end;
+exit:
+end_macro;
+
+ { F6 }
+$macro gsvds_rename from DOS_SHELL;
+{ переименование текущего файла }
+  def_int(num_mark, count, cur, len, x, y);
+  def_str(name[80], dest[80], nm[12], dest_file[80]);
+  goto start;
+
+norm_dest: { нормализация имени каталога для перемещения }
+  len := svl(dest);
+  if (str_char(dest, len) = '\') then
+    dest := copy(dest, 1, len - 1);
+  end;
+  ret;
+
+verify_exist: { проверка существования файла в каталоге назначения }
+  if file_exists(dest_file) then
+    beep;
+    run_macro('userin^verify /S=1/H=gsv_shel^F6/BL= Перемещать? ' +
+              '/T= Файл ' + lower(dest_file) + ' уже существует ');
+    if return_int = TRUE then
+      set_file_attr(dest_file, 0);
+      del_file(dest_file);
+    end;
+  else
+    return_int := TRUE;
+  end;
+  ret;
+
+redir: { перерисовка соседней панели }
+  run_macro('gsvds_tgwin');
+  return_int := dir_num;
+  run_macro('gsvds_setcur /M=1');
+  run_macro('gsvds_tgwin');
+  ret;
+
+start:
+  cur := dir_num;
+  x := (screen_width - 30) / 2;
+  run_macro('gsvds_num_mark');
+  num_mark := return_int;
+  refresh := FALSE;
+  switch_dir((global_int('gsvds_wn') and 1) + 1);
+  dest := lower(get_path(dir_mask));
+  switch_dir(global_int('gsvds_wn'));
+  refresh := TRUE;
+  call norm_dest;
+  if num_mark <> 0 then
+    rep_menu:
+    set_global_str('iparm_1', '/TP=0/C=2/L=1/W=44/T=в каталог/GO=1' +
+                              '/HISTORY=gsvds_dest_history');
+    set_global_str('istr_1',  dest);
+    set_global_str('iparm_2', '/TP=10/C=2/L=2/T=Число отмеченных файлов: ' +
+                              str(num_mark));
+    set_global_str('iparm_3', '/TP=10/C=2/L=3/T=Выбор по дереву');
+    set_global_str('iparm_4', '/TP=11/C=18/L=3/KC=<F9>/K1=0/K2=67/R=10');
+    run_macro('userin^data_in /#=4/H=gsv_shel^F6' +
+              '/T= Перемещать отмеченные файлы ');
+    if (return_int = 10) then
+      run_macro('gsv_tree^gsv_tree');
+      dest := lower(return_str);
+      goto rep_menu;
+    end; {if}
+    dest := global_str('istr_1');
+    if return_int <> 0 then
+      call norm_dest;
+      if (caps(copy(dest, 1, 1)) <> caps(copy(dir_mask, 1, 1))) then
+        beep;
+        make_message('Перемещение файлов возможно только на одном диске');
+        goto rep_menu;
+      end;
+      return_str := dest;
+      run_macro('gsvds_change_dir /UD=1');
+      if (return_int <> 0) then
+        beep;
+        run_macro('gsvds_change_dir');
+        make_message('Каталог ' + dest + ' не найден');
+        goto rep_menu;
+      end; { if error }
+      run_macro('gsvds_change_dir');
+      refresh := FALSE;
+      dos_home;
+      count := 0;
+      y := ((screen_length - 2) / 2) + 2;
+      put_box(x - 2, y - 4, x + 35, y + 3, 0, m_b_color,
+              ' Групповое перемещение файлов ', 1);
+      draw_char(176, x, y, m_h_color, 32);
+      loop:
+        if file_marked then
+          name      := dir_entry;
+          nm        := lower(truncate_path(name));
+          dest_file := dest + '\' + nm;
+          call verify_exist;
+          if return_int = TRUE then
+            draw_char(32, x + 10, y - 2, m_t_color, 12);
+            write(nm, x + ((32 - svl(nm)) / 2), y - 2, 0, m_t_color);
+            rep_ren_group:
+              return_str := name;
+              set_global_str('gsv_return_str', dest_file);
+              run_macro('gsv_dos /F=5');
+              if    return_int = 1 then goto rep_ren_group;
+              elsif return_int = 2 then goto end_loop;
+              end;
+            ++count;
+            mark_file;
+            draw_char(219, x, y, m_h_color, ((32 * count) / num_mark));
+          end;
+        end;
+        if (dir_num < dir_total) then
+          dos_right;
+          goto loop;
+        end;
+      end_loop:
+        kill_box;
+        make_message('Перемещено файлов: ' + str(count));
+        return_int := cur;
+        run_macro('gsvds_setcur /M=1');
+        call redir;
+    end;
+  else
+    name := lower(truncate_path(dir_entry));
+    if (dos_file_attr and $10) <> 0 then
+      if truncate_path(dir_entry) = '..' then
+        beep;
+      else
+        rep_dir:
+        return_str := name;
+        run_macro('userin^querybox /W=27/H=gsv_shel^F6/T= Переименование каталога ');
+        if return_int = 1 then
+          name := truncate_path(return_str);
+          if file_exists(get_path(dir_entry) + name) then
+            beep;
+            make_message('Каталог с таким именем уже есть');
+            goto rep_dir;
+          else
+            return_str := dir_entry;
+            set_global_str('gsv_return_str', get_path(dir_entry) + name);
+            run_macro('gsv_dos /F=5');
+            if    return_int = 1 then goto rep_dir;
+            elsif return_int = 2 then make_message('');
+            else                      make_message('Каталог переименован');
+            end;
+            return_int := cur;
+            run_macro('gsvds_setcur /M=1');
+          end;
+        end;
+      end;
+    else
+      rep_file:
+      return_str := name;
+      run_macro('userin^querybox /W=24/H=gsv_shel^F6/T= Переименование файла ');
+      if return_int = 1 then
+        name := truncate_path(return_str);
+        if file_exists(get_path(dir_entry) + name) then
+          beep;
+          make_message('Файл с таким именем уже есть');
+          goto rep_file;
+        else
+          return_str := dir_entry;
+          set_global_str('gsv_return_str', get_path(dir_entry) + name);
+          run_macro('gsv_dos /F=5');
+          if    return_int = 1 then goto rep_file;
+          elsif return_int = 2 then make_message('');
+          else                      make_message('Файл переименован');
+          end;
+          return_int := cur;
+          run_macro('gsvds_setcur /M=1');
+        end;
+      end;
+    end;
+  end;
+end_macro;
+
+ { F7 }
+$macro gsvds_mkdir from DOS_SHELL;
+{ Создание каталога }
+  def_str(name[80], nameold[12]);
+  nameold := '';
+  repeat:
+    return_str := nameold;
+    run_macro('userin^querybox /H=gsv_shel^*/W=12/T= Имя нового каталога ' +
+              '/P=        ');
+    if return_int = 1 then
+      nameold := lower(truncate_path(return_str));
+      name    := get_path(dir_mask) + return_str;
+      if (dir_total <> 0) then
+        refresh := FALSE;
+        dos_home;
+        while ((caps(name) <> caps(dir_entry)) and (dir_num < dir_total)) do
+          dos_right;
+        end;
+        refresh := TRUE;
+        if (caps(name) = caps(dir_entry)) then
+          beep;
+          make_message('Каталог с таким именем уже существует');
+          goto repeat;
+        end;
+      end; {if}
+      return_str := name;
+      run_macro('gsv_dos /F=1');
+      if return_int = 1 then { повторить }
+        goto repeat;
+      elsif return_int = 2 then { прекратить }
+        make_message('');
+      else
+        make_message('Каталог создан');
+        run_macro('gsvds_draw ' + dir_mask);
+        refresh := FALSE;
+        dos_home;
+        while ((caps(name) <> caps(dir_entry)) and (dir_num < dir_total)) do
+          dos_right;
+        end;
+        refresh := TRUE;
+        update_dir;
+      end;
+    end;
+end_macro;
+
+ { F8 }
+$macro gsvds_delete from DOS_SHELL;
+{ Удаление каталога, файла или группы отмеченных файлов }
+  def_int(num_mark, cur, count, x, y);
+  def_str(name[80], directory[80], nm[12]);
+  goto start;
+
+verify_delete: { проверка возможности удаления текущего файла }
+  if (dos_file_attr and $07) <> 0 then { атрибуты RHS }
+    beep;
+    name := '<';
+    if ((dos_file_attr and $01) <> 0) then
+      name := name + ' ReadOnly';
+    end;
+    if ((dos_file_attr and $02) <> 0) then
+      name := name + ' Hidden';
+    end;
+    if ((dos_file_attr and $04) <> 0) then
+      name := name + ' System';
+    end;
+    name := name + ' > ';
+    run_macro('userin^verify /S=1/H=gsv_shel^F8/BL= Удалить файл? /T= Файл ' +
+              lower(truncate_path(dir_entry)) + ' имеет атрибут ' + name);
+    if return_int = TRUE then
+      set_file_attr(dir_entry, 0);
+    end;
+  else
+    return_int := TRUE;
+  end;
+  ret;
+
+start:
+  run_macro('gsvds_num_mark');
+  num_mark := return_int;
+  cur := dir_num;
+  if num_mark <> 0 then
+    run_macro('userin^verify /S=1/H=gsv_shel^F8' +
+              '/T=     Удалить отмеченные файлы?     '+
+              '/BL= Число отмеченных файлов - ' + str(num_mark) + ' ');
+    if return_int = TRUE then
+      refresh := FALSE;
+      dos_home;
+      count := 0;
+      x := (screen_width - 30) / 2;
+      y := (screen_length - 7) / 2;
+      put_box(x - 2, y - 4, x + 35, y + 3, 0, m_b_color,
+              ' Групповое удаление файлов ', 1);
+      draw_char(176, x, y, m_h_color, 32);
+      loop:
+        if file_marked then
+          call verify_delete;
+          if (return_int = TRUE) then
+            name := dir_entry;
+            nm := lower(truncate_path(name));
+            draw_char(32, x + 10, y - 2, m_t_color, 12);
+            write(nm, x + ((32 - svl(nm)) / 2), y - 2, 0, m_t_color);
+            rep_del_group:
+              return_str := name;
+              run_macro('gsv_dos /F=3');
+              if    return_int = 1 then goto rep_del;
+              elsif return_int = 2 then goto end_loop;
+              end;
+            ++count;
+            draw_char(219, x, y, m_h_color, ((32 * count) / num_mark));
+          end;
+        end;
+        if (dir_num < dir_total) then
+          dos_right;
+          goto loop;
+        end;
+      end_loop:
+      refresh := TRUE;
+      kill_box;
+      make_message('Удалено файлов: ' + str(count));
+      return_int := cur;
+      run_macro('gsvds_setcur /M=1');
+    end;
+  else
+    if (dos_file_attr and $10) <> 0 then { каталог }
+      if truncate_path(dir_entry) = '..' then
+        beep;
+      else
+        name      := dir_mask;
+        count     := dir_num;
+        directory := dir_entry;
+        dir(directory + '\*.*');
+        if (dir_total > 1) then
+          beep;
+          make_message('Каталог непуст');
+        else
+          change_dir(copy(directory, 1, 3));
+          run_macro('userin^verify /H=gsv_shel^F8/S=1/T= Удалить каталог ' +
+                    lower(truncate_path(directory)) + '? ');
+          if return_int = 1 then
+            rep_rmdir:
+              return_str := directory;
+              run_macro('gsv_dos /F=2');
+              if    return_int = 1 then goto rep_rmdir;
+              elsif return_int = 2 then make_message('');
+              else                      make_message('Каталог удален');
+              end;
+          end;
+        end;
+        return_int := cur;
+        return_str := name;
+        run_macro('gsvds_setcur /M=2');
+      end;
+    else
+      run_macro('userin^verify /S=1/H=gsv_shel^F8/T=      Удалить файл ' +
+                lower(truncate_path(dir_entry)) + '?      ');
+      if return_int = TRUE then
+        call verify_delete;
+        if return_int = TRUE then
+          name := dir_entry;
+          count := dir_num;
+          rep_del:
+            return_str := name;
+            run_macro('gsv_dos /F=3');
+            if    return_int = 1 then goto rep_del;
+            elsif return_int = 2 then make_message('');
+            else                      make_message('Файл удален');
+            end;
+          return_int := cur;
+          run_macro('gsvds_setcur /M=1');
+        else
+          make_message('');
+        end;
+      end;
+    end;
+  end;
+end_macro;
+
+
+ { F9 }
+$macro gsvds_run from DOS_SHELL;
+{ Запуск программного файла }
+  return_str := '';
+  run_macro('userin^querybox /W=64/ML=128/H=gsv_shel^F9/T= Командная строка
+            /HISTORY=gsvds_history_run');
+  if return_int = 1 then
+    run_macro('gsvds_change_dir');
+    run_macro('gsvds_save_parm');
+    make_message(return_str);
+    run_macro('gsv_exec /WAIT=1/SCREEN=2/CMD=1');
+    run_macro('gsvds_create_win');
+  end;
+end_macro; { gsvds_run }
+
+
+$macro gsvds_sort from DOS_SHELL;
+{ Смена признака сортировки текущей панели }
+  def_str(sort);
+  set_global_int('iint_1', 1);
+  set_global_int('iint_2', 0);
+  set_global_int('iint_3', 0);
+  set_global_int('iint_4', 0);
+  set_global_int('iint_5', 0);
+  set_global_int('iint_6', 0);
+  set_global_int('iint_7', 0);
+  set_global_str('iparm_1', '/QK=2/T=<N> имени          /TP=12/C=2/L=2');
+  set_global_str('iparm_2', '/QK=2/T=<E> расширению     /TP=12/C=2/L=3');
+  set_global_str('iparm_3', '/QK=2/T=<S> размеру        /TP=12/C=2/L=4');
+  set_global_str('iparm_4', '/QK=2/T=<D> дате           /TP=12/C=2/L=5');
+  set_global_str('iparm_5', '/QK=2/T=<T> времени        /TP=12/C=2/L=6');
+  set_global_str('iparm_6', '/QK=2/T=<Q> нет сортировки /TP=12/C=2/L=7');
+  set_global_str('iparm_7', '/QK=2/T=<-> обратная сортировка /TP=13/C=2/L=8');
+  run_macro('userin^data_in /#=7/S=1/T= Сортировка по ... /H=gsv_shel^sort' +
+                           '/X=' + str(dir_x1 + 1) + '/Y=' + str(dir_y1 + 1));
+  if global_int('iint_7') = 1 then sort := '-';
+  else                             sort := '';
+  end;
+  if    global_int('iint_1') = 1 then sort := sort + 'n';
+  elsif global_int('iint_2') = 1 then sort := sort + 'e';
+  elsif global_int('iint_3') = 1 then sort := sort + 's';
+  elsif global_int('iint_4') = 1 then sort := sort + 'd';
+  elsif global_int('iint_5') = 1 then sort := sort + 't';
+  end;
+  dir_sort_str := sort;
+  dir(dir_mask);
+  update_dir;
+end_macro;
+
+
+$macro gsvds_mask from DOS_SHELL;
+{ Смена маски текущей панели }
+  return_str := lower(dir_mask);
+start:
+  set_global_str('istr_1', return_str);
+  set_global_str('iparm_1', '/TP=0/C=1/L=2/W=30/ML=80/GO=1' +
+                            '/HISTORY=gsvds_mask_history');
+  set_global_str('iparm_2', '/TP=10/C=8/L=3/T=Выбор по дереву');
+  set_global_str('iparm_3', '/TP=11/C=24/L=3/KC=<F9>/K1=0/K2=67/R=10');
+  run_macro('userin^data_in /#=3/H=gsv_shel^mask' +
+            '/T= Диск, каталог и маска (фильтр) ' +
+            '/X=' + str(dir_x1 + 1) + '/Y=' + str(dir_y1 + 1));
+  if return_int = 1 then
+    return_str := global_str('istr_1');
+    if truncate_path(return_str) = '' then
+      return_str := return_str + '*.*';
+    end;
+    run_macro('gsvds_draw ' + return_str);
+    update_dir;
+  elsif (return_int = 10) then
+    run_macro('gsv_tree^gsv_tree');
+    return_str := lower(return_str) + '\*.*';
+    goto start;
+  end;
+end_macro;
+
+
+$macro gsvds_drive from DOS_SHELL;
+{ Смена диска панели. Имя панели (L/R) передается как параметр. По умолчанию
+  используется текущая панель.
+}
+  def_int(i, num_drive, cur_drive);
+  def_str(name);
+
+  run_macro('gsvds_select_pan ' + mparm_str);
+  r_ax := $1900;
+  intr($21);
+  r_dx := r_ax and $FF;
+  r_ax := $0E00;
+  intr($21);
+  num_drive := r_ax and $FF; { число дисков }
+  cur_drive := ascii(caps(dir_mask)) - 65; { номер диска на текущей панели }
+  if (cur_drive > 9) then
+    cur_drive := 9;
+  end;
+  if (num_drive > 10) then
+    num_drive := 10;
+  end;
+  name := '';
+  i := 0;
+  while i < num_drive do { синтез строки горизонтального меню }
+    name := name + ' ' + char(65 + i) + ' ()';
+    ++i;
+  end;
+  run_macro('userin^xmenu /B=1/T=0/S=' + str(cur_drive + 1) +
+            '/L= Диск /X=' + str(dir_x1 + 1) + '/Y=' + str(dir_y1 + 1) +
+            '/M=' + name + '/H=gsv_shell^*');
+  if return_int <> 0 then
+    run_macro('gsvds_draw ' + char(64 + return_int) + ':.\*.*');
+    update_dir;
+  end;
+end_macro;
+
+
+
+$macro gsvds_attr from DOS_SHELL ;
+{ Изменение атрибутов текущего файла или группы отмеченных файлов
+}
+  def_int(attr, cur, x, y, num_mark, count);
+  def_str(mes[80]);
+  goto start;
+
+menu: { меню запроса атрибутов, текущий атрибут - attr }
+  if (attr and $20) then set_global_int('iint_1', 1);
+  else                   set_global_int('iint_1', 0);
+  end;
+  if (attr and $01) then set_global_int('iint_2', 1);
+  else                   set_global_int('iint_2', 0);
+  end;
+  if (attr and $02) then set_global_int('iint_3', 1);
+  else                   set_global_int('iint_3', 0);
+  end;
+  if (attr and $04) then set_global_int('iint_4', 1);
+  else                   set_global_int('iint_4', 0);
+  end;
+  set_global_str('iparm_1', '/T=Archive/QK=1/TP=13/C=2/L=1');
+  set_global_str('iparm_2', '/T=Read Only/QK=1/TP=13/C=2/L=2');
+  set_global_str('iparm_3', '/T=Hidden/QK=1/TP=13/C=2/L=3');
+  set_global_str('iparm_4', '/T=System/QK=1/TP=13/C=2/L=4');
+  run_macro('userin^data_in /#=4/H=gsv_shel^attr/T= Атрибуты ' +
+             '/X=' + str(dir_x1 + 1) + '/Y=' + str(dir_y1 + 1));
+  if (return_int = 0) then
+    make_message('');
+    goto exit;
+  else
+    attr := 0;
+    if (global_int('iint_1') = 1) then attr := attr or $20; end;
+    if (global_int('iint_2') = 1) then attr := attr or $01; end;
+    if (global_int('iint_3') = 1) then attr := attr or $02; end;
+    if (global_int('iint_4') = 1) then attr := attr or $04; end;
+  end;
+  ret;
+
+start:
+  cur := dir_num;
+  x := (screen_width - 30) / 2;
+  run_macro('gsvds_num_mark');
+  num_mark := return_int;
+  if num_mark <> 0 then
+    attr := 0;
+    call menu;
+    if (attr = 0) then
+      mes   := ' Обнуление атрибутов отмеченных файлов ';
+    else
+      mes   := ' Новые атрибуты: ';
+      if (attr and $20) then mes := mes + '<Archive> ';   end;
+      if (attr and $01) then mes := mes + '<Read Only> '; end;
+      if (attr and $02) then mes := mes + '<Hidden> ';    end;
+      if (attr and $04) then mes := mes + '<System> ';    end;
+    end;
+    run_macro('userin^verify /H=gsv_shel^attr/T=' + mes);
+    if return_int <> 0 then
+      refresh := FALSE;
+      dos_home;
+      count := 0;
+      y := ((screen_length - 2) / 2) + 2;
+      put_box(x - 2, y - 4, x + 35, y + 3, 0, m_b_color,
+              ' Групповая установка атрибутов ', 1);
+      draw_char(176, x, y, m_h_color, 32);
+      loop:
+        if file_marked then
+          mes := lower(truncate_path(dir_entry));
+          draw_char(32, x + 10, y - 2, m_t_color, 12);
+          write(mes, x + ((32 - svl(mes)) / 2), y - 2, 0, m_t_color);
+          set_file_attr(dir_entry, attr);
+          ++count;
+          mark_file;
+          draw_char(219, x, y, m_h_color, ((32 * count) / num_mark));
+        end;
+        if (dir_num < dir_total) then
+          dos_right;
+          goto loop;
+        end;
+      kill_box;
+      refresh := TRUE;
+      make_message('Установлены атрибуты ' + str(num_mark) + ' файла(ов)');
+    end;
+  else
+    if (dos_file_attr and $10) <> 0 then
+      beep;
+      make_message('');
+    else
+      attr := dos_file_attr;
+      call menu;
+      set_file_attr(dir_entry, attr);
+      make_message('Изменены атрибуты файла');
+    end;
+  end;
+exit:
+  return_int := cur;
+  run_macro('gsvds_setcur /M=1');
+end_macro; { gsvds_attr }
+
+
+$macro gsvds_tree from DOS_SHELL ;
+{ Выбор каталога по дереву }
+  run_macro('gsv_tree^gsv_tree');
+  make_message('Переход к каталогу ' + lower(return_str));
+  return_str := return_str + '\*.*';
+  run_macro('gsvds_draw ' + return_str);
+  update_dir;
+end_macro; { gsvds_tree }

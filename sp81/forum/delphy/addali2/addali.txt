@@ -1,0 +1,85 @@
+DbiAddAlias
+
+Syntax:
+   DBIResult DbiAddAlias( [hCfg], pszAliasName, pszDriverType, pszParams, bPersistent );
+
+Description:
+   DbiAddAlias adds an alias to the configuration file associated with the
+   current session.
+
+Parameters:
+   hCfg              Type: hDBICfg              (Input)
+      For BDE 2.5, this parameter must be NULL, which indicates that the
+      configuration handle the the configuration for the current session.
+      Other values are not supported for BDE 2.5.
+
+   pszAliasName      Type: pCHAR                (Input)
+      Pointer to the alias name. This is the name of the new alias that is
+      to be added.
+
+   pszDriverType     Type: pCHAR                (Input)
+      Pointer to the driver type. This is the driver type for the new
+      alias that is to be added. If this parameter is NULL, the alias will
+      be for the STANDARD database. If szPARADOX, szDBASE, or szASCII are
+      passed, this will add an entry in the STANDARD database alias
+      generated to indicate that this will be the preferred driver type.
+      If a driver name is passed in, it must reference a driver name that
+      exists in the configuration file being modified.
+
+   pszParams         Type: pCHAR                (Input)
+      Pointer to a list of optional parameters. This is a list defined as
+      follows: "AliasOption: Option Data[;AliasOption: Option Data][;...]"
+      AliasOption must correspond to a value retrieved by DbiOpenCfgInfoList.
+      For a STANDARD database alias, the only valid parameter is PATH, all
+      others will be ignored (no errors). 
+      
+      Example 1: To set the path for a STANDARD database use:
+         "PATH:c:\mydata"
+
+      Example 2: To set the server name and user name for a SQL driver use: 
+         "SERVER NAME: server:/path/database;USER NAME: myname"
+
+   bPersistent       Type: BOOL                 (Input)
+      Determines the scope of the new alias.
+         TRUE     Stored in the configuration file for future sessions.
+         FALSE    For use only in this session.  The alias is deleted when
+                  the session ends (or the program exits).
+
+Usage:
+   The alias created by this function will have as default parameters the 
+   values stored in the driver's "DB OPEN" parameter list, unless they are 
+   specifically overridden in the pszParams parameter. You can use 
+   DbiOpenCfgInfoList to modify the default values after adding an alias 
+   with DbiAddAlias.
+   
+   For a standard database alias, all entries in pszParams except 
+   PATH will be ignored.  
+
+
+Prerequisites:
+   DbiInit must be called prior to calling DbiAddAlias. 
+   
+DBIResult return values:
+   DBIERR_INVALIDPARAM
+      Null alias name, or one of the following was encountered as in
+      pszDriverType: szASCII, szDBASE, szPARADOX. In the case of the
+      latter, use a NULL pszDriverType to indicate a STANDARD database.
+
+   DBIERR_NONE
+      The alias was added successfully.
+
+   DBIERR_NAMENOTUNIQUE
+      Another alias with the same name already exists (only applicable
+      when bPersistent is TRUE).
+
+   DBIERR_OBJNOTFOUND
+      One (or more) of the optional parameters passed in through
+      pszParams was not found as a valid type in the driver section
+      of the configuration file.
+
+   DBIERR_UNKNOWNDRIVER
+      No driver name found in configuration file matching pszDriverType.
+
+See Also:
+   DbiInit, DbiOpenCfgInfoList
+

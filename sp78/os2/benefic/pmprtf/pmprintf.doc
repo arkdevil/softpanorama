@@ -1,0 +1,213 @@
+                                                            PMprintf 2.56
+   PMprintf -- 'printf' support for OS/2 Presentation Manager
+   ==========================================================
+
+   Copyright (c) International Business Machines Corporation, 1991, 1993.
+   All rights reserved.  
+
+
+   Introduction
+   """"""""""""
+   o   Would you like to use the C standard function 'printf' in your PM
+       programs for debugging, occasional error messages, etc.?  
+
+   o   Do you have existing subroutines, that use printf, that you'd like
+       to use in PM programs?
+
+   If you answer yes to either of these, you may find the PMprintf tool
+   useful.  PMprintf comprises two parts: 
+
+   printf.obj: 
+       an object file, compiled with IBM C Set/2, which you link in with
+       your PM program just like any other subroutine.  This provides the
+       printf service to that program.  You write printf calls in your C
+       program in the usual way; the printf subroutine buffers the data
+       (on a per-thread basis in multi-thread programs) and adds each
+       completed line to a message queue.  For example, the following
+       printf call will write a line to the PMprintf application and
+       sound the Alert (bell): 
+
+          printf("This seems to work\a\n");
+
+       Sample source (in C) is provided for the printf function.
+
+   pmprintf.exe: 
+       a PM application which sets up the queue used by printf and then
+       "catches" and displays incoming printf lines.  It is a kind of
+       'monitor' or 'virtual console' which will accept lines from any
+       number of processes that use printf.  PMprintf offers a number of
+       options, including the ability to log the incoming lines to a
+       file.  See below for a short description of the options.  
+
+       If PMprintf has been started then it will display the incoming
+       lines from printf calls in other processes.  If it has not been
+       started, then printf calls are quietly ignored (they return 0, not
+       an error).  PMprintf can be started or stopped at any time, and
+       printf calls will then become active or be ignored as appropriate.
+
+   Sample source for printf (printf.c) is included in the package; this
+   offers certain customization options (for example, you can cause a
+   prefix to be added to the start of each line so that different
+   applications can have unique output lines, or cause lines to be broken
+   at a certain length).  There are also some usage hints, notes, and
+   minor restrictions, documented in the header of printf.c.  
+
+
+   pmprintf.exe
+   """"""""""""
+   pmprintf.exe, the program that "catches" printf lines, is a standard
+   PM application that can be started in any of the usual ways (from a
+   window, from a program object, from startup.cmd, etc.).  It presents a
+   standard PM window with an action bar and a list box.  The list box is
+   used for displaying and scrolling the most recent 300 lines received
+   from printf calls in the same or other processes.  You can change the
+   font used in the list box by dragging a font from the OS/2 font
+   palette and dropping it on the list box.
+
+   The menu bar offers selections for controlling the logging of the
+   printf lines to a file called the "LogFile", along with other options.
+   The choices are as follows: 
+
+
+   ----- 'File': control logging to file -----
+
+   'Write all old lines to LogFile': 
+       All lines in the list are immediately written to the LogFile.  The
+       lines are not erased from the list, are not timestamped, and will
+       be truncated if longer than 500 characters.  
+
+   'Log new lines to LogFile': 
+       If checked, all incoming lines are written (logged) to the
+       LogFile.  The LogFile is opened when logging is activated, and
+       closed when de-activated.  
+
+   'Timestamp new lines to LogFile': 
+       If checked, all new lines written to the LogFile are prefixed with
+       the date and time that the line was sent by the printf subroutine
+       (this could be some time earlier than the time of display by
+       PMprintf, especially if Pause was used).  The timestamps could
+       show the wrong local time if you do not set the TZ environment
+       variable (see notes in printf.c for more details).  
+
+   'LogFile name...': 
+       Allows alteration of the name of the LogFile.  The default name is
+       'c:\pmprintf.log'.  Any previous LogFile in use is closed.  If the
+       new LogFile already exists, printf lines will be appended at the
+       end of the file.  The dialog box for changing the name also offers
+       a 'Log new lines' checkbox, for convenience.  
+
+   'Erase LogFile': 
+       Erases ('resets') the current LogFile.  No confirmation is
+       requested.  
+
+   'Close': 
+       Closes PMprintf (same as selecting Close in the System menu).
+
+   Once changed, the LogFile name, logging state, and timestamp state are
+   preserved in OS2.INI, and become the default when PMprintf is next
+   started.
+
+   To look at an 'active' LogFile, use a program or command that allows
+   shared reading of files.  TYPE is one such command; its output may be
+   redirected to a file to take a snapshot copy of the LogFile.  For
+   example: 
+
+      type c:\pmprintf.log > snapshot.log
+
+
+   ----- 'Options': miscellaneous options -----
+
+   'Erase lines': 
+       Discards all previously displayed lines.  Use this to clear the
+       PMprintf screen and recover the storage used for displaying "old"
+       lines in which you have no further interest.  This does not affect
+       the LogFile.  
+
+       The 'Esc' key may also be used to clear the PMprintf screen, and
+       has the same effects.  
+
+   'Beep on arrival': 
+       If checked, PMprintf will beep to alert you when a new line
+       arrives from a printf call.  
+
+   'Save window position': 
+       Saves the current window position and state (in OS2.INI).  This is
+       used when PMprintf next starts, and is also saved automatically if
+       PMprintf is Closed or OS/2 is shut down.  
+
+   'Self test': 
+       If checked, PMprintf will call printf itself to display a line on
+       screen, and then allow selection of lines in the display: each
+       selection causes a new line to be added.  This is used to check
+       that printf and the queuing mechanism are working.
+
+
+   ----- 'Pause', 'Restart', and 'Help': -----
+
+   'Pause': 
+       Used to stop new printf lines scrolling the screen.  Selecting
+       Pause will cause incoming lines to be queued; the 'Pause' choice
+       is then replaced by a 'Restart' choice -- no incoming lines will
+       be displayed (added to the listbox and displayed) until 'Restart'
+       is selected.  
+
+   'Restart': 
+       Restarts the displaying of printf files, after 'Pause' has been
+       selected (see above).  
+
+   'Help': 
+       Displays the program information and Copyright notice, and refers
+       to this document.
+
+
+   Installation
+   """"""""""""
+   Unpack (unzip) the files from PMPRTF.ZIP into any directory.  To check
+   the program works, "start pmprintf" and then select the "Self Test"
+   item under "Options".  You should see a line appear in the PMprintf
+   window: this was created by the 'printf' subroutine being called by
+   PMprintf.   
+
+
+   Using printf in application programs
+   """"""""""""""""""""""""""""""""""""
+   You can use printf calls in application programs with PM applications
+   or not.  The printf subroutine uses sprintf() to do its formatting, so
+   output should be identical.
+
+   printf.obj is linked with your main program, just like any other
+   subroutine.  If you have problems linking (such as duplicate symbols,
+   etc.), try recompiling printf.c with the same options that you use for
+   your main program.  You may also need to recompile if you wish to
+   change any of the compile-time settings in print.c (such as the
+   maximum line length).
+
+   Note that the '\n' newline character is expected (indeed, required)
+   before a line is deemed complete and is sent to the catcher
+   application (PMprintf) -- see the example in the Introduction to this
+   document.  However, once sent, the line is in a public queue and
+   should appear even if the sending application then terminates
+   abnormally.  See printf.c for more notes and details.   
+
+
+   Named Queues
+   """"""""""""
+   By default, the public queue for PMprintf is named "PRINTF32" for the
+   32-bit version of PMprintf.  If required, you can set up multiple
+   PMprintf sessions with different queue names, by specifying a
+   different name as a parameter (up to eight characters) following the
+   keyword 'QUEUE' when starting PMprintf.  For example, if started with: 
+
+      start pmprintf queue Fred
+
+   then PMprintf will use the public queue name '\QUEUES\FRED', and the
+   name "Fred" will be shown in the title of the PMprintf window.  Note
+   that the Self Test function is not available when a named queue is
+   used.
+
+   Early versions (1.xx) of PMprintf were 16-bit.  Do not send 32-bit
+   printf() output to a 16-bit catcher, or vice versa.  
+
+   -----------
+
+   Mike Cowlishaw, IBM UK Laboratories

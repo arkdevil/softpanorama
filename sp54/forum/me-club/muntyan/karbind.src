@@ -1,0 +1,106 @@
+$macro Karbind;
+  Def_Str (Copyright := 'KARBIND.mac, (с) Мунтьянов В.А., Ver.1.02, Пермь, 1992');
+  Def_Str (CurrLine, ShortLine, FileName);
+  Def_Int (MaxUndo, PrgWindow, NewWindow, Done, OldRefresh, FirstFile, LastReturnLine);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  MaxUndo := Max_Undo;
+  Max_Undo := 0;
+  Return_Int := True;
+
+  PrgWindow := Window_Id;
+  FileName := File_Name;
+  while (Pos ('\', FileName) <> 0) do
+    FileName := Str_Del (FileName, 1, Pos ('\', FileName));
+  end;
+  if (Pos ('.', FileName) <> 0) then
+    FileName := Copy (FileName, 1, Pos ('.', FileName)-1);
+  end;
+  Eof;
+  if (C_Line <> 1) then
+    Make_Message ('Файл не пуст');
+    Return_Int := False;
+    goto Quit;
+  end;
+  Goto_Col (1);
+  Put_Line ('set procedure to ' + FileName);
+  Down;
+
+  Create_Window;
+  if Error_Level = 0 then
+    NewWindow := Window_Id;
+
+    Done := False;
+    FirstFile := True;
+
+    while Not (Done) do
+      RM ('VaUtil^GetFileName');
+      if Return_Int and (Return_Str <> '') then
+        Load_File (Return_Str);
+        if (Error_Level = 0) then
+          FileName := Return_Str;
+          Make_Message ('Файл ' + FileName);
+
+          if Not (FirstFile) then
+            Switch_Win_Id (PrgWindow);
+            if (Pos ('.', FileName) <> 0) then
+              FileName := Copy (FileName, 1, Pos ('.', FileName)-1);
+            end;
+            Put_Line ('procedure ' + FileName);
+            Down;
+            Switch_Win_Id (NewWindow);
+          end;
+          FirstFile := False;
+
+          Goto_Col (1);
+          while Not (At_Eof) do
+            if ((C_Line and 31) = 0) then
+              Put_Line_Num (C_Line);
+            end;
+            CurrLine := Get_Line;
+            ShortLine := Lower (Remove_Space (CurrLine));
+            if (Copy (ShortLine, 1, 8) <> 'set proc') then
+              Switch_Win_Id (PrgWindow);
+              Put_Line (CurrLine);
+              Down;
+              Switch_Win_Id (NewWindow);
+            end;
+            if (Copy (ShortLine, 1, 6) = 'return') then
+              LastReturnLine := True;
+            else
+              LastReturnLine := False;
+            end;
+            Down;
+          end;
+
+          if Not (LastReturnLine) then
+            Switch_Win_Id (PrgWindow);
+            Put_Line ('return');
+            Down;
+            Switch_Win_Id (NewWindow);
+          end;
+          Erase_Window;
+        else
+          Make_Message ('Файл '+Return_Str+' не читается. Код ошибки '+Str (Error_Level));
+          Return_Int := False;
+          Done := True;
+        end;
+      else
+        Done := True;
+        Make_Message (' OK');
+      end;
+    end;
+
+    Delete_Window;
+    Switch_Win_Id (PrgWindow);
+    Tof;
+  else
+    Make_Message ('Не могу создать временное окно. Код ошибки '+Str (Error_Level));
+    Return_Int := False;
+  end;
+
+Quit:
+  Max_Undo := MaxUndo;
+  Refresh := OldRefresh;
+end_macro; { Karbind }

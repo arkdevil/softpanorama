@@ -1,0 +1,575 @@
+     
+     * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+             Logic Programming System Prolog-plus
+                     (system description)
+
+             Michael Reviakin, ISTRC "TECHNOSOFT"
+     44, Academician Glushkov Ave., Kiev 252207, Ukraine
+     Email: michael%galagan.ts.kiev.ua@relay.USSR.EU.net
+     Relcom: michael@galagan.ts.kiev.ua
+     Phone: (044) 266 07 45
+
+     There are some applications which  requires  considerable
+resource  of memory and / or large volume of data for problems
+solving  (e.g.  industrial  planning  and  scheduling,  expert
+systems,  deductive databases, etc.). For such applications in
+the  first  place,  but  not  only,  the  experimental   logic
+programming system Prolog-plus was designed.
+
+     The Prolog-plus system includes such new features:
+  - modified "relation oriented" language;
+  - high level database interface;
+  - modified inference control directive;
+  - interminable executing checking;
+  - virtual memory management;
+  - built-in database management system.
+
+     The Prolog-plus  system  language  has modular structure.
+Program is integrated from  separately  compiled  modules  and
+queries.  Module consists of relations, each of them is set of
+Prolog-like clauses with the  same  head  predicate  name  and
+arity. The module and query example:
+     Module Monkey
+       Export Climb
+       Relation State
+       (* initial state, monkey in point a, chair in point  *)
+       (* b, banana above point c                           *)
+         (a, b, c, [])
+       (* monkey can carry the chair if they in the same    *)
+       (* point stays                                       *)
+         (_x1, _x1, _z, [carry(_x0, _x1);_s]) if
+            State(_x0, _x0, _z, _s)
+       (* monkey can walk in any state                      *)
+         (_x1, _y, _z, [walk(_x0, _x1);_s]) if
+            State(_x0, _y, _z, _s)
+       end
+       Relation Climb
+       (* monkey can climb the banana if it and the chair   *)
+       (* under the banana stays                            *)
+         ([climb;_s])
+            State(_x, _x, _x, _s)
+       end
+     end
+     Query Monkey(_z)
+       Monkey.Climb(_z)
+       put(_z)
+     end
+
+     The Prolog-plus  database  interface  allows  to  process
+database relations (in sense of standart .DBF files format) as
+ordinary Prolog's facts with natural syntax.  For example:  if
+user wants to receive data on clients he writes:
+     $.CLIENTS(_surname, _firstname, _company, _phone)
+where '$' -  the  name  of  database  pseudo-module.  Relation
+specification demands accordance with database relation fields
+(positional notation).
+
+     The Prolog-plus modified inference control directive is a
+substitution for standart Prolog's "Cut" directive. Suppose in
+clause (in original Prolog notation):
+     P(...) :- Q(...), R(...), S(...).
+only one solution of predicate R is  interested  us.  In  this
+case  it  is  necessary to "tell" the interpreter,  that after
+first successful predicate R executing it must "forget"  other
+alternatives. Such construction is to be used:
+     P(...) :- Q(...), R(...)/unique, S(...).
+In the  Procedural  semantics  sense,  the "/unique" qualifier
+sets up the last backtrack point after predicate  R  executing
+such  it was before predicate R executing,  "forgets" internal
+backtrack points of predicate R.
+
+     The Prolog-plus inference procedure provides interminable
+executing checking,  which allows to solve  some  of  problems
+formerly being insoluble for conventional Prolog.
+     If interpreter examines the subgoal,  which inferred from
+equivalent to it,  so this one rejected (its solution declared
+unsuccessful), and the backtracking is carried out.
+     Strengthened by this method Prolog's proof procedure will
+not be complete (in some cases interminable executing is still
+possible),  but  it  allows  to  solve some practically useful
+problems.  For instance:  it allows to  define  symmetric  and
+transitive relations:
+     P(X, Y):-P(Y, X).
+     P(X, Y):-P(X, Z), P(Z, Y).
+with guaranty that executing will be terminable.  It allows to
+solve "Monkey-banana problem" in classic definition also  (see
+program example).
+
+     The Prolog-plus virtual memory manager provides executive
+stack which size limited only your disk size. There are, also,
+no limitations  serious  to  bynary modules and database files
+number and sizes  to  be  processed.  Virtual  memory  manager
+automatically opens,  organizes order of processing and closes
+them.  Owing  to  virtual  memory  managing  intermodular  and
+database  interfaces are quit incapsulated from user.  Besides
+of bynary modules,  database files,  and executive  stack  the
+manager handles editor buffers also.
+
+     The Prolog-plus system available now is alpha version. It
+implemented by using Modula-2 language on  personal  computers
+DEC  Professional 350 under the operating system P/OS control,
+and on IBM PC compatibles under the operating  system  MS  DOS
+control. The system is integrated environment, which contains:
+multiwindow  text  editor,  modules  and   queries   compiler,
+executive system (interpreter),  auxiliary database management
+system  with  Query-By-Example-like  query  language,  service
+utilites.
+
+     * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+             Logic Programming System Prolog-plus
+                         (full paper)
+
+                       Michael Reviakin
+
+      International Software Technology Research Center
+                         "TECHNOSOFT"
+     44, Academician Glushkov Ave., Kiev 252207, Ukraine
+     Email: michael%galagan.ts.kiev.ua@relay.USSR.EU.net
+     Relcom: michael@galagan.ts.kiev.ua
+     Phone: (044) 266 07 45
+
+
+     Abstract
+
+     This paper presents some additional  "plus"  features  of
+experimental  logic programming system Prolog-plus.  New logic
+programming semantics and language are proposed.  The language
+has  modular structure,  "relation-oriented" syntax,  modified
+inference control directive and  extentions  to  support  high
+level  database  interface.  Database  relations  (in sense of
+standart .DBF files format) are processed as ordinary Prolog's
+facts   with  natural  syntax.  Modified  inference  procedure
+provides interminable  executing  checking,  which  allows  to
+solve some   of   problems   formerly   being   insoluble  for
+conventional Prolog.  System working under the virtual  memory
+manager  control.  It  allows  make  intermodular and database
+interfaces quit incapsulated from user and  to  perform  large
+volume inferences.
+
+     All program  features  described  in  this paper has been
+implemented, validated and working.
+
+
+     Key words
+
+     Relational  semantics,    Modules,   Database  interface,
+Inference control directive,  Interminable executing checking,
+Virtual memory management.
+
+
+     Motivation
+
+     This work  is continuation of author's university diploma
+project. Now it is a part of research project, started in 1992
+in  the  International  Software  Technology  Research  Center
+"TECHNOSOFT".
+     We intended without restrictions to the "standart" Prolog
+elaborate some  useful  properties  to  make logic programming
+more attractive in practical use.
+     Prolog's problems are well known,  some of them insoluble
+theoretically (uncompleteness of SLD resolution), some of them
+is a payoff to efficiency ("Cut"  control  directive),  others
+presents  objective restrictions (computer memory limitation).
+Rather great problem for  Prolog  is  interacting  with  other
+programming systems.  This list of problems does not claims to
+generalization,  but  represents  serious obstacles for Prolog
+users.
+     From very beginning we did not hope to find  solution  of
+any  of  that  problems as whole.  But we supposed by means of
+"sharp corner cutting" reduce that problems, make some of them
+less perceptible.
+
+
+     I. Relational semantics of Prolog.
+
+     In any logical program set of all  facts  with  the  same
+predicate name and arity will be assumed as relation,  defined
+in extensional mode. For instance, facts:
+
+     P(a, b).
+     P(a, c).
+     P(b, d).
+     P(c, d).
+
+will be understood as relation P, contained tuples <a, b>, <a,
+c>, <b, d>, <c, d>.
+
+     Set of all rules with the same head  predicate  name  and
+arity  will  be  assumed  as relation,  defined in intensional
+mode. For instance, rules:
+
+     R(X, Y):-P(X, Y).
+     R(X, Y):-P(X, Z), R(Z, Y).
+
+will be  understood  as  relation R,  which contents is formed
+from tuples <X,  Y>, where X and Y values satisfies the Prolog
+query:
+
+   ?-R(X, Y).
+
+     Defined so  Relational  semantics in a certain sense is a
+"metasemantics",  because it involves "srandart Prolog"  query
+executing, but it can be rather useful as a certain paradigm.
+
+     That semantics seems to Fixpoint semantics of Prolog, but
+it examines not singular Prolog's clauses but  sets  of  ones,
+are  interpreted as extensional and intensional relations.  In
+this context it is possible any predicate in clause body to be
+considered  as  relational data stream.  Any clause of program
+executes some subset of relation,  and all clauses, whose head
+predicate name the same executes  whole  relation  by  uniting
+these subsets.
+
+
+     II. Modified inference control directive.
+
+     In the Relational semantic sense, any predicate in clause
+body may be understood as a call of procedure,  which executes
+corresponded  relations.  It  is  naturally  quantity  of  its
+elements to be controlled. Suppose for clause
+
+     P(...) :- Q(...), R(...), S(...).
+
+in the determined by predicate R relation,  only  one  element
+(tuple) is   interested   us.  Or  exactly  known  about  this
+relation,  that it only one element contains,  but  there  are
+"unperspective" alternatives of its executing,  which requires
+considerable resources, or leads to interminable executing. In
+this case it is necessary to "tell" the executive system, that
+after first successful predicate R executing it must  "forget"
+other  undesirable  alternatives.  Such  construction is to be
+used:
+
+     P(...) :- Q(...), R(...)/unique, S(...).
+
+In the Procedural semantic sense, the "/unique" qualifier sets
+up the backtrack point after predicate R executing such it was
+before predicate R  executing,  "forgets"  internal  backtrack
+points of predicate R.
+
+     In this case obvious executing efficiency of the standart
+Prolog  "Cut"  directive  is  preserved,  but   non-procedural
+semantics of  this  construction  is  admitted.   Using   this
+construction   we  confirm  that  only  one  solution  of  the
+predicate R (or only one element of the  relation,  determined
+by predicate R) is interested us.
+
+     It is yet  another  positive  effect  of  this  mechanism
+using:  as  for  memory  management,  it  is  possible to make
+effective  garbage   collecting   after   executing   subgoal,
+qualified  as unique.  Chain of frames in the executive stack,
+made for executing that subgoal contains  values  of  "output"
+arguments only. Other information (including backtrack points,
+context restoring  lists,  local  contexts  and  etc.) becomes
+unnecessary  for  further  executing.  These  frames  may   be
+compressed effectively.
+
+     As for our experience,  exploited Prolog-plus during  one
+year, we never had used "Cut" directive even once.
+
+
+     III. Interminable executing checking.
+
+     This part of paper is devoted  to  performing  "extended"
+class   of   problems  solved  by  the  Prolog-plus.  We  mind
+"extending" in sense of some insoluble for conventional Prolog
+problems.  These  problems,  being  correctly defined in logic
+sense leads conventional Prolog to interminable executing.  In
+such  case  executive system deals with unlimited search tree.
+This tree contains unlimited branch,  catching  on  which  the
+executive system can not leave it out. For instance:
+
+     P(a, b).                    (1)
+     P(b, c).                    (2)
+     R(X, Y):-R(X, Z), R(Z, Y).  (3)
+     R(X, Y):-P(X, Y).           (4)
+   ?-R(a, c).                    (5)
+
+     Fig 1.             R(a, c)
+                   ┌────┴────┐ (3)
+                   R(a, Z)   R(Z, c)
+                   :
+                   R(a, Z')
+              ┌────┴────┐ (3)
+              R(a, Z")  R(Z", Z')
+              :
+
+     As in this example let's assume that nodes of search tree
+is labeled by the corresponded subgoals,  i.e.  predicate name
+and  arguments.  The  search  tree   building   procedure   is
+determined,  so all segments between two similar labeled nodes
+on one branch will be also  similar.  Moreover,  as  variables
+renaming don't have influence on unification procedure,  so it
+will be  correct   to   examine   "semantically",   not   only
+syntaxically,  equivalent  subgoals  (labels  of search tree).
+Semantically equivalent subgoal may be achieved  from  another
+by variables renaming.
+
+     Practically, variables  in search tree node labels may be
+binded or values may by assigned to  them  dynamically  during
+query  executing.  But  for us interesting only one structure,
+corresponded to a moment, when this subgoal was resolved first
+(i.e.  when  corresponded  search  tree  node was propagated).
+Prolog's  executive  saves  all  changes  with  variables   in
+restoring lists for backtracking, so we can easily restore the
+structure of interested us.
+
+     Interminable executing checking criterium is that: before
+any subgoal solving we tries to find its semantical equivalent
+on  current  branch  of  search tree.  If such subgoal will be
+found out,  to leave this branch it will be necessary. Because
+the  search tree node propagation phase the successful subgoal
+solution is corresponded so it will be enough to declare  this
+subgoal  solution  unsuccessful  and the system have to choice
+other alternative.
+
+     Strengthened by this method Prolog's proof procedure will
+not be complete (in some cases interminable executing is still
+possible),  but  it  allows  to  solve some practically useful
+problems.  For instance:  it allows to  define  symmetric  and
+transitive relations:
+     P(X, Y):-P(Y, X).
+     P(X, Y):-P(X, Z), P(Z, Y).
+with guaranty that executing will be terminable.  It allows to
+solve "Monkey-banana problem" in classic definition also  (see
+program example in chapter IV).
+
+
+     IV. Relational logical programming language.
+
+     The Prolog-plus  system  language  has modular structure.
+Program is integrated from  separately  compiled  modules  and
+queries. The base conception of this language is relation.
+
+  < module > ::=
+    'Module' < module_name >
+       < module_interface >
+       < module_body >
+    'end'
+
+Module interface consists of one or two parts:
+
+  < module_interface > ::=
+      'Export' < export_list >
+     ['Import' < import_list >]
+
+Export list contains names of relations, which can be used out
+of this module:
+
+  < export_list > ::=
+      < relation_name > |
+      < relation_name > ',' < export_list >
+
+Import list  contains  names  of modules,  from which external
+relations, used in this module, are imported:
+
+  < import_list > ::=
+      < module_name > |
+      < module_name > ',' < import_list >
+
+Module body is a set of relations:
+
+  < module_body > ::=
+      < relation > |
+      < relation > < module_body >
+
+  < relation > ::=
+      'Relation' < relation_name >
+        < relation_body >
+      'end'
+
+Relation body is a set of clauses:
+
+  < relation_body > ::=
+      < clause > |
+      < clause >
+      < relation_body >
+  < clause > ::=
+      < arguments > 'if'
+        [< clause_body >]
+
+Besides set of modules, program contains a query:
+
+  < query > ::=
+      'Query' < query_name > < arguments >
+        < clause_body >
+      'end'
+
+Clause body contain sequence of singular clauses:
+
+  < clause_body > ::=
+      < singular > |
+      < singular > < clause_body >
+
+Singular clause may be simple or compound:
+
+  < singular > ::=
+      < atom > |
+      < compound >
+
+Compound clauses is  system-predefined  syntaxical  structures
+for special purposes:
+
+  < compound > ::=
+      < atom > '/UNIQUE' |
+      'NOT' < atom > |
+      'SET' < atom > ',' < var > ',' < var > |
+      'MIN' < atom > ',' < var > ',' < var > |
+      'MAX' < atom > ',' < var > ',' < var > |
+      'SUM' < atom > ',' < var > ',' < var > |
+      'AVG' < atom > ',' < var > ',' < var >
+
+Compound clauses are interpreted by system as:
+
+  P(...)/unique       - sets up the backtrack point after pre-
+                        dicate  P solution  such it was before
+                        predicate P solution, "forgets" inter-
+                        nal backtrack points of predicate P;
+  NOT P(...)          - defines negatiation as failure;
+  SET P(...), _x, _X  - defines list _X of variable _x values;
+  MIN P(...), _x, _X  - defines minimum (maximum) _X of varia-
+  MAX P(...), _x, _X    ble _x values;
+  SUM P(...), _x, _X  - defines summ _X of variable _x values;
+  AVG P(...), _x, _X  - defines  average _X of variable _x va-
+                        lues .
+
+Atom is a relation specification, with optional prefix:
+
+  < atom > ::=
+      [< module_spec > '.'] < relation_name > < arguments >
+
+Module specification is a module  name  or  database  relation
+prefix:
+
+  < module_spec > ::= < module_name > | '$'
+
+Database relations  are  processed  such  as ordinary Prolog's
+facts with  natural  syntax.  User  has  only  to  write  down
+relation specification and nothing else.  For example: if user
+wants to receive data on clients, stored in ordinary .DBF file
+he writes:
+
+     $.CLIENTS(_surname,_firstname,_company,_phone).
+
+Where '$' -  the  name  of  database  pseudo-module.  Relation
+specification demands accordance with database relation fields
+(positional notation).
+
+Then all other definitions is  similar  to  standart  Prolog's
+definitions,  including structured terms and lists,  excepting
+variables.
+
+Variable is a identifier with compulsory prefix:
+
+  < var > ::= '_' < identifier >
+
+If string constant is a identifier it may not be concluded  in
+quotations, for example:
+
+     Person(Robinson), but
+     Person("De Morgan").
+
+     The module and query example:
+
+     Module Monkey
+       Export Climb
+       Relation State
+       (* initial state, monkey in point a, chair in point  *)
+       (* b, banana above point c                           *)
+         (a, b, c, [])
+       (* monkey can carry the chair if they in the same    *)
+       (* point stays                                       *)
+         (_x1, _x1, _z, [carry(_x0, _x1);_s]) if
+            State(_x0, _x0, _z, _s)
+       (* monkey can walk in any state                      *)
+         (_x1, _y, _z, [walk(_x0, _x1);_s]) if
+            State(_x0, _y, _z, _s)
+       end
+       Relation Climb
+       (* monkey can climb the banana if it and the chair   *)
+       (* under the banana stays                            *)
+         ([climb;_s])
+            State(_x, _x, _x, _s)
+       end
+     end
+     Query Monkey(_z)
+       Monkey.Climb(_z)
+       put(_z)
+     end
+
+The answer will be:  [climb,  carry(b, c), walk(a, b)]. It may
+be understood as:  walk from point a to  point  b  then  carry
+chair from point b to point c and then climb the banana.
+
+Note, that this program  can't  be  executed  successfully  by
+standart Prolog  interpreter,  the search tree of this problem
+contains unlimited branch and conventional Prolog can't  leave
+it out.
+
+
+     V. Virtual memory management.
+
+     Initially the virtual  memory  manager  was  designed  to
+provide  ability  of  large volume inferences performing,  but
+proved out that virtual addressing rather  fruitful  for  such
+purposes as intermodular and database interfaces.
+
+     Modules structure  of  the  language   is   provided   by
+shareable  compilation  of  each  module and query.  Moreover,
+designed   virtual   memory   manager   provides    processing
+re-compiled  modules without re-linking all program,  owing to
+run-time dynamic linking.  Database relations may be modified,
+and program don't requires any changes.
+
+     The Prolog-plus virtual memory manager provides executive
+stack which size limited only your disk size. There are, also,
+no limitations  serious  to  bynary modules and database files
+number and sizes  to  be  processed.  Virtual  memory  manager
+automatically opens,  organizes order of processing and closes
+them.  Owing  to  virtual  memory  managing  intermodular  and
+database  interfaces are quit incapsulated from user.  Besides
+of bynary modules,  database files,  and executive  stack  the
+manager handles editor buffers also.
+
+
+     VI. Implementation.
+
+     The Prolog-plus system available now is alpha version. It
+implemented by using Modula-2 language on  personal  computers
+DEC  Professional 350 under the operating system P/OS control,
+and on IBM PC compatibles under the operating  system  MS  DOS
+control.
+
+     The Prolog-plus system is integrated  environment,  which
+contains:
+     - multiwindow  text editor for source modules and queries
+texts preparation and editing;
+     - modules and queries compiler which makes bynary modules
+and enters query into the executive system;
+     - executive  system  (interpreter)  that  makes deduction
+inference by using bynary modules and database files;
+     - auxiliary  relation  database  management  system  with
+Query-By-Example-like query language;
+     - service utilites which provides some useful functions.
+
+
+     References
+
+  M.Bruynooghe
+    The memory Management of Prolog Implementations.
+    Logic programming.
+      Academic Press, New York, 1982.
+
+  C.J.Hogger
+    Introduction to Logic Programming.
+      Academic Press, London, 1984.
+
+  S.Ceri, G.Gottlob, L.Tanka
+    Logic Programming and Databases.
+      Springer-Verlag, Berlin, Neidelberg, 1990.
+
+  M.Reviakin
+    Logic Programming System 'Prolog-plus'
+      Proc. of the ICLP'93, MIT Press, Cambridge, 1993.

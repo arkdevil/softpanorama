@@ -1,0 +1,1026 @@
+{*******************************MULTI-EDIT MACROS******************************
+                             ┌────────────────────╖
+                             │  VSOFT EXTENSIONS  ║
+                             ╘═╤══════════════════╝
+                               │
+                               ├─ Count;
+                               ├─ Sym;
+                               ├─ Prog;
+                               ├─ Mrk_EB
+                               ├─ DosScrn;
+                               ├─ MaxL;
+                               ├─ Pref;
+                               ├─ MrkFls;
+                               ├─ VMkDir;
+                               ├─ VDelDir;
+                               └─ Kal;
+******************************************************************************}
+
+
+$MACRO_FILE VSoft;
+
+$MACRO COUNT TRANS;
+  DEF_INT(CurCol,SNum,SRow,CurRow);
+  Def_Str(Temp);
+  Make_Message('<ESC>- End  <0..9>- start Col  <F2>- start Row');
+  CurCol := C_Col;
+  CurRow := C_Line;
+  SNum := 1;
+  SRow := 0;
+  start:
+        Read_Key;
+        if ((Key1 = 0) and (Key2 = 77)) then Right;end;
+        if ((Key1 = 0) and (Key2 = 75)) then Left;end;
+        if ((Key1 = 0) and (Key2 = 72)) then Up;end;
+        if ((Key1 = 0) and (Key2 = 80)) then Down;end;
+        if ((Key1 = 0) and (Key2 = 81)) then Page_Down;end;
+        if ((Key1 = 0) and (Key2 = 73)) then Page_Up;end;
+        if ((Key1 = 0) and (Key2 = 116)) then Word_Right;end;
+        if ((Key1 = 0) and (Key2 = 115)) then Word_Left;end;
+        if ((Key1 = 0) and (Key2 = 71)) then Home;end;
+        if ((Key1 = 0) and (Key2 = 79)) then EOL;end;
+        if ((Key1 > 47) and (Key1 < 58)) then
+          Return_Int := 1;
+          Push_Key(Key1,Key2);
+          Run_Macro ('UserIn^QueryBox /L=2 /C=3 /T=Start column /H=VSOFT^V1 /W=5 /N=1 /MIN=0 /MAX=99999');
+          if Return_Str = 'TRUE' then SNum := Return_Int;
+          else
+            Key1 := 0;
+          end;
+        end;
+        if ((Key1 = 0) and (Key2 = 60)) then
+          Return_Int := 1;
+          Run_Macro ('UserIn^QueryBox /L=2 /C=3 /T=Start row /W=5 /H=VSOFT^V1 /N=1 /MIN=0 /MAX=99999');
+          if Return_Str = 'TRUE' then SRow := Return_Int;
+          else
+            Key1 := 0;
+          end;
+        end;
+        if ((Key1 = 27) and (Key2 = 1)) then goto Finish;end;
+        if ((Key1 = 0) and (Key2 = 59)) then
+          Help('VSOFT.HLP^V1');
+        end;
+        Make_Message('Col:'+ STR((C_COL - CurCol)+SNum)+'  Row:'+ STR((C_Line - CurRow)+SRow));
+        Goto Start;
+  Finish:
+  Make_Message('Result─ Col:'+ STR((C_COL - CurCol)+SNum)+'  Row:'+ STR((C_Line - CurRow)+SRow));
+END_MACRO;
+
+$MACRO SYM TRANS;
+  Make_Message('Symbol: '+Cur_Char+'/'+Str(ASCII(Cur_Char))+'/$'+Hex_Str(ASCII(Cur_Char)));
+END_MACRO;
+
+$MACRO MRK_EB;
+  if BLOCK_STAT = 0 then
+    Make_Message('No block marked');
+    goto Q;
+  end;
+  Mark_Pos;
+  RM('TOPBLOCK');
+  if BLOCK_STAT = 1 then
+    BLOCK_BEGIN;
+  end;
+  if BLOCK_STAT = 2 then
+    COL_BLOCK_BEGIN;
+  end;
+  if BLOCK_STAT = 3 then
+    STR_BLOCK_BEGIN;
+  end;
+  Goto_Mark;
+  BLOCK_END;
+Q:
+END_MACRO;
+
+
+$MACRO PROG DUMP;
+START:
+  RM('Userin^XMENU /X=34/Y=5/B=1/T=1/L=SoftWare/M=Games()Utils()');
+  if Return_Int = 0 then goto QUIT; end;
+  if Return_Int = 1 then
+    run_macro('Userin^db /F=PROGRAMS.DB/DPT=GAMES.DB/L=3/C=1');
+  end;
+  if Return_Int = 2 then
+    run_macro('Userin^db /F=PROGRAMS.DB/DPT=UTILS.DB/L=3/C=1');
+  end;
+goto START;
+QUIT:
+END_MACRO;
+
+$MACRO DOSSCRN DUMP;              { ЗАГЛЯНУТЬ В ОРИГИНАЛЬНЫЙ ЭКРАН DOS }
+  DEF_INT (mc ,tc ,fc);
+  mc := Mem_Col; tc := Time_Col; fc := Fkey_Row;
+  Mem_Col := 0;  Time_Col := 0;  Fkey_Row := 0;
+  Rest_Dos_Screen;
+  Read_Key;
+  Mem_Col := mc;  Time_Col := tc; Fkey_Row := fc;
+  New_Screen;
+END_MACRO;
+
+$MACRO MaxL;
+  DEF_INT(N,MaxL,CurL);
+
+  REFRESH := FALSE;
+  MARK_POS;
+  TOF;
+  MaxL := 0;
+  CurL := 0;
+  WHILE AT_EOF = 0 do
+    CurL := LENGTH(GET_LINE);
+    if CurL > MaxL then
+      MaxL := CurL;
+      N := C_LINE;
+    Make_Message('Scaning... │ Max: '+Str(MaxL)+'  Line: '+Str(N));
+    end;
+    DOWN;
+  end;
+  GOTO_MARK;
+  REFRESH := TRUE;
+  Make_Message('Max.length: '+Str(MaxL)+'  Line: '+Str(N));
+  Sound( 165 );
+  Delay( 10 );
+  Sound( 0 );
+END_MACRO;
+
+
+{************************* Super ASCII table (c)1991 ************}
+$MACRO Pref;
+  def_int(I,Pg, FC, BC,Vb);
+  Def_Str(S[20],BS[20],KS1[1280],KS2[1280], CS[15]);
+
+  KS1 :=
+  '    ^Break^A  AltEsc^B        ^C  ^@    ^D        ^E        ^F        ^G        ^H        '+
+  '^I        ^J        ^K        ^L        ^M        '+
+  '^N  AltBks^O  ShTab ^P  AltQ  ^Q  AltW  ^R  AltE  '+
+  '^S  AltR  ^T  AltT  ^U  AltY  ^V  AltU  ^W  AltI  '+
+  '^X  AltO  ^Y  AltP  ^Z  Alt[  ^[  Alt]  ^\  AltEnt'+
+  '^]        ^^  AltA  ^_  AltS      AltD      AltF  '+
+  '    AltG      AltH      AltJ      AltK      AltL  '+
+  '    Alt;      Alt''      Alt`                Alt\  '+
+  '    AltZ      AltX      AltC      AltV      AltB  '+
+  '    AltN      AltM      Alt,  '+
+  '    Alt.      Alt/                                '+
+  '                        F1        F2        F3    '+
+  '    F4        F5        F6        F7        F8    '+
+  '    F9        F10                           Home  '+
+  '    Up        PgUp                Left     Center '+
+  '    Right               End       Down      PgDn  '+
+  '    Ins       Del       ShF1      ShF2      ShF3  '+
+  '    ShF4      ShF5      ShF6      ShF7      ShF8  '+
+  '    ShF9      ShF10     ^F1       ^F2       ^F3   '+
+  '    ^F4       ^F5       ^F6       ^F7       ^F8   '+
+  '    ^F9       ^F10  '+
+  '    AltF1     AltF2     AltF3     AltF4     AltF5 '+
+  '    AltF6     AltF7     AltF8     AltF9     AltF10'+
+  '    ^PrtSc    ^Left     ^Right    ^End      ^PgDn '+
+  '    ^Home     Alt1      Alt2      Alt3      Alt4  '+
+  '    Alt5      Alt6      Alt7      Alt8  ';
+
+  KS2 :=
+  '    Alt9      Alt0      Alt-      Alt=      ^PgUp     F11   '+
+  '    F12       ShF11     ShF12     ^F11      ^F12      AltF11'+
+  '    AltF12    ^Up       ^Minus   ^Center    ^Plus     ^Down '+
+  '    ^Ins      ^Del      ^Tab                         AltHome'+
+  '    AltUp    AltPgUp             AltLeft AltCenter  AltRight'+
+  '              AltEnd   AltDown   AltPgDn    AltIns    AltDel'+
+  '              AltTab                                        '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                                            '+
+  '                                ClkThree  ClkRtCtr  ClkLtCtr'+
+  '  ClkCentr   ClkBoth  ClkRight   ClkLeft                    '+
+  '                                                            '+
+  '                                                            '+
+  '                        ';
+  Pg := Global_int('VS_A');
+  Vb := Global_Int('V_Ab');
+  if Pg = 0 then
+    Pg := 15;
+  end;
+  i  := Pg - 15;
+  Put_Box( 2, 4, 65, 24, Black, Yellow, ' ASCII-table  (c) 1991 by VSoft ', TRUE );
+  Write('├',2,6, 0,Yellow);
+  Draw_Char(196,3,6,Yellow,60);
+  Write('╢',63,6, 0,Yellow);
+
+  Write('Dec',4,5, 0,White);
+  Write('Hex',8,5, 0,White);
+  Write('Chr',12,5, 0,White);
+  Write('Key',21,5, 0,White);
+  Write('Fore',30,5, 0,White);
+  Write('Back',39,5, 0,White);
+  Write('Color',47,5, 0,White);
+  Write('Clipper',54,5, 0,White);
+  Make_Message( '<PgDn>,<PgUp>-select  <F2>-Blink toggle'+
+                  '  <Esc>-Exit.');
+
+  GotoXY(55,2);
+
+Draw:
+  WHILE (I <= Pg) DO
+    FC := i and 15;
+    BC := i shr 4;
+    if i > 10 then
+      S := Str(i)+' ';
+    else
+      S := Str(i)+'   ';
+    end;
+    Write(S, 5, FC+7, 0, White);
+    Write(Char(i), 13, FC+7, 0, 7);
+    S := Hex_Str(i);
+    if SVL(S) < 2 then
+      S := '0'+S;
+    end;
+    Write(S, 9, FC+7, 0, Yellow);
+    Write('*****', 47, FC+7, BC, FC);
+
+    if FC = 0 then
+      S := 'Black   ';
+      CS := 'n/';
+    end;
+    if FC = 1 then
+      S := 'Blue   ';
+      CS := 'b/';
+    end;
+    if FC = 2 then
+      S := 'Green  ';
+      CS := 'g/';
+    end;
+    if FC = 3 then
+      S := 'Cyan   ';
+      CS := 'bg/';
+    end;
+    if FC = 4 then
+      S := 'Red    ';
+      CS := 'r/';
+    end;
+    if FC = 5 then
+      S := 'Magenta';
+      CS := 'rb/';
+    end;
+    if FC = 6 then
+      S := 'Brown  ';
+      CS := 'gr/';
+    end;
+    if FC = 7 then
+      S := 'Lt Gray';
+      CS := 'w/';
+    end;
+    if FC = 8 then
+      S := 'Dk Gray';
+      CS := 'n+/';
+    end;
+    if FC = 9 then
+      S := 'Lt Blue';
+      CS := 'b+/';
+    end;
+    if FC = 10 then
+      S := 'LtGreen';
+      CS := 'g+/';
+    end;
+    if FC = 11 then
+      S := 'Lt Cyan';
+      CS := 'bg+/';
+    end;
+    if FC = 12 then
+      S := 'Lt Red ';
+      CS := 'r+/';
+    end;
+    if FC = 13 then
+      S := 'Pink  ';
+      CS := 'rb+/';
+    end;
+    if FC = 14 then
+      S := 'Yellow';
+      CS := 'gr+/';
+    end;
+    if FC = 15 then
+      S := 'White ';
+      CS := 'w+/';
+    end;
+    if BC = 0 then
+      Bs := 'Black   ';
+      CS := CS+'n';
+    end;
+    if BC =  1 then
+      Bs := 'Blue   ';
+      CS := CS+'b';
+    end;
+    if BC =  2 then
+      Bs := 'Green  ';
+      CS := CS+'g';
+    end;
+    if BC =  3 then
+      Bs := 'Cyan   ';
+      CS := CS+'bg';
+    end;
+    if BC =  4 then
+      Bs := 'Red    ';
+      CS := CS+'r';
+    end;
+    if BC =  5 then
+      Bs := 'Magenta';
+      CS := CS+'rb';
+    end;
+    if BC =  6 then
+      Bs := 'Brown  ';
+      CS := CS+'gr';
+    end;
+    if BC =  7 then
+      Bs := 'Lt Gray';
+      CS := CS+'w';
+    end;
+    if BC =  8 then
+      Bs := 'Dk Gray';
+      CS := CS+'n+';
+    end;
+    if BC =  9 then
+      Bs := 'Lt Blue';
+      CS := CS+'b+';
+    end;
+    if BC =  10 then
+      Bs := 'LtGreen';
+      CS := CS+'g+';
+    end;
+    if BC =  11 then
+      Bs := 'Lt Cyan';
+      CS := CS+'bg+';
+    end;
+    if BC =  12 then
+      Bs := 'Lt Red ';
+      CS := CS+'r+';
+    end;
+    if BC =  13 then
+      Bs := 'Pink  ';
+      CS := CS+'rb+';
+    end;
+    if BC =  14 then
+      Bs := 'Yellow';
+      CS := CS+'gr+';
+    end;
+    if BC =  15 then
+      Bs := 'White ';
+      CS := CS+'w+';
+    end;
+    Write(S, 30, FC+7, 0, 7);
+    Write(Bs, 39, FC+7, 0, 7);
+    Write(Cs+'  ', 54, FC+7, 0, 7);
+
+    if i < 128 then
+      Write(Copy(KS1,i*10+1,10), 17, FC+7, 0, 7);
+    else
+      Write(Copy(KS2,(i-128)*10+1,10), 17, FC+7, 0, 7);
+    end;
+
+    ++I;
+  END;
+
+ Read_Key;
+
+ if (Key1 = 0) and ((Key2 = 81) or (Key2 = 80)) then    {PgDn}
+   if Pg < 255 then
+     Pg := Pg + 16;
+   end;
+ end;
+
+ if (Key1 = 0) and (Key2 = 79) then
+   if Pg < 255 then
+     Pg := 255;
+     i  := 240;
+   end;
+ end;
+
+ if (Key1 = 0) and (Key2 = 71) then
+   if Pg > 15 then
+     Pg := 15;
+     i  := 0;
+   end;
+ end;
+
+  if (Key1 = 0) and ((Key2 = 73) or (Key2 = 72)) then  {pgUp}
+    if Pg > 16  then
+      Pg := Pg - 16;
+      i  := i - 32;
+    end;
+  end;
+
+  if (Key1 = 0) and (Key2 = 60) then  {F2}
+    R_BX := Vb;
+    R_AX := 4099;   {$1003}
+    INTR(16);       {$10}
+    Sound(500*Vb+500);
+    Delay(8);
+    Sound(100);
+    Delay(5);
+    Sound(0);
+    Vb := not (Vb);
+  end;
+
+  if ((Key1 = 0) and (Key2 = 59)) then
+    Help('VSOFT.HLP^V5');
+  end;
+
+  if (Key1 = 27) then
+    goto EndPref;
+  end;
+
+  goto Draw;
+
+EndPref:
+ Kill_Box;
+ Set_Global_int('VS_A',Pg);
+ Set_Global_Int('V_Ab',Vb);
+ Make_Message('Thank you...   (c)1991 VSoft');
+END_MACRO;
+{****************************** Mark files *************}
+$MACRO MRKFLS;
+  Def_str(Fil, OldDir);
+  Def_str(Fils[2048] := '');
+  Def_Int(i := 1, Kol := 0,PosDir);
+
+  if Parse_Str('/T=',MPARM_Str) = 'I' then
+    DOS_HOME;
+      WHILE (i <= DIR_TOTAL) DO
+        PosDir := Dos_File_Attr <> $10 ;
+        IF ((not (FILE_MARKED)) and (PosDir)) THEN
+          ++Kol;
+        end;
+        if  PosDir <> 0 then
+          Mark_File;
+        end;
+      Dos_down;
+      ++I;
+    END; {while}
+    DOS_HOME;
+    Make_Message(Str(Kol)+' files');
+
+ else
+  Return_str := Global_Str('V_DirMask');
+  RM('Userin^Querybox /C=5/L=5/W=30/ML=64/T=Mark/H=VSOFT.HLP^V6');
+  if Return_int <> 0 then
+    Set_Global_Str('V_DirMask' , Return_Str);
+    OldDir := Dir_Mask;
+    Dir(Get_Path(Dir_Mask)+Return_Str);
+    DOS_HOME;
+    WHILE (i <= DIR_TOTAL) DO
+      if XPos('..',DIR_ENTRY,1) = 0  then
+        Fil := Truncate_Path(DIR_ENTRY);
+        ++Kol;
+        Fils := Fils+Fil;
+      end;
+      Dos_down;
+      ++I;
+    END; {while}
+    Dir(OldDir);
+    DOS_HOME;
+    i := 1;
+    WHILE (i <= DIR_TOTAL) DO
+    Fil := Truncate_Path(DIR_ENTRY);
+      IF (XPOS(Fil,Fils,1) <> 0) then
+        IF ((not (FILE_MARKED)) and (Dos_File_Attr <> $10)) THEN
+          Mark_File;
+        end;
+      end;
+        Dos_down;
+        ++I;
+    END; {while}
+
+    DOS_HOME;
+    Make_Message(Str(Kol)+' files');
+  end;
+ end;
+END_MACRO;
+
+$MACRO VMKDIR;
+  def_int(i);
+  Return_Str := '';
+  RM('Userin^Querybox /C=2/L=3/W=8/ML=8/T=Create Dir');
+  if Return_int <> 0 then
+    i := MKDIR(Get_Path(Dir_Mask)+Return_Str);
+    if i  <> 0 then
+      RM('MEERROR^MESSAGEBOX /T=Error/M=Dos error '+Str(i)+' /B=1');
+    end;
+    Dir(Dir_Mask);
+    Dos_Home;
+  end;
+END_MACRO;
+
+$MACRO VDELDIR;
+    Shell_to_Dos('RD '+Dir_Entry ,True);
+    Update_Dir;
+    Dir(Dir_Mask);
+    Dos_Home;
+END_MACRO;
+
+$MACRO KAL FROM ALL DUMP;
+{******************************************************************************
+                                MULTI-EDIT MACRO
+
+Name: KAL
+
+       Contributed by Dick Botbyl
+       Modified by Todd Johnson and Branko
+       Modified Aug. 1991 by VSoft (Vitaly Shokhan), Minsk, USSR.
+
+Description: Shows calander on screen.  Allows selection of individual days
+on the calender to manage an appointment or schedule for each day.
+
+******************************************************************************}
+
+	def_int(month_choice,day_choice,year_choice);
+	def_str( cal_inp );
+	def_str( cal_lin );
+	def_str(mon_str,day_str,year_str,long_mo);
+	def_str(sho_day_str,cal_key);
+	def_str(m_d_y,m,d,y);
+	def_int(set_day);
+
+	def_int(mon_num,day_o_wk,short_yr,temp_value);
+	def_int(num_days,start_day,mon_type,long_yr);
+	def_int(strt_ln,sho_day,Key_code,start_day_out);
+	def_int(row_choice,col_choice);
+	set_day := 0;
+
+																				 { Initialize variables }
+
+	cal_inp := '│    │    │    │    │    │    │    ║';
+	cal_lin := '├────┼────┼────┼────┼────┼────┼────╢';
+  mon_str  := COPY (DATE,4,2);
+  day_str  := COPY (DATE,1,2);
+	year_str := COPY (DATE,7,2);
+
+																					{convert date string}
+	IF VAL(temp_value, mon_str)  = 0 then
+		mon_num := temp_value;
+		month_choice := temp_value;
+	END;
+	IF VAL(temp_value, day_str)  = 0 then
+		day_o_wk := temp_value;
+		day_choice := temp_value;
+	END;
+	IF VAL(temp_value, year_str) = 0 then
+		short_yr := temp_value;
+		year_choice := temp_value;
+	END;
+	long_yr := short_yr + 1900;
+
+																					{ Put up the calander form }
+
+  put_box(21,4,58,24,0,113,'Calendar',true);
+
+BEGIN_TO:
+  write('│                                  ║',21, 5,0,113);
+  write('│                                  ║',21, 6,0,113);
+  write('╞════╤════╤════╤════╤════╤════╤════╣',21, 7,0,113);
+  write('Mon  Tue  Wed  Thu  Fri  Sat',23, 6,0,127);
+  write('Sun',52, 6,0,116);
+  write(cal_inp,21, 8,0,113);
+  write(cal_lin,21, 9,0,113);
+  write(cal_inp,21,10,0,113);
+  write(cal_lin,21,11,0,113);
+  write(cal_inp,21,12,0,113);
+  write(cal_lin,21,13,0,113);
+  write(cal_inp,21,14,0,113);
+  write(cal_lin,21,15,0,113);
+  write(cal_inp,21,16,0,113);
+  write('├────┼────┼────┴────┴────┴────┴────╢',21,17,0,113);
+  write('│    │    │                        ║',21,18,0,113);
+  write('╞════╧════╧════════════════════════╣',21,19,0,113);
+  write('|27|24|25|26',22,20,0,118);
+  write('Days',36,20,0,113);
+
+  write('<Home>,<End> ',22,21,0,118);
+  write('Month',36,21,0,113);
+
+  write('<PgUp>,<PgDn>',22,22,0,118);
+  write('Years',36,22,0,113);
+
+  write('<ENTER>',43,20,0,118);
+  write('View',51,20,0,113);
+
+  write('<SPACE>',43,21,0,118);
+  write('Menu',51,21,0,113);
+
+  write('<ESC>',43,22,0,118);
+  write('Exit',51,22,0,113);
+
+																					{WHICH CALENDAR TYPE NEEDED}
+
+	IF short_yr < 72 THEN
+		short_yr := short_yr +28;
+	END;
+	IF short_yr > 99 THEN
+		short_yr := short_yr -28;
+	END;
+
+	IF short_yr = 72 THEN
+		mon_type :=  13;
+	END;
+	IF short_yr = 73 THEN
+		mon_type :=   1;
+	END;
+	IF short_yr = 74 THEN
+		mon_type :=   2;
+	END;
+	IF short_yr = 75 THEN
+		mon_type :=   3;
+	END;
+	IF short_yr = 76 THEN
+		mon_type :=  11;
+	END;
+	IF short_yr = 77 THEN
+		mon_type :=   7;
+	END;
+	IF short_yr = 78 THEN
+		mon_type :=   8;
+	END;
+	IF short_yr = 79 THEN
+		mon_type :=   1;
+	END;
+	IF short_yr = 80 THEN
+		mon_type :=  09;
+	END;
+	IF short_yr = 81 THEN
+		mon_type :=   4;
+	END;
+	IF short_yr = 82 THEN
+		mon_type :=   5;
+	END;
+	IF short_yr = 83 THEN
+		mon_type :=   6;
+	END;
+	IF short_yr = 84 THEN
+		mon_type :=  14;
+	END;
+	IF short_yr = 85 THEN
+		mon_type :=   2;
+	END;
+	IF short_yr = 86 THEN
+		mon_type :=   3;
+	END;
+	IF short_yr = 87 THEN
+		mon_type :=   4;
+	END;
+	IF short_yr = 88 THEN
+		mon_type :=  12;
+	END;
+	IF short_yr = 89 THEN
+		mon_type :=   7;
+	END;
+	IF short_yr = 90 THEN
+		mon_type :=   1;
+	END;
+	IF short_yr = 91 THEN
+		mon_type :=   2;
+	END;
+	IF short_yr = 92 THEN
+		mon_type :=  10;
+	END;
+	IF short_yr = 93 THEN
+		mon_type :=   5;
+	END;
+	IF short_yr = 94 THEN
+		mon_type :=   6;
+	END;
+	IF short_yr = 95 THEN
+		mon_type :=   7;
+	END;
+	IF short_yr = 96 THEN
+		mon_type :=  08;
+	END;
+	IF short_yr = 97 THEN
+		mon_type :=   3;
+	END;
+	IF short_yr = 98 THEN
+		mon_type :=   4;
+	END;
+	IF short_yr = 99 THEN
+		mon_type :=   5;
+	END;
+																					{WHAT MONTH AND HOW MANY DAYS}
+
+	num_days := 31;
+	IF mon_num = 1 THEN
+		mon_str := 'January';
+		start_day := 1;
+	END;
+	IF mon_num = 2 THEN
+		start_day := 4;
+		num_days := 28;
+		mon_str := 'February';
+	END;
+	IF mon_num = 3 THEN
+		mon_str := 'March';
+		start_day := 4;
+	END;
+	IF mon_num = 4 THEN
+		num_days := 30;
+		mon_str := 'April';
+		start_day := 7;
+	END;
+	IF mon_num = 5 THEN
+		mon_str := 'May';
+		start_day := 2;
+	END;
+	IF mon_num = 6 THEN
+		num_days := 30;
+		mon_str := 'June';
+		start_day := 5;
+	END;
+	IF mon_num = 7 THEN
+		mon_str := 'July';
+		start_day := 7;
+	END;
+	IF mon_num = 8 THEN
+		mon_str := 'August';
+		start_day := 3;
+	END;
+	IF mon_num = 9 THEN
+		num_days := 30;
+		mon_str := 'September';
+		start_day := 6;
+	END;
+	IF mon_num = 10 THEN
+		mon_str := 'October';
+		start_day := 1;
+	END;
+	IF mon_num =11 THEN
+		num_days := 30;
+		mon_str := 'November';
+		start_day := 4;
+	END;
+	IF mon_num =12 THEN
+		mon_str := 'December';
+		start_day := 6;
+	END;
+
+	IF mon_type > 7 then                       {WHERE TO PUT FIRST DAY}
+		IF mon_num > 2 THEN
+			start_day := start_day + 1;
+		END;
+	END;
+	IF mon_type > 7 THEN
+		mon_type := mon_type -7;
+	END;
+	start_day := start_day + mon_type - 1;
+	IF start_day > 7 THEN
+		start_day := start_day - 7;
+	END;
+
+
+  write(mon_str,38,18,0,123);
+  write(STR(long_yr),49,18,0,123);
+
+	strt_ln := 8;
+	sho_day := 1;                                    {PUT DAYS ON CALENDAR}
+	start_day_out := (start_day * 5) + 18;
+	while sho_day <= num_days DO
+		IF start_day_out > 57 then
+			start_day_out := start_day_out - 35;
+			strt_ln := strt_ln +2;
+		END;
+		sho_day_str := STR(sho_day);
+		IF length (sho_day_str) = 1 then
+			sho_day_str := ' ' + sho_day_str;
+		END;
+		if set_day = 1 then
+			day_choice := num_days;
+			set_day := 0;
+		end;
+		if ((str(day_choice) = Remove_Space(sho_day_str)) and (day_choice > 0) and (day_choice <= num_days)) then
+			col_choice := start_day_out;
+			row_choice := strt_ln;
+    write(sho_day_str,start_day_out,strt_ln,0, 79);{Working_Color);}
+		def_int(result);
+		if val(result,sho_day_str) = 0 then
+			if result > 9 then
+		gotoxy(start_day_out,strt_ln);
+		else
+				gotoxy(start_day_out+1,strt_ln);
+				end;
+				end;
+		ELSE
+		write(sho_day_str,start_day_out,strt_ln,0,M_B_Color);
+		end;
+		sho_day := sho_day + 1;
+		start_day_out := start_day_out + 5;
+	END;
+SWITCH:
+	Read_key;
+		IF Key1 = 27 then                       {ESC to Quit}
+			mon_num := mon_num + 1;
+			GOTO FINI;
+		END;
+
+    IF ((Key1 = 0) and (Key2 = 59)  then
+      Help('VSOFT.HLP^V10');
+			GOTO BEGIN_TO;
+		END;
+
+		IF (KEY1 = 13) THEN
+			if mon_num < 10 then
+				m := '0'+str(mon_num)+'//';
+			else
+				m := str(mon_num)+'//';
+			end;
+			if day_choice < 10 then
+				d := '0'+str(day_choice)+'//';
+			else
+				d := str(day_choice)+'//';
+			end;
+			y := str(short_yr);
+      m_d_y := d+m+y;
+      {run_macro('Userin^db /F=CALENDAR.DB/NL=1/C=1/FV=' + m_d_y);}
+      run_macro('Userin^db /F=CALENDAR.DB/NL=1/C=1/FV=' + m_d_y);
+			goto switch;
+			GOTO BEGIN_TO;
+		end;
+
+    IF (KEY1 = 32) THEN
+			if mon_num < 10 then
+				m := '0'+str(mon_num)+'//';
+			else
+				m := str(mon_num)+'//';
+			end;
+			if day_choice < 10 then
+				d := '0'+str(day_choice)+'//';
+			else
+				d := str(day_choice)+'//';
+			end;
+			y := str(short_yr);
+      m_d_y := d+m+y;
+      run_macro('Userin^db /F=CALENDAR.DB/L=3/C=1/FV=' + m_d_y);
+			goto switch;
+			GOTO BEGIN_TO;
+		end;
+
+		IF Key1 = 0 THEN
+			Key_code := Key2;
+      IF ((Key_code = 145) or (Key_Code = 79)) then                        {RT ARROW ADD ONE MONTH}
+				mon_num := mon_num + 1;
+        {day_choice := 1;}
+				IF mon_num = 13 then
+					mon_num := 1;
+					short_yr := short_yr +1;
+					long_yr := long_yr + 1;
+				END;
+				GOTO BEGIN_TO;
+			END;
+      IF ((Key_code = 141) or (Key_Code = 71)) then                       {LFT ARROW MINUS ONE MONTH}
+				mon_num := mon_num - 1;
+				IF mon_num = 0 then
+					mon_num := 12;
+					short_yr := short_yr -1;
+					long_yr := long_yr - 1;
+				END;
+				GOTO BEGIN_TO;
+			END;
+			IF Key_code = 81 then                       {UP ARROW ADD A YEAR}
+				short_yr := short_yr + 1;
+				long_yr := long_yr + 1;
+				GOTO BEGIN_TO;
+			END;
+			IF Key_code = 73 then                       {DN ARROW MINUS A YEAR}
+				short_yr := short_yr - 1;
+				long_yr := long_yr - 1;
+				GOTO BEGIN_TO;
+			END;
+				IF (KEY_CODE = 75) THEN
+				if day_choice > 1 then
+				if day_choice < 10 then
+				WRITE(' '+STR(DAY_CHOICE),col_choice,row_choice,0,m_b_color);
+				else
+				WRITE(STR(DAY_CHOICE),col_choice,row_choice,0,m_b_COLOR);
+				end;
+				day_choice := day_choice-1;
+				IF ((col_choice > 23) AND (DAY_CHOICE >= 1)) THEN
+					col_choice := col_choice-5;
+				if day_choice < 10 then
+        WRITE(' '+STR(DAY_CHOICE),col_choice,row_choice,0,79);{Working_Color);}
+				gotoxy(col_choice+1,row_choice);
+				else
+        WRITE(STR(DAY_CHOICE),col_choice,row_choice,0,79);{Working_Color);}
+				gotoxy(col_choice,row_choice);
+				end;
+				GOTO SWITCH;
+				END;
+				IF((col_choice = 23 ) AND (DAY_CHOICE > 1)) THEN
+					col_choice := col_choice+30;
+					row_choice := row_choice-2;
+					if day_choice < 10 then
+          WRITE(' '+STR(DAY_CHOICE),col_choice,row_choice,0,79);{Working_Color);}
+					gotoxy(col_choice+1,row_choice);
+					else
+          WRITE(STR(DAY_CHOICE),col_choice,row_choice,0,79);{Working_Color);}
+					gotoxy(col_choice,row_choice);
+					end;
+					GOTO SWITCH;
+				end;
+				else
+				set_day := 1;
+				if mon_num > 1 then
+				mon_num := mon_num-1;
+				else
+				short_yr := short_yr-1;
+				mon_num := 12;
+				end;
+				goto begin_to;
+				END;
+				end;
+				IF (KEY_CODE = 77) THEN
+				if day_choice < num_days then
+					if(day_choice < 10)then
+					WRITE(' '+STR(DAY_CHOICE),col_choice,row_choice,0,m_b_color);
+					else
+					WRITE(STR(DAY_CHOICE),col_choice,row_choice,0,m_b_color);
+					end;
+					IF(col_choice < 53) THEN
+						col_choice := col_choice+5;
+				day_choice := day_choice+1;
+				if(day_choice < 10) then
+        WRITE(' '+STR(DAY_CHOICE),col_choice,row_choice,0,79);{Working_Color);}
+				gotoxy(col_choice+1,row_choice);
+				else
+        WRITE(STR(DAY_CHOICE),col_choice,row_choice,0,79);{Working_Color);}
+				gotoxy(col_choice,row_choice);
+				end;
+				goto switch;
+				end;
+				if col_choice = 53 then
+					day_choice := day_choice+1;
+					col_choice := col_choice-30;
+					row_choice := row_choice+2;
+					if day_choice < 10 then
+            write(' '+str(day_choice),col_choice,row_choice,0,79);{Working_Color);}
+						gotoxy(col_choice+1,row_choice);
+					else
+            write(str(day_choice),col_choice,row_choice,0,79);{Working_Color);}
+						gotoxy(col_choice,row_choice);
+					end;
+				GOTO SWITCH;
+				END;
+				else
+				if mon_num = 12 then
+					mon_num := 1;
+					short_yr := short_yr+1;
+					day_choice := 1;
+					goto begin_to;
+				else
+					mon_num := mon_num+1;
+					day_choice := 1;
+					goto begin_to;
+				end;
+				end;
+				END;
+				IF ((KEY_CODE = 72) AND (DAY_CHOICE > 7))THEN
+					if day_choice < 10 then
+						write(' '+str(day_choice),col_choice,row_choice,0,m_b_color);
+					else
+						write(str(day_choice),col_choice,row_choice,0,m_b_color);
+					end;
+					row_choice := row_choice-2;
+					day_choice := day_choice-7;
+					if day_choice < 10 then
+            write(' '+str(day_choice),col_choice,row_choice,0,79);{Working_Color);}
+						gotoxy(col_choice+1,row_choice);
+					else
+            write(str(day_choice),col_choice,row_choice,0,79);{Working_Color);}
+						gotoxy(col_choice,row_choice);
+					end;
+					goto switch;
+				END;
+				IF((KEY_CODE = 80) AND (DAY_CHOICE <= (NUM_DAYS-7)))THEN
+					if day_choice < 10 then
+						write(' '+str(day_choice),col_choice,row_choice,0,m_b_color);
+					else
+						write(str(day_choice),col_choice,row_choice,0,m_b_color);
+					end;
+					day_choice := day_choice+7;
+					row_choice := row_choice+2;
+					 if day_choice < 10 then
+            write(' '+str(day_choice),col_choice,row_choice,0,79);{Working_Color);}
+						gotoxy(col_choice+1,row_choice);
+					 else
+            write(str(day_choice),col_choice,row_choice,0,79);{Working_Color);}
+						gotoxy(col_choice,row_choice);
+					 end;
+					 goto switch;
+				END;
+				GOTO BEGIN_TO;
+			END;
+			IF Key_code = 79 then                       {END to Quit}
+				mon_num := mon_num + 1;
+				GOTO FINI;
+		End;
+		GOTO SWITCH;
+
+FINI:
+	Kill_box;
+end_of_mac:
+end_macro;

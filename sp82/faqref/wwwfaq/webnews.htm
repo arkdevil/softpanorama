@@ -1,0 +1,84 @@
+<HTML>
+<HEAD>
+<TITLE>WWW FAQ: How do I send newsgroup posts in HTML to my web client?</TITLE></HEAD>
+<BODY>
+<H1>How do I send newsgroup posts in HTML to my web client?</H1>
+How to do this depends greatly on your system; if you have a Mac
+or Windows system, the answer is completely different. But, as
+food for thought, here is a simple shell script I use on my Unix
+account to send posts from rn and related newsreaders to 
+<A HREF="bunix.htm#lynx">Lynx</A>. Put this text in the file
+"readwebpost" and use the "chmod" command to make it executable,
+then put it somewhere in your path (such as your personal
+bin directory):
+<PRE>
+#!/bin/sh
+echo \&lt;PRE\> > .article.html 
+cat >> .article.html 
+echo \&lt;/PRE\> >> .article.html 
+lynx .article.html  &lt; /dev/tty
+rm .article.html 
+</PRE>
+Then add the following line to your .rnmac file (create it if you
+don't already have one):
+<PRE>
+W     |readwebpost %C
+</PRE>
+Now, when you press "W" while reading a post in rn, a message will be sent to 
+Lynx, and the links enclosed in it will be live. 
+<P>
+Larry W. Virden provides the following version which invokes Mosaic
+instead, and is also capable of communicating with an already-running
+copy of Mosaic instead of launching another. (You can use the same
+rn macro as above, invoking "goto-xm" instead of "readwebpost".)
+Read the comments for details on the assumptions made by the script.
+<PRE>
+#! /bin/sh
+# goto-xm, by Joseph T. Buck &lt;jbuck@eecs.berkeley.edu>
+# Modified heavily by Larry W. Virden &lt;lvirden@cas.org>
+# Script for use with newsreaders such as trn.  Piping the article
+# through this command causes xmosaic to pop up, pointing to the
+# article.  If an existing xmosaic (version 1.1 or later) exists,
+# the USR1 method will be used to cause it to point to the correct
+# article, otherwise a new one will be started.
+
+# assumptions: ps command works as is on SunOS 4.1.x, may need changes
+# on other platforms.
+
+URL=`/bin/grep '^Message-ID:' | /bin/sed -e 's/.*&lt;/news:/' -e 's/>.*//'`
+if [ "X$URL" = "X" ]; then
+        echo "USAGE: $0 [goto] [once] &lt; USENET_msg" >&amp;2
+        exit 1
+fi
+
+pid=`ps -xc | egrep '[Mm]osaic' | awk 'NR == 1 {print $1}'`
+p=`which Mosaic`
+gfile=/tmp/Mosaic.$pid
+
+$p "$URL" &amp;
+
+if      [ "$#" -gt 0 ] ; then
+  if    [ "$1" = "goto" -o "$1" = "same" ] ; then
+        shift
+        echo "goto"   > $gfile
+  else
+        echo "newwin" > $gfile
+  fi
+else
+        echo "newwin" > $gfile
+fi
+/bin/awk 'END { printf "'"$URL"'" }' &lt;/dev/null >> $gfile
+
+trap "echo signal encountered" 30
+kill -USR1 $pid
+
+exit 0
+</PRE>
+<P>
+See also 
+<A HREF="http://www.oac.uci.edu/indiv/ehood/mhonarc.doc.html">
+MosaicMail</A> (URL is http://www.oac.uci.edu/indiv/ehood/mhonarc.doc.html ),
+a Perl script which pipes email and/or news to your current Mosaic session.
+<HR>
+<em><A HREF="index.htm">World Wide Web FAQ</A></em>
+</BODY></HTML>

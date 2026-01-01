@@ -1,0 +1,393 @@
+comment *
+	   		    XEQ
+			   -----
+       XEQ - COM File Library and Command Executor
+
+This program allows COM files to be stored inside XEQ's code and executed
+by the command:
+	XEQ command
+For example, if BEEP.COM has been added to XEQ then:
+	XEQ BEEP
+will execute the BEEP program stored inside XEQ. The original BEEP.COM
+can be removed from the hard disk (onto a backup floppy!!!). If the
+specified command is not in XEQ it is passed to the DOS for execution as
+if directly typed at the DOS prompt.
+
+PURPOSE
+	The purpose is to prevent wasted hard-disk space by those pesky
+little COM files we don't seem to be able to do without. When hard disks
+are formatted they are given an allocation size (called a cluster size)
+and this is typically 2048 or 4096 bytes. So when you save a 7 byte
+COM file like BEEP.COM, it takes up a full cluster. By combining these
+COM files into this program or LIBRARY, several COM files can be stored
+in one file (the XEQ program itself) and still be accessed without this waste
+in hard disk space.
+
+In order to make the body of XEQ as small as possible, only a limited
+number of options are available. They are
+
+	XEQ [/R][<command>] Execute <command> if it is in the library
+			    or passes it to DOS for execution if not
+	XEQ /A<command>   Add <command>.COM to library if not existent
+	XEQ /D<command>   Delete command from library if existent
+	XEQ /E<command>   Extract command from library to .COM file if existent
+	XEQ /L		  List the <commands> in the library
+	XEQ /H		  Display HELP information
+	XEQ 		  Attempt to run internal AUTOXEQ.COM, else HELP
+	XEQ /P<parms>	  As above but passed <parms> to AUTOXEQ.COM
+	XEQ /C[<command>] Suppress the reprocessing of the command line
+	XEQ /F		  Freeze library
+
+COMMAND DETAILS
+
+/R - run a command
+
+If no switch is given, the /R is assumed. If the given command name
+is in the library it is executed directly from there. XEQ internally
+relocates the stored file in memory so that the memory image is
+identical to the image if it had been loaded from the COM file on
+disk. This includes the way DOS loaded a COM file and the pretests
+for argument suitability and register set up. Thus ALL COM files
+should execute normally when run from within XEQ.
+
+If the command is not found in XEQ then the string is passed to a DOS
+shell for execution. A second copy of COMMAND.COM is spawned with the
+command added after the /C switch. Therefore the command can be an
+internal, external, batch, EXE or COM file. (NOTE: SEE TSR LIMITATION
+BELOW.)
+
+If no command is given with the /R switch XEQ operates as if no argument
+of any kind had been given and attempts to run the internal AUTOXEQ.COM,
+else HELP.
+
+/A - add a command
+
+Adds a COM file to the XEQ library. The filename given must either
+have no extension or .COM and the name part can contain standard DOS
+wildcards. A drive and/or path may be given to the target file.
+If the file is already in the library it will not be added. A warning
+message is given in this eventuality. Similarly if there is
+insufficient room to add a file, the addition of this file will be
+skipped with a warning. When wildcards exist, XEQ will attempt to add
+all files even if a given file cannot be found or is too big. Any attempt
+to add the current XEQ.COM file to itself (even if renamed under
+DOS3.x) will be prevented. (In DOS 2.x this safety feature can be
+thwarted by renaming XEQ.COM. A file called XEQ.COM is the only one
+excluded from being added.)
+
+/D - delete a command
+
+Removes the named command from the library. The filename given must either
+have no extension or .COM and the name part can contain standard DOS
+wildcards. A prompt asks for confirmation of the delete. 'Y' will
+delete the command, 'N' will skip deleting the command, 'G' will GO
+and delete this command and all further matching ones without asking
+again and 'A' will abort the entire delete process. Obviously 'G' is final
+and cannot be aborted once selected. Abort will cancel the effect of
+any 'Y' answers previously, AND NO COMMANDS WILL HAVE BEEN DELETED.
+
+/E - extract a COM file
+
+When the /E switch is used to extract a COM file, a full path for the
+resulting file may be specified. If the file already exists at that location,
+extraction does not occur. The filename given must either
+have no extension or .COM and the name part can contain standard DOS
+wildcards. The extracted file has the same date stamp as the COM file it was
+originally stored from. The file is NOT deleted from the library.
+
+/L - list the library files
+
+Displays a list of all files stored in XEQ. The original time and
+date stamp are displayed along with the file's byte size. At the end
+of the list the remaining space in XEQ is displayed, along with an
+indication of how much space has been saved by using XEQ (and
+deleting the original COM files). This computation is based upon
+the following:
+
+DOS 2.x
+The value is the difference between the total clusters used by
+XEQ.COM on the default drive and the sum of all the clusters which
+would have been used on the default drive if each command was in its
+own COM file.
+The results can be misleading if say, you run XEQ/L while
+the drive default points to a floppy with a cluster size of 1024, but
+the DOS path executed XEQ.COM from the harddisk with a different
+cluster size. In this case the savings indicated are the bytes saved
+IF XEQ.COM WAS LOCATED ON THE DEFAULT DRIVE.
+
+DOS 3.x
+The value is as above, but uses the cluster size of the drive it
+found XEQ.COM on and assumes that the COM files would have been on
+that drive if they were in separate files.
+Under DOS 3.x the savings always relate to the drive the path found
+XEQ.COM on and is independent of the default drive cluster size.
+
+/H - Display the help screen
+
+NO ARGUMENTS
+XEQ will try to find internal command AUTOXEQ.COM and if found will
+execute it. This can be any COM file so named. Arguments can be supplied
+using the /P command. If no such internal file exists, then HELP is
+displayed.
+
+This feature can make XEQ perform a certain action if no arguments
+are supplied to it.
+
+/P Run AUTOXEQ with parameters
+This performs as with NO ARGUMENTS above, but also passes the given
+parameters to the AUTOXEQ internal program. For example, if LIST.COM
+was stored in XEQ.COM as AUTOXEQ, then XEQ /PXEQ.DOC will start
+LIST.COM and pass it the file name XEQ.DOC.
+
+/C Run the command but do not reprocess the command line Normally
+when XEQ is run without the /C switch, both the command line is
+reprocessed and the final program name is inserted for PMAP etc.
+(see below). If the command is not present then AUTOXEQ is run, if it
+is present in the library. When the /C switch is present, the
+original command line from the DOS prompt is passed to the final
+program and the program name returned by the program as argument 0 is
+the original XEQ name.  For example:
+
+If the DOS line is:
+
+C> XEQ pgm arg1
+
+then <pgm> sees only 1 argument <arg1> and the internally stored
+program name is <pgm>. If <pgm> was in C, argv[0] = pgm and argv[1] =
+arg1.
+
+If the DOS line is:
+
+C> XEQ /C pgm arg1
+
+then <pgm> sees 3 arguments </C> <pgm> and <arg1> and the internally
+stored program name is <XEQ>. If <pgm> was in C, argv[0]=XEQ,
+argv[1]=/C, argv[2]=pgm and argv[3]=arg1.
+
+The primary purpose of the /C switch is to allow programs resident in
+XEQ to ascertain where they originally came from, when this is desirable.
+
+
+/F Freeze the library.  If you enter this switch and then answer Y,
+the library file will be frozen. This means ALL commands are
+inoperative except the /R or implied /R.  This prevents, among other
+things, an end-user of the library from seeing or changing its
+contents. A frozen library cannot be readily unfrozen.  In an
+emergency you can use a BINARY file editor (or DEBUG/SYMDEB) to
+change a single BYTE as follows:
+
+	VERSION			OFFSET		OLD	NEW
+	  1.40			 05BFH		 1	 8
+	  1.50			 05BFH		 1	 8
+	  1.60			 06D3H		 1	 8
+
+WARNING! This is version specific data.	
+
+REMEMBER that DEBUG/SYMDEB load the programs at 0100 so these offsets
+will need 0100 added to the to locate the right address.
+
+LIMITATIONS
+
+	As a COM file can only be 64K long, COM files cannot
+be added to XEQ if this figure would be violated, as XEQ is a COM file
+itself. The /L command indicates the amount of space left and any
+attempt to add a file which would exceed the 64k limit is prevented. Any
+number of COM files can be added until this number is reached.
+        When a command is added or deleted from XEQ, a new copy of XEQ must
+be rewritten to disk. How it is written back depends on the version of DOS
+you are running.
+
+DOS 2.x users
+
+The revised library is always written to the current drive and directory as
+XEQ.COM, regardless of where the original copy of XEQ was found
+(it may have been loaded from elsewhere because of DOS's path
+capability). Therefore to update the original copy of XEQ, the /D or /A
+commands should be performed in the drive and directory of the
+original. If not, then the original copy of XEQ will still exist in its
+original location and the updated version in the current drive and
+directory. The new version of XEQ will always be called XEQ.COM, regardless
+of whether the original program was called XEQ.COM or not.
+
+DOS3.x users
+
+The revised library will be written over the original using the original's
+name. Thus doing a proper update of the original. The library can be given
+any name and this will be retained during the updating.
+
+MULTIPLE LIBRARIES
+
+For DOS 2.x user it is recommended that only one library XEQ.COM exist on the
+system. As adding or deleting from a renamed library file results in
+the new copy being called XEQ.COM on the current drive, care would
+have to be taken to prevent the overwriting of a legitimate XEQ.COM,
+and the new XEQ.COM would have to be renamed to the original name of
+the revised library.
+
+For DOS 3.x users multiple libraries are more feasible as the updated library
+is always the original file no matter what it was called or where it
+was located. Thus maintaining multiple libraries is much simpler. CED
+(see below) can be used to avoid the need to remember which library
+contains a given command.
+
+TERMINATE & STAY RESIDENT PROGRAMS
+
+TSR programs can be stored inside XEQ and will install just like the
+original program. HOWEVER, NEVER RUN A TSR PROGRAM THROUGH XEQ WHICH
+IS NOT STORED IN XEQ. When XEQ cannot find a program it passes the name to
+DOS to run in a shell. If this program is a TSR it will freeze more
+memory than needed. XEQ has no way of knowing if a program it is
+about to execute externally is a TSR.
+
+Beginning with version 1.10, XEQ will put the name of the file being
+run into the space between the end of the environment table and the
+start of the program. This is where DOS 3.x puts the running program
+name and XEQ will only duplicate this when running under DOS3.x. The
+purpose of this is to allow the running program to know its own name
+and to let TSR memory map programs like MAP.COM and MAPMEM.COM show
+the real program name which is resident.
+
+A limitation exists for this however. The name stored is of the form
+d:\path\filename.COM. The space available to store this string cannot
+be increased and is set by the original running of XEQ. So if XEQ is
+the name of the comm library, the name of the actual program stored
+can only use the first 3 letters, truncating the full name. If this
+is important to you, the solution is to rename the library to a
+filename of 8 letters.  This will ensure sufficient space for any
+revision to any other name.  Starting with version 1.3 this is the
+mode of operation. Earlier versions destroyed the path information
+and this gave trouble to programs expecting to be able to recover the
+full drive, path and name information from argv[0] (in C) or %0 (in
+compiled batch files).
+
+Starting with version 1.30, the final program name is also correctly
+set for such memory mapping programs as PMAP.
+
+ARGUMENTS AND THE /C AND /P COMMANDS
+
+The way XEQ processes arguments can be confusing, especially when the
+/C and/or /P switches are used. The limitation above added further
+problems. To help, I have included a simple program called ARGS.COM
+which will display the arguments passed to it.  This can be put into
+XEQ (as either ARGS.COM, or renamed to AUTOXEQ.COM) to see how these
+switches change the process.  Some examples of the resulting output
+are shown below. This example assumes that ARGS.COM is stored in
+XEQ.COM as both ARGS.COM and AUTOEXEC.COM.
+
+e:\XEQ>xeq
+Arg[0] = E:\XEQ\AUT.COM
+
+e:\XEQ>xeq args
+Arg[0] = E:\XEQ\ARG.COM
+
+e:\XEQ>xeq /c
+Arg[0] = E:\XEQ\XEQ.COM
+Arg[1] = AUTOXEQ
+
+e:\XEQ>xeq /p test
+Arg[0] = E:\XEQ\AUT.COM
+Arg[1] = TEST
+
+e:\XEQ>xeq /c /p test
+Arg[0] = E:\XEQ\XEQ.COM
+Arg[1] = AUTOXEQ
+Arg[2] = test
+
+The first example shows the limitation detailed above. Because the
+base program name (XEQ.COM) has only 3 letters to the left of the
+period, only 3 characters from the AUTOXEQ.COM nme can be returned.
+
+Note also that in the last example, the /C must be the first argument on
+the line.
+
+USAGE TIP
+
+The CED utility and its synonym feature can make the use of XEQ
+transparent in use. For example, if BEEP.COM is stored inside XEQ then a 
+synonym like
+	SYN BEEP XEQ BEEP
+will cause BEEP to be run out of the XEQ file just by entering BEEP.
+
+The DOSKEY function found in more recent versions of MS-DOS and the ALIAS
+feature of 4DOS can be used in a similar manner as that described for CED.
+
+DISCLAIMER
+
+	Hardwood Software Associates guarantees XEQ.COM will do NOTHING
+useful at all. You use it at your own risk (make backups of the COM files
+stored within XEQ before deleting them from your hard disk). However, it
+seems to perform as described here and may be of use to you.
+
+	Colin J. Stearman [71036,256]
+	Senior Associate
+	HS Associates
+	143 Ash Street
+	Hopkinton, MA 01748
+
+======================================================================
+			EDIT LOG
+	REV	DATE		NAME		DETAIL
+	1.01	14-MAR-87	C.STEARMAN	Fixed bug if COM file name
+						is one character
+	1.02    27-MAR-87       C.STEARMAN	Aligned file size column
+						Added disk bytes saved calc
+	1.03    1-APR-87        C.STEARMAN      Fixed bug if in list if file
+						was longer than 9999 bytes.
+						Fixed error in saved space
+						computation
+	1.10	2-APR-87	C.STEARMAN	Under DOS 3.x updating writes
+						to original file. Also updates
+						command name in environment 
+						for MAP, added wildcard,
+						fixed yet another space
+						computation bug, used local
+						stack for external run only
+	1.11   13-APR-87        C.STEARMAN	Revised space saved compute,
+						see note above
+	1.12   16-APR-87        C.STEARMAN      Fixed bug in load_run module
+						which did not initialize stack
+						correctly. Bug manifested it-
+						self when MODE was run
+						internally. Returned bad
+						parameters message
+        1.13   22-APR-87       C.STEARMAN       Fixed wrong message of file
+						not found in /A
+						Improved construction of PSP
+						when running internals. May
+						clean up some compatability
+						problems. Fixed drive validity
+						test. If wild cards in argu-
+						ments, did not set AX correct-
+						ly per DOS loaded.
+	1.14  29-APR-87       C.STEARMAN        Fixed bug when executing ext-
+						ernal commands. Local stack
+						trashed passed command string.
+						Also stack crash caused by
+						allowing XEQ.COM to grow to
+						large. Caused random crashes.
+						Added confirm delete
+	1.15 30-MAY-87	      C.STEARMAN	Cleaned up help screen and
+						identified which library file
+						was accessed. Fixed bug in
+						extract where a 1 character
+						filename did not have .COM
+						added to it.
+	1.20 15-MAR-91	      C.STEARMAN	Added /H and the search for 
+						internal command AUTOXEQ.COM
+	1.21 24-MAR-91	      C.STEARMAN	Added /P for parameters to
+						AUTOXEQ.COM
+	1.30 24-APR-91	      C.STEARMAN	Modified storage method for
+						program name to include path,
+						added program name for PMAP
+	1.31 24-APR-91	      C.STEARMAN	Added the /C switch
+	1.40 01-FEB-92	      C.STEARMAN	Added /F switch
+	1.50 08-AUG-93	      C.STEARMAN	Made /C switch work with no
+						arguments
+	1.60 16-DEC-93	      C.STEARMAN	Made /C switch work with and
+						without an argument. Suppress
+						case conversion for arguments.
+						Made /R switch same as no
+						switch if no command supplied.
+======================================================================
+*
+

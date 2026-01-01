@@ -1,0 +1,146 @@
+;  PCP script for FrontDoor version 2.01
+;  Eric Larson, 1:260/330.0, 8/11/91
+;  modified from script supplied in FD 1.99 documentation
+;
+; You must modify this script in at least 3 places:
+;
+;       1: Indial Number
+;       2: PCP ID Number
+;       3: PCP Password
+;
+; You may also want to modify the script for your modem
+; or types of systems you call. See notes in script.
+; For further information, see PCP documentation on
+; Net Exchange BBS. To connect to the Net Exchange, type
+; "C PURSUIT" at the Telenet @ prompt.
+;
+
+debug     ON
+setport   2400  ; Redundant if you have locked your Fossil
+                ; If you have a 1200 indial :-(, use 1200
+                ; here and change the hunt-confirm sequence
+                ; to @ wait 1 <CR>
+;
+; Users with MNP modems should disable MNP as the buffering
+; combined with PCP's packet latency will cause block position
+; errors during error recovery. For HST owners, use:
+;
+send AT&M0<CR>
+waitfor OK
+;
+;  Others should adjust the above for their modem
+;  non-buffered modem owners should comment out the
+;  above two lines.
+;
+;----------------------------------
+; Your Indial Phone Number Here
+;----------------------------------
+;
+send ATDT4795372<CR>
+; send ATDT4795445<CR> ; official number
+; 6406 5776 5355 5372 ; alternates
+;
+; If you are having difficulty with your indial line, call
+; PCP customer service and they may be able to give you
+; an alternate number that works better.
+
+case
+     CONNECT        : >whackit
+     RING<CR>       : fail
+     BUSY<CR>       : fail
+     "NO "          : fail
+     @default       : fail
+endcase
+
+:whackit                             ; Attempt to "wake-up" PCP
+     purgein                         ; Telenet recommends at least
+     wait      2                     ; a 200 ms pause between
+     send      @                     ; characters in the hunt-confirm sequence
+     wait      1                     ; change the @ to <CR> if you call
+     send      D                     ; a 1200 bps indial
+     wait      1
+     send      <CR>
+     waitfor   TERMINAL=
+     send      D3<CR>                ; Preferred terminal type
+     waitfor   @
+
+;--------------------------
+; Your ID and Password Here
+;--------------------------
+
+:outdial                                  ; Dial PCP city
+     purgein
+     retrycount 5
+     send      C @OUTBOUND,YOURPCPID<CR>  ; Your ID Here
+     waitfor   PASSWORD
+     send      YOURPASSWORD<CR>           ; Your Password Here
+
+CASE
+     CONNECT         : >local             ; Gotcha!
+     BUSY            : >outdial
+     "NOT "          : fail
+     @nocarrier      : fail
+     @default        : fail
+ENDCASE
+
+:local                                    ; Initialize Outdial
+     purgein
+     send <CR>
+     wait 1
+     send I<CR>
+     send ATZ|
+     timerset 15
+     waitfor OK
+     send @|
+     waitfor @
+;
+; Setup PADS
+;
+; Note - if you are calling a SEAdog system,
+; change the SET and RST 5:1 and 12:1 to 5:0 and 12:0
+; as SEAlink is not transparent to software flow control
+;
+; If you only call WaZoo systems, use 5:1 and 12:1 for
+; fewer errors and greater reliability.
+;
+ send SET?<sp>1:0,7:8<CR>
+;
+ waitfor @
+;
+; send RST?5:1,12:1<CR>
+;
+;    waitfor @
+
+     send CONT<CR>
+     send ATH0Z<CR>
+     waitfor OK|IDLE
+     send <ENQ><CR>                ; Turn on RV Mode
+     waitfor *
+
+     purgein
+
+     timerset 50
+     wait 2
+     send D@LOCALNUM<CR>
+
+     purgein
+
+case
+     ANS             : >landing
+     ONLINE          : >landing
+     BUSY            : fail
+     FAILED          : fail
+     "NO CARRIER"    : fail
+     "NO DIAL TONE"  : fail
+     "NO DTR"        : fail
+     VOICE           : fail
+     @default        : fail
+     @nocarrier      : fail
+endcase
+
+:landing                           ; Landing on Pluto
+     wait 7                        ; wait for PCP messages to clear
+     purgein
+     session
+
+;/* End Of File */

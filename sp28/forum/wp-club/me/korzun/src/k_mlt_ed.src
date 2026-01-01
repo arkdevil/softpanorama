@@ -1,0 +1,506 @@
+$MACRO_FILE MULTI_ED;                  { K_MLT_ED 13.02.90 16:21 К.Е.Г.       }
+ {*****************************************************************************}
+ {                                MULTI-EDIT MACRO                             }
+ {                                                                             }
+ {Name: MUL_IND                                                                }
+ {                                                                             }
+ {Description:  Performs smart indent for the Multi-Edit macro language.       }
+ {  Is called by the macro CR.                                                 }
+ {                                                                             }
+ {               (C) Copyright 1988 by American Cybernetics, Inc.              }
+ {*****************************************************************************}
+
+$MACRO MUL_IND;                        { SMART-отступы по ключевым словам     }
+                                       { 13.02.90 12:05  К.Е.Г.типа SRC       }
+   DEF_STR(C_STR);                     { Память для проверяемого слова        }
+   DEF_INT(T_COL,                      { Колонка первого слова в строке       }
+           T_COLE);                    { Исходная колонка курсора             }
+   DEF_INT(I_MODE);                    { Текущее значение INSERT_MODE         }
+
+   PUSH_UNDO;                          { Отметка в буфере UNDO - начало     * }
+   REFRESH := FALSE;
+   I_MODE := INSERT_MODE;
+   T_COLE := C_COL;                    { Запомнить текущую колонку            }
+   GOTO_COL(1);                        { На всякий случай - в первую,затем  * }
+   FIRST_WORD;                         { Встать на первое слово в строке      }
+   T_COL := C_COL;                     { Запомнить это место                  }
+   IF T_COLE < T_COL THEN              { Если ENTER был нажат из колонки      }
+      T_COL := T_COLE;                 { до первого слова,то отступ отсчи-    }
+      GOTO_COL(T_COL);                 { тываем от места ENTER,а не от        }
+   END;                                { первого слов в строке                }
+                                       {                                      }
+   IF AT_EOL = FALSE THEN              { Если строка не пустая :              }
+      SET_INDENT_LEVEL;                { то запомнили уровень отступа         }
+   END;                                {                                      }
+   T_COL := C_COL;                     { Запомнили его в переменной           }
+
+                                       { Взять первое слово в строке и        }
+                                       { удалить все излишние пробелы         }
+   C_STR := '.' + REMOVE_SPACE(GET_WORD('|9 ;,(){') ) + '.';
+   GOTO_COL(T_COLE);                   { Вернуть курсор туда,где он был       }
+
+   if (I_MODE = FALSE) then            { Вынуждены идти на обман,т.к.       * }
+      INSERT_MODE := TRUE;             { CR и INDENT здесь не так работают, * }
+      EOL;                             { как должно - поэтому делаем разрыв,* }
+   end;                                { отступ,а потом истребим пустую строку}
+
+   CR;                                 { Выполнить ENTER                      }
+                                       { .........-----........               }
+                                       { Если слово , запомненное в C_STR     }
+                                       { содержится в списке ключевых       * }
+                                       { слов языка , сделать отступ          }
+   IF (T_COL <= T_COLE) AND (LENGTH(C_STR) <> 0 ) THEN
+      IF (XPOS(CAPS(C_STR), '.IF.WHILE.ELSE.$MACRO.',1) > 0 ) THEN
+         INDENT;                       { Сдвиг(отступ) вправо                 }
+ {    ELSE                             { ждать решения-----------------   ??* }
+         IF (POS(CAPS(C_STR), '.END.END_MACRO)') > 0 ) THEN
+            UNDENT;                    { Сдвиг(отступ) влево : можно будет    }
+         END;                          { включить,когда закрывающая скобка    }
+ }    END;                             { на том же отступе,что и "тело".       }
+   END;
+   if (I_MODE = FALSE) then            { Ликвидируем последствия обмана     * }
+      INSERT_MODE := I_MODE;           { при INSERT_MODE = FALSE            * }
+      DEL_LINE;
+   end;
+   POP_UNDO;                           { Отметка в буфере UNDO - конец      * }
+   REFRESH := TRUE;
+ MAC_EXIT:
+ END_MACRO;
+
+ 
+
+ {*****************************************************************************}
+ {                                MULTI-EDIT MACRO                             }
+ {                                                                             }
+ {Name: MULTEMP                                                                }
+ {                                                                             }
+ {Description:  Creates language constructs for the Multi-Edit macro language  }
+ {  based on a single character to the left of the cursor.                     }
+ {                                                                             }
+ {               (C) Copyright 1988 by American Cybernetics, Inc.              }
+ {*****************************************************************************}
+$MACRO MULTEMP;                        { TEMPLATE-вставка "шаблонов" в текст   }
+
+   DEF_INT(Temp_Col,Temp_Insert,Cur_Pos, UC);
+   DEF_STR(XStr,Xcomnt);
+   DEF_CHAR(Tmp_Char);
+	Temp_Insert := Insert_Mode;
+
+   If NOT(AT_EOL) Then                 { Проверка,является ли символ          }
+      Make_Message('NOT last symbol in STRING');
+      Goto END_OF_MAC;                 { последним в строке                   }
+	End;
+
+	Insert_Mode := True;
+	Temp_Col := C_COL;
+
+	Left;
+
+   If (C_Col > 1) Then                 { Проверка,является ли символ          }
+      Left;                            { первым в текущем слове - нет - КУКУ  }
+		{Check for a non word character, including tabs and virtual space}
+      If (Pos(Cur_Char,' ;})|255|9') = 0) Then
+			Goto_Col(Temp_Col);
+         Make_Message('Not alone symbol');
+			Goto END_OF_MAC;
+		Else
+			Right;
+		End;
+	End;
+
+   If (POS(CAPS(CUR_CHAR),'$MIEWDSCG') = 0) Then
+      Make_Message('$:M:I:E:W:D:S:C:G - legal TEMLATE symbols');
+      BEEP;
+      Goto_Col(Temp_Col);
+      Goto END_OF_MAC;
+   End;
+
+   Xcomnt := '';
+   Tmp_Char := Cur_Char;
+   UC := true;                         { Проверка верхнего регистра           }
+
+ Repeat:
+   IF (Tmp_Char = '$') THEN
+		Goto MAKEMACRO;
+	END;
+
+   If (Tmp_Char = 'I') Then
+		Goto MAKEIF;
+	End;
+
+   If (Tmp_Char = 'E') Then
+      Goto MAKEIF_ELSE;
+	End;
+
+   If (Tmp_Char = 'W') Then
+		Goto MAKEWHILE;
+	End;
+
+   IF (Tmp_Char = 'M') THEN
+      Goto MAKEMSG;
+	END;
+
+   IF (Tmp_Char = 'D') THEN
+      XStr := 'Def_Int();';
+      Goto MAKE_DEF;
+	END;
+
+   IF (Tmp_Char = 'S') THEN
+      XStr := 'Def_Str();';
+      Goto MAKE_DEF;
+	END;
+
+   IF (Tmp_Char = 'C') THEN
+      XStr := 'Def_Char();';
+      Goto MAKE_DEF;
+	END;
+
+   IF (Tmp_Char = 'G') THEN
+      XStr := 'Set_Global_Str('''',);';
+      Goto MAKE_DEF;
+	END;
+
+	UC := false;
+   Tmp_Char := CAPS(Tmp_Char);         { Проверка на нижнем регистре          }
+   GoTo Repeat;
+
+ MAKEIF:
+	Goto_Col(Temp_Col);
+   XStr := 'f () Then';
+	CALL XTEXT;
+	Cr;
+	Cr;
+	Goto_Col(Temp_Col);
+	left;
+   XStr := 'End;';
+   Xcomnt := '{ -- If .. ';
+	Call XText;
+	Up;
+	Goto_Col(Temp_Col);
+	Indent;
+	Up;
+	Goto_Col(Temp_Col + 3);
+   Temp_Insert := TRUE;                { Режим вставки после TEMPLATE         }
+	Goto END_OF_MAC;
+
+ MAKEMACRO:
+	Goto_Col(Temp_Col);
+   XStr := 'Macro ' + Truncate_Path(Truncate_Extension(FILE_NAME)) + ' ;';
+	CALL XTEXT;
+	Cr;
+	Cr;
+   Goto_Col(Temp_Col - 1);
+   XStr := 'End_macro;';
+   Xcomnt := '{ -- ' + Truncate_Path(Truncate_Extension(FILE_NAME)) + ' - ';
+	Call XText;
+	Up;
+	Goto_Col(Temp_Col);
+	Left;
+	Indent;
+	Up;
+   Goto_Col(Temp_Col + 6);
+	Goto END_OF_MAC;
+
+
+ MAKEWHILE:
+	Goto_Col(Temp_Col);
+	XSTR := 'hile () Do';
+	CALL XTEXT;
+	Cr;
+	Cr;
+	Goto_Col(Temp_Col);
+	left;
+   XStr := 'End;';
+   Xcomnt := '{ -- Do .. While ';
+	Call XText;
+	Up;
+	Goto_Col(Temp_Col);
+	Indent;
+	Up;
+	Goto_Col(Temp_Col + 6);
+   Temp_Insert := TRUE;                { Режим вставки после TEMPLATE         }
+	Goto END_OF_MAC;
+
+ MAKEIF_ELSE:                          { 'E'                                  }
+
+   Goto_Col(Temp_Col-1);
+   Del_Char;
+   XStr := 'If () Then';
+	CALL XTEXT;
+	Cr;
+	Cr;
+	Goto_Col(Temp_Col);
+	left;
+   XStr := 'Else';
+	Call XText;
+	Cr;
+	Cr;
+	Goto_Col(Temp_Col);
+	left;
+   XStr := 'End;';
+   Xcomnt := '{ -- If .. Else ..';
+	Call XText;
+   Up; Up; Up; Up;
+	Goto_Col(Temp_Col + 3);
+   Temp_Insert := TRUE;                { Режим вставки после TEMPLATE         }
+	Goto END_OF_MAC;
+
+ MAKEMSG:                              { 'M'                                  }
+	Goto_Col(Temp_Col);
+   XStr := 'ake_Message(''''); ';
+	CALL XTEXT;
+   Goto_Col(Temp_Col + 13);
+   Temp_Insert := TRUE;                { Режим вставки после TEMPLATE         }
+	Goto END_OF_MAC;
+
+ MAKE_DEF:                             { 'DSC'                                }
+   Goto_Col(Temp_Col-1);
+   Del_Char;
+	CALL XTEXT;
+   Goto_Col(C_Col - 2);
+   Temp_Insert := TRUE;                { Режим вставки после TEMPLATE         }
+	Goto END_OF_MAC;
+
+ XTEXT:
+   IF UC = FALSE THEN
+      XSTR := LOWER(XSTR);
+	END;
+	TEXT( XSTR );
+   If (SVL(Xcomnt) > 0) Then
+      If (C_COL <= 40) Then
+         Goto_Col (40);
+         TEXT( Xcomnt);                { Вставить комментарий                 }
+         Xcomnt := '';
+         If (C_COL <= 79) Then
+            Goto_Col (79);
+         End;
+         TEXT( '}');                   { Закрыть комментарий                  }
+      End;                             { -- If .. есть куда вставить          }
+   End;                                { -- If .. присутствует комментарий    }
+	RET;
+
+ END_OF_MAC:
+	Insert_Mode := Temp_Insert;
+
+ END_MACRO;
+ 
+ {*****************************************************************************}
+ {                                MULTI-EDIT MACRO                             }
+ {                                                                             }
+ {Name: MULMTCH                                                                }
+ {                                                                             }
+ {               (C) Copyright 1988 by American Cybernetics, Inc.              }
+ {                         Modified by Kevin Jackson                           }
+ {*****************************************************************************}
+
+$MACRO MULMTCH TRANS;                  { Поиск "скобок"- начало/конец         }
+
+   DEF_STR( Str1,     {Primary   - First Match string}
+            EStr1,    {Secondary - End   Match string}
+            T_Str, S_Str, FStr );
+
+	DEF_INT( Direction,   {1 = search forward, 0 = backward}
+            B_Count,     {Match count.  0 = match found}
+            S_Res,       {Search results}
+            Second_Time );
+
+
+	Second_Time := False;
+	Refresh := False;     {Turn screen refresh off}
+	Str1 := '';
+	EStr1 := '';
+
+ Find_Match_Str:
+
+	IF (Cur_Char = '(') THEN   {Setup match for '('}
+		Str1 := '(';
+		EStr1 := ')';
+		Direction := 1;
+		S_Str := '[()'']';
+		GOTO Start_Match;
+	END;
+
+	IF (Cur_Char = ')') THEN   {Setup match for ')'}
+		Str1 := ')';
+		EStr1 := '(';
+		Direction := 0;
+		S_Str := '[()'']';
+		GOTO Start_Match;
+	END;
+
+	IF (Cur_Char = '{') THEN   {Setup match for '{'}
+		Str1 := '{';
+		EStr1 := '}';
+		Direction := 1;
+		S_Str := '[@{@}'']';
+		GOTO Start_Match;
+	END;
+
+	IF (Cur_Char = '}') THEN   {Setup match for '}'}
+		Str1 := '}';
+		EStr1 := '{';
+		Direction := 0;
+		S_Str := '[@{@}'']';
+		GOTO Start_Match;
+	END;
+
+	IF At_EOL THEN     {If we are at the end of a line the go to the first word}
+		First_Word;
+	END;
+
+	IF (XPos(Cur_Char,' |9|255',1)) THEN{If we are on a blank space then find a word}
+		Word_Right;
+	END;
+
+	S_Str := '['']||{%||[|9 ;)]{END}||{IF}||{WHILE}$||[|9 ;.(]}||{@{}||{@}}';
+
+	T_Str := Caps( Get_Word(';. |9|255') );  {Get the current word}
+
+	IF (T_Str = 'IF') OR (T_Str = 'WHILE') OR (T_Str = 'ELSE') THEN
+		Str1 := 'IF WHILE';
+		EStr1 := 'END';
+		Direction := 1;
+		GOTO Start_Match;
+	END;
+
+	IF T_Str = 'END' THEN
+		Str1 := 'END';
+		Estr1 := 'IF WHILE';
+		Direction := 0;
+		Word_Left;
+		Left;
+		GOTO Start_Match;
+	END;
+
+	{If we didn't find a word to match the first time then try again}
+	If NOT( Second_Time ) THEN
+		Second_Time := True;
+		First_Word;
+		GOTO Find_Match_Str;
+	END;
+
+	Make_Message('NOTHING to Match');
+	GOTO Macro_Exit;
+
+ Start_Match:
+	Reg_Exp_Stat := True;
+	Ignore_Case := True;
+	B_Count := 1;
+	S_Res := 1;
+	Make_Message('Matching...  Hit <ESC> to Stop.');
+	Working;
+
+ MATCH_LOOP:   {Main loop}
+					{If the <ESC> key is pressed while matching then abort the search}
+	if check_key then
+		if key1 = 27 then
+			Make_Message('Match Aborted.');
+			goto macro_exit;
+		end;
+	end;
+
+	If S_Res = 0 THEN   {If last search result was false then exit}
+		GOTO Error_Exit;
+	END;
+
+	If B_Count = 0 THEN {If match count is 0 then success}
+		GOTO Found_Exit;
+	END;
+
+	If Direction = 1 THEN {Perform search based on direction}
+		Right;
+		While NOT (At_EOL) and ((Cur_CHar = '|255') or (Cur_Char = '|9')) DO
+			Right;
+		END;
+		S_Res := Search_Fwd(S_Str,0);
+	ELSE
+		Left;
+		While (Cur_Char = '|255') or
+					(Cur_Char = '|9') DO
+			Left;
+		END;
+		S_Res := Search_Bwd(S_Str,0);
+	END;
+
+	If S_Res = 0 THEN   {If search failed then exit}
+		GOTO Macro_Exit;
+	END;
+
+	FStr := Caps(Found_Str);
+
+	IF Length(FStr) > 2 THEN
+      IF XPOS(Copy(FStr,1,1),'|9 ;()',1)  THEN   { If the first char is       }
+         FStr := Copy(FStr,2,20);      { a space or a ; then eliminate it     }
+    END;                               { If it ended in a space, ; or . then  }
+		IF XPOS(Copy(FStr,Length(FStr),1),'|9 ;.()',1) THEN
+			FStr := Copy(FStr,1,Length(FStr) - 1);  {eliminate that char}
+		END;
+	END;
+
+												      {If we found the first match string then}
+	IF XPOS(FStr,STR1,1) THEN
+		++B_Count;   {Inc the match count}
+		GOTO Match_Loop;
+	END;
+
+	IF XPOS(FStr,ESTR1,1) THEN          {If we found the second match string then}
+		--B_Count;    {  decrement the match count}
+		GOTO Match_Loop;
+	END;
+
+	{If we found a comment then match it}
+	IF (Direction = 1) AND (FStr = '{') THEN
+			S_Res := Search_Fwd('@}',0);
+			GOTO Match_Loop;
+	END;
+
+	{If we found a comment then match it}
+	IF (Direction = 0) AND (FStr = '}') THEN
+			S_Res := Search_Bwd('@{',0);
+			GOTO Match_Loop;
+	END;
+
+	If FStr = '''''' THEN        {If we found two single quotes the skip it}
+		If Direction = 1 THEN
+			RIGHT;
+		ELSE
+			LEFT;
+		END;
+		GOTO Match_Loop;
+	END;
+															{If we found a single quote then match it}
+	IF FStr = '''' THEN
+
+		Quote_Loop:
+
+			If Direction = 1 THEN
+				RIGHT;
+			ELSE
+				LEFT;
+			END;
+			IF Direction = 1 THEN
+				S_Res := Search_Fwd('''',0);
+			ELSE
+				S_Res := Search_Bwd('''',0);
+			END;
+			If S_Res = 0 THEN
+				GOTO Macro_Exit;
+			END;
+			FStr := Found_Str;
+			If FStr = '''''' THEN
+				GOTO Quote_Loop;
+			END;
+			GOTO Match_Loop;
+
+	END;
+
+ Error_Exit:     {Go here for unsucessfull match}
+   Make_Message('Match NOT Found for ' + Str1);
+	GOTO Macro_Exit;
+
+ Found_Exit:     {Go here for successfull match}
+   Make_Message('Match Found for ' + Str1);
+ Macro_Exit:
+	Refresh := True;
+	Redraw;
+END_MACRO;                             { MULMTCH  - Multi_Match               }

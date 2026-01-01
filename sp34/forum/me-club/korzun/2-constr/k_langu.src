@@ -1,0 +1,96 @@
+$MACRO COMPILE;
+ {******************************************************************************
+
+       { -------- пропущено все, что не касается данной корректуры ----- }
+
+    --    by Korzun E.G. 11.01.91-13:49                     **KEG
+      3. - При режиме /SPEC производится выбор "старого" типа компилятора
+ ******************************************************************************}
+   Def_Int( k_jx);             { **KEG-3                                }
+
+       { -------- пропущено все, что не касается данной корректуры ----- }
+
+                  {Get the compiler/program interface data for this extension}
+   temp_res := Reg_Exp_Stat;
+   tstr := '.' + Get_Extension(File_Name);
+   jx := Parse_Int('/#=',Global_Str(tstr));
+   k_jx := Parse_Int('/K_#=',Global_Str(tstr));  { **KEG-3 - прошлый выбор    }
+   If (jx = 0) Then
+                                    {If we can"t find a compiler for this
+                                    extension, Check to  see If there  might
+                                    be a default compiler setup, and If  so,
+                                    see If this extension was intended to
+                                    fall under the default setup.}
+      If (Parse_Int('/#=',Global_Str('.DEFAULT'))) Then
+         temp_lc := 1;
+         temp_id := FALSE;
+         While (Global_Str('EXTENSIONS' + Str(temp_lc)) <> '') Do
+            If (XPOS(tstr + '(',Global_Str('EXTENSIONS' + Str(temp_lc)),1)) Then
+               temp_id := TRUE;
+               GoTo EXT_FOUND;
+            End;
+            ++temp_lc;
+         End;
+   EXT_FOUND:
+         If (temp_id = FALSE) Then
+            tstr := '.DEFAULT';
+            jx := Parse_Int('/#=',Global_Str(tstr));
+            k_jx := Parse_Int('/K_#=',Global_Str(tstr));   { **KEG-3          }
+         End;
+      End;
+   End;
+                                       { В jx   - кол-во разных трансляторов  }
+                                       { В k_jx - номер последнего выбора т-ра}
+                                       { tstr  - .EXT если опред. / .DEFAULT  }
+
+       { -------- пропущено все, что не касается данной корректуры ----- }
+
+   If (jx = 1) Then
+                                 {see If only one program interface is defined}
+      Set_Global_Int('DVINT',1);
+      GoTo ONLY_ONE;
+   End;
+
+   If (k_jx > 0) AND (k_jx <= jx) AND  { **KEG-3 - прошлый выбор законен      }
+      ( (Pos('/SPEC',Mparm_Str) > 0 ) OR         { В спецрежиме запуска       }
+        Global_Int('@@K_SPEC_RUN') ) Then
+      Set_Global_Int('DVINT', k_jx);   { Фиксируем "старый" выбор компилятора }
+      k_jx := jx;
+      Set_Global_Int('@@K_SPEC_RUN' , 0 ) ;      { Истребляем признак спец    }
+      GoTo ONLY_ONE;
+   End;
+
+   Make_Message('Выберите элемент,при COMPILE /SPEC будет'
+                + ' старый выбор без меню▓ Корзун Е.Г.▓' );
+   Set_Global_Int('TEMP_PGM',jx);
+   Set_Global_Str('T_EXT',tstr);
+   Run_Macro('SETUP^SETPGM /X=-6/Y=15/S=1/SN='
+            + Str(Global_Int('Last_Compiler_Choice')));
+                                       { В Temp_Pgm - количество элементов ,  }
+                                       { ---------   т.к. оно могло измениться}
+                                       { В DVINT    - номер выбора в меню     }
+   jx := Return_Int;                   { Если Return_Int= 0 , то выход по ESC }
+
+
+                                       {We"ve got to make sure that the  amount
+                                       of program interfaces that may have been
+                                       altered  in  the  DVMENU  match  the /#=
+                                       parameter in the main extension global }
+
+   Return_Str := '/#=';
+   Run_Macro('USERIN^CHNGPARM /G=' + tstr
+            + '/P=' + Str(Global_Int('Temp_Pgm')));
+   If (jx = 0) Then
+      Make_Message('Compiler/program aborted.');
+      GoTo EXIT;
+   End;
+                                       { **KEG-3 - запишем выбор для будующего}
+   If (Pos('/K_#=' , Global_Str(tstr)) = 0) AND  { Нет в Global EXT           }
+      (Global_Int('Temp_Pgm') > 1 ) Then         { И есть смысл записывать    }
+      Set_Global_Str('/K_#=', Global_Str(tstr) + '/K_#=0' );
+   End;
+   Return_Str := '/K_#=';              { Имя параметра для записи             }
+   Run_Macro('USERIN^CHNGPARM /G=' + tstr
+            + '/P=' + Str(Global_Int('DVINT'))); { Занесем ответ из меню      }
+
+       { -------- пропущено все, что не касается данной корректуры ----- }

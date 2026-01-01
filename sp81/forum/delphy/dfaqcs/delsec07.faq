@@ -1,0 +1,760 @@
+SECTION 7 - Object Pascal
+                                    
+This document contains information that is most often provided
+to users of this section.  There is a listing of common
+Technical Information Documents that can be downloaded from the
+libraries, and a listing of the most frequently asked
+questions and their answers.
+
+
+TI1171  Bug Report Form
+
+
+Index Of Questions
+------------------
+
+1) I am using a form from the gallery and I am getting an 'unknown identifier' 
+   error when I compile.  What is wrong?
+2) How can I do standard output with writeln?
+3) How to I cast a floating point number (e.g. real) to an integer?
+4) How do I make it so that when the user hits <enter>, it goes to the next
+   object as though he had hit the tab key? (Note: This will not work within 
+   a DBGrid, since the next field is not a separate object.)
+5) In a DBGrid, how do I Tab to the next field when the Enter Key is pressed?
+6) How do I process command line parameters in a Delphi app?
+7) How do you select a specific field on a TDBGrid to get focus?
+8) I have a paradox table that uses a password.  How do I make it so that the 
+   form that uses the table comes up without prompting the user for the 
+   password?
+9) How do I design a form so that the display is the same no matter what the 
+   resolution is?
+10) How do I do date math on calculated fields?
+11) Where is the exponent function?
+12) How do I keep the form in icon form when I run it?  
+13) I have a form that is a sort of template.  I want to be able to call the
+    same form several times (with different data displayed).  How do I use 
+    one form several times?
+14) How can the component that was right clicked be determined while in an 
+    event handler of a popup MenuItem?
+15) How can I capture windows messages and process them before my 
+    application.run line is executed?
+16) How do I use a case statement to determine which object calls the procedure?
+17) How can you do scrolling functions in a TForm component using keyboard 
+    commands?  For example, scrolling up and down when a  PgUp or PgDown is 
+    pressed.  Is there some simple way to do this or does it have to be 
+    programmed by capturing the keystrokes and manually responding to them?
+18) How do I transfer the text in a TMemo component on a form to a TMemofield 
+    in a Paradox table?
+19) How do I make an Fixed Length ASCII text table from a table?
+20) How do I set a format for a data field?
+21) How do I format a number to place commas as a thousanth's separator?
+22) I have a CPU intensive function.  I want to be able to check to see if the 
+    user wants to cancel.  How do I do that?
+23) How do you extract the high or low order byte from a word?  How do you 
+    insert it?  
+24) I have an OBJ file that has several assembler routines compiled into it.
+    I wouldn't want to have to rewrite them.  Is there a way to use them in
+    a Delphi app?
+26) If a component doesn't handle the windows messages that I need it to 
+    handle, do I have to write my own version that passes the messages that 
+    I need, or is there way to tap (from a TForm or else where) into the 
+    message loop, and grap what I need?
+27) Borland decided that accessing environment variables from Windows 
+    Programs is a Bad Thing.  Why do they force you to use the "obsolete" 
+    WinDos unit?
+28) How would I write a basic screen saver (like, blank the screen) using Delphi?
+29) How can I determine the Length in pixels of a string after a specific font has 
+    been aplied to it?
+30) Where is the best place to open a splash screen on program start up?
+31) How do I call a function from a DLL?
+32) What is a Callback function, and how do I create one?
+
+
+Questions and Answers
+---------------------
+
+1) Q:  I am using a form from the gallery and I am getting an 'unknown 
+       identifier' error when I compile.  What is wrong?
+
+   A:  If you change the name of some item that has code associated with it, that 
+       code will not be changed by Delphi.  Delphi does not go through your code 
+       and second guess your intent.  The code that you may assume is generated  
+       by Delphi is actually programmed into the form by the designer of that    
+       form. Just go through the code and make the modifications.
+
+
+2) Q:  How can I do standard output with writeln?
+
+   A:  Include WinCRT in your uses statement.
+
+
+3) Q:  How to I cast a floating point number (e.g. real) to an integer?
+
+   A:  There are a couple of methods.
+
+       	var
+	  i: integer;
+	  r: real;
+
+	begin
+	  r := 34.56;
+	  i := trunc(r);  {i = 34}  {First Method}
+	  i := round(r);  {i = 35}  {Second Method}
+	end;
+
+
+4) Q:  How do I make it so that when the user hits <enter>, it goes to the next
+       object as though he had hit the tab key? (Note: This will not work within 
+       a DBGrid, since the next field is not a separate object.)
+
+   A:  You need to trap the keystroke and set up your own response to it.  Try
+       this:
+
+	procedure TMainForm.FormCreate(Sender: TObject);
+	begin
+	  keyPreview := true; {To turn the event "ON".}
+	end;
+
+	procedure TMainForm.FormKeyPress(Sender: TObject; var Key: Char);
+	begin
+	  if Key = #13 then
+	  begin
+	    Key := #0;
+	    PostMessage(Handle, WM_NEXTDLGCTL, 0, 0);
+	  end;
+	end;
+
+5) Q: In a DBGrid, how do I Tab to the next field when the Enter Key is pressed?
+
+   A: The action of the tab key is acted upon after the OnKeyDown event but the
+      Enter key is acted on in the OnKeyPress.  Therefore, the Enter key has to  
+      be accounted for in both areas for the desired effect to occur. Try this:
+
+	procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift:
+ 	TShiftState);
+	begin
+	    if Key = VK_RETURN then Key = VK_TAB;
+	end;
+
+	procedure TForm1.FormKeyPress(Sender: TObject; var Key: Char);
+	begin
+	    if Key = #13 then Key := #9;
+	end;
+
+
+6) Q:  How do I process command line parameters in a Delphi app?
+
+   A:  Use the ParamCount and ParamString methods.
+
+
+7) Q:  How do you select a specific field on a TDBGrid to get focus?
+
+   A:  Using this code:
+
+	DBGrid1.SelectedField := Table1SomeField;
+	DBGrid1.SetFocus;
+
+
+8) Q:  I have a paradox table that uses a password.  How do I make it so that the 
+       form that uses the table comes up without prompting the user for the 
+       password?  
+
+   A:  The table component's ACTIVE property must be set to FALSE.  Then, put 
+       this code on the form's create event:
+
+	session.AddPassword('My secret password');
+	table1.active := true; 
+
+
+9) Q:  How do I design a form so that the display is the same no matter what the
+       resolution is?  
+
+   A:  Here is some code to show how it is done:
+
+	const
+	  ScreenHeight: real = 800; {I designed my form in 800x600 mode.}
+	  ScreenWidth: real = 600;
+
+	procedure TForm1.FormCreate(Sender: TObject);
+	var
+	  x, y: LongInt; {Integers will not not a large enough value.}
+
+	begin
+	  form1.scaled := true;
+	  x := getSystemMetrics(SM_CXSCREEN);
+	  y := getSystemMetrics(SM_CYSCREEN);
+	  if (x <> ScreenHeight) or (y <> ScreenWidth) then
+	    begin
+	      form1.height := form1.height * x DIV ScreenHeight;
+	      form1.width := form1.width * y DIV ScreenWidth;
+	      scaleBy(x, ScreenHeight);
+	    end;
+	end;
+
+       Note: you may want to add code that will change the font sizes 
+       proportionally.
+
+
+10) Q:  How do I do date math on calculated fields?
+
+    A:  When doing date math on calculated fields, it is important to ensure that 
+        all values being used are properly matched as to type.  The double method 
+        (not in the docs) casts the value to a useable type.
+
+
+        In the following method, d1, and d2 (part of table1) can be of either    
+        date or dateTime type and d3 is an integer field.
+
+	procedure TForm1.Table1CalcFields(DataSet: TDataset);
+	var
+	  t1, t2: tDateTime;
+	begin
+	  table1d1.asDateTime := Date + 2; {or table1d1.value := date + 2;}
+	  table1d2.asDateTime := Date - 2; 
+	  t1 := table1d1.asDateTime;
+	  t2 := table1d2.asDateTime;
+	  table1d3.asInteger := trunc(double(t1) - double(t2));
+	end;
+
+
+11) Q:  Where is the exponent function?
+
+    A:  For ExpXY(X, Y) (i.e. Y^X), try:
+
+        ExpXY := Exp(Y * Ln(X))
+
+        To use a generic function, declare the formal parameters and function
+        result as Extended, and the conversions from the actual parameters and
+        back to your result variable will be done automatically.  (Note:  Ln is
+        the natural logarithm of a number).
+
+
+12) Q:  How do I keep the form in icon form when I run it?  
+
+    A:  In the private section of the form object's declaration, put:
+
+	PROCEDURE WMQueryOpen(VAR Msg : TWMQueryOpen); message WM_QUERYOPEN;
+
+        In the implementation section, put this method:
+
+	PROCEDURE TForm1.WMQueryOpen(VAR Msg : TWMQueryOpen);
+	begin
+	  Msg.Result := 0;
+	end;
+
+	That's it! The form will always remain iconic. OBTW, of course you must 
+	set WindowState to wsMinimized in the form's properties initially.
+
+
+13) Q:  I have a form that is a sort of template.  I want to be able to call the 
+	same form several times (with different data displayed).  How do I use 
+	one form several times?
+
+    A:  You need to make modeless window like this:
+
+	with TMyForm.create(self) do show;
+
+	Now we want to control it.  Here is a way to change the caption of each 
+	form that is created.  You have access to it through the form's component 
+	array.  This example uses an about box (named "box") as the other form.
+
+	procedure TForm1.Button1Click(Sender: TObject);
+
+	begin
+	  with tBox.create(self) do show;
+	  {ComponentCount-1 is needed because it is zero based.}
+	  (form1.Components[form1.ComponentCount-1] as tForm).caption :=
+	    'About Box # ' + intToStr(form1.ComponentCount-2);
+	end;
+
+
+14) Q:  How can the component that was right clicked be determined while in an 
+	event handler of a popup MenuItem?
+
+    A:  Use the PopupComponent property of the PopupMenu component to determine 
+	what control was right clicked.
+
+	procedure TForm1.PopupItem1Click(Sender: TObject);
+	begin
+	  Label1.Caption := PopupMenu1.PopupComponent.ClassName;
+	end;
+
+	The form's ActiveControl property can also be used, however,  the active 
+	control may not necessarily be the control that caused the popup menu to 
+	appear. 
+
+
+15) Q:  How can I capture windows messages and process them before my 
+	application.run line is executed?
+
+    A:  The following project source demonstrates how to get Window messages 
+	before the application's window procedure is called. It is rare, if ever, 
+	that this needs to be done.  In most cases assigning a procedure to the 
+	Application.OnMessage will accomplish the same thing.
+
+	program Project1;
+
+	uses
+  	  Forms, messages, wintypes, winprocs,
+	  Unit1 in 'UNIT1.PAS' {Form1};
+
+
+	{$R *.RES}
+
+	var
+	    OldWndProc: TFarProc;
+
+	function NewWndProc(hWndAppl: HWnd; Msg, wParam: Word;
+                     lParam: Longint): Longint; export;
+  	begin
+	    result := 0; { Default WndProc return value }
+	    {*** Handle messages here; The message number is in Msg ***} 
+	    result := CallWindowProc(OldWndProc, hWndAppl, Msg,                 			wParam, lParam);
+  	end;
+
+	begin
+	    Application.CreateForm(TForm1, Form1);
+	    OldWndProc := TFarProc(GetWindowLong(Application.Handle,
+                  GWL_WNDPROC));
+	    SetWindowLong(Application.Handle, GWL_WNDPROC,
+                  longint(@NewWndProc));
+	    Application.Run;
+	end.
+
+
+16) Q:  How do I use a case statement to determine which object calls the 
+	procedure?
+
+    A:  Use the object's TAG property.  You set the value of the tag property of 
+	each object so that you know what it is.  (Using constants that describe 
+	the object is ideal.)
+
+	Note:  This code assumes that only a tButton will call the procedure.
+
+	case (sender as tButton).tag of
+	  0:  blah;
+	  1:  blah_blah;
+	end;
+
+
+17) Q:  How can you do scrolling functions in a TForm component using keyboard 
+	commands?  For example, scrolling up and down when a  PgUp or PgDown is 
+	pressed.  Is there some simple way to do this or does it have to be 
+	programmed by capturing the keystrokes and manually responding to them.
+
+    A:  Form scrolling is accomplished by modifying the VertScrollbar or 
+	HorzScrollbar Postion properties of the form.  The following code 
+	demonstrates how to do this:
+
+	  procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word;
+	  Shift: TShiftState);
+	  const
+	    PageDelta = 10;
+	  begin
+	    With VertScrollbar do
+	      if Key = vk_Next then  Position := Position+PageDelta
+	      else if Key = vk_Prior then Position := Position-PageDelta;
+	  end;
+
+
+18) Q:  How do I transfer the text in a TMemo component on a form to a TMemofield 
+	in a Paradox table?
+
+    A:  Here is an example.
+
+	procedure TForm1.Button1Click(Sender: TObject);
+	var
+	  t: TTable;
+	begin
+	t := TTable.create(self);
+	with t do
+	  begin
+	    DatabaseName := 'MyAlias'; {personal alias}
+  	    TableName := 'MyTbl.db';
+	    open;
+	    edit;
+	    insert;
+	    fieldByName('TheField').assign(memo1.lines); {This is it!}
+	    post; {required!!!}
+	    close;
+	  end;  { End of the with statement. }
+	end;
+
+
+19) Q:  How do I make an Fixed Length ASCII text table from a table?
+
+    A:  Like this:
+
+	procedure TForm1.Button1Click(Sender: TObject);
+	var
+	  t1, t2: tTable;  {t1 = PW table; t2 = ASCII version}
+	begin
+	  t1 := tTable.create(self);
+	  with t1 do
+	  begin
+	    DataBaseName := 'pw'; { Personal Alias for Paradox Directory }
+	    tableName := 'customer.db'; { Source Table }
+	    open;
+	  end;	
+	  t2 := tTable.create(self);
+	  with t2 do
+	  begin
+	    DataBaseName := 'pw'; { Personal Alias for Paradox Directory }
+	    tableName := 'asdf.txt';
+	    TableType := ttASCII;
+
+	    createTable; 
+	    open;
+	    edit;
+	    BatchMove(t1, batCopy);
+	    close;
+	  end;
+	  t1.close;
+	end;
+
+
+20) Q:  How do I set a format for a data field?
+
+    A:  Select the table object, and double click.  Select the field that you 
+	want to format.  Use the DisplayFormat and the EditFormat properties to 
+	do what you want.  DisplayFormat works for when the field does not have 
+	focus.  EditFormat works for when the field has focus.  Use the commands 
+	as you would for the first parameter of the FormatFloat function, but 
+	without the quotes.
+
+
+21) Q:  How do I format a number to place commas as a thousanth's separator?
+
+    A:  If you are not using Delphi, try this code:
+
+	function FormatNumber(l: longint): string;
+	var
+	  len, count: integer;
+	  s: string;
+	begin
+	  str(l, s);
+	  len := length(s);
+	  for count := ((len - 1) div 3) downto 1 do
+	    begin
+	      insert(',', s, len - (count * 3) + 1);
+	      len := len + 1;
+	    end;
+	  FormatNumber := s;
+	end;
+
+        If you are using Delphi, there is, of course, the easy way:
+
+	function FormatNumber(l: longint): string;
+
+	begin
+	  FormatNumber := FormatFloat('#,##0', StrToFloat(IntToStr(l)));
+	end;
+
+
+22) Q:  I have a CPU intensive function.  I want to be able to check to see if 
+	the user wants to cancel.  How do I do that?
+
+    A:  Call Application.ProcessMessages from time to time in your code.
+
+
+23) Q:  How do you extract the high or low order byte from a word?  How do you 
+	insert it?  
+
+    A:  There are built in methods hi() and lo() for extracting, but for those 
+	that want to know how to do it on their own, here it is in its most 
+	efficient form (if I do say so myself <G>).  The functions for inserting
+	bytes are not in Delphi.  
+
+	Note:  Assembler functions return the contents of the AX register.
+
+	function GetHiByte(w: word): byte; assembler;
+	asm
+	   mov ax, w
+	   shr ax, 8
+	end;
+
+	function GetLoByte(w: word): byte; assembler;
+	asm
+	   mov ax, w
+	end;
+
+	function SetHiByte(b: byte; w: word): word; assembler;
+	asm
+	   xor ax, ax
+	   mov ax, w
+	   mov ah, b
+	end;
+
+	function SetLoByte(b: byte; w: word): word; assembler;
+	asm
+	   xor ax, ax
+	   mov ax, w
+	   mov al, b
+	end;
+   
+	Another way of doing it (with an example of its use):  
+
+	Type
+	   TWord2Byte = record
+                  Lo,Hi: Byte;
+           end;
+
+	var W: Word;
+	     B: Byte;
+	begin
+	   W := $1234;
+	   B := TWord2Byte(W).Hi;
+	   writeln(TWord2Byte(W).Hi);
+	   { going back }
+	   TWord2Byte(W).Lo := $67;
+	   TWord2Byte(W).Hi := $98; { no shl needed! }
+	end.
+
+
+24) Q:  I have an OBJ file that has several assembler routines compiled into it.
+	I wouldn't want to have to rewrite them.  Is there a way to use them in
+	a Delphi app?
+
+    A:  You don't indicate if these return values or not (in Pascal this 
+        matters.)
+
+	If they don't, include the following near the front of your code:
+
+	  Procedure TurnOn;  External;
+	  Procedure TurnOff; External;
+
+	If they return values, use:
+
+	  Function TurnOn: Integer; External;
+	  Function TurnOff: Integer; External;
+
+	Replace Integer with whatever datatype they return.
+	In either case follow that with:
+
+	  {$L filename.obj}
+
+	to link in the obj file.  See also the "linking external assembler code"
+	in the on-line help.
+
+
+25) Q:  Which memory model does Delphi use?
+
+    A:  Delphi uses a mixed memory model, but it is very close to the "C" large model.  The defaults are:
+
+	  - Methods are far
+	  - Procedures in an interface section are far
+	  - Procedures only used in an implementation section are near
+	  - Heap data and all pointers in general (including class instances)
+	    are far
+	  - Global variables are near (DS based)
+	  - Procedure parameters and local variables are near (SS based)
+	  - Procedures declared FAR or EXPORT are far
+	  - Virtual memory tables are far for the new class model and near for
+	    the old
+
+	This scheme has been used by Borland Pascal for a very long time. I find
+	it flexible and efficient.
+
+	Since all public procedures, methods and pointers are 32bit already, 
+	Delphi32 won't have to change any of that.  It's likely that Delphi32 
+	will switch to 32bit addressing for the data and stack segments too, 
+	but that shouldn't affect any of your code either.  What will affect it
+	is the change of Integer from 16 to 32 bit.
+
+
+26) Q:  If a component doesn't handle the windows messages that I need it to 
+	handle, do I have to write my own version that passes the messages that 
+	I need, or is there way to tap (from a TForm or else where) into the 
+	message loop, and grap what I need?
+
+    A:  To respond to, say, the wm_size message, you would add:
+
+	 procedure WMPaint(var Message: TWMPaint); message WM_PAINT;
+
+	to your component.  Then you could have:
+
+	 procedure TWhateverComponent.WMPaint(var Message: TWMPaint);
+	 begin
+	    {have your way with the component}
+	 end;
+
+	This will work for any windows message.  Most components respond to the 
+	more popular messages already, and you can override their event handlers.
+
+
+27) Q:  Borland decided that accessing environment variables from Windows 
+	Programs is a Bad Thing.  Why do they force you to use the "obsolete" 
+	WinDos unit?
+
+    A:  Use the GetDOSEnvironment() call from the API.
+
+
+28) Q:  How would I write a basic screen saver (like, blank the screen) 
+	using Delphi?
+
+    A:  An easy implementation would be something like this:
+
+	var
+	  f: tForm;
+
+	begin
+	  f := tForm.create(self);
+	  f.WindowState := wsMaximized;
+	  f.color := black;
+	  f.borderStyle := bsNone;
+	  f.show;
+	end;
+
+	There is more to do, of course.  You must have a way back from there.  
+	Perhaps an actual form that has a mouse click event programmed to 
+	f.close it.  Also, you want to hide the mouse.  Etc, etc.  But, this 
+	answers the question.
+
+
+29) Q:  How can I determine the Length in pixels of a string after a specific 
+	font has been aplied to it?
+
+    A:  The two methods, TextHeigh and TextWidth, can be used to determine 
+	both the text height and width of a string in pixels.  These methods 
+	can only be accessed through components that have a Canvas property 
+	such as TForm.  The TPanel component does not have access to its Canvas 
+	property by default because it is protected.
+
+	If a component doesn't have a Canvas property then The following 
+	function will return the text width based on the font passed.
+
+	  function GetTextWidth(CanvasOWner: TForm; Text : String;
+     	                        TextFont :  TFont): Integer;
+	  var
+	     OldFont : TFont;
+	  begin	
+	    OldFont := TFont.Create;
+	    try
+	      OldFont.Assign( CanvasOWner.Font );
+	      CanvasOWner.Font.Assign( TextFont );
+	      Result := CanvasOWner.Canvas.TextWidth(Text);
+	      CanvasOWner.Font.Assign( OldFont );
+	    finally
+	      OldFont.Free;
+	    end;
+	  end;
+
+
+30) Q:  Where is the best place to open a splash screen on program start up?
+
+    A:  The best place to open a splash screen is in the project source file 
+	after the first FormCreate and before the Run  This is  accomplished 
+	by creating a form on the fly and then displaying it before the app is 
+	actual opened.
+
+	 program Project1;
+
+	 uses Forms,  Unit1 in 'UNIT1.PAS' {Form1}, Splash;
+
+	 {$R *.RES}
+	 var
+	   SplashScreen : TSplashScreen;  {in the Splash unit}
+
+	 begin
+	   Application.CreateForm(TForm1, Form1);
+	   SplashScreen := TSplashScreen.Create(Application);
+	   try
+	     SplashScreen.Show;
+	     {
+	      do other CreatForms or any other processing 
+	      before the app is to be opened
+	     }
+	     SplashScreen.Close;
+	   finally  {Make sure the splash screen gets released}
+	     SplashScreen.Free; 
+	   end;   
+	   Application.Run;
+	 end.
+
+
+31) Q:  How do I call a function from a DLL?
+
+    A:  In order to call a function you must know it's exact syntax. and setup
+	a function type.  For example to call the CallMe function, which accepts
+	two integers and returns a string, from MyTest.Dll when a button is 
+	pushed, you could use the following code:
+
+	procedure TForm1.Button1Click(Sender: TObject);
+
+	type
+	  TCallMeDll = function(a,b: Integer): string;
+
+	var
+	  CallMeDll: TCallMeDll;
+	  FuncPtr: TFarProc;
+	  hDll: THandle;
+	  result: string;
+
+	begin
+	  hDll:=LoadLibrary('Mytestdll.dll');
+	  FuncPtr:=GetProcAddress(hDLL,'CallMe');
+	  @CallMeDll:=FuncPtr;
+	  if @CallMeDll <> nil then
+	    result:=CallMeDll(4,5);
+	  FuncPtr:=nil;
+	  FreeLibrary(hDll);
+	end;
+
+	Note that w must first load the dll into memory, then we can obtain a 
+	pointer to the function, and assign that to the contents of CallMeDll.
+	At this point I am checking to see if the ProcAdderss is Nil, this would 
+	indicate that the call to GetProcAddress failed.
+
+	It is important to note that sometimes you might want to load the 
+	library, and get the procedure address once at the begenning of your 
+	program, and free the library once at the end.
+	  
+
+32) Q:  What is a Callback function, and how do I create one?
+
+    A:  A call back function is a function which you write, but is called by 
+	some other program or module, such as windows.  To create a callback function, you
+	must first declare a function type, the funciton itself, and implement 
+	the function.  In the interface section:
+
+	{ In main program interface }
+
+	type
+	  TCallBackFunction = function(s: string): integer;
+	  CallMe(s: string): integer;
+
+	And in the Implementation section:
+
+	{ In main program implementation }
+
+	procedure TestCallBack(CallBackFunction: TCallBackFunction); far; external 'Other';
+		{ Note that 'other' is a Dll containing the procedure TestCallBack }
+
+	function CallMe(s: PChar): integer;
+	begin
+	  { what ever you need to do }
+	  CallMe := 1; { What ever you need to return }
+	end;
+
+	procedure TForm1.Button1Click(Sender: TObject);
+	begin
+	  TestCallBack(CallMe);
+	end;
+
+	Note that in 'Other' you would also declare a function type, and use it
+	like this:
+
+	{ in library Other interface }
+
+	type
+	  TMainFunction = function(s: string): integer;
+	  TestCallBack(MainFunc: TMainFunction);
+
+	{ in library Other implementation }
+
+	TestCallBack(MainFunc: TMainFunction);
+	var
+	  result: integer;
+	begin
+	  result:=MainFunc('test');
+	end;

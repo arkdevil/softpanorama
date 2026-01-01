@@ -1,0 +1,222 @@
+#
+# Makefile for MSDOS + dmake + 4DOS
+#
+# libkb -- a free, advanced and portable low-level keyboard library
+# Copyright (C) 1995, 1996 Markus Franz Xaver Johannes Oberhumer
+# For conditions of distribution and use, see copyright notice in kb.h 
+#
+
+shell_@=$(@:s,/,\)
+
+# /***********************************************************************
+# // Configuration
+# // Tools needed: 4DOS, gnufind, gnutouch, perl, rm, sed, zip
+# ************************************************************************/
+
+.IF $C == DJG
+LIBKB = libkb$(A)	# name of the library
+.ELSE
+LIBKB = kb$(A)		# name of the library
+.ENDIF
+
+FIND  := gnufind
+TOUCH := gnutouch
+REN   := +ren
+
+MAKE_SWAP := .SWAP	# dmake specific
+DIRSEP := \\
+
+DIRNAME  := $(shell *cd | sed -e "s|.*[/\\]||")
+DISTNAME := $(shell echo $(DIRNAME) | sed -e "s/[^0-9a-zA-Z]//g")
+VERSION  := $(shell echo $(DIRNAME) | sed -e "s/[^0-9]//g")
+
+
+# /***********************************************************************
+# // Directories
+# ************************************************************************/
+
+SRCDIR = include src samples
+OBJDIR = $(_OBJDIR)			# objects, exe, ...
+
+.SOURCE.c     : .NULL  $(SRCDIR)
+.SOURCE.cc    : .NULL  $(SRCDIR)
+.SOURCE.cpp   : .NULL  $(SRCDIR)
+.SOURCE.h     : .NULL  $(SRCDIR)
+.SOURCE.hh    : .NULL  $(SRCDIR)
+.SOURCE.pl    : .NULL  $(SRCDIR)
+
+.SOURCE$O     : .NULL  $(OBJDIR)
+.SOURCE$A     : .NULL  $(OBJDIR)
+.SOURCE$E     : .NULL  $(OBJDIR)
+.SOURCE$(LNK) : .NULL  $(OBJDIR)
+.SOURCE$(RSP) : .NULL  $(OBJDIR)
+
+
+# /***********************************************************************
+# // Compiler and linker flags
+# ************************************************************************/
+
+## CFLAGS           += $(CFLAGS_DF)	# full debug info
+CFLAGS           += $(CFLAGS_OF)	# full optimization
+## CFLAGS           += $(CFLAGS_OFF)	# full optimization (may NOT be safe)
+CFLAGS           += $(CFLAGS_WF)	# full warnings
+
+CFLAGSI          += -Iinclude
+CFLAGSI          += -Isrc 		# needed for tube.c
+
+# CFLAGSD          += -DKB_DEBUG=4	# include debug stuff
+
+
+BCC_CFLAGS       += -N-   		# no stack overflow checks
+BCC_CFLAGSI      += -Isamples
+BCC31_CFLAGS     += -1 -1-		# should run on a XT
+BCC40_CFLAGS     +=
+## BCC40_LDFLAGS    += -ll			# create map file
+
+DJG_CFLAGS       += -m486 
+DJG_CFLAGS       += -W -pedantic
+DJG257_LDFLAGSX  += -lpc
+.IF $(C_CV) == DJG257
+  TUBE_SOUNDLIB    += -lm
+  LD_SPECIAL = coff2exe $@
+.ENDIF
+.IF $(C_CV) == DJG272
+#  DJG_CFLAGSD      += -DUSE_SB_LIB	# use Sound Blaster lib
+#  TUBE_SOUNDLIB    += -lsb 
+  DJG_CFLAGSD      += -DUSE_MIKMOD	# use MikMod lib
+  TUBE_SOUNDLIB    += -lmik 
+  TUBE_SOUNDLIB    += -lemu -s		# strip executeable
+.ENDIF
+
+
+EMX_CFLAGS       += -W -pedantic
+## EMX_CFLAGS       += -m486 -malign-jumps=0	# already set in GCCOPT
+EMX_CFLAGS       += -fbounds-checking
+EMX_LDFLAGS      += -fbounds-checking
+EMX_LDFLAGSX     += -lvideo
+.IF $C == EMX
+  LD_SPECIAL = emxbind -aq $@ -acim	# -am for _memaccess, -ac for _int86
+.ENDIF
+
+MSC60_CFLAGS     += -Gs   		# no stack overflow checks
+MSC80_CFLAGS     += -Gs   		# no stack overflow checks
+
+WCC_CFLAGS       += -s   		# no stack overflow checks
+WCC_LDFLAGS      += -l=pmodew		# link with PMODE/W
+.IF $(C_CV) == WCC105
+## WCC_CFLAGSD      += -DUSE_VAT		# use VAT
+## TUBE_SOUNDLIB    += /"l vat"
+WCC_CFLAGSD      += -DUSE_MIKMOD	# use MikMod
+TUBE_SOUNDLIB    += /"l mik"
+.ENDIF
+
+
+# /***********************************************************************
+# // Main targets
+# ************************************************************************/
+
+.PHONY: default all test_pgm clean
+
+default: all
+
+.INCLUDE: makefile.inc
+
+all: $(LIBKB) test_pgm ole_install
+
+
+kb$(RSP): $(OBJS)
+
+$(LIBKB): kb$(RSP)
+	$(ARLIB)
+
+mktables$E $(MAKE_SWAP): mktables$O
+	$(LDEXE)
+
+test_pgm: kbtst$C$E simple$E sigalrm$E keycodes$E tube$E
+
+kbtst$C$E $(MAKE_SWAP): kbtst$O $(LIBKB)
+	$(LDEXE)
+	$(LD_SPECIAL)
+
+simple$E $(MAKE_SWAP): simple$O $(LIBKB)
+	$(LDEXE)
+	$(LD_SPECIAL)
+
+sigalrm$E $(MAKE_SWAP): sigalrm$O $(LIBKB)
+	$(LDEXE)
+	$(LD_SPECIAL)
+
+keycodes$E $(MAKE_SWAP): keycodes$O $(LIBKB)
+	$(LDEXE)
+	$(LD_SPECIAL)
+
+tube$E $(MAKE_SWAP): tube$O $(LIBKB)
+	$(LDEXE) $(TUBE_SOUNDLIB)
+	$(LD_SPECIAL)
+
+
+_kbname.hh: mkkbname.pl kb.h
+	perl -w $& > $(shell_@)
+
+
+clean:
+	+ *del /q *.o;*.obj;*.a;*.lib;*.exe;*.out;$(DISTNAME).zip
+
+
+# /***********************************************************************
+# // 
+# ************************************************************************/
+
+delo .PHONY:
+	-rm -rf o_bccl.31 o_bccl.40 o_djg.257 o_djg.272 o_emx.263 o_emx.272 o_wccf.105
+	-rm -rf _bcc _djgpp _wcc
+
+dos .PHONY $(MAKE_SWAP): delo
+	+util\make_dos
+
+
+# /***********************************************************************
+# // Installation
+# ************************************************************************/
+
+hdr_install : kb.h kbmlock.h
+	+-copy /u $&  $(MFXINC)\\
+
+lib_install : $(LIBKB)
+	+-copy /u $&  $(MFXLIB)\\
+
+mfxinstall  : hdr_install lib_install
+
+ole_install : objmove libmove exemove mfxinstall
+
+ol_install  : objmove libmove mfxinstall
+
+oe_install  : objmove exemove mfxinstall
+
+
+# /***********************************************************************
+# // Distribution
+# ************************************************************************/
+
+.PHONY: virus rar zip dist pack
+
+virus $(MAKE_SWAP):
+	scan . /all /sub
+	f-prot . /all /paranoid 
+	f-prot . /analyse /paranoid
+
+
+rar $(MAKE_SWAP): util/mkdist.pl 
+	+-del $(DISTNAME).rar
+	$(FIND) -type f -print | perl util/mkdist.pl $(DIRNAME) | (cd .. && rar2 -s -m5 -tl @- $(DIRNAME)\$(DISTNAME).rar)
+	$(TOUCH) -c $(DISTNAME).rar
+
+
+zip $(MAKE_SWAP): util/mkdist.pl 
+	+-del $(DISTNAME).zip
+	$(FIND) -type f -print | perl util/mkdist.pl $(DIRNAME) | (cd .. && zip -9 -o -@ $(DIRNAME)\$(DISTNAME).zip)
+	$(TOUCH) -c $(DISTNAME).zip
+
+dist: delo grep distexe virus touch zip
+
+pack: delo zip

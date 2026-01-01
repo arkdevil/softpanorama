@@ -1,0 +1,104 @@
+From: gennip@rullf2.LeidenUniv.nl (CHEL VAN GENNIP, BAZIS LEIDEN, HOLLAND.)
+Newsgroups: comp.sys.intel
+Subject: FDIV work around, work in progress
+Date: 25 Nov 1994 11:32:02 GMT
+Organization: MI, Leiden University, The Netherlands
+Message-ID: <3b4hvi$4cr@highway.LeidenUniv.nl>
+
+A work around  for the FDIV problem on compiler level could be
+to patch the assembler output file to use a subroutine for FDIV
+And to use a subroutine correcting the FDIV errors.
+
+A correct object for the file xxx.c could be generated using the following
+commands:
+
+ gcc -o xxx.s.pentium -S xxx.c
+ awk -f fdiv.awk  xxx.s.pentium > xxx.s
+ gas -o xxx.o xxx.s
+ rm xxx.s.pentium xxx.s
+
+Linking should include do_fdiv.o
+
+ gcc -o xxx xxx.o fdiv.o
+
+For correct results all the sources and libraries should be corrected.
+
+This is work in progress, fdiv instructions with %esp relative opperands
+are not handled correctly  yet.
+
+_Chel
+
+============== awk command file fdiv.awk ===================================
+{ if ($1=="fdivl") {
+    printf("   subl  $16,%%esp\n");
+    printf("   fstpl  (%%esp)\n");
+    printf("   fldl  %s\n",$2);
+    printf("   fstpl  8(%%esp)\n");
+    printf("   call  do_fdiv\n");
+    printf("   addl  $16,%%esp\n");
+    break;
+    };
+if ($2=="fdivl") {
+    printf("   subl  $16,%%esp\n");
+    printf("   fstpl  (%%esp)\n");
+    printf("%s   fldl  %s\n",$1 $3);
+    printf("   fstpl  8(%%esp)\n");
+    printf("   call  do_fdiv\n");
+    printf("   addl  $16,%%esp\n");
+    break;
+    };
+print;
+}
+
+=================== source do_fdiv.s =====================================
+
+.text
+        .align 4
+.globl do_fdiv
+
+/ Fix for Pentium FDIV problem, correct result of FDIV
+/ Beware only the top of stack mut be used therefor written
+/ in assembly
+
+do_fdiv:
+        pushl %ebp
+        movl %esp,%ebp
+        subl $16,%esp
+/ t=1.0/b;
+        fld1                    / 1
+        fdivl 16(%ebp)          / 1
+        fstpl -8(%ebp)          / 0
+/ t += (1.0 - t * b) * t;
+        fldl -8(%ebp)           / 1
+        fmull 16(%ebp)          / 1
+        fstpl -16(%ebp)         / 0
+        fld1                    / 1
+        fsubl -16(%ebp)         / 1
+        fmull -8(%ebp)          / 1
+        faddl -8(%ebp)          / 1
+        fstpl -8(%ebp)          / 0
+
+/ t += (1.0 - t * b) * t;
+        fldl -8(%ebp)           / 1
+        fmull 16(%ebp)          / 1
+        fstpl -16(%ebp)         / 0
+        fld1                    / 1
+        fsubl  -16(%ebp)        / 1
+        fmull -8(%ebp)          / 1
+        faddl -8(%ebp)          / 1
+
+/ return(a*t);
+        fmull 8(%ebp)           / 1
+        leave
+        ret
+
+=============================================================================
+
+
++------------------------------------------------------+
+| Signature of: Chel van Gennip  <chel@bazis.nl>       |
+| Stichting BAZIS, department of Systems Development   |
+| Schipholweg 97, 2316 AX  Leiden, the Netherlands     |
+| +31-71-256762 (office) +31-71-216675 (FAX)           |
++------------------------------------------------------+
+

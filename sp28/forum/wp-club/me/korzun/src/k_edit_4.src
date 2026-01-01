@@ -1,0 +1,792 @@
+$macro_file K_EDIT_4;                  { 14.02.90 13:08 Личный сервис для     }
+                                       { редактировния в "МЕ_4.0". Корзун Е.Г.}
+$MACRO K_EDIT_4 FROM ALL;
+  MAKE_MESSAGE('-------- K_EDIT_4 v.m. от 14.02.90 13:08 -------');
+  BEEP;
+  DELAY(350);
+ END_MACRO;                            { of ----- K_EDIT_4   -----------------}
+
+$MACRO K_ALT_H { TO <AltH>} FROM EDIT; { Иммитация буквы р для ME 4.0         }
+   TEXT(CHAR(224));                    { Для драйвера CYRKEYB не нужна        }
+ END_MACRO;
+
+$MACRO K_Ctrl@ TO <Ctrl@> FROM EDIT;   { Вставить/заменить на двоичный 0      }
+  text('|0');                          { 16/01/90 05:16pm                     }
+ END_MACRO;
+
+$MACRO K_ShftF2 TO <ShftF2> FROM EDIT; { Вставить дату и время в норм.формате }
+   DEF_STR(S1,S2);                     { 14.02.90 13:06  чч.мм.гг + часы 0-23 }
+   DEF_INT(I1,i);
+   S1 := DATE;                         { Формат мм/дд/гг                      }
+   S2 := TIME;                         { Формат чч:мм?m   часы = 1-12         }
+   i  := VAL(I1,COPY(S2,1,2));         { Значение для часов в Integer form    }
+   if (XPOS('pm',S2,9)) then           { Время - после обеда                  }
+      If (I1 < 12) then
+         I1 := I1 + 12;
+      end;
+   end;
+   If (I1 < 10) Then                   { Надо добавить 0 перед часами         }
+      S2 := '0' + REMOVE_SPACE( STR(I1) ) + COPY(S2,3,3);
+   Else
+      S2 := REMOVE_SPACE( STR(I1) ) + COPY(S2,3,3);
+   End;
+   text(COPY(S1,4,2) + '.' + COPY(S1,1,2) + '.' + COPY(S1,7,2) + ' ' + S2 ) ;
+ END_MACRO;                            { K_ShftF2                             }
+
+$Macro K_ShftF1 TO <ShftF1> FROM EDIT ;{ Переход в сл.окно ,но на том-же      }
+                                       { экране (если есть ) 29/01/90 20:41   }
+   def_int(i,j,k,j0,i0);
+   k := CUR_WINDOW;                    { Номер текущего-исходного окна        }
+   j := SCREEN_NUM ;                   { Номер "виртуального" экрана          }
+   REFRESH := 0;                       { Заблокировать вывод на экран         }
+   IF ( j = 0 ) THEN                   { Окно ни с кем не делится             }
+      GOTO STANDART;                   { - Стандартный переход                }
+   END;
+
+   i := k ;                            { Начнем с номеров , старше наших      }
+   while (i < WINDOW_COUNT ) Do        { Поиск по возрастанию номеров         }
+      ++i;
+      SWITCH_WINDOW(i);
+      IF (j = SCREEN_NUM ) THEN        { Найдено окно на том-же экране        }
+         i0 := Window_Attr ;
+         j0 := i0 SHR 1;               { Убрали                               }
+         j0 := j0 SHL 1;               { ------ левый бит поля                }
+         If (Window_Attr = j0) THEN    { и не спрятанно                       }
+            GOTO END_MACRO;
+         END;
+      END;
+   end;
+
+   i := 1 ;                            { Затем  с номеров , младше наших      }
+   while (i < k ) Do                   { Поиск по возрастанию номеров         }
+      SWITCH_WINDOW(i);
+      IF (j = SCREEN_NUM ) THEN        { Найдено окно на том-же экране        }
+         i0 := Window_Attr ;
+         j0 := i0 SHR 1;               { Убрали                               }
+         j0 := j0 SHL 1;               { ------ левый бит поля                }
+         If (Window_Attr = j0) THEN    { и не спрятанно                       }
+            GOTO END_MACRO;
+         END;
+      END;
+      ++i;
+   end;
+                                       { Как ни странно,ничего не нашли       }
+ STANDART:
+   SWITCH_WINDOW(k);
+   RUN_MACRO('WINDOW^NEXTWIN');        { - Стандартный переход                }
+ end_macro:
+   Refresh  := True;                   { Восстановить выдачу на экран         }
+   NEW_SCREEN;
+   REDRAW;
+ end_macro;                            { --------- K_ShftF1 ---------------   }
+
+$macro K_OGL_L TO <CtrlP> FROM EDIT TRANS;{ Вывод "количества стрниц" - листов}
+                                       { из тек.файла, вывод в файл.!!!       }
+                                       { 01/09/90 08:23pm                     }
+   SET_GLOBAL_STR('k_ident','K_OGL_L');
+
+   DEF_STR(Str1,Str2,Strl,Strc,Strn,Tstr,Strf);
+   DEF_INT(il,I2,jx,jc,jcmax,jcmaxl,jcf,jcfl,i_end,w_ident,C_wind,N_wind);
+   IF GET_EXTENSION(FILE_NAME) = '!!!' THEN
+      BEEP;
+      Make_Message(' "K_OGL_L" - !!! - EXTENSION не обрабатывается' );
+      GOTO END;
+   END;
+   Make_Message(' "K_OGL_L" - статистика строк и листов'+'-любая клавиша-END');
+   REFRESH := 0;                       { Заблокировать вывод на экран         }
+   WORKING;                            { повесить мигалку на экран            }
+
+   i_end := 0;
+   il := 0;
+   I2 := 0;
+   jx := 0;
+   N_wind := 0;
+   Mark_Pos;
+   TOF;
+   C_wind := CUR_WINDOW;               { Запомнить номер текущего окна        }
+   W_ident := WINDOW_ID;               { Запомнить идентификатор текущего окна}
+
+ {----------------------- ФОРМИРОВАНИЕ заголовка вывода ----------------------}
+   Strl := ' В файле ' + File_Name ;
+   Strf := CAPS(TRUNCATE_PATH(TRUNCATE_EXTENSION( FILE_NAME ))) + '.!!!';
+   While (jx < Window_Count) DO        { Поиск окна с оглавлением             }
+      jx := jx + 1;
+      Switch_Window(jx);
+      IF (CAPS(TRUNCATE_PATH(FILE_NAME)) = Strf ) THEN
+         N_wind := CUR_WINDOW;         { Запомнить идентификатор старого окна }
+         Delete_Window;
+      END;
+   END;
+   Switch_Window(C_wind);              { Вернуться в исходное окно            }
+   IF (N_wind > 0) THEN
+      WHILE (WIN_X2 < 45 ) DO          { Попытаемся раскрыть окно на всю ...  }
+         RUN_MACRO('WINDOW^ZOOM');
+      END;
+
+   END;
+   CREATE_WINDOW;
+   N_wind := CUR_WINDOW;               { Запомнить идентификатор нового окна  }
+   Switch_Window(N_wind);              { Перейти в окно ВЫВОДА                }
+   TOF;
+   Put_Line( Strl );
+   Down;
+   Put_Line( ' ------------------- ' );
+   Down;
+   Put_Line('CTPOKA : Стр: строк : COL: N строки:');
+   Down;
+   Put_Line( ' ------------------- ' );
+   Down;
+
+   Switch_Window(C_wind);              { Вернуться в исходное окно            }
+   TOF;                                { Встать в начало файла                }
+   jcf := 0;  jcfl := 0;
+   il := 0;
+
+   {------------------------- ОСНОВНОЙ ЦИКЛ ----------------------------------}
+   WHILE (At_Eof = 0 ) DO
+                                       { Поиск Next_Page_Break;               }
+      jcmax :=  0 ;                    { и мах. длины строки на странице      }
+      il := 0;                         { Длина страницы                       }
+      WHILE ((At_Eof = 0) and (XPOS(Page_Str,GET_LINE,1) = 0)) DO
+         ++il;                         { Счет строк на странице               }
+         CALL CHECK_MAX;               { Проверить на MAX                     }
+         DOWN;
+         IF (CHECK_KEY) THEN           { Было прерывание - Выход из MACRO     }
+            i_end := 10;
+            GOTO NEXT;
+         END;
+      END;
+      IF (At_Eof = 0) THEN
+         CALL CHECK_MAX;               { Проверить на MAX перевод страницы    }
+         DOWN;
+         ++il;                         { Счет строк на странице               }
+      END;
+
+      Strl := Str(C_LINE - 1 );        { Номер строки конца страницы          }
+      ++I2;                            { Номер страницы п/п                   }
+      Str1 := Str(I2);
+      Str2 := Str(il) ;                { Количество строк на странице         }
+      Strc := Str(jcmax) ;             { Мах. длина строки на странице        }
+      Strn := Str(jcmaxl) ;            { Номер этой строки на странице        }
+      Strl := COPY('        ',1,7 - SVL(Strl)) + Strl + ':' +
+              COPY('        ',1,4 - SVL(Str1)) + Str1 + ':' +
+              COPY('        ',1,7 - SVL(Str2)) + Str2 + ':' +
+              COPY('        ',1,4 - SVL(Strc)) + Strc + ':' +
+              COPY('        ',1,7 - SVL(Strn)) + Strn ;
+
+      Switch_Window(N_wind);           { Результат по странице                }
+      Put_Line( Strl);
+      Down;
+      Switch_Window(C_wind);
+   END;                                { ------- Основного цикла -------------}
+
+ {-------------------------- ПРОВЕРКА МАХ. Длины cтроки ----------------------}
+  GOTO NEXT;
+ CHECK_MAX:
+         jc := LENGTH( GET_LINE ) ;
+         If (jcmax < jc) THEN          { Поиск МАХ. длины строки  по странице }
+            Make_Message( ' "K_OGL_L" - обработка '+ Str(C_LINE)
+                         +'-любая клавиша-END' );
+            jcmaxl := C_LINE;          { Номер этой строки                    }
+            jcmax  := jc;
+            If (jcmax > jcf) THEN      { Поиск МАХ. длины строки  по файлу    }
+               jcfl := jcmaxl;         { Номер этой строки                    }
+               jcf  := jcmax;
+            END;
+         END;
+         RET;
+ NEXT:
+ {--------------- конец ---- ПРОВЕРКИ МАХ. Длины cтроки ----------------------}
+
+   jx := C_Line - 1;                   { Длина всего файла - строк            }
+   Goto_Mark;
+
+   Switch_Window(N_wind);              { Формирование "хвоста" вывода         }
+   Put_Line( ' ------------------- ' );
+   Down;
+   Strl := 'В строке=' + Str(jcfl) +
+           ',Мах.длина=' + Str(jcf) + '.Bcего строк ='+Str(jx) ;
+   Put_Line( Strl );
+   IF (I2 < 2) THEN                    { Нет разбиения на страницы            }
+      BEEP;
+   ELSE
+                                       { Дали имя - <FILE>.!!! на диске G:    }
+      FILE_NAME := GET_PATH(COMSPEC) + STRF;
+      SAVE_FILE ;                      { Не проверяем результата записи       }
+   END;
+   FILE_CHANGED := False;              { Обман - говорим что нет изменений    }
+   Delete_Window;
+   jx := 0;
+   While (jx < Window_Count) DO        { Поиск окна с исходным текстом        }
+      jx := jx + 1;
+      Switch_Window(jx);
+      IF (W_ident = WINDOW_ID) THEN
+         C_wind := CUR_WINDOW;         { Запомнить номер окна                 }
+      END;
+   END;
+   Switch_Window(C_wind);
+   IF (I2 > 1) THEN                    { Есть разбиение на страницы           }
+                                       { Вызов разделения окон,файл-?NONAME?  }
+      KEY_IN(<F2>WS<RT><ENTER>);
+                                       { Дали имя - <FILE>.!!! на диске G:    }
+      FILE_NAME := GET_PATH(COMSPEC) + STRF;
+      LOAD_FILE( FILE_NAME );
+      FILE_NAME := STRF;               { Готовы записать в текущий каталог    }
+      FILE_CHANGED := False;           { Обман - говорим что нет изменений    }
+   END;
+
+ Refresh  := True;                     { Восстановить выдачу на экран         }
+ IF ( I_end   ) THEN                   { Было прерывание - Выход из MACRO     }
+    BEEP;
+    Strl := Strl + '- ПРЕРВАНО ';
+ END;
+ Make_Message('"K_OGL_L" Работа окончена.' + Strl );
+ END:
+ END_MACRO;                            { of K_OGL_L   ----------------------- }
+
+
+$MACRO K_ALT_1 TO <Alt1> FROM ALL;     { Перевысветить весь экран             }
+   WHILE (BOX_COUNT > 0) DO            { Убрать все старые BOX -ы             }
+      KILL_BOX;
+   END;
+   REFRESH := TRUE;
+   NEW_SCREEN;
+ END_MACRO;
+
+$MACRO K_DUMP TO <CtrlQ> TRANS;        { Вывести  DUMP над строкой  29/01/90  }
+   DEF_INT(I1,I2,I3,I4,ic);
+   DEF_STR(S1,S2,S3,H_al);
+   DEF_CHAR(c);
+   S1 := ''; S2 := '';
+   I1 := WHEREX;                       { Номер столбца экрана  места курсора  }
+   I3 := WHEREY;                       { Номер строки  экрана                 }
+   ic := C_COL - WHEREX + 1;           { Cдвиг строки в окне  по отн. к 1-й к.}
+   MAKE_MESSAGE('K_dump  : ');
+   S3 := COPY(GET_LINE, ic, Screen_Width);       { "видимая" часть строки     }
+   I2 := SVL(S3) ;                     { длина --""--                         }
+   IF I2 = 0  THEN                     { Строка была пустая                   }
+      BEEP;
+      MAKE_MESSAGE('K_dump  : Строка пустая (или не видна на экране)');
+      GOTO END_MAC;
+   END;
+   REFRESH := 0;                       { Заблокировать вывод на экран         }
+   WORKING;                            { повесить мигалку на экран            }
+   I4 := 0;
+   H_al := '0123456789ABCDEF';
+   WHILE (I4 < I2) DO                  { Формирование DUMP-a                  }
+      ++I4;
+      c := STR_CHAR(S3,I4);            { Очередной символ строки              }
+      S1 := S1 + Str_Char(H_al , (ASCII(c)  /  16) + 1 ) ;
+      S2 := S2 + Str_Char(H_al , (ASCII(c) MOD 16) + 1 ) ;
+   END;
+   IF I4 < SCREEN_WIDTH THEN           { Строка КОРОЧЕ ЭКРАНА,ставим огранич. }
+      S1 := S1 + '||';
+      S2 := S2 + '||';
+   END;
+   WRITE('----------------------------------------------------- ' + FILE_NAME +
+    ' ====',1,I3-3,BLACK, YELLOW);
+   WRITE(S1,1,I3-2,MAGENTA,BLUE);
+   WRITE(S2,1,I3-1,RED    ,BLUE);
+   WRITE(S3,1,I3-0,CYAN  ,WHITE);
+   if (C_ROW > 1) then
+      MAKE_MESSAGE('K_dump  : Нажмите любую клавишу для продолжения ');
+   end;
+   Read_key;
+ END_MACRO:
+   REFRESH := 1;                       { разблокировыть вывод на экран        }
+   NEW_SCREEN;                         { Перевысветить весь экран             }
+ END_MAC:                              { Выход без перевысветки экрана        }
+ END_MACRO;                            { of ----- K_DUMP   -----------------  }
+
+$MACRO K_BLKSEE  FROM EDIT TRANS;      { Проверка, "виден" ли блок в окне     }
+   DEF_INT(L_WIND_UP,L_WIND_DN);
+   L_WIND_UP := WIN_Y1 - WHEREY + C_LINE + 1 ;
+   L_WIND_DN := L_WIND_UP - WIN_Y1 + WIN_Y2 - 2 ;
+   IF (BLOCK_LINE1 > L_WIND_DN) OR
+      (BLOCK_LINE2 < L_WIND_UP) THEN
+      SET_GLOBAL_STR('K_MESSAGE','K_BLKSEE:Блок не виден,поиск - CtrlC/CtrlE');
+   ELSE
+      SET_GLOBAL_STR('K_MESSAGE','');  { Все O.KEY                            }
+   END;
+ END_MACRO;                            { of ----- K_BLKSEE  / --------------  }
+
+$MACRO K_MESSAG FROM ALL;              { Высветить BOX c сообщением K_MESSAGE }
+   DEF_INT(I1,I2);
+   IF GLOBAL_INT('K_MESSTR') = 0 THEN  { Номер строки для BOX-a не задан ?    }
+      I2 := 6;
+   ELSE
+      I2 := GLOBAL_INT('K_MESSTR');
+   END;
+   put_box(3,I2 ,75,I2+2 , 3,11 ,' НАЖМИТЕ ЛЮБУЮ КЛАВИШУ для продолжения',0);
+   BEEP;
+   WRITE(' СООБЩЕНИЕ МАКРО: '+GLOBAL_STR('K_IDENT') + ': ' +
+                         GLOBAL_STR('K_MESSAGE'),5,I2+1,YELLOW,BLUE);
+                                       { Дадим на него немножко посмотреть    }
+   SET_GLOBAL_STR('K_MESSAGE','');     { Зачистить сообщение                  }
+   I1 := 20000;
+   WHILE I1 > 0 DO;
+      IF (I2 > 100) THEN
+         WRITE('      ',45,1,STAT_COLOR,MENU_COLOR);
+         I2 := 0;
+      END;
+      I2 := I2 + 1;
+      WRITE(STR(I1),45,1,STAT_COLOR,MENU_COLOR);
+      I1 := I1 - 1;
+      IF CHECK_KEY <> 0 THEN           { А не хотят ли нас уйти пораньше ?    }
+         I1 := -1;                     { Для выхода из цикла                  }
+      END;
+   END;
+   KILL_BOX;                           { Убрать окошечко                      }
+   NEW_SCREEN;                         { Перевысветить весь экран             }
+ END_MACRO;                            { of --- K_MESSAG  ------------------  }
+
+$MACRO K_AltU TO <AltU> FROM EDIT;     { AltU + сдвиг текущей,если блока нет  }
+   IF BLOCK_STAT = 0 THEN              { это как раз наш случай               }
+      BLOCK_BEGIN;
+      BLOCK_END;
+      RUN_MACRO('UNDBLK');
+      BLOCK_OFF;
+   ELSE                                { Стандартный AltU                     }
+      RUN_MACRO('K_BLKSEE');           { Проверка "видимости" блока           }
+      IF  (LENGTH(GLOBAL_STR('K_MESSAGE')) <> 0) THEN
+         BEEP;
+         MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+         GOTO END_MACRO;
+      END;
+      RUN_MACRO('UNDBLK');
+   END;
+ END_MACRO:
+ END_MACRO;                            { of --- K_ALTU   / AltU  -----------  }
+
+$MACRO K_AltI TO <AltI> FROM EDIT;     { AltI + сдвиг текущей,если блока нет  }
+   IF BLOCK_STAT = 0 THEN              { это как раз наш случай               }
+      BLOCK_BEGIN; BLOCK_END;          { Выделим блок - текущую строку        }
+      RUN_MACRO('INDBLK');
+      BLOCK_OFF;
+   ELSE                                { Стандартный AltI                     }
+      RUN_MACRO('K_BLKSEE');           { Проверка "видимости" блока           }
+      IF  (LENGTH(GLOBAL_STR('K_MESSAGE')) <> 0) THEN
+         BEEP;
+         MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+         GOTO END_MACRO;
+      END;
+      RUN_MACRO('INDBLK');
+   END;
+ END_MACRO:
+ END_MACRO;                            { of --- K_ALTI   / AltI  -----------  }
+
+$MACRO K_ShftF8 TO <ShftF8> FROM EDIT; { Переход к столбцу номер ....         }
+                                       { 07/20/89 09:24pm                     }
+   DEF_STR(S);
+   DEF_INT(I,J);
+   S := '42';                          { Умолчание для перехода               }
+   J := 1;
+   PUSH_UNDO;                          { Начать заполнение порции буфера UNDO }
+   WHILE  J <> 0  DO;
+      MAKE_MESSAGE('Переход к колонке N... в Строке=' + STR(C_LINE));
+      IF STRING_IN (S,'',3,12,3,'Ж ') = 0 THEN
+         GOTO END_MACRO;
+      END;
+      J := VAL(I,S);
+   END;
+   GOTO_COL(I);
+ END_MACRO:
+   NEW_SCREEN;                         { Перевысветить весь экран             }
+   POP_UNDO;                           { Отметка в буфере UNDO - конец        }
+ END_MACRO;                            { of --- K_ShftF8 / ShftF8 ----------  }
+
+$MACRO K_COMMNT  FROM EDIT TRANS;      { Вставить комментарий в 40 -ю кол.    }
+                                       { 08.02.90 13:06    ... текущей строки;}
+                                       { + Установить режим перезаписи        }
+   DEF_INT(i,k_col);
+   DEF_STR(SL,EXT,ENDS);
+   K_COL := 40;                        { Начльная колонка комментария         }
+                                       { Почистим строку от хвостовых " "     }
+   SL := GET_LINE;
+   i := SVL(SL);
+   WHILE ( (i >= K_COL) AND (XPOS( Str_Char(SL,i),' |9|255',1) ) ) DO
+      --i;                             { Поиск "пустого" места для комментария}
+   END;
+   WHILE (i >= K_COL ) DO              { Табулирование начала комментария     }
+      K_COL := K_COL + 10;
+   END;
+   IF K_COL > 60  THEN
+      BEEP;
+      SET_GLOBAL_STR('K_MESSAGE','K_COMMNT: извините,колонка '
+                                 +STR(i) +'-занята ');
+   ELSE
+      PUSH_UNDO;                       { Отметка в буфере UNDO - начало       }
+      GOTO_COL(K_COL);
+      Run_Macro('DELEOL');             { Удалить "паразитные" пробелы в хвосте}
+      EXT := GET_EXTENSION(FILE_NAME) ;
+                                       { Проверим имя файла -> вид коммент.   }
+      I := POS(' ' + EXT,
+           ' C SRC GEN INC FOX PRG PRC TEM');
+                                       { В ENDS - закрывающая "скобка"        }
+                                       { В I    - длина "открывающей" скобки  }
+      IF (I = 0) OR (LENGTH(EXT) = 0) THEN
+         TEXT('*||*');     ENDS := '*';{ Для всех "ЧУЖИХ"                     }
+         I := 3;
+      ELSE
+         IF I = 1 THEN                 { Язык C                               }
+            TEXT('/*');    ENDS := '*/';
+            I := 2;
+         ELSE
+            IF I = 3 THEN              { Язык SRC - макро для ME              }
+               TEXT('{');  ENDS := '}';
+               I := 1;
+            Else
+               IF (I = 7) OR
+                  (I = 11) THEN        { Язык Gen/Inc -  для  FOXCODE         }
+                  TEXT('<<*');  ENDS := '*>>';
+                  I := 3;
+               ELSE                    { D'BASE - FOXBASE  + UI               }
+                  TEXT('&&'); ENDS := '*';
+                  I := 2;
+               END;
+            End;
+         END;
+      END;
+      GOTO_COL(80-LENGTH(ENDS));
+      TEXT(ENDS);                      { Вставить конец комментария           }
+      GOTO_COL(K_COL+I+1);             { Встать на место для текста коммент.  }
+      SET_GLOBAL_STR('K_MESSAGE','K_COMMNT:Вводите комментарий .'+EXT);
+      INSERT_MODE := 0;                { Установить режим замены              }
+      POP_UNDO;                        { Отметка в буфере UNDO - конец        }
+   END;
+   MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+ END_MACRO;                            { of --- K_COMMNT / CtrlK -----------  }
+ 
+
+$MACRO K_COMWW  TO <AltW> FROM EDIT TRANS;       { Выравн.комментария         }
+                                       { 12/19/89 02:36pm - Корректировка     }
+   DEF_INT(I,L,J,LINE_START,LINE_END,K_COL);
+   DEF_STR(SL,S0,S1,S2,SK,MASK_R,MASK_F,NEVER);
+   DEF_CHAR(C);
+                                       { Имя макрокоманды - идентификация     }
+   SET_GLOBAL_STR('k_ident'  ,'K_COMWW ');
+   MARK_POS;                           { Запомним где были                    }
+   SET_GLOBAL_STR('K_MESSAGE','K_COMWW : Выравнивание комментария ');
+   MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+   PUSH_UNDO;                          { Начать заполнение порции буфера UNDO }
+   IF (BLOCK_STAT > 1) THEN
+      SET_GLOBAL_STR('K_MESSAGE','K_COMWW : Блок не строчный');
+      BEEP;
+      GOTO END_MACRO;
+   END;
+   IF (BLOCK_STAT =1) THEN             { Т.к. блок , то :                     }
+      WORKING;                         { Помигаем                             }
+      REFRESH := 0;                    { и заблокируем экран для шустрости    }
+      IF (MARKING =1) THEN             { А блок-то не закрыт - непорядок ,    }
+         BLOCK_END;                    { .... :  надо его закрыть             }
+      END;
+      RUN_MACRO('K_BLKSEE');           { Проверим,виден ли блок в окне        }
+      IF (LENGTH(GLOBAL_STR('K_MESSAGE')) <> 0) THEN
+         BEEP; GOTO END_MACRO;
+      END;
+      LINE_START := BLOCK_LINE1;
+      LINE_END   := BLOCK_LINE2;
+   ELSE                                { Блока нет,только текущая строка      }
+      LINE_START := C_LINE;
+      LINE_END   := C_LINE;
+      EOL;
+   END;
+                                       { Проверим имя файла --> вид коммент.  }
+   I := POS('.' + GET_EXTENSION(FILE_NAME),
+         '.C.SRC.GEN.INC.FOX.PRG.PRC.TEM');
+   IF (I = 0) THEN                     { Зто расширение у нас не числится     }
+      S1 := '*||*';  S2 := '';
+      MASK_F := '@*@||{?*}/';
+      MAKE_MESSAGE('K_COMWW - язык не C,SRC,GEN,INC,PRG,PRC,TEM, скобка -'+S1);
+   ELSE
+      IF I = 1 THEN                    { Язык C                               }
+         S1 := '/*';  S2 := '*/';
+         MASK_F := '/@*{?*}@*/';
+      ELSE
+         IF I = 3 THEN                 { Язык SRC - макро для ME              }
+            S1 := '{';  S2 := '}';
+            MASK_F := '@{{?*}@}';
+         Else
+            IF (I = 7) OR
+               (I = 11) THEN           { Язык Gen/Inc -  для  FOXCODE         }
+               S1 := '<<*'; S2 := '*>>';
+               MASK_F := '<<@*{?*}@*>>';
+            ELSE                       { D'BASE - FOXBASE  + UI               }
+               S1 := '&&'; S2 := '';
+               MASK_F := '&&{?*}';
+            END;
+         End;
+      END;
+   END;
+   MASK_F := MASK_F + '[ |9|255]*$';
+   NEVER := '|5.|6.|19|47.';           { Вряд-ли встретится мой день рождения }
+   MASK_R := NEVER + '#0';             { Заменить , убрав скобки комментария  }
+   REG_EXP_STAT := 1;                  { Поиск и замена с "выражениями"       }
+   GOTO_LINE(LINE_END); EOL;           { Поиск снизу ввверх и справа налево   }
+   WHILE(LINE_START <= LINE_END) AND
+        (SEARCH_BWD(MASK_F,LINE_END - LINE_START + 1) <> 0)   DO
+      IF (CHECK_KEY <> 0) THEN
+         SET_GLOBAL_STR('K_MESSAGE','K_COMWW : Прервано в  ='+ STR(C_LINE));
+         BEEP;
+         GOTO END_MACRO;
+      END;
+      WRITE('      ',40,2,STAT_COLOR,MENU_COLOR);
+      WRITE(STR(C_LINE),40,2,ERROR_COLOR,STAT_COLOR);
+      S0 := GET_LINE;                  { запомнили исходную строку            }
+      REPLACE(MASK_R);                 { Выкинули скобки комментария          }
+      I := POS(NEVER ,GET_LINE);       { Место начала комментария             }
+      GOTO_COL(I);
+      DEL_CHARS(SVL(NEVER));
+      IF (SVL(S2) = 0 ) THEN           { Если нет закрывающей "скобки",может  }
+         EOL; LEFT;                    { быть в конце "незначащая" * - убрать }
+         IF (CUR_CHAR = '*') AND (C_COL > I) THEN
+            DEL_CHAR;                  { Выкинули * в конце комментария       }
+         END;
+      END;
+                                       { Заберем комментарий в память         }
+      IF (LENGTH(GET_LINE) >= I)  THEN
+         SK := COPY(GET_LINE,I,LENGTH(GET_LINE) - I + 1);
+         GOTO_COL(I);
+         RUN_MACRO('DELEOL');          { Удалить комментарий из строки        }
+                                       { Почистим строку от хвостовых " "     }
+         SL := GET_LINE;
+         C := Str_Char(SL,SVL(SL)) ;
+         WHILE ( (SVL(SL) > 0) AND (POS(C,' |9|255') > 0) ) DO;
+            SL := STR_DEL(SL,SVL(SL),1);
+            C := Str_Char(SL,SVL(SL)) ;
+         END;
+         PUT_LINE(SL);
+                                       { Почистим комментарий от начальных " "}
+         C := Str_Char(SK,1) ;
+         WHILE ( (SVL(SK) > 0) AND (POS(C,' |9|255') > 0) ) DO;
+            SK := STR_DEL(SK,1,1);
+            C := Str_Char(SK,1) ;
+         END;
+                                       { Почистим комментарий от хвостовых " "}
+         C := Str_Char(SK,SVL(SK)) ;
+         WHILE ( (SVL(SK) > 0) AND (POS(C,' |9|255') > 0) ) DO;
+            SK := STR_DEL(SK,SVL(SK),1);
+            C := Str_Char(SK,SVL(SK)) ;
+         END;
+      ELSE
+         SK := '';
+      END;
+      I := LENGTH(GET_LINE);           { Длина строки без комментария         }
+                                       { Минимальная длина комментария        }
+      L := LENGTH(SK) + LENGTH(S1) + LENGTH(S2);
+
+      K_COL := 40;                     { Поиск столбца для начала комментария }
+      WHILE (K_COL <= I) DO;
+         K_COL := K_COL+10;
+      END;
+      IF (K_COL > 60 ) OR ((K_COL+L) > 80) THEN  {Не влезает в намеченное поле}
+         PUT_LINE(S0);                 { - восстанавливаем исходную строку    }
+      ELSE
+         GOTO_COL(K_COL);
+         TEXT(S1);
+         IF (K_COL+L < 80)  THEN       { Отступ текста на 1 от скобки,если    }
+            K_COL := K_COL + SVL(S1) +1;         { хватит места               }
+         ELSE                          { Иначе - вплотную к начальной скобке  }
+            K_COL := K_COL + SVL(S1);
+         END;
+         GOTO_COL(K_COL);
+         TEXT(SK);                     { Вставили собственно комментарий      }
+         GOTO_COL(80 - SVL(S2));
+         IF (SVL(S2) > 0 ) THEN        { Вставить закрывающую "скобку" коммент}
+            TEXT(S2);
+         ELSE                          { Для этого языка нет закрывающей      }
+            LEFT;
+            IF (CUR_CHAR = '|0') THEN  { Если есть место в строке,то в хвост  }
+               TEXT('*');              { воткнем *                            }
+            END;
+         END;
+      END;
+      LINE_END := C_LINE - 1;
+      UP;EOL;
+   END;
+
+ END_MACRO:
+   POP_UNDO;                           { Закончить заполнение буфера UNDO     }
+   GOTO_MARK;
+   IF (BLOCK_STAT > 0) THEN
+      REFRESH := 1;
+      NEW_SCREEN;                      { Перевысветить экран                  }
+      END;
+   MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+ END_MACRO;                            { of --- K_COMWW  / ALtW  -----------  }
+
+ { -------------------------------------------------------------------------  }
+$Macro K_WordR;                        { Пропуск слова вправо 30/01/90 14:12  }
+ { -------------------------------------------------------------------------  }
+ { Все символы разделяются на три группы :                                    }
+ {  1 - пробел (и приравненные к нему - |009 - табуляция, |255 - заполнители  }
+ {  2 - ограничители (из WORD_DELIMITS) - хотя группа 1 - тоже ограничители,  }
+ {         но есть разница;                                                   }
+ {  3 - прочие символы, составляющие слово                                    }
+ {  ------------                                                              }
+ { Алгоритм :   ------------------------------------------------------------- }
+ { 1. Если первый символ из группы 1 - то дойти до первого символа не         }
+ {         относящегося к группе 1 - и конец.                                 }
+ { 2. Если первый символ из группы 2 - то дойти до первого символа не         }
+ {         относящегося к группе 2 (или конца строки) - и конец               }
+ { 3. Если первый символ из группы 3 - то дойти до первого символа не         }
+ {         относящегося к группе 3 (или конца строки) - и конец               }
+ { -------------------------------------------------------------------------  }
+	Def_Str(Temp_Line);
+   Def_Char(c);
+ {  ------------ Если еще не сделано,подготовка группы 2 -------------------  }
+      If (LENGTH(Global_Str('K_WORD_DELIMITS')) = 0 ) then
+         Def_Str(Temp_Line1);
+         Def_Int(i,j);
+         i := LENGTH(WORD_DELIMITS);
+         Temp_Line1 := WORD_DELIMITS;
+         Temp_Line  := '';
+         j := 0;
+         while (j < i) Do
+            ++j;
+            if (Xpos(Str_Char(Temp_Line1,j),' |9|255',1) = 0) then
+               Temp_Line := Temp_Line + Str_Char(Temp_Line1,j);
+            end;
+         end;
+         Set_Global_Str('K_WORD_DELIMITS',Temp_Line);
+      else
+         Temp_Line := Global_Str('K_WORD_DELIMITS');
+      end;
+ {  ------------ Общие подготовительные действия ---------------------------  }
+   Push_Undo;
+   if (At_Eof) then
+      Goto Macro_Exit;
+   end;
+   if (At_Eol) then
+      c := ' ';
+   else
+      c := Cur_Char;
+   end;
+ {  ------------ Обработка группы 1 -------------------  }
+   If ( Xpos(c,' |9|255',1) > 0)  Then
+      While ( Xpos(c,' |9|255',1) > 0) Do
+         if (At_Eol) then
+            DOWN;
+            Goto_Col(1);
+         else
+            RIGHT;
+         end;
+         c := Cur_Char;
+      End;
+      Goto Macro_Exit;
+   End;
+ {  ------------ Обработка группы 2 -------------------  }
+   If ( Xpos(c,Temp_Line,1) > 0)  Then
+      While ( ( Xpos(c,Temp_Line,1) > 0) AND NOT(At_Eol) ) Do
+         RIGHT;
+         c := Cur_Char;
+      End;
+      Goto Macro_Exit;
+   End;
+
+ {  ------------ Обработка группы 3 -------------------  }
+   Temp_Line := Temp_Line + ' |9|255' ;
+   While ( ( Xpos(c,Temp_Line,1) = 0) AND NOT(At_Eol) ) Do
+      RIGHT;
+      c := Cur_Char;
+   End;
+
+ Macro_Exit:
+   Pop_Undo;
+ End_Macro;                            { of K_WordR                           }
+
+ { -------------------------------------------------------------------------  }
+$Macro K_WordL;                        { Пропуск слова влево  30/01/90 14:12  }
+ { Все символы разделяются на три группы :                                    }
+ {  1 - пробел (и приравненные к нему - |009 - табуляция, |255 - заполнители  }
+ {  2 - ограничители (из WORD_DELIMITS) - хотя группа 1 - тоже ограничители,  }
+ {         но есть разница;                                                   }
+ {  3 - прочие символы, составляющие слово                                    }
+ {  ------------                                                              }
+ { Алгоритм :   ------------------------------------------------------------- }
+ { 1. Если первый символ из группы 1 - то дойти до первого символа не         }
+ {         относящегося к группе 1 - и конец.                                 }
+ { 2. Если первый символ из группы 2 - то дойти до первого символа не         }
+ {         относящегося к группе 2 (или начала строки) - и конец              }
+ { 3. Если первый символ из группы 3 - то дойти до первого символа не         }
+ {         относящегося к группе 3 (или начала строки) - и конец              }
+ {  ------------                                                              }
+ { - Если не достигнуто начало строки и было всего 1 смещение - один раз влево}
+ { -------------------------------------------------------------------------  }
+	Def_Str(Temp_Line);
+   Def_Char(c);
+   Def_Int(k);
+ {  ------------ Если еще не сделано,подготовка группы 2 -------------------  }
+      If (LENGTH(Global_Str('K_WORD_DELIMITS')) = 0 ) then
+         Def_Str(Temp_Line1);
+         Def_Int(i,j);
+         i := LENGTH(WORD_DELIMITS);
+         Temp_Line1 := WORD_DELIMITS;
+         Temp_Line  := '';
+         j := 0;
+         while (j < i) Do
+            ++j;
+            if (Xpos(Str_Char(Temp_Line1,j),' |9|255',1) = 0) then
+               Temp_Line := Temp_Line + Str_Char(Temp_Line1,j);
+            end;
+         end;
+         Set_Global_Str('K_WORD_DELIMITS',Temp_Line);
+      else
+         Temp_Line := Global_Str('K_WORD_DELIMITS');
+      end;
+ {  ------------ Общие подготовительные действия ---------------------------  }
+   Push_Undo;
+   if ((C_Col =1) AND (C_LINE = 1))then
+      Goto Macro_Exit;
+   end;
+   if (At_Eol) then
+      c := ' ';
+   else
+      c := Cur_Char;
+   end;
+   k := 0;
+ {  ------------ Обработка группы 1 -------------------  }
+   If ( Xpos(c,' |9|255',1) > 0)  Then
+      While ( Xpos(c,' |9|255',1) > 0) Do
+         ++k;
+         LEFT;
+         c := Cur_Char;
+         if (C_COL = 1) then
+            Goto Macro_Exit;
+         end;
+      End;
+      Goto Macro_Exit;
+   End;
+ {  ------------ Обработка группы 2 -------------------  }
+   If ( Xpos(c,Temp_Line,1) > 0)  Then
+      While ( Xpos(c,Temp_Line,1) > 0) Do
+         ++k;
+         LEFT;
+         c := Cur_Char;
+         if (C_COL = 1) then
+            Goto Macro_Exit;
+         end;
+      End;
+      Goto Macro_Exit;
+   End;
+
+ {  ------------ Обработка группы 3 -------------------  }
+   Temp_Line := Temp_Line + ' |9|255' ;
+   While ( Xpos(c,Temp_Line,1) = 0) Do
+      ++k;
+      LEFT;
+      c := Cur_Char;
+      if (C_COL = 1) then
+         Goto Macro_Exit;
+      end;
+   End;
+
+ Macro_Exit:
+   if (C_COL <> 1) then
+      if (k = 1) then
+         LEFT;
+      end;
+   end;
+   Pop_Undo;
+ End_Macro;                            { of K_WordL                           }
+ { -------------------------------------------------------------------------  }

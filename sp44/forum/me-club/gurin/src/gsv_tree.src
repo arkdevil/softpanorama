@@ -1,0 +1,420 @@
+$macro_file gsv_tree;
+
+
+$macro gsv_tree from ALL TRANS;
+{ Выбор каталога по дереву: деревья строится для всех дисков и только для
+  выбранных каталогов. Макрос используется в файловой оболочке и при создании
+  проекта в интегрированной системе программирования, но может быть
+  применен также и для других приложений. Макрос работает в любой моде
+  и выводит на экран дерево дисков и каталогов. Макрос возвращает путь,
+  выбранный по дереву в переменной return_str. Никаких установок в файловой
+  системе не производится. Интерактивная помощь по использованию макроса
+  находится в файле gsv_sup.hlp.
+}
+  def_int(cw,         { текущее окно }
+          cm,         { текущая мода }
+          im,         { текущий режим вставки/замены }
+          rf,         { текущее значение refresh }
+          fsa,        { текущее значение file_search_attr }
+          ic,         { текущий флаг игнорирования регистра }
+          reg,        { текущий флаг регулярных выражений }
+          xt, yt,     { текущие координаты маркера }
+          num_drive,  { число дисков }
+          name_col,   { позиция имени диска/каталога }
+          level,      { позиция каталога верхнего уровня }
+          cnt,
+          i
+         );
+  def_str(name[80],   { имя каталога }
+          fn[12],     { имя файла }
+          ss[12],     { заготовка для быстрого поиска }
+          wd,         { символы ограничители слова }
+          s
+         );
+  rf  := refresh;
+  im  := insert_mode;
+  cm  := mode;
+  cw  := cur_window;
+  ic  := ignore_case;
+  wd  := word_delimits;
+  reg := reg_exp_stat;
+  fsa := file_search_attr;
+
+  ss               := '';
+  name             := '';
+  mode             := EDIT;
+  refresh          := FALSE;
+  insert_mode      := TRUE;
+  ignore_case      := TRUE;
+  reg_exp_stat     := TRUE;
+  word_delimits    := '─';
+  file_search_attr := $10;
+
+  return_str := lower(me_path + 'gsv_tree.grf');
+  if (lower(file_name) <> return_str) then
+    run_macro('gsv_load');            {загрузка файла дерева или его создание}
+    if (error_level <> 0) then
+      make_message('');
+      goto exit1;
+    end; {if}
+    xt := wherex;
+    yt := wherey;
+    save_box(1, 1, screen_width, screen_length);
+  end; {if}
+  working;
+  if (at_eof) then
+    tof;
+  end; {if}
+  make_message('Выбор каталога по дереву');
+  i := (screen_width - ((screen_width / 2) + 10)) / 2;
+  size_window(min_window_col + i, min_window_row,
+              max_window_col - i, max_window_row);
+  window_color_stat := 1;
+  window_attr       := 2;
+  t_color   := m_t_color;
+  c_color   := m_t_color;
+  b_color   := m_b_color;
+  s_color   := m_s_color;
+  h_color   := m_h_color;
+  eof_color := (m_t_color and $F0) or ((m_t_color shr 4) and $F);
+  push_labels;
+  flabel('Удал',   6, 255);
+  flabel('Рекурс', 7, 255);
+  flabel('Ини',    8, 255);
+  if (at_eof) then                    {файл дерева пустой}
+    call new_tree;
+  end;
+
+  while (TRUE) do
+    if (at_eof) then
+      eof;
+    end; {if}
+    block_begin;
+    block_end;
+    eol;
+    word_left;
+    refresh := TRUE;
+    redraw;
+    refresh := FALSE;
+    read_key;
+    if (((key1 = 27) and (key2 =   1))  or    { Esc }
+        ((key1 =  0) and (key2 = 251))) then  { Right Mouse }
+      ss := '';
+      call name_dir;
+      refresh := TRUE;
+      redraw;
+      refresh := FALSE;
+      goto exit;
+    elsif ((key1 = 13) and (key2 =  28)) then { Enter }
+      ss := '';
+      call rebuild_subtree;
+    elsif ((key1 =  9) and (key2 =  15)) then { Tab }
+      ss := '';
+      i := c_line;
+      call next_disk;
+      if (i = c_line) then
+        tof;
+      end; {if}
+    elsif (key1 = 0) then
+      ss := '';
+      if    (key2 =  72) then up;             { Up }
+      elsif (key2 =  80) then down;           { Down }
+      elsif (key2 =  71) then tof;            { Home }
+      elsif (key2 =  79) then eof;            { End }
+      elsif (key2 =  73) then call pred_disk; { PgUp }
+      elsif (key2 =  81) then call next_disk; { PgDown }
+      elsif (key2 = 141) then                 { CtrlUp }
+        if (c_col = 1) then
+          call pred_disk;
+        else
+          goto_col(c_col - 3);
+          up;
+          while ((cur_char <> '├') and (cur_char <> '└') and (c_line > 1)) do
+            up;
+          end; {while}
+        end; {if}
+      elsif (key2 = 145) then                 { CtrlDown }
+        if (c_col = 1) then
+          call next_disk;
+        else
+          goto_col(c_col - 3);
+          down;
+          while ((cur_char <> '├') and (cur_char <> '└') and not(at_eof)) do
+            down;
+          end; {while}
+        end; {if}
+      elsif ((key2 = 83) or (key2 = 64)) then { Del }
+        working;
+        call name_dir;
+        make_message('Рекурсивное удаление поддерева ' + lower(name));
+        call del_subtree;
+      elsif (key2 =  59) then                 { F1 }
+        run_macro('mehelp^mehelp /F=gsv_sup/LK=TREE');
+      elsif (key2 =  65) then                 { F7 }
+        working;
+        call name_dir;
+        call del_subtree;
+        call rec_build_subtree;
+        call name_dir;
+        make_message('Рекурсивное построение поддерева ' + lower(name));
+      elsif (key2 =  66) then                 { F8 }
+        make_message('Инициализация: удаление всех поддеревьев');
+        tof;
+        while (not(at_eof)) do
+          del_line;
+        end; {while}
+        call new_tree;
+      elsif (key2 = 250) then                 { Left Mouse }
+        mou_check_status;
+        if ((mou_last_x > win_x1) and (mou_last_x < win_x2) and
+            (mou_last_y > win_y1) and (mou_last_y < win_y2) and
+            (mou_last_y = wherey)
+           ) then
+          call rebuild_subtree;
+        else
+          run_macro('gsv_mouevent');
+        end; {if}
+      end; {if}
+    elsif ((key1 >= 33) and (key1 <= 126)) then
+      reg_exp_stat := FALSE;
+      ss := ss + char(key1);
+      mark_pos;
+      tof;
+      if (search_fwd('─' + ss, 0) = TRUE) then
+        make_message('Заготовка для быстрого поиска: ' + ss);
+        pop_mark;
+      else
+        make_message('');
+        ss := '';
+        goto_mark;
+      end; {if}
+    end; {if}
+  end; {while}
+
+next_disk: { переход к дереву следующего диска }
+  reg_exp_stat := TRUE;
+  right;
+  if (search_fwd('%[A-Z]', 0) = 0) then left;
+  else                                  goto_col(1);
+  end; {if}
+  ret;
+
+pred_disk: { переход к дереву предыдущего диска }
+  reg_exp_stat := TRUE;
+  left;
+  if (search_bwd('%[A-Z]', 0) = 0) then right;
+  else                                  goto_col(1);
+  end; {if}
+  ret;
+
+rebuild_subtree: { удаление старого поддерева и построение нового }
+  working;
+  call name_dir;
+  make_message('Построение поддерева для ' + lower(name));
+  call del_subtree;
+  call build_subtree;
+  if (return_int = 0) then
+    make_message('Каталог ' + lower(name) + ' не имеет подкаталогов');
+  end; {if}
+  ret;
+
+new_tree: { построение нового списка, содержащего имена дисков }
+  r_ax := $1900;                    {определение числа дисков}
+  intr($21);
+  r_dx := r_ax and $FF;
+  r_ax := $0E00;
+  intr($21);
+  num_drive := r_ax and $FF;
+  if (num_drive > 25) then          {ограничение числа дисков}
+    num_drive := 25;
+  end; {if}
+  i := 0;                           {создание списка дисков}
+  while (i < num_drive) do
+    text(char(i + 65) + ':'); cr;
+    ++i;
+  end; {while}
+  tof;
+  ret;
+
+cont_subtree: { фиксация факта продолжения поддерева, в return_int возвраща-
+                ется TRUE, если текущий подкаталог имеет более низкий уровень,
+                по сравнению с предыдущим. Положение маркера не изменяется.
+                Переменная level задает уровень предыдущего каталога }
+  return_int := TRUE;
+  mark_pos;
+  goto_col(1);
+  if (at_eof) then
+    return_int := FALSE;
+  else
+    while (c_col <= level) do
+      if ((cur_char <> '│') and (cur_char <> ' ')) then
+        return_int := FALSE;
+      end; {if}
+      goto_col(c_col + 3);
+    end; {while}
+  end; {if}
+  goto_mark;
+  ret;
+
+del_subtree: { удаление поддерева, содержащего все подкаталоги текущего
+               каталога. Положение маркера не изменяется }
+  down;
+  if ((cur_char = '├') or (cur_char = '└')) then  {поддерево есть}
+    if (name_col = 1) then
+      while (not(at_eof) and not((cur_char >= 'A') and (cur_char <= 'Z'))) do
+        del_line;
+      end; {while}
+    else
+      level := name_col - 3;
+      call cont_subtree;
+      while (return_int = TRUE) do
+        del_line;
+        call cont_subtree;
+      end; {while}
+      goto_col(name_col);
+    end; {if}
+  end; {if}
+  up;
+  ret;
+
+name_dir: { синтез полного имени текущего каталога. Переменная name получает
+            имя пути, name_col - номер позиции в строке, с которой начинается
+            имя. Позиция маркера не изменяется. }
+  name_col := c_col;
+  name := get_word(''); goto_col(name_col);
+  mark_pos;
+  i := c_col;
+  while (i > 1) do
+    while (c_col >= i) do
+      if (c_line = 1) then goto_col(1);
+      else                 up; eol; word_left;
+      end; {if}
+    end; {while}
+    i := c_col;
+    return_str := name;
+    name := get_word('') + '\' + return_str;
+    goto_col(i);
+  end; {while}
+  goto_mark;
+  ret;
+
+next_build: { вспомогательная функция для построения следующего каталога }
+  call build_subtree;
+  ++cnt;
+  make_message('Каталоги: ' + str(cnt));
+  down;
+  eol;
+  word_left;
+  call name_dir;
+  ret;
+
+rec_build_subtree: { рекурсивное построение поддерева. Позиция маркера не
+                     изменяется. }
+  mark_pos;
+  cnt := 0;
+  if (name_col = 1) then
+    call next_build;
+    while (name_col > 1) do
+      call next_build;
+    end; {while}
+  else
+    level := name_col - 3;
+    return_int := TRUE;
+    while (return_int = TRUE) do
+      call next_build;
+      call cont_subtree;
+    end; {while}
+  end; {if}
+  goto_mark;
+  ret;
+
+build_subtree: { построение поддерева. Позиция маркера не изменяется.
+                 В переменной return_int возвращается TRUE, если каталог
+                 имеет подкаталоги }
+  call find_first_dir;
+  if (return_int = TRUE) then
+    mark_pos;
+    goto_col(1);
+    s := '';
+    while (c_col < name_col) do
+      if ((cur_char = '├') or (cur_char = '│')) then s := s + '│';
+      else                                           s := s + ' ';
+      end; {if}
+      right;
+    end; {while}
+    eol; cr;
+    goto_col(1);
+    text(s + '├──' + fn);
+    call find_next_dir;
+    while (return_int = TRUE) do
+      eol; cr;
+      goto_col(1);
+      text(s + '├──' + fn);
+      call find_next_dir;
+    end; {while}
+    goto_col(name_col);
+    insert_mode := FALSE;
+    text('└');
+    insert_mode := TRUE;
+    goto_mark;
+    return_int := TRUE;
+  end; {if}
+  ret;
+
+find_first_dir: { поиск первого каталога в подкаталоге name. Функция возвра-
+                  щает TRUE при успешном поиске }
+  if (first_file(name + '\*.*') = 0) then
+    if ((last_file_attr and $10) <> 0) then
+      fn := truncate_path(last_file_name);
+      if (str_char(fn, 1) = '.') then call find_next_dir;
+      else                            return_int := TRUE;
+      end; {if}
+    else
+      call find_next_dir;
+    end; {if}
+  else
+    return_int := FALSE;
+  end; {if}
+  ret;
+
+find_next_dir: { поиск следующего каталога в подкаталоге name. Функция возвра-
+                 щает TRUE при успешном поиске }
+  def_int(flag_next);
+  flag_next := TRUE;
+  while (flag_next) do
+    if (next_file = 0) then
+      if ((last_file_attr and $10) <> 0) then
+        fn := truncate_path(last_file_name);
+        if (str_char(fn, 1) <> '.') then
+          return_int := TRUE;
+          flag_next  := FALSE;
+        end; {if}
+      end; {if}
+    else
+      return_int := FALSE;
+      flag_next  := FALSE;
+    end; {if}
+  end; {while}
+  ret;
+
+exit:
+  pop_labels;
+  if (cw <> cur_window) then
+    window_attr := 1;
+    switch_window(cw);
+    kill_box;
+    gotoxy(xt, yt);
+  else
+    window_attr := 0;
+  end; {if}
+exit1:
+  mode             := cm;
+  return_str       := name;
+  insert_mode      := im;
+  ignore_case      := ic;
+  reg_exp_stat     := reg;
+  word_delimits    := wd;
+  file_search_attr := fsa;
+  update_status_line;
+  refresh := rf;
+end_macro; { gsv_tree }

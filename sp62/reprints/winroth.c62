@@ -1,0 +1,933 @@
+                                                        Winroth, Harald
+                                                        Rendahl, Matti
+
+                            Exception handling in C
+
+
+Abstract:  Exceptions are abnormal conditions that the main body of code
+           is not designed to handle; exception handling lets control be
+           transferred to an alternative routine when exceptions are
+           detected without relying on conditional statements.  A set of
+           macros is presented that supports exception handling in
+           ANSI/ISO C; it can be used in programs without any special
+           preprocessing required.  A uniform block-oriented syntax can
+           be used to define, throw, and catch exceptions, and top-level
+           handlers can be used to find exceptions that would not be
+           caught otherwise.  A callback facility is provided that can
+           restore user-defined data structures when exceptions are
+           thrown.  Exception handling, identifying exceptions, exception
+           domains, 'return' statements, unwind-protect, exception
+           handlers, exception types, callbacks, and implementation
+           details are described; an example application is listed.
+
+
+Introduction
+
+An exception is an abnormal condition which the main body of the code has
+not been designed to handle.  Exception handling is a technique that
+allows control to be transferred to an alternative routine when an
+exception is detected, without cluttering the code with a lot of
+conditional statements.
+
+This article presents a set of macros which supports exception handling
+in ANSI/ISO C. Programs using these macros need no special
+pre-processing; the Standard C pre-processor pass will suffice.
+
+Exceptions can be defined, thrown, and caught with a uniform
+block-oriented syntax.  Top-level handlers can be installed for
+exceptions that would otherwise not be caught.  The package also includes
+a callback facility which can restore userdefined data structures when
+exceptions are thrown.
+
+Exception Handling
+
+There are several ways in which anomalous conditions, such as run-time
+errors, can be handled in C programs.  For some programs it might be
+sufficient to prim a message and then exit:
+
+if (idx >= length) {
+
+fprintf(stderr, "Out of range! ");
+
+exit(1);
+
+}
+
+However, in all but the simplest programs, error conditions have to be
+handled more gracefully.  In general, programs must be able to recover at
+least from all errors made by users (bad input data, invalid commands,
+etc.). Even for fatal errors some cleaning up may be necessary, such as
+removing temporary files, clearing semaphores or releasing other system
+resources.  A common approach is to have all functions return a special
+value when they fail.  For functions returning pointers, the zero pointer
+usually plays this role (malloc and fopen are two examples).  Other
+functions may return an integer status code (for example rename).  It is
+the responsibility of the caller to check the returned value and to take
+appropriate action, e.g., to pass the error status on to the next level:
+
+if ((ptr = malloc(size)) == NULL)
+
+return 1;
+
+if ((f= lopen(name, "r")) == NULL)
+
+return 2;
+
+return 0;/* OK */
+
+As you can see from this example, code relying on return values for error
+checking will be swamped with if and return statements which obscure the
+normal flow of control.  Furthermore, it is easy to forget a check, which
+can result in bugs that are very hard to pin down.  In the following
+example the fopen call will truncate the file if rename fails:
+
+rename (name, another_name);
+
+f = lopen(name, "w");
+
+The number of possible return values also tends to increase as more
+detailed information about the errors is required by the client programs.
+ It is not easy to keep the usage of status values consistent between
+different modules in a large system.
+
+A radically different approach to the problem is a technique called
+exception handling.  An exception is an unusual condition which is not
+handled explicitly in the code executed during normal operation.
+Instead, the control will jump to an alternative block of code if an
+exception is detected.  Often, the exception is an error condition, but
+it can also represent some other type of event.
+
+In C, exception handling can be implemented with the setjmp/longjmp
+facility. However, direct calls to these functions make the code
+unnecessarily hard to read.  In addition, it will be very difficult to
+make error handling routines in different modules cooperate unless they
+adhere to some conventions for using setjmp/longjmp.  One solution is to
+encapsulate these calls in macros with clear syntax and well-defined
+semantics.
+
+In the system described here, code segments where exceptions might occur
+are encapsulated in try-blocks.  If an exception is detected in such a
+block, we may throw an exception by executing a throw statement.  The
+control will then be transferred immediately to an alternative piece of
+code, called the unwindblock, which has been associated with the
+try-block in a TRY macro call:
+
+TRY (try-block, unwind-block);
+
+Exceptions can be thrown in a tryblock with the THROW macro.  The point
+of execution where an exception is thrown is called the throw-point:
+
+TRY(
+
+{
+
+/* Try something */
+
+if (failure)
+
+THROW(exc);/* throw-point */
+
+/* On success, continue here */
+
+1,
+
+{
+
+/* On failure, continue here */
+
+}
+
+);
+
+The exception is here represented by a variable -- or to be more precise,
+by the address of a variable.  In the previous example it is exc, which
+is assumed to have been defined elsewhere.
+
+The unwind-block is usually concerned with cleaning up after the attempt
+to do something failed.  Program execution may continue afterwards if it
+is safe to do so.  However, there is no way of resuming execution at the
+throwpoint once the exception has been thrown.  An example of such
+cleanup code is shown in Listing 1.  Ten blocks of memory are allocated.
+If any allocation operation fails, all previously allocated blocks are
+freed.  Usually, the program will exit at the end of the unwindblock.
+However, a continue statement in the unwind-block will allow execution to
+continue after the TRY macro:
+
+TRY(
+
+I
+
+...
+
+  THROW(out of memory);
+
+),
+
+(
+
+...
+
+continue,
+
+)),
+
+/* Continue here after cleanup */
+
+Try-blocks may of course be nested, as shown in Listing 2.  Suppose that
+the scanf call fails in the inner try-block.  The control will then be
+transferred to the inner unwind-block.  If that block contains a continue
+statement, execution will be resumed at the printf call.  However, if the
+end of the inner unwind-block is reached, control will be transferred to
+the outer unwind-block, i.e.  the one belonging to the enclosing TRY
+macro.  In general, this "stack unwinding'' will proceed until the end of
+the top-level unwind-block has been reached or a continue has been found.
+
+The code in Listing 2 is an example of statically nested try-blocks.
+Functions containing try statements may also be called from a try-block,
+which results in dynamically nested try-blocks.
+
+Identifying Exceptions
+
+Usually, an unwind-block will allow execution to continue only if a
+specific exception has been thrown, and pass all other exceptions to the
+unwind-block of the enclosing TRY (if any).  This can be specified with a
+CATCH macro, by which an exception is associated with a statement called
+the catch-form:
+
+CATCH (exception, catch-form);
+
+If an exception is caught by a CATCH clause, the exception is considered
+to be completely processed at the end of the catch-form, and execution
+will continue after the TRY macro containing it.
+
+TRY(
+
+(
+
+p = malloc(1024);
+
+if (p == NULL)
+
+THROW(out of memory);
+
+},
+
+{
+
+CATCH(out of memory,
+
+I
+
+/* Handle memory allocation
+
+fail ures here */
+
+));
+
+});
+
+Hence, a CATCH contains a hidden continue.  Often, several catches for
+different exceptions are specified in a single unwind-block.  Each
+exception specification will be compared to the exception thrown, and the
+catch-form associated with the first matching CATCH will be executed:
+
+TRY(
+
+{
+
+/* try-block */
+
+},
+
+I
+
+CATCH (out of memory, { ... } );
+CATCH(read_error,   { ... });
+CATCH(write_error,  { ... });
+
+});
+
+If none of the listed exceptions match, execution will continue in the
+current unwind-block after the CATCH statements, and if no continue
+statement is found there, control will be transferred to the unwind-block
+of the closest surrounding TRY.
+
+The application code must obviously be able to distinguish between
+different exceptions, and in this system addresses of variables are used
+for that purpose.  The main advantage is that a user can easily define
+his own exceptions just by creating new local or global variables.  The
+linker guarantees that all (simultaneously existing) exception variables
+are assigned unique addresses in the program.
+
+Any type of exception variable can be used for identifying exceptions.
+Actually, any Ivalue with an address will do.  Since the THROb/and CATCH
+macros only care about addresses, the space occupied by an exception
+variable can be used for transferring information from the throw-point to
+the unwind-block.  The variable will typically contain a status code
+(integer) or an error message (string), which has been set before the
+throw.  Exception Domains
+
+Exception variables may also be structures, which makes it possible to
+group exceptions into domains.  For a library foo, an io domain with
+exceptions read_failed and write_failed and a memory domain containing
+exceptions out_of_memory a n d already_free could be defined in the
+following way:
+
+    struct {      struct {     i nt read failed;       _
+  int write failed;       _
+ } io;  struct (   int out of memory;       int already_free;     }
+memory; } foo;
+
+Dot notation can then be used for catching individual exceptions as well
+as whole domains:
+
+TRY(
+
+{
+
+ p = malloc (256);  if (!p)   TH ROW ( foo. memo ry.      out of memory);
+
+f(P);
+
+},
+
+{
+
+CATCH(foo.io, {... });
+CATCH(foo,   { ... });
+
+}
+
+);
+
+The first CATCH will handle all of foo's I/O exceptions, while the second
+one will handle the rest of foo's exceptions.  Actually, the exception
+domain argument of the CATCH macro will match any exception whose address
+is greater or equal to the domain address, but less than the domain
+address plus the domain size.
+
+Private and Public Exceptions
+
+An exception will be exported if the corresponding variable is declared
+extern in a header file.  On the other hand, if the variable is declared
+static, the linker will not see it and the exception cannot be thrown or
+caught outside the file defining it.  A local exception variable is of
+course private to the scope in which it exists.
+
+Return Statements
+
+The exception system is implemented as a linked list of context records,
+each containing data specific to a TRY macro call (such as the current
+stack pointer).  This list must be updated whenever a new TRY scope is
+entered or exited.  Therefore, the use of return statements in try-blocks
+is somewhat troublesome.  Consider the following code:
+
+    void f(void)
+
+{
+
+ TRY(  {  return 90;  },  {  unwind();  });
+
+}
+
+Here, g() should be evaluated in the scope of the TRY in function f, so
+that unwind is called if g throws an exception.  Unfortunately, it is not
+possible to redefine return so that it first evaluates g (), then resets
+the linked list of context records, and finally returns the value of g
+(), since g can have any return type, including void.  A typeof operator,
+which is available in GNU's C compiler [1, 2], would have allowed return
+to be redefined by a macro, expanding to something like:
+
+      typeof(9()) trap = g();
+/* Reset TRY scope by updating  * linked list of context records  */
+return tmp;   However, since typeof is not part of ANSI C, this idea was
+abandoned. Nevertheless, it is possible to define a macro tryreturn which
+can return an addressable lvalue, but not a general
+
+expression:
+
+TRY(
+
+{
+
+char *s= malloc (256); if (!s) THROW(out of memory); tryreturn (s);
+
+},
+
+{
+
+/* unwind-block */
+
+}
+
+   );
+TX:If the lvalue argument involves an expression, such as idx() in
+tryreturn(array[idx()]), that expression will be evaluated in the scope
+of the current TRY.  Despite its limitation to lvalues, tryreturn is very
+useful for returning values of variables that are local to the try-block,
+such as s in the example above, and global coast variables.  All other
+return statements in try-blocks are invalid and generate run-time error
+messages.
+
+Note that a try return allows execution to continue after the call to the
+function containing the TRY and is therefore an implicit continue
+statement.  break and continue
+
+As mentioned above, a continue statement can be used in unwind-blocks to
+force program execution to resume after the TRY macro.  Although there is
+an implicit continue at the end of each CATCH macro, continue can also be
+used explicitly in a CATCH to leave it prematurely.  The continue
+statement has the same meaning in try-blocks -- execution will continue
+immediately after the TRY macro.
+
+Sometimes it is convenient to catch some exception, process it, and then
+execute a more general unwind-code.  The break statement can be used in
+CATCH statements for that purpose.  In the following example, the
+allocated buffer will be released for all exceptions thrown.
+
+    void *volatile but = NULL;
+
+TRY(
+
+{
+
+if ((but = malloc(256)) == NULL)
+    THROW(out of memory);     if (fscanf(stdin, "%d %255s",
+            &i, buT) != 2)
+    THROW(illegal_syntax);
+
+},
+
+{
+
+    CATCH (illegal_syntax,     {
+  fprintf(stderr, "Syntax err! ");         break;
+ });    if (buf) free(buf);
+
+});
+
+Unwind-Protect
+
+In Common Lisp [3] there is a special form called unwind-protect, which
+is similar to the TRY macro.  The main difference is that instead of the
+unwindblock, which is executed only when an exception is thrown, it has a
+cleanupblock which is always executed after the try-block.  That is
+convenient when the same cleanup must be performed after failures and
+successful operations.  The exception library provides a similar macro,
+
+UNWIND_PROTECT (protected-block,
+
+cleanup-block);
+
+which associates protected-block with cleanup-block.  Suppose that a file
+needs to be closed after a read operation, even if the read operation
+fails.  Listing 3 shows how this can be coded.  If a cIeanup-block is
+executed because an exception was thrown in the protected block, the
+control will subsequently be transferred to the unwindblock or
+cleanup-block of the surrounding TRY or UNWIND_PROTECT (if any).
+Otherwise, normal execution will resume after the current UNWIND_PROTECT.
+ Actually, the UNWIND_PROTECT macro expands to the following TRY macro
+call:
+
+{
+
+ static int_unwind_prot;    TRY(  {  protected_block;  THROW (_unwi
+nd_prot);  },  {  cleanup_block;  CATCH(_unwind_prot, ; );  });
+
+}
+
+Exception Handlers
+
+A handler can be installed for an exception or exception domain with an
+EXC_INSTALL_HANDLER macro call:
+
+int h(void *e, void *e_type,
+
+void *data);
+
+EXC_INSTALL_HANDLER (dom, h, data);
+
+The specified handler will be called if an exception from the dom domain
+is thrown beyond the top-level TRK.  A handler differs from the
+unwind-block of a TRY macro in two respects.  First, an unwind-block will
+not be executed unless the corresponding try-block has previously been
+entered.  In contrast, a handler is completely independent of the nesting
+of blocks and function calls.  Second, once a handler has been called,
+the termination of the program is imminent, since handlers are called
+only for exceptions from which the program cannot recover, i.e.  for
+which there is no catch.
+
+When a handier is called, the e parameter will contain the actual excepto
+the domain specified as the first argument of EXC_INSTALL_HANDLER.  The
+data parameter will contain the void pointer given as the third argument
+of EXC_INSTALL_HANDLER.  The pointer value is private to the handier and
+will not be interpreted by the exception system.  The e_type parameter
+specifies the exception variable type, which will be discussed below.
+
+If several handlers are installed, the latest installed one (with a
+matching domain tag) will be called first.  If the handler ends with
+return, the exception is assumed to be completely processed, and the
+exception system will call exit with the status value returned from the
+handier.  In contrast, if a handler executes THROW, the next handier
+(i.e., a handier installed before the current one) will be called if its
+domain tag matches the pending exception.  Thus, handlers are always
+called in reverse installation order.  A handler can also be installed
+with the special domain symbol exc_any, which will match any exception.
+
+When should handlers be installed? Suppose that a library defines and
+throws some exceptions, and that all its exception variables are strings
+containing error messages created at the throw-point.  Such a library
+would typically install (in its initialization function) a handler to
+print out these messages.
+
+Exception Types
+
+Since the exception system handles exceptions through void pointers, the
+actual type of the exception variable thrown will not be known by the
+compiler in catch-forms and handlers.  However, the type is often
+implicit in the code.  For example, if all exceptions in a domain D have
+the same type T and a handler has been installed for D, it is safe to
+cast the exception variable address T* in that handler.
+
+Still, there are situations where the type is completely unknown, for
+example when a handler installed for exc_any is called.  In such cases,
+it can be useful to associate the exception variable with a type tag at
+the throw-point with THROW_TYPED.  This macro works like THROW but takes
+an extra type variable.  Actually, exception types are also identified by
+variable addresses, just like the exceptions whose types they represent:
+
+int my_type;
+
+MyData err;
+
+THROW TYPED (err, my_type);
+
+Most of the macros described above can also be applied to exception
+types.  In particular, exception types can be grouped into domains, and
+tested with the EXC_IN_DOMAIN macro in exception handlers:
+
+if (EXC IN DOMAIN(e_type, my_type))
+
+(
+
+MyData my_data = *(MyData *) e;
+
+Callbacks
+
+In this system, callbacks are user-defined functions that can be called
+when try-blocks are entered or exited, or when exceptions are thrown.
+The callback facility enables libraries and application programs to save
+and restore private context information in the same way that TRY saves
+and restores the stack environment.  For example, a callback can release
+memory blocks or other system resources that have been allocated since
+the last TRY was entered.  Callback functions are declared and installed
+in the following way:
+
+void cb(excCallbackTag tag, void *cb_data,
+
+void **try_data);
+
+exc_install_callback(tags, cb, cb_data);
+
+The tags argument of exc_install_callback is a mask which can be any
+combination of the following bits:
+
+* excBeginCallback.  The callback function will be invoked whenever a new
+TRY is entered.
+
+* excEndCallback.  The callback will be called if the try-block completes
+normally, i.e., not with a throw.
+
+* excThrow/Callback.  The callback will be called if an exception is
+thrown.  The call is made at the throw-point, before the stack has been
+unwound.
+
+* excRecoverCallback.  The callback is invoked when the program has
+recovered from an exception.
+
+The actual reason for the call will be specified by the tag parameter of
+the callback function (only one of its bits will be set).  If several
+callbacks have been installed, they will be called in installation order
+lot excBeginCallback and excRecoverCallback calls, and in reverse order
+for excEndCallback and excThrowCallback calls.
+
+cb data is a void pointer associated with the callback function.  The
+pointer is specified when the callback is installed and is not altered or
+interpreted by the exception system.  The try_data parameter specifies
+the address of a void pointer variable, which is automatically allocated
+by the exception library for each callback whenever a new try-block is
+entered.  The contents of this void pointer is private to the callback
+and can be used for any purpose.  It is usually set in the callback
+function when tag is excBeginCallback and read when tag is excEndCal
+Zback or excThrowCallback.  (However, try_data will be a null pointer in
+excEndCallback and excThrowCallback calls if the callback function was
+not installed when the corresponding TRY was entered.)
+
+As an example, suppose that an application maintains a stack of objects
+unavailable for garbage collection (i.e., "live" objects).  During normal
+program execution, every push can be balanced by a corresponding pop.
+However, when exceptions are thrown, the stack pointer must be reset.
+This can be achieved with the callback shown in Listing 4.
+
+Implementation Details
+
+The exception system is based on the standard setjmp/longjmp library
+functions.  Basically, setjmp saves the current context (the stack
+pointer and some other processor registers) in a jump buffer and returns
+zero.  A subsequent call to longjmp with the jump buffer as an argument
+restores the context and setdrop returns again, this time with a non-zero
+value.
+
+Each TRY macro allocates a new static jump buffer, appends it to a global
+linked list, and calls setjmp.  The THROW macro calls longjmp with the
+last jump buffer in the list.  The tion library also keeps track of the
+try scope to which control must be transferred if a tryreturn is
+executed.  Consider the code shown in Listing 5.  The tryreturn in
+try-block 3 causes g to return, so the TRY scope must be reset two
+levels, back to try-block 1 in function f, and all installed callbacks
+must be called for the intermediate level (with the tag parameter equal
+to excEndCallback).
+
+Because of the special control flow associated with setjmp/longjmp, it
+may be necessary to protect local variables from being clobbered.  The
+volatile keyword can be used for that purpose:
+
+char *next_command()
+
+{
+
+char *volatile bur = NULL;
+
+TRY (
+
+{
+
+bur = mal 1oc(256);
+
+read_command(bur, 255);
+
+},
+
+{
+
+free(bur);
+
+}),
+
+return bur;
+
+}
+
+Here it is assumed that read_commond throws exceptions if bur is NULL or
+if the user's input is longer than 255 characters.  Note that it is the
+local variable bur that should be declared volartile, not the space it
+points to.
+
+An Application
+
+As a simple example of how this exception system can be used, consider
+the variable definition in Listing 6, where each exception in a domain
+foo has been associated with an error message.  These primitive
+exceptions have been grouped into subdomains to, memo, etc.  An exception
+from the foo domain, e.g.  to.  open, can be thrown with
+
+THROW (foo.io.open);
+
+Unless there is a CATCH for this exception, the program will terminate
+after printing the following message: exception: exception not caught and
+no handler to call
+
+Of course, in this case we want the associated error message to be
+printed, and therefore an exception handler should be installed for the
+foo domain:
+
+int h(void *e, void *t, void *d)
+
+{
+
+fprintf(stderr, "foo: %5\n", ((Err*)e) ->str);
+
+return 1;/* exit code */
+
+}
+
+EXC_INSTALL_HANDLER(foo, h, NULL);
+
+Now the previous THROW statement will result in the message:
+
+foo: cannot open file
+
+Note that the handler was installed for the fop domain only.  However,
+the same handler can be used for all exceptions of type Err if a type tag
+is associated with such exceptions at the throw-point:
+
+int err_type;/* represents Err */
+
+THROW_TYPED(foo.  i o .open, err_type);
+
+The handler now has to verify that the pending exception belongs to a
+type it is familiar with.  All other exceptions should be re-thrown so
+that they can be processed by the next handler:
+
+int h2(void *e, void *t, void *d)
+
+{
+
+if (!EXC_IN_DOMAIN(t, err_type))
+
+exc_throw(e);
+
+fprintf(stderr, "foo: %s\n", ((Err*)e) ->str);
+
+return 1;/* exit code */
+
+}
+
+EXC_INSTALL_HANDLER(exc_any, h2, NULL);
+
+(The exc_throw function above is similar to THROW, but it throws the
+specified exception address and not the address of the formal parameter
+e.)
+
+Now suppose a user wants to add support for internationalization.
+Provided that a suitable message database has been set up (e.g., the
+X/Open Portability Guide or the gettext (X/Open) and setlocale manual
+pages), the previous handler can be modified:
+
+int h3(void *e, void *t, void *d)
+
+{
+
+if (!EXC_IN_DOMAIN(t, err_type))
+
+exc_throw(e),
+
+fprintf(stderr, "foo: %s\n", gettext( ((Err*)e) ->str) );
+
+return 1; /* exit code */
+
+}
+
+EXC_INSTALL_HANDLER(exc_any, h3, NULL);
+
+The only change is the gettext call which returns the translation of the
+error message.  By installing this handler, the user can override the
+previous one.
+
+As this example shows, there are two advantages to using exceptions
+instead of raw fprintf and exit calls.  First, the behavior of the
+handier can easily be changed, for example to print an alternative text
+or to use a pop-up window.  Second, if the exception is caught by the
+program and processed internally, nothing will be printed.  This greatly
+simplifies the integration of subroutines into larger software systems.
+
+Source Code Availability
+
+The macros implementing this exception system can be fetched with
+anonymous ftp from ftp.bion.kth.se (see the file ./cvap/2.0/README for
+details).  The package also contains routines for formatting error
+messages and some support for signal handling.  The software can be used
+and redistributed freely under the terms of the GNU Library General
+Public License.
+
+Bibliography
+
+[1] R.M.  Stallman, "Using and Potting GNU CC," Free Software Foundation
+Inc., 1990.
+
+[2] R.M.  Stallman, "The C Preprocessor," Free Software Foundation Inc.,
+1990.
+
+[3] G.L.  Steele, Commom Lisp: The Language, 2nd ed, Digital Press, 1990.
+
+  Listing 1   char *volatile p[10]; volatile int i=0; int out of memory;
+
+TRY(
+
+{
+
+while (i<10)   {  p[i] = malloc(1024);  if (p[i] == NULL)
+    THROW(out_of_memory),
+
+i++;
+
+}
+
+),
+
+(
+
+while (i-- > 0) free(p[i]);
+
+}
+
+),
+
+  /* End of File */     Listing 2
+
+TRY(
+
+{
+
+ char *buf = malloc(256);    i f (bur == NULL)
+      THROW(out of memory);    TRY(  ( if (scanf("%255s", bur) != 1)
+     THROW(fai led to .read_stri ng);
+
+},
+
+{
+
+/* Inner unwind-block */
+
+)
+
+);
+
+pri ntf("%s\n",  bur);
+
+free(bur);
+
+},
+
+(
+
+/* Outer unwind-block */
+
+}
+
+);
+
+  /* End of File */     Listing 3   FILE *volatile file = NULL; static
+int no such file; static int read_failed;
+
+UNWIND_PROTECT(
+
+{
+
+int i;   file  =  fopen("data",  "r");
+if (file == NULL)     THROW(no_such_fi le); if  (fscanf(file,  "%d",  &i)
+   !=  1)
+    THROW(read_failed); printf("%d\n'',  i);
+
+},
+
+{
+
+if (file)     fclose(file);
+
+});
+
+  /* End of File */     Listing 4   void *stack[STACK_SIZE]; void **sp =
+stack; void gc_cb(excCallbackTag tag,              void *cb data,
+             void **try_data)
+
+{
+
+   switch (tag) {    case excBeginCallback:    *try_data = sp;
+   break;    case excEndCallback:    case excThrowCallback:    if
+(try_data) sp =
+        (void **} *try_data;
+   else sp = stack;    break;    default:    break;   }
+
+}
+
+    exc_install_callback(excBeginCallback   | excEndCallback   |
+excThrowCallback, gc_cb, NULL);   /* End of File */       Listing 5
+void f(void)
+
+i
+
+TRY(
+
+{
+
+/* try-block  1 */
+i ' g();
+
+},
+
+{
+
+/* unwind-block 1 */
+
+}
+
+};
+
+}
+
+  int g(void)
+
+(
+
+TRY (
+
+{
+
+/* try-block 2 */ TRY (
+
+{
+
+    /* try-block 3 */
+    int j = 17;
+    tryreturn(j);
+
+},
+
+i
+
+    /* unwind-block 3 */
+
+}
+
+    );
+
+},
+
+{
+
+/* unwind-block 2 */
+
+}
+
+    );
+
+}
+
+  /* End of File */     Listing 6       typedef struct {      char *str;
+} Err;     struct {   struct {   Err open;   Err close;   Err write;
+struct {   Err end of file;      Err system;  } read;  } io;  struct {
+Err no_memory;  Err already_free;  } memo;  Err syntax;   } foo = {
+  {   {"cannot open file"},   {"cannot close file"},   {"cannot write to
+file"},   (   {"end of file"},
+  {"system read failure")
+
+}
+
+  },
+
+{
+
+{"not enough memory"}, ("block already free"}
+
+},
+
+ { "synt ax  error" }
+
+);
+
+  /* End of File */
+
+Harald Winroth received the M.S.  degree in electrical engineering from
+the Royal Institute of Technology in Stockholm, Sweden, in 1986.  He is
+currently a Ph.D.  student in Computational Vision at the institute.
+
+Malti Rendahl has a B.A.  degree in economy from the University of
+Stockholm. He is currently a senior research engineer at the Royal
+Institute of Technology, Stockholm, and is also active at the
+SUNET/NORDUnet operation center.
+
+E-mail: harald@bion.kth.se
+
+             Journal:    C Users Journal  Oct 1993 v11 n10 p33(10)
+             * Full Text COPYRIGHT R & D Publications Inc. 1993.

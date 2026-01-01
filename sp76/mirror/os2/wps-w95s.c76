@@ -1,0 +1,241 @@
+Newsgroups: comp.os.os2.advocacy,comp.os.ms-windows.advocacy
+Subject: The Truth About WPS and the Win95 Shell
+From: brian@cons.cs.utah.edu (Brian Sturgill)
+Date: 22 Apr 1995 20:53:38 GMT
+Organization: University of Utah Computer Science Department
+
+For the past week I've been examining the differences between OS/2's
+WorkPlace Shell and Windows 95's Shell.  Generally speaking they
+provide the same functionality. They both are object-oriented,
+provide drag and drop support, and have template (new object) support.
+
+A common mis-conception in the OS/2 advocacy group is that the
+Windows 95 shell is not object oriented.  This is simply untrue,
+the Windows 95 objects are based on a subset of COM, the underlying
+object model of OLE 2.0; just as OS/2 WPS uses SOM, the underlying
+object model of the not yet released OpenDoc.
+
+Really the only OO-capability in WPS that is not in the Win95 Shell
+is in the area of "Control Panels".  Windows 95 still uses
+the older DLL approach used in Windows 3.X and Windows NT.  However,
+the use of heavyweight SOM objects for such a trivial task is
+questionable at best.  If someone can make a good case why
+having "Control Panels" as SOM objects is a good idea, I'd be
+interested.
+
+There are some minor differences between the two shells' capabilities.
+OS/2 WPS:
+	Has better link/shadow tracking.
+
+	With Warp, a task/object launch bar facility was added.  
+
+	Not really a feature of WPS, but supported by WPS, is the
+	ability to set font and color preferences via drag and drop.
+	(Applications must specificially support this feature.)
+
+	Work Area Folders (ability to open/close/minimize a group
+	of applications).
+
+Windows 95:
+	A Start Menu that acts as a tree-like task/object launcher.
+
+	A task bar that provides a quick to use task list.
+	
+	A status bar (on the task bar) that provides a standard
+	means of monitoring status of various system activities.
+
+	Has a more sophisticated and easier to use "Drives Folder".
+
+	A "briefcase" to support the syncing of files between the
+	a portable and office computer.
+
+	File viewers.
+
+	Quick previewers for fast file browsing. (Similar to the
+	"thumbnail" viewers used in many image manipulation programs.)
+
+
+In the end, the major difference between the two shells is
+the difference between the two object models: COM and SOM.
+
+Here, the WPS loses badly.  SOM might have some benefits over
+COM for some applications (though I can't think of one off hand,
+if you know of a real-world example, I'd be interested), but
+for an application like the WPS, it is quite inappropriate.
+
+Did you ever wonder why template and drive folders under OS/2 are
+so slow?  Well, the answer is SOM.
+
+Consider what happens if you open a folder under WorkPlace Shell
+containing a single REXX script:
+
+	The WPS, needs to ask for the Icon associated with the
+	REXX script, so it opens the object:
+
+	A SOMObject is allocated and created.
+	A WPObject is allocated and created.
+	The X methods of SOMObject are searched to find the
+	vtable entries for:
+		somUnInit
+		somInitClass
+		somNew
+		somRenew
+	When found the vtable entries are overridden.
+	A WPFileSystem object is allocated and created.
+	The X methods of WPObject are searched to find the
+	vtable entries for:
+		wpAddSettingsPages
+		wpCopyObject
+		wpCreateFromTemplate
+		wpDoesObjectMatch
+		wpDraggedOverObject
+		wpDroppedOnObject
+		wpFilterPopupMenu
+		wpFormatDragItem
+		wpMenuItemSelected
+		wpModifyPopupMenu
+		wpMenuObject
+		wpOpen
+		wpQueryDetailsData
+		wpQueryHandle
+		wpQueryIconData
+		wpQueryStyle
+		wpRestoreState
+		wpSaveImmediate
+		wpSaveState
+		wpSetIconData
+		wpSetStyle
+		wpSetTitle
+		wpSwitchTo
+		wpUnInitData
+		wpViewObject
+	When found the vtable entries are overridden.
+	A WPDataFile object is allocated and created.
+	The X methods of WPObject are searched to find the
+	vtable entries for:
+		wpAddSettingsPages
+		wpDragOver
+		wpFormatDragItem
+		wpInitData
+		wpMenuItemHelpSelected
+		wpMenuItemSelected
+		wpModifyPopupMenu
+		wpOpen
+		wpPrintObject
+		wpQueryDefaultHelp
+		wpRestoreState
+		wpSaveState
+		wpSetDefaultView
+		wpUnInitData
+	When found the vtable entries are overridden.
+	The X methods of WPFileSystem are searched to find the
+	vtable entries for:
+		wpSetRealName
+		wpSetType
+	When found the vtable entries are overridden.
+	A WPProgramFile object is allocated and created.
+	The X methods of WPObject are searched to find the
+	vtable entries for:
+		wpAddSettingsPages
+		wpCopyObject
+		wpDragOver
+		wpDrop
+		wpFilterPopupMenu
+		wpInitData
+		wpMenuItemHelpSelected
+		wpMenuItemSelected
+		wpModifyPopupMenu
+		wpMoveObject
+		wpOpen
+		wpRestoreState
+		wpSaveState
+		wpSetup
+	When found the vtable entries are overridden.
+	The X methods of WPDataFile are searched to find the
+	vtable entries for:
+		wpSetAssociatedFileIcon
+	When found the vtable entries are overridden.
+	A WPCommandFile object is allocated and created.
+	The X methods of WPObject are searched to find the
+	vtable entries for:
+		wpPrintObject
+	When found the vtable entries are overridden.
+	Each of the 6 objects above are _ENTIRELY_ initialized.
+	The icon loading method is called via the vtable.
+
+If the above doesn't look like enough work, it appears
+that the method overrides search is done by name!
+(The book Objects for OS/2 doesn't make this completely clear.)
+
+Until I looked into the WPS this time, I didn't realize just
+how smart Microsoft was in their design of COM.  One
+of the really nifty things about COM is that an object
+can have multiple interfaces.  While I had seen the value
+this has for supporting backwards compatibility, I had
+not yet realized the efficiency factor.  Essentially, the
+allowance for multiple interfaces means that if you're just
+going to use a piece of an object, then you only need to
+initialize that piece.
+
+The folder needing to look up the icon is a classic example
+showing the power of COM:
+
+	
+	The Windows 95 UI, needs to ask for the Icon associated with a
+	REXX script, so it opens the IExtractIcon interface (three
+	methods) provided by the REXX ISV in a shell extension
+	object.
+
+	The IExtractIcon interface is allocated and created.
+
+	It inializes _ONLY_ that portion of the object needed for that
+	interface!
+
+	The icon loading method is called via the vtable.
+
+Now imagine if you have a folder with 100 command files!
+Which shell do you think runs faster?
+
+The WPS falls down badly here.  It's possible that SOM, with
+it's heavy weight facilities, has some reasonable use (though I
+can't really see one), but using it to implement the WorkPlace Shell
+was yet another Not Too Bright* IBM idea.
+
+
+*"Not Too Bright" ought to be a trademark of International Business
+Machines Corporation.
+
+It is clear to me that the SOM features in WPS are not useful
+to most users, and I'm beginning to wonder if there really is any good
+features in OS/2 at all!
+
+For example, I've seen numerous OS/2 fans talk about the wonders
+of REXX integration with the WPS... but when I check, I find really
+the only "integration" is that REXX can create WPS objects (useful
+for when OS/2 hoses your configuration) and that a REXX script when
+"dropped" on gets a list of file names.
+
+Is there anyone out there doing real-world stuff with this?
+
+
+Likewise, OS/2 advocates go on and on and on about how great
+it is that you can inherit from WPS objects [I beg to differ].
+
+Is there actually anyone out there that subclasses a WPS object?
+
+
+One of the WPS books I have actually went so far as to tout
+the fact that you can subclass the Clock Object!
+
+Can anyone provide me with a reason why you would want to do
+that?
+
+Even for advanced users, is it worth the overhead?
+
+Brian
+--
+C. Brian Sturgill
+University of Utah              Ataman Software, Inc.
+Department of Computer Science  Internet: brian@ataman.com
+brian@cs.utah.edu               CompuServe: 70363,1373
+

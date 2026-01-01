@@ -1,0 +1,122 @@
+From: Cleve Moler <moler@mathworks.com>
+Date: Thur Nov 24 22:00:20 EST 1994
+Subject: Pentium-Aware Release of MATLAB
+Newsgroups: comp.soft-sys.matlab
+
+
+              Pentium-Aware Release of MATLAB
+
+(I have posted a somewhat different version of this article,
+intended for the non-MATLAB community, to comp.sys.intel.)
+
+Last week I posted an article about a bug in the Pentium chip
+that seriously affects the accuracy of the division operation.
+The number of operand pairs which lead to inaccurate results
+is very small fraction of the total number of possible operands,
+but the worst case relative error is about 1.6e-5, which is
+more than 10 orders of magnitude larger than that required
+by the IEEE floating point standard.  We are faced with a
+very small probability of encountering a very large error.
+
+At the MathWorks, we believe one of our most important obligations
+is to provide accurate, reliable results.  So, we have decided to
+issue a new release of MATLAB which is "Pentium aware".  It
+incorporates a workaround for the floating point division bug
+which restores full accuracy without a serious degradation of
+efficiency.  
+
+The release should be ready some time next week.  We are now in
+the process of confirming that we didn't introduce any bugs in
+our own code when we made the necessary changes.
+
+The release will be available at no charge to registered users
+of MATLAB for Windows.  If you wish to receive a copy, please
+send e-mail to a special address for our Customer Support group,
+
+    pentium@mathworks.com
+
+Be sure to include your MATLAB serial number and your full postal
+mailing address in the e-mail.  When the release is actually ready,
+we will send you instructions about how to obtain it via FTP.
+If it is not convenient for you to use FTP, then we can mail a
+disc to you, but FTP is more convenient for us and quicker for you.
+
+It is not easy to modify a large package like MATLAB to include
+this change.  We would much prefer to have the compiler or the
+operating system do the job for us, but this is not yet an 
+option.  The kernel of MATLAB is written in C.  We have replaced
+several dozen instances of a '/' denoting a floating point
+division by a function call.
+
+Our initial intention was to use the Pentium hardware FDIV
+instruction to compute a candidate quotient, check its accuracy,
+and then, if necessary, employ a standard Newton iterative
+refinement technique to eliminate any inaccuracy produced
+by the hardware.  But then we realized that an approach unique
+to this situation was possible, and more effective.  The FDIV
+instruction can be used to correct itself!  Here's the code:
+
+     double fdiv(double x, double y)
+     {
+        int ok;
+        double r,z;
+        z = x/y;
+        r = x - y*z;
+        while (fabs(r) > eps*fabs(x)+realmin) {
+           x = (3/4)*x;
+           y = (3/4)*y;
+           z = x/y;
+           r = x - y*z;
+        }
+        return(z);
+     }
+
+The idea is to use the hardware to divide x by y and produce the
+candidate quotient, z.  This will be correct in the vast majority
+of cases, but it is necessary to check.  The test uses the residual,
+r = x - y*z.  Normally, r will be no larger than roundoff error in x.
+The constant eps involved in the test should be familiar to MATLAB
+users.  It is the distance from 1.0 to the next larger floating point
+number.  Its value is 2^(-52).  At first, we forgot to include the
+constant realmin, which is is the smallest positive normalized
+floating point number, in the test, but this term is required to
+deal correctly with denormal floating point numbers.
+
+If the residual fails the test, it indicates that the hardware bug
+has been encountered.  When this occurs, we simply rescale the
+numerator and denominator by a factor of 3/4 and repeat the process.
+The scaling scrambles the bit patterns in x and y so that the second
+division almost certainly gives a satisfactory result.
+
+The factor 3/4 is important.  It is the "simplest" factor which
+alters the bit patterns in the fractions of x and y.  If the last
+bit in the fraction is zero, the scaling does not introduce any
+roundoff error.  Furthermore, since 3/4 is less than 1, the
+scaling cannot overflow.  And, if the operands are so small that
+scaling by 3/4 would underflow, the original division is done
+correctly and the scaling is not needed.
+
+How much does all this cost in execution speed?   For most of
+MATLAB's matrix and linear algebra operations, including all the
+time consuming decompositions and factorizations, only a small
+fraction of time is spent doing divisions.  In all these algorithms,
+it is clearly worthwhile to spend the time required to compute
+accurate quotients. 
+
+The only MATLAB operation where a significant fraction of the time
+is spent in divisions is the element-by-element array division
+denoted by './'.  Our current working version still has some
+debugging code in it, but a few quick timing experiments indicate
+that './' may be slowed down by a factor of two or so. 
+
+By the way, if new release is run on any pre-Pentium based PCs
+or, when they are available, on Pentium PCs with the bug fixed,
+the workaround will not be invoked.  How does the code know if
+the workaround is required?  It does a division.  It checks if
+
+          4195835 - (4195835/3145727)*3145727
+
+equals 0 or 256.
+
+  -- Cleve Moler
+     moler@mathworks.com

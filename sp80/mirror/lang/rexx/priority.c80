@@ -1,0 +1,231 @@
+From: icthus@sentex.net (Walter Metcalf)
+Newsgroups: comp.lang.rexx
+Subject: Call C Function from REXX in OS/2
+Date: Thu, 14 Dec 1995 13:24:00 -0500
+
+Hello All:
+
+I am writing a REXX application that needs to call one or two C functions using the Borland C/C++ 2.0 for
+OS/2 compiler.  As a test, I have taken a very simple example from the Internet.  Both the REXX application
+and the C program containing the functions I am trying to call are listed below.
+
+So far I have made the changes necessary for the Borland compiler, and everything compiles and links to a
+DLL with no messages.
+
+But when the test REXX program executes these statements in the program,
+
+   rc = RxFuncAdd("SysSetPriority","RxPrior","SysSetPriority")
+   rc = RxFuncAdd("SysGetPriority","RxPrior","SysGetPriority")
+
+   say "current priority:" SysGetPriority()
+
+the program dies on the last statement with the error message, 'Routine not Found'
+
+Here are the two programs:
+
+---------------------Main (REXX) Program----------------------
+
+if \ RxFuncQuery("SysSetPriority") then
+   do
+      rc = RxFuncDrop("SysSetPriority")
+      rc = RxFuncDrop("SysGetPriority")
+   end
+
+rc = RxFuncAdd("SysSetPriority","RxPrior","SysSetPriority")
+rc = RxFuncAdd("SysGetPriority","RxPrior","SysGetPriority")
+
+/*------------------------------------------------------------------
+ * print the current priority
+ *------------------------------------------------------------------*/
+say "current priority:" SysGetPriority()
+
+         .            .
+         .            .
+         .            .
+
+------------------------END PROGRAM----------------------------------
+
+------------------------C Subprogram---------------------------------
+
+/*-------------------------------------------------------------------
+ * rxprior.c : external rexx function to set priority
+ *------------------------------------------------------------------*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define INCL_BASE
+#include <os2.h>
+
+#define INCL_REXXSAA
+#include <rexxsaa.h>
+
+/*------------------------------------------------------------------
+ * prototypes for rexx functions, to make sure we declared everything
+ * correctly
+ *------------------------------------------------------------------*/
+
+extern ULONG _export SysGetPriority();
+
+extern ULONG _export SysSetPriority();
+
+
+// #pragma linkage(SysSetPriority, system)
+// #pragma linkage(SysGetPriority, system)
+
+/*-------------------------------------------------------------------
+ * this function is called when user invokes SysGetPriority() in REXX
+ *
+ * expects no parameters
+ *------------------------------------------------------------------*/
+ULONG SysGetPriority(
+   PUCHAR     pszName,
+   ULONG      ulArgc,
+   PRXSTRING  prxArgv,
+   PSZ        pszQueueName,
+   PRXSTRING  prxRet
+   )
+   {
+   PPIB   ppib;
+   PTIB   ptib;
+   ULONG  rc;
+
+   /*---------------------------------------------------------------
+    * call DosGetInfoBlocks()
+    *---------------------------------------------------------------*/
+   rc = DosGetInfoBlocks(&ptib,&ppib);
+
+   /*---------------------------------------------------------------
+    * put priority in return code
+    *---------------------------------------------------------------*/
+   sprintf(prxRet->strptr,"%08.8lx",ptib->tib_ptib2->tib2_ulpri);
+   prxRet->strlength = strlen(prxRet->strptr);
+
+   return 0;
+   }
+
+/*------------------------------------------------------------------
+ * this function is called when user invokes SysSetPriority() in REXX
+ *
+ * expects the following parameters
+ *    1 - number between -31 and 31, the delta of the priority to set
+ *    2 - optional class: "NOCHANGE", "IDLETIME", "REGULAR",
+ *                        "TIMECRITICAL", "FOREGROUNDSERVER"
+ *    3 - option scope: "PROCESS", "PROCESSTREE", "THREAD"
+ *
+ *------------------------------------------------------------------*/
+ULONG SysSetPriority(
+   PUCHAR     pszName,
+   ULONG      ulArgc,
+   PRXSTRING  prxArgv,
+   PSZ        pszQueueName,
+   PRXSTRING  prxRet
+   )
+   {
+   ULONG      rc;
+   PSZ        pszDelta;
+   PSZ        pszClass;
+   PSZ        pszScope;
+   ULONG      ulScope;
+   ULONG      ulClass;
+   LONG       lDelta;
+
+   /*---------------------------------------------------------------
+    * make sure there are 1, 2 or 3 parameters
+    *---------------------------------------------------------------*/
+   if ((ulArgc < 1) || (ulArgc > 3))
+      return 40;
+
+   /*---------------------------------------------------------------
+    * apply default parameters
+    *---------------------------------------------------------------*/
+   if (RXVALIDSTRING(prxArgv[0]))
+      pszDelta = prxArgv[0].strptr;
+   else
+      pszDelta = "0";
+
+   if ((ulArgc >= 2) && RXVALIDSTRING(prxArgv[1]))
+      pszClass = prxArgv[1].strptr;
+   else
+      pszClass = "NOCHANGE";
+
+   if ((ulArgc >= 3) && RXVALIDSTRING(prxArgv[2]))
+      pszScope = prxArgv[2].strptr;
+   else
+      pszScope = "PROCESS";
+
+   /*---------------------------------------------------------------
+    * convert delta to a number
+    *---------------------------------------------------------------*/
+   lDelta = strtol(pszDelta,NULL,10);
+
+   /*---------------------------------------------------------------
+    * convert class to a pre-defined constant
+    *---------------------------------------------------------------*/
+   if      (!stricmp(pszClass, "NOCHANGE"))
+      ulClass =           PRTYC_NOCHANGE;
+
+   else if (!stricmp(pszClass, "IDLETIME"))
+      ulClass =           PRTYC_IDLETIME;
+
+   else if (!stricmp(pszClass, "REGULAR"))
+      ulClass =           PRTYC_REGULAR;
+
+   else if (!stricmp(pszClass, "TIMECRITICAL"))
+      ulClass =           PRTYC_TIMECRITICAL;
+
+   else if (!stricmp(pszClass, "FOREGROUNDSERVER"))
+      ulClass =           PRTYC_FOREGROUNDSERVER;
+
+   else
+      ulClass = PRTYC_NOCHANGE;
+
+   /*---------------------------------------------------------------
+    * convert scope to a pre-defined constant
+    *---------------------------------------------------------------*/
+   if      (!stricmp(pszScope, "PROCESS"))
+      ulScope =           PRTYS_PROCESS;
+
+   else if (!stricmp(pszScope, "PROCESSTREE"))
+      ulScope =           PRTYS_PROCESSTREE;
+
+   else if (!stricmp(pszScope, "THREAD"))
+      ulScope =           PRTYS_THREAD;
+
+   else
+      ulScope = PRTYS_PROCESS;
+
+   /*---------------------------------------------------------------
+    * call the DosSetPriority() function
+    *---------------------------------------------------------------*/
+   rc = DosSetPriority(ulScope,ulClass,lDelta,0);
+
+   /*---------------------------------------------------------------
+    * set return value
+    *---------------------------------------------------------------*/
+   sprintf(prxRet->strptr,"%ld",rc);
+   prxRet->strlength = strlen(prxRet->strptr);
+
+   return 0;
+   }
+
+------------------------------END PROGRAM-----------------------------
+
+The only relevant (non-default) IDE project settings are:
+
+   C++ Compile
+   DLL Target
+   no LIB
+
+(However, I have tried dozens of different settings with no impact on the result.)
+
+I'm completely stalled until I find a solution to this problem, using the BORLAND
+compiler, and I need help desperately!
+
+Please HELP!!
+
+Walter Metcalf
+icthus@sentex.net
+
+

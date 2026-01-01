@@ -1,0 +1,1660 @@
+$Macro_File K_NEW6 ;                   { --  "Новые" макро для ME 6.0         }
+ {****************************************************************************
+                      (C) Copyright 1992 by Korzun E.G (095) 924-52-73
+$Macro K_GET_MARKS ;                   { --  Переход по Маркерам Random/Стэк  }
+$Macro K_LCHGD Trans;                  {Список измененных строк 31.08.92-10:46}
+$Macro K_LWind  Trans From ALL;        { Выдача списка окон  19.10.92-15:36   }
+$Macro K_CHK_MARK ;                    { Проверка Window_Id для Маркеров      }
+$Macro K_Set_Mark ;                    { Window Set_Mark 16.07.92-13:50       }
+$Macro K_Get_Mark;                     { Window Get_Mark 16.07.92-13:50       }
+$Macro K_QSRT   Trans    ;             { Быстрая сортировка  14.07.92-13:14   }
+  ****************************************************************************}
+
+ { ************************************************************************** }
+$Macro K_GET_MARKS ;                   { --  Переход по Маркерам Random/Стэк  }
+ {- ************************************ --  Версия от 09.09.92-15:31 --
+ *  Переход по маркеру                 { --  Создано : 31.08.92-10:46 --      }
+ * **************************************************************** -}
+   Def_Int(i , j , k , ix ,
+         l , c , r , o , menu, t_w, nc ,
+         bl := 2, bc := 1 , sl , descending := 0,
+         nl := 10 , nb_l := 0 , n1 := 0, n2 := 0 ,
+         m_s_c := mark_stack_count ,t_r := Refresh ,
+         t_mouse_mode := Mouse_Mode ,
+         s_l
+         );
+
+   Def_Str(s2[2] := '00'               { Индикатор наличия маркеров           }
+         , s13[13]                     { Для меню                             }
+         , s);
+
+   Make_Message(''
+              + ' Строка N=' + str(C_Line) + ' ' + File_Name  );
+   s_l := (Screen_Length - (Fkey_row = Screen_Length) -bl) ;
+
+ RETRY:
+
+   m_s_c := mark_stack_count;
+   n1 := m_s_c;                        { Количество Стзк-маркеров             }
+   nb_l :=  n1 + 1;
+
+   j := 2;                             { Тип: Random Acess-маркеры            }
+   n2 := 0;
+   i := 0;
+   While (i < nl)  Do                  { Глубина стэка                        }
+      ++ i;
+      Get_Mark_Record( i, j,  l, c,  r, o );
+      If (l > 0 ) Then                 { Маркер активен                       }
+         ++n2 ;                        { Счет их                              }
+      End;
+   End;
+   nb_l := nb_l + n2;
+
+   If (nb_l < 2) Then
+      Beep;
+      Make_Message('K_NEW6^K_GET_MARKS - Нет активных  маркеров');
+      Goto Exit;
+   End;
+
+   menu := Menu_Create;                { Handler массива строк меню           }
+   Refresh := FALSE ;
+   Put_Box( bc    , bl    , Screen_Width , bl + nb_l + (n1 > 0) + (n2 > 0) ,
+      m_b_color , m_h_color,
+      '──────── K_GET_MARKS 09.09.92 |196 Выберите Маркер для прехода ─' , 0 );
+   Write('line col ofs'
+      ,bc + 5, bl  , m_h_color , m_b_color );
+   k := 0 ;
+   j := 2;
+   If (n2) Then                        { Random_Acess                         }
+      ++k ;                            { Счет выведенных строк                }
+      Write('        |254 --- ' +  ' Random Acess '
+         ,bc + 1, bl + k  , 0, w_s_color);
+      If (n2 > 1) Then
+         s13 := 'S-Сортировать' ;
+      Else                             { Не выбмрать этого пункта             }
+         s13 := ' ';
+      End;
+      menu_set_item(menu,k,  s13 ,'','' ,     ( n2 = 1) ,j + 1,0);
+      Call DSP_STR;
+   End;
+   j := 1;
+   If (n1 > 0) Then                    { Стэк                                 }
+      ++ k ;                           { Счет выведенных строк                }
+      Write('        |254 --- ' + ' Стэк '
+         ,bc + 1, bl + k  , 0, w_s_color);
+      If (n1 > 1) Then
+         s13 := 'R-Сортировать' ;
+      Else                             { "Пустой" пункт и без выбора строки   }
+         s13 := ' ';
+      End;
+      menu_set_item(menu,k,  s13 ,'','' ,     ( n1 = 1) ,j + 1,0);
+
+      Call DSP_STR;
+   End;
+
+ RET_ORD:                              { ---- Смена порядка сортировки        }
+   j := k ;
+   If ((n1 > 1) OR (n2 > 1)) And (j < s_l)  Then { Сортировка имеет смысл     }
+      ++ j ;
+      s := ': порядок    ' ;
+      s13 := 'O' + s;
+      If (descending) Then
+         s := s + 'сортировки - по ' + 'убыванию N строк    ';
+      Else
+         s := s + 'сортировки - по ' + 'возрастаниию N строк ';
+      End;
+      Write( s
+         ,bc + 2, bl + j , 0 , m_b_color);
+      menu_set_item(menu,j,  s13 ,'','' ,     0 , 0 ,0);
+   End;
+
+   Return_Int := menu;                 { Указатель на массив                  }
+   If (Mou_Installed) Then             { Если есть мышка, переключить :       }
+      Mouse_Mode := 1;                 { Только двигать в меню                }
+      Mou_Remove_Ptr ;                 { Убрать мышиный курсор                }
+      Mou_Reset ;
+   End;                                { -- If .. Mou_Installed --            }
+   Run_Macro('USERIN^SUBMENU /HN=1/#=' + Str(j) + '/H=PMRANDOM'
+                     + '/X=' + Str(1)
+                     + '/Y=' + Str(bl + 1 )
+                     + '/B=1/A=1'      { No BOX + не выходить по <-стрелкам-> }
+                     + '/S=' + Str((n2 + 1 + (n2 > 1) ) / 2)
+                        );
+   If (Mou_Installed) Then             { Восстановить мышку                   }
+      Mouse_Mode := t_mouse_mode ;
+      Mou_Draw_Ptr;
+   End;                                { -- If .. Mou_Installed --            }
+   Make_Message('');
+
+   If (Return_Int > 0) Then            { Пункт меню  выбран                   }
+      If (menu_item_int(menu,Return_Int,2) = 0) Then       { Смена Order-Sort }
+         descending := NOT(descending);
+         Make_Message(' файл ' + File_Name);
+         GoTo RET_ORD;
+      End;
+      If (menu_item_int(menu,Return_Int,3) = 0) Then       { Надо сортировать }
+         k := Window_Id;               { Наше исходное окно                   }
+         Switch_Window(Window_Count);
+         Create_Window;                { Окно для сортировки                  }
+         If (Error_Level) Then
+            beep;
+            Make_Message('Не могу отсортировать - слишком много окон');
+         Else
+            Refresh := FALSE ;
+            Window_Attr := $81;        { Спрятать рабочее                     }
+            t_w := Cur_Window;
+            Switch_Win_Id(k);          { Возврат в исходное окно !!!!         }
+            Refresh := FALSE ;
+            nc := menu_item_int(menu,Return_Int,2) - 1;    { Тип маркера      }
+            sl := nl;
+            If (nc = 1) Then           { Стэк - маркера                       }
+               sl := m_s_c;
+            End;
+            i := 0;
+            While (i < sl) Do          { Цикл выборки маркеров                }
+               ++i;
+               Get_Mark_Record( i, nc,  l, c,  r, o );
+               If (l > 0) Then         { Маркер активен                       }
+                                       { В окно вывода без UNDO               }
+                  Put_Line_To_Win(''   { Перевод INT в символьное представл.  }
+                        + Rstr(Real_I(l) ,10,0)
+                        + Rstr(Real_I(c) ,10,0)
+                        + Rstr(Real_I(r) ,10,0)
+                        + Rstr(Real_I(o) ,10,0)
+                        , i, t_w, 0 ); { В строку I окна # t_w                }
+               End;
+            End;
+            s := '';
+            If (descending) Then
+               s := s + ' /D';
+
+            End;
+            Switch_Window(t_w);
+            Refresh := FALSE ;
+            Run_Macro('Text^TextSort' + s);      { Запуск сортировки          }
+            Refresh := FALSE ;
+            Switch_Win_Id(k);          { Возврат в  исходное окно             }
+            i := 0;
+            ix := 0;
+            While (i < 10) Do          { Запись результата сортировки         }
+               ++i;
+               s := Get_Line_From_Win( i, t_w ); { Забираем результаты        }
+               j := Val(l,Remove_Space(Copy(s,01,10))) ;
+               j := Val(c,Remove_Space(Copy(s,11,10))) ;
+               j := Val(r,Remove_Space(Copy(s,21,10))) ;
+               j := Val(o,Remove_Space(Copy(s,31,10))) ;
+               Set_Mark_Record( i , nc,  0, 0,  0, 0 );    { Зачистить OLD    }
+               If (l > 0) Then
+                  If (i = 1) OR (nc = 1)         { Первая строка или СТЭК     }
+                     OR (s <> Get_Line_From_Win( i-1, t_w )) Then
+                     ++ix ;
+                     Set_Mark_Record( ix, nc,  l, c,  r, o );
+                  End;
+               End;
+            End;
+            Switch_Window(t_w);
+            Delete_Window;             { Истребить рабочее окно               }
+         End ;
+         Switch_Win_Id(k);             { Возврат в  исходное окно             }
+         Kill_Box;
+         If (menu_item_int(menu,Return_Int,2) = 2) Then
+            s := 'Стэк-маркер';
+         Else
+            s := 'Random_Acess маркер';
+         End ;
+         Make_Message('Пересортированы ' + s + 'ы ');
+         Goto RETRY;
+      Else                             { Действительно переход                }
+         Get_Mark_Record( 10, 2,  l, c,  r, o );
+         Set_Mark_Record( 10, 3,  l, c,  r, o ); { Спрятали 10 R_A Маркер     }
+         Get_Mark_Record( menu_item_int(menu,Return_Int,3),{ N маркера переход}
+                          menu_item_int(menu,Return_Int,2) - 1 ,     { Тип -"-}
+                           l, c,  r, o );
+         Set_Mark_Record( 10, 2,  l, c,  r, o ); { Зарядили для перехода      }
+         Pop_Undo;
+         Get_Mark(10);
+         Push_Undo;
+         Get_Mark_Record( 10, 3,  l, c,  r, o );
+         Set_Mark_Record( 10, 2,  l, c,  r, o ); { Вернули  10 R_A Маркер     }
+         If (menu_item_int(menu,Return_Int,2) = 2) Then
+            s := 'Стэк-маркер';
+         Else
+            s := 'Random_Acess маркер';
+         End ;
+         Make_Message('Переход по ' + s + 'у #'
+                  + Str(menu_item_int(menu,Return_Int,3)));
+      End ;
+   Else                                { При переключении мышки не должно ... }
+      If (Return_Int < -1) Then        { Ошибочное нажатие                    }
+         While ( Check_Key) Do         { Сброс клавиатуры на всякий случай    }
+         End;                          { -- Do .. While  --                   }
+         beep;
+         Make_Message('Мышка не наведена на пункт меню');
+         Goto RET_ORD;
+      End;
+      Make_Message('');
+   End;
+
+   Kill_Box;
+
+   Menu_Delete( menu );
+
+   If (Return_Int > 0) Then
+      Redraw;
+   End;
+   Goto Exit;
+
+ {- *****************************************************************
+ *  Процедура заполнения BOX и формирования меню по маркерам        *
+ *  Изменются: k, портятся: i ,s2 , s                               *
+ * **************************************************************** -}
+  DSP_STR:
+      i := 0;
+      While (i < nl) Do                { Цикл по NN маркера                   }
+         ++i ;
+         If ((m_s_c >= i) OR (j <> 1)) Then
+            Get_Mark_Record( i, j,  l, c,  r, o );
+            If ( l > 0 ) And (k < s_l) Then      { Маркер задействован        }
+               ++k ;                   { Счет выведенных строк                }
+               s2 := Copy(Str(i),Length(Str(i)) , 1) ;     { N маркера        }
+               If (j = 1) Then         { Стэк - маркера   ------ для них: --- }
+                  s2 := Copy('ABCDEFGHIJKL', i , 1);       { Буква  маркера   }
+               End;
+               s13 :=   Copy('        ',1 , 6 - Length(Str(l)) ) + Str(l)
+                     +  Copy('        ',1 , 5 - Length(Str(c)) ) + Str(c);
+               menu_set_item(menu,k, s2 + s13 ,'' ,'' , 0 ,j+1,i);
+               s := Get_Line_From_Win( l, Cur_Window ) ;   { Текст строки     }
+               Write('│'
+                  + Copy(s ,1 , Screen_Width - bc -14)
+                  ,bc + 3 + 12 , bl + k  ,  m_t_color , m_h_color);
+               s := Copy(s , c , 1) ;  { символ под маркером                  }
+               If (s = '') OR (s = ' ') Then
+                  s := Shadow_Char;
+               End;
+               If (c < (Screen_Width - bc -14 )) Then      { Маркер заметен   }
+                  Write(s
+                     ,bc + 3 + 12 + c  , bl + k  ,    Red , White);
+               Else
+                  Write('|16'
+                     , Screen_Width    , bl + k  , 8+ Red , White);
+               End ;                   { -- If .. Else ..09.09.92-14:32 --    }
+               If (o > 0) Then
+                  Write('√'
+                     ,bc + 3 + 12 , bl + k  , 0, w_s_color);
+               End;
+            End;                       { -- If Маркер задействован            }
+         End;
+      End;                             { -- Do .. While i < nl --             }
+   RET;
+ {- ***************************************************************** }
+
+ EXIT:
+   Refresh := t_r ;
+
+ End_macro;                            { -- 31.08.92-10:46 -- K_GET_MARKS -   }
+ {-------------------------- -------------------------------------------------}
+$Macro K_LCHGD Trans;                  {Список измененных строк 31.08.92-10:46}
+ {- *****************************************************************
+ *  Список измененных строк в окне-файле 31.08.92-10:46             *
+ * **************************************************************** -}
+   Def_Int(jx := 0, l, f_c , t_r := Refresh , ln := C_Line , lnm , id , t_w);
+   Def_Char(ch);
+   Def_Str(s );
+
+   id := Window_Id;                    { Идентификатор тек.окна               }
+   Make_Message(
+            'K_LCHGD: File_Changed=' + Str(File_Changed) + ' '
+            );
+   ERROR_LEVEL := 0;
+   Mark_Pos;                           { Отметить тек.позицию                 }
+   Working;
+   Refresh := False;
+   Switch_Window(Window_Count);
+   Create_Window;                      { Создать окно для вывода              }
+   If (ERROR_LEVEL) Then
+      Beep;
+      Make_Message('ERROR (# ' + Str(ERROR_LEVEL) + ') =' + ERROR_STR);
+      ERROR_LEVEL := 0;
+      Switch_Win_Id(id);               { В окно текста                        }
+      Pop_Mark;
+      GoTo EXIT;
+   End;
+   Window_Attr := $80;                 { Спрятать рабочее                     }
+   t_w := Cur_Window;                  { Номер рабочего окна                  }
+
+ {- *****************************************************************
+ *  Поиск вниз "измененной" строки                                  *
+ * **************************************************************** -}
+   Switch_Win_Id(id);                  { В окно текста                        }
+   Tof;                                { Встать в начало файла                }
+   l := 0;
+   While (l = 0) Do                    { Перебор всех строк текста            }
+      If (Line_Changed > 0)            { Эта строка изменена                  }
+      OR (C_Line = ln)   Then
+         ++jx ;
+         ch := '|179';
+         If (C_Line = ln)   Then       { Текущая строка в окне текста         }
+            lnm := jx;
+            ch := '|251';
+         End;
+         s := Copy('    ',1,5 - Length ( Str(C_Line)))
+                  + Str(C_Line) + ch
+                  +  Copy(Get_Line,1,80)
+            ;
+         Put_Line_To_Win( s, jx, t_w, 0 );       { В окно вывода без UNDO     }
+      End;
+      Down;
+      If ( At_Eof > 0) Then            { Весь файл просмотрен - заканчиваем   }
+         l := 1;
+      End;
+   End;
+
+ {- *************************************************************** -}
+   Return_Int := C_Line ;              { N последней строки в окне            }
+   Goto_Mark;                          { Вернуться к исходной строке          }
+   If (jx) <= 1 Then                   { Нет измененных ни сверху , ни снизу  }
+      Beep;
+      Make_Message('K_LCHGD:Нет измененных строк с 1 по ' + Str(Return_Int) );
+   Else                                { Есть измененных                      }
+      s := '';
+      If (Parse_Int('/X=',Caps(Mparm_Str)) > 0) Then
+         s := '/X=' + Str(Parse_Int('/X=',Caps(Mparm_Str))) ;
+      Else
+         s := '/X=1' ;
+      End ;
+      If (Parse_Int('/Y=',Caps(Mparm_Str)) > 0) Then
+         s := s + '/Y=' + Str(Parse_Int('/Y=',Caps(Mparm_Str))) ;
+      Else
+         s := s + '/Y=3' ;
+      End ;
+      Run_Macro('DVMENU^DVMENU /B=1/K=0'
+               + s                     { Координаты BOX для Меню              }
+               + '/I=%'
+               + '/C=0/D=0/ED=1/O=0/H=PMRANDOM '
+               + '/SK=1/NR=1'
+               + '/GCLR=1/K=1'
+               + '/SN=' + Str(lnm)     { встать на текущую строку -- вызова   }
+               + '/#='  + Str(jx )
+               + '/WW=' + Str(Screen_Width) + '/WIN=' + Str(t_w)
+               + '/T=(' + Str(Return_Int) + '\^' + Str(jx)
+               + ') Select Line # (in CHANGED ) to Go '
+               );
+
+      Switch_Window(t_w);              { В окно вывода                        }
+      Delete_Window;                   { и удалить его                        }
+      Switch_Win_Id(id);               { В окно текста                        }
+      if Return_Int = 0 then           { При выборе выход по ESC              }
+         Make_Message('');
+         goto exit;
+      end;
+
+      Return_Str := Remove_Space(Copy(Return_Str,1,5));
+      If (Val(l,Return_Str) = 0 ) Then
+         If (C_Line <> l) Then         { Не текущая строка                    }
+            Push_Undo;
+            Goto_Line(l);              { Переход к выбранной строке           }
+            Pop_Undo;
+            Make_Message('Переход к строке #' + Str(l));
+         End;
+      End;
+
+   End;                                { of есть измененные строки            }
+
+ EXIT:
+   Refresh := t_r ;                    { Восстановить выдачу на экран         }
+
+ End_macro;                            { -- 31.08.92-10:46 -- K_LCHGD -       }
+ {-------------------------- -------------------------------------------------}
+$Macro K_LWind  Trans From ALL;        { Выдача списка окон  19.10.92-15:36   }
+   Def_Str(w , s[40] , space[40] , srt_name[10] , srt_key);
+   Def_Int(jx,c_wind,kx, n_t_w ,prev_id, next_id , s_s_key , l_s_key);
+   Def_Int(i, j ,i0 ,a_nwind := 0 , srt);
+   Def_Int(o_rfrsh := Refresh , old_mode := MODE , bc := Box_Count, d_hid);
+
+   srt := Global_Int('K_LWind_Srt');   { Прошлый порядок сортировки окон      }
+   d_hid := Global_Int('K_LWind_Hid'); { Показывать "спрятанные" окна         }
+
+   Mode := Edit;
+	Refresh := 0;
+	space := '                                          ';
+
+   Working;
+   c_wind := Window_Id;                { Запомнить ID текущего окна           }
+   If (First_Run) Then                 { Первый запуск после RESTART-а ME     }
+      Run_Macro('K_CHK_MARK ');        { Проверить маркера и сменить ID       }
+   End;
+                                       { ------------------------------------ }
+  NEW_LIST:                            { Сформировать список окон             }
+                                       { ------------------------------------ }
+   If (srt = 1) Then                   { По имени                             }
+      s_s_key := 1;                    { С 1-й колонки - имя файла            }
+      l_s_key := 12;
+      srt_name := 'Name';
+   ElsIf (srt = 2) Then                { По EXT                               }
+      s_s_key := 9;                    { С 9-й колонки - имя EXT              }
+      l_s_key := 4;
+      srt_name := 'Ext';
+   ElsIf(srt = 3) Then                 { По Path                              }
+      s_s_key := 26;                   { С 26-й колонки - имя PATH            }
+      l_s_key := 31;
+      srt_name := 'Path';
+   ElsIf(srt = 4) Then                 { По Экранам                           }
+      s_s_key := 56;                   { С 56-й колонки - имя Экрана          }
+      l_s_key := 4;
+      srt_name := 'Screen N';
+   ElsIf(srt = 5) Then                 { По Link                              }
+      s_s_key := 63;                   { С 63-й колонки - имя Link            }
+      l_s_key := 6;
+      srt_name := 'Link N';
+   ElsIf(srt = 6) Then                 { По ID                                }
+      s_s_key := 60;                   { С 60-й колонки - # ID                }
+      l_s_key := 4;
+      srt_name := 'Window_Id';
+   ElsIf(srt = 7) Then                 { По Mark #                            }
+      s_s_key := 20;                   { С 20-й колонки - # MARK              }
+      l_s_key := 4;
+      srt_name := 'Mark #';
+   Else                                { По Window_Num - Unsorted             }
+      srt_name := 'Unsorted';
+      s_s_key := 1;                    { нет сортировки                       }
+      l_s_key := 0;
+   End;
+	jx := 0;
+   kx := Window_Count;                 { Сейчас живых окон                    }
+   Switch_Window(Window_Count);
+   Create_Window;                      { Окно для вывода                      }
+                                       { Сделать его очень маленьким !!       }
+   Size_Window(Min_Window_Col,Min_Window_Row,Min_Window_Col,Min_Window_Row );
+   n_t_w := Cur_Window;                { Запомнить номер окна вывода          }
+
+   jx := 0;
+   j  := 0;
+   While (jx < kx ) Do                 { Перебор всех окон                    }
+		++jx ;
+		Switch_Window(jx);
+      If (d_hid = 0) Then              { Не показывать спрятанные/невидимые   }
+         i0 := Window_Attr;
+         If (i0 <> (i0 AND $80 ))      { В 8-ом бите был не 0 - спрятанное    }
+         OR (i0 <> (i0 AND $01 )) Then { В 0-бите был не 0    - невидимое     }
+            GoTo NEXT_WIN;
+         End;
+      End;
+		w := space;
+		If (Read_Only) Then
+			w := Copy(w,1,0) + 'R'            + space ;
+		End;
+		If (File_Changed) Then
+			w := Copy(w,1,1) + 'M'            + space ;
+		End;
+		If (Doc_Mode       ) Then
+			w := Copy(w,1,2) + 'Д'           + space ;
+		End;
+		If (Wrap_Stat      ) Then
+			w := Copy(w,1,3) + 'W'            + space ;
+		End;
+		If (Format_Stat    ) Then
+			w := Copy(w,1,4) + 'F'            + space ;
+		End;
+		w := Copy(w,1,5) + Copy(' AS',Indent_Style+1,1)   + space ;
+                                       { 16.07.92-19:35 Проверка Window_Mark  }
+      i0 := 0;
+      While (i0 < 10) Do
+         ++ i0;
+         If (Copy(Str(Window_Id) + '    ',1,4) + File_Name =
+             Global_Str('K_WIN_MARK' + Str(i0))) Then
+         w := Copy(w,1,7) + '#'  + Str(i0-1)   + space ;
+         End;
+      End;                             { -- Do .. While  --                   }
+
+		w := Copy(w,1,12) + Get_Path(File_Name)        + space ;
+      If (Copy(w,41,1) <> ' ') Then    { Путь длинноват - не влезет           }
+         s := Get_Path(File_Name);
+         w := Copy(w,1,12)
+                  + Copy(s,1,1)        { Drive                                }
+                  + '..'               { Обрыв                                }
+                  + Copy(s,Svl(s)-(41-16),255) ; { и хвост пути               }
+		End;
+		s := Truncate_Path(File_Name) ;
+      w := Copy(w,1,41) + Truncate_Extension(s)
+                        + Copy(space,1,8 - Length(Truncate_Extension(s)))
+                        + '.'
+                        + Get_Extension(s)+ space ;
+		If (Screen_Num     ) Then
+			w := Copy(w,1,53)  + Copy('   ',1,3 - Length(Str(Screen_Num)))
+			  + Str(Screen_Num) + space ;
+		End;
+		w := Copy(w,1,57)  + Copy('   ',1,3 - Length(Str(Window_Id )))
+			+ Str(Window_Id ) + space ;
+		If (Link_Stat ) Then
+			w := Copy(w,1,61)
+				+ Copy('АБВГДЕЖЗИКЛМН',Link_Stat,1) + space ;
+		End;
+		i0 := Window_Attr;
+      If (i0 <> (i0 AND $80 )) Then    { В 8-ом бите был не 0                 }
+         w := Copy(w,1,63) + 'Hd' + space ;      { - Спрятано                 }
+		End;
+      If (i0 <> (i0 AND $01 )) Then    { В 0-бите был не 0                    }
+         w := Copy(w,1,66) + 'Inv'+ space ;      { - Невидимое окно !!        }
+		End;
+		If (Window_Attr > 0) Then
+			w := Copy(w,1,70) + '$' + Hex_Str(i0) + space ;
+		End;
+      If (c_wind = Window_Id    ) Then { Текущее - окно вызова                }
+         w := Copy(w,1,74) + '|251'        + space ;
+		End;
+      If (a_nwind = Window_Id ) Then   { Это окно с "курсором"                }
+         w := Copy(w,1,75) + '|240'        + space ;
+      End;
+      w := Copy(w,42,12) + ' ' +  Copy(w,1,41) + Copy(w,54,24);
+      If (l_s_key > 0) Then            { Сортировка есть                      }
+                                       { Добавочное поле SORT == NAME+PATH    }
+         srt_key := Copy(w,s_s_key,l_s_key) + Copy(w,1,12) + Copy(w,26,31) ;
+         w := copy(w + space,1,80) + srt_key;
+      End;
+      j := j + 1;                      { N строки в выводном окне             }
+      Put_Line_To_Win( w, j , n_t_w, 0) ;        { Заносим результат          }
+    NEXT_WIN:
+	End;
+   Switch_Window(n_t_w);
+   File_Changed := FALSE;
+
+	If (Truncate_Spaces) Then
+		w := ' Без пробелов';
+	Else
+		w := ' Пробелы';
+	End;
+                                       { -- Вызов сортировки всего окна ----- }
+   If (l_s_key > 0) Then               { Сортировка есть                      }
+      Run_Macro('K_SUPORT^K_QSRT /Q /C=81/L=74'); { С 81-й колонки - ключ SRT }
+      File_Changed := FALSE;
+   Else                                { По Window_Num - Unsorted             }
+      srt_name := 'Unsorted';
+   End;
+
+   Tof;
+   If (a_nwind = 0 ) Then              { Первая установка                     }
+      i := Search_Fwd('|251',0);       { Ищем признак текущего окна |251 = √  }
+      jx := C_Line;                    { Это номер строки окна вызова         }
+   Else
+      While (i > 0) AND Not(At_Eof) Do
+         GoTo_Col(1);
+         i := Search_Fwd('|240',0);    { Ищем признак активного окна-курсора  }
+         If (C_Col > 74) Then          { Найден признак                       }
+            jx := C_Line;              { Это номер строки окна-курсора        }
+            Del_Char;                  { Удалить признак                      }
+            i := 0;                    { Больше не искать                     }
+         End;
+      End;
+
+   End;
+	Make_Message(
+           'User='      + USER_ID
+       {   + ' EMS='    + Str(EMS_STAT)       11.06.92-20:40 для версии 6
+           + ' A_SAVE=' + Str(AUTOSAVE)            удалено }
+           + ' Undo='    + Str(Undo_Stat)
+           + ',Max='    + Str(Max_Undo)
+           + ' Oкон:'   + Str(kx)
+			  + ' Home='   + DIR_PATH
+			  + w
+				);
+   Set_Global_Str('!K_DVM_EVENT1', '/T=Удалить'
+                                 + '/K1=0'
+                                 + '/K2=83'
+                                 + '/R=-18'      { Ответ Return_Int           }
+                                 + '/KC=<DEL>'   { Название KEY               }
+                                 + '/LL=1'       { Вниз окна                  }
+                                 );
+   Set_Global_Str('!K_DVM_EVENT2', '/T=Mark_Window'
+                                 + '/K1=0'
+                                 + '/K2=82'
+                                 + '/R=-15'      { Ответ Return_Int           }
+                                 + '/KC=<INS>'   { Название KEY               }
+                                 + '/LL=1'       { Вниз окна                  }
+                                 );
+   Set_Global_Str('!K_DVM_EVENT3', '/T=Sort by ' { Только сообщение           }
+                                 + '/R=-20'      { Ответ Return_Int           }
+                                 + '/KC=' + srt_name       { Название KEY     }
+                                 + '/LL=1'       { Вниз окна                  }
+                                 );
+   If (d_hid) Then                     { Показывать все окна                  }
+      w := '/DF6=D_Conv';              { Если нажать - то только видимые      }
+   Else
+      w := '/DF6=D_Hide';
+   End ;
+   Run_Macro('DVMENU^DVMENU /B=1/K=1'
+            + '/X=1/Y=3'
+            + '/WIN=' + STR(CUR_WINDOW)
+            + '/T=═Name   Ext  Тип Ind Mark PATH [К.Е.Г v.m.19.10.92]   '
+            + ':Экр:ID:Link: W_Attr √'
+            + '/C=0/D=0/O=0'
+            + '/WW=81/SK=1/NR=1/SN=' + Str(jx)   { Номер окна вызова          }
+            + '/#=' + Str(kx)
+            + '/I=%'
+            + '/EV#=3'
+            + '/EV=!K_DVM_EVENT'
+            + '/DF3=Save_File'
+            + '/DF5=Hide_Window'
+            + w
+            + '/DF8= Del_Window'
+            + '/F10=Srt_WL'
+            );
+
+   Set_Global_Str('!K_DVM_EVENT1',''); { Зачистить EVENT переменные           }
+   Set_Global_Str('!K_DVM_EVENT2',''); {  --"---                              }
+   Set_Global_Str('!K_DVM_EVENT3',''); {  --"---                              }
+   w := Return_Str;                    { Ответ запомним                       }
+   kx := Return_Int;                   {  --"---                              }
+   jx := VAL(i , Copy(Return_Str,59,3)) ;        { Взяли идентификатор выбора }
+   Down;
+   jx := VAL(next_id , Copy(Get_Line,59,3));     { ID Следующего по списку    }
+   If (next_id = 0) Then
+      Tof;
+      jx := VAL(next_id , Copy(Get_Line,59,3));  { ID Первого по списку       }
+   End;
+
+   Delete_Window;                      { истребить окно с картинкой           }
+   Switch_Win_Id(c_wind);              { Вернуться в исходное окно            }
+
+   If (Return_Int = 1) Then            { <ENTER> нажали                       }
+      jx := Switch_Win_Id(i);          { Перейти в выбранное окно             }
+      If (jx = FALSE) Then             { Но почему-то неудачно                }
+         Switch_Window(c_wind);        { Вернуться в исходное окно            }
+      End;
+      Redraw;
+   Else                                { не <ENTER> нажали                    }
+      If (Return_Int < 0 ) Then        { <Fnn> - было нажато - узнаем KEY-F   }
+         RUN_MACRO('SETUP^MAKEKEY /K1=' + Str(Key1)
+                              + ' /K2=' + Str(Key2)
+                              + ' /M='  + STR(MODE));
+                                       { в Return_Str - имя <Fnn>             }
+         jx := Switch_Win_Id(i);       { Перейти в выбранное окно             }
+         a_nwind := Window_Id;         { Запомнить номер окна с курсором      }
+         If Pos('3',Return_Str) Then   { F3 -Save                             }
+            RM( 'MEUTIL1^SAVEFILE /R=4/BC=' + str(box_count) );
+         ElsIf Pos('5', Return_Str) Then         { F5-Hide - спрятать         }
+            RUN_MACRO('WINDOW^WINOP /T=2');
+         ElsIf Pos('6', Return_Str) Then         { F6- показывать все/обычные }
+            d_hid := NOT(d_hid);
+         ElsIf (Pos('?', Return_Str) > 0) OR     { F?-Mark - отметить         }
+            ( kx = -15 ) Then          { --------- <INS>                      }
+            Run_Macro('K_Set_Mark /? ');         { Снять / одеть пометку      }
+         ElsIf (Pos('8', Return_Str) > 0) OR     { F8-Del  - удалить          }
+            ( kx = -18 ) Then          { --------- <DEL>                      }
+            If Xpos('#',Copy(w,20,5),1) Then     { А оно помечено             }
+               Run_Macro('K_Set_Mark /? ');      { Снять пометку - маркер     }
+            End;
+            a_nwind := next_id;        { Пошли к следующему                   }
+            If (c_wind = Window_Id) Then         { Текущее окно ?             }
+               c_wind := next_id;      { --------- Указатель -> на следующее  }
+            End;
+            RUN_MACRO('WINDOW^WINOP /T=1');
+         ElsIf (Pos('10', Return_Str) > 0) OR    { F10-Пересортировать        }
+            ( kx = -20 ) Then          { --------- <NO_KEY>                   }
+            If (srt > 0) Then
+               kx := srt;
+            Else
+               kx := 8;
+            End ;
+            Run_Macro('USERIN^XMENU /B=1/L=Сортировка окон по:/X=3/Y=2 '
+                     + '/T=0/M=1-Name(X)2-Ext(X)3-Path(X)4-Экранам(X)'
+                     + '5-Link-окнам(X)6-Window_ID (X)7-Mark #(X)8-Unsroted(X)'
+                     + '/S=' + Str(kx)
+                     );
+            If (Return_Int > 0) Then   { Выбрали пункт                        }
+               srt := Return_Int ;
+            End;
+         End;
+         GoTo NEW_LIST;
+      End;
+   End;
+
+   Window_Attr := ( Window_Attr SHR 1) SHL 1;    { Снять "спрятанность"       }
+	Refresh := o_rfrsh;                 { {R*} Восстановить выдачу на экран    }
+   MODE := old_mode;
+   While (Box_Count > bc) Do           { Истребить BOX-ы,которые наплодили    }
+      Kill_Box;
+   End;
+   If ((Win_X2 - Win_X1) < 1)
+   OR ((Win_Y2 - Win_Y1) < 1)  Then
+      Beep;
+      Make_Message('. Окошечко очень маленькое. ' + File_Name);
+   End;
+   Return_Int := 2;
+
+   Set_Global_Int('K_LWind_Srt',srt);
+   Set_Global_Int('K_LWind_Hid',d_hid);{ Показывать "спрятанные" окна         }
+ End_Macro;                            { -- of -- K_LWind                     }
+ {-------------------------- -------------------------------------------------}
+$Macro K_CHK_MARK ;                    { Проверка Window_Id для Маркеров      }
+ {- *************************************--  Создано : 16.07.92-12:20 --
+ *  Проверка Window_Id для  Маркеров на соответствие                *
+ *  (поскольку они уникалны и неизменны лишь для сеанса)            *
+ * Используется из макро K_SET_MARK  и  K_GET_MARK                  *
+ * При первом запуске проводится :                                  *
+ *  1. Присвоение ID "беспризорным" маркерам(лишь по файлам in MEM) *
+ *  2. Уничтожение "дублированных" маркеров-ссылок на 1 файл+окно   *
+ * **************************************************************** -}
+   Def_Int( jx, id , tmp_id , o_refresh := Refresh);
+   Def_Str(s );
+
+   Refresh := False;
+   id := Window_Id;
+
+   jx := 0;
+   While (jx < 10) Do
+      ++ jx;
+      s := Global_Str('K_WIN_MARK' + Str(jx));
+      If (Svl(s) > 0) Then
+         Return_Int := Val(tmp_id ,Remove_Space(Copy(s ,1,4)));
+         Set_Global_Int('!K_WIN_MARK' + Str(jx),0);        { Пометить - нет   }
+         If (Switch_Win_Id(tmp_id) > 0) Then     { Попытаемся перейти в окно  }
+            If (File_Name = Str_Del(s,1,4)) Then { Файл == ожидаемому         }
+                                       { Пометка == ЕСТЬ (номер окна)         }
+               Set_Global_Int('!K_WIN_MARK' + Str(jx),Cur_Window);
+            End;
+         End;
+         If (First_Run) Then           { Первый запуск после RESTART-а ME     }
+            If (Global_Int('!K_WIN_MARK' + Str(jx)) = 0) Then
+               If (Switch_File(Str_Del(s,1,4))) Then       { Поиск по имени   }
+                  s := Copy(Str(Window_Id) + '     ',1,4)  { файла - O.KEY    }
+                     + File_Name;
+                  Set_Global_Str('K_WIN_MARK' + Str(jx),s);{ Меняем ID окна   }
+                  Set_Global_Int('!K_WIN_MARK' + Str(jx),Cur_Window);
+               End;
+            End;
+         End;
+      End;
+   End;                                { of DO -- While                       }
+
+   If (First_Run) Then                 { Первый запуск после RESTART-а ME     }
+                                       { Проводим проверку на дубли маркеров  }
+      jx := 1;
+      Return_Int := 0;
+      While (jx < 10) Do
+         ++ jx;                        { Очередной маркер                     }
+         s := Global_Str('K_WIN_MARK' + Str(jx));
+         tmp_id := 0;
+         While (tmp_id < (jx -1)) And  { Проверяем среди предыдущих           }
+            (Svl(s) > 0) DO            { установленные маркера                }
+            ++ tmp_id;
+            If (s = Global_Str('K_WIN_MARK' + Str(tmp_id))) Then
+               s := '';                { Обнаружен дубль                      }
+               If ( Return_Int = 0) Then         { Гудим один раз             }
+                  Beep;
+               End;
+               Return_Int := 1 + Return_Int;     { Счет дублей                }
+               Set_Global_Int('!K_WIN_MARK' + Str(jx),0);  { Пометить - нет   }
+               Set_Global_Str('K_WIN_MARK' + Str(jx),'');  { Убить маркер     }
+               Make_Message('Дубль Window_Marker #' + Str(tmp_id)
+                           + ', Убит  #' + Str(jx) );
+            End;
+         End;                          { of DO -- While tmp_id < jx-1         }
+      End;                             { of DO -- While     jx < 10           }
+      If (Return_Int > 1) Then
+         Make_Message('Уничтожено '+ Str(Return_Int) +' дублей Window_Marker');
+      End;
+   End;
+
+   Switch_Win_Id(id);                  { Вернуться в окно вызова              }
+   Refresh := o_refresh;
+
+ End_macro;                            { -- 16.07.92-12:20 -- K_W_MARK -      }
+
+$Macro K_Set_Mark ;                    { Window Set_Mark 16.07.92-13:50       }
+ {******************************************************************************
+                                        By   MULTI-EDIT MACRO Set_Mark
+ Name:   K_Set_Mark
+
+ Description:   Uses the new random access marker stack to set 10 markers.
+				If SET_MARK is executed without parameters, the user is prompted
+				to press a number key (0-9, 0=10) to specify the marker #.  If a
+				value of 1-10 is passed as a parameter, then the specified mark
+				is set without prompting the user.
+
+ Parameters: MParm_Str can contain 1-10 to denote going directly to the mark.
+         If the entire MParm_Str does not contain numeric characters, this
+         option will not work, and the menu will be invoked.  Under these
+         circumstances, the following parameters are expected:
+         /Y=      The Y coordinate for the menu
+         /X=      The X coordinate for the menu
+         /BC=  The amount of boxes which need to be killed upon exit
+
+							 (C) Copyright 1989 by American Cybernetics, Inc.
+ Все как и в Set_Mark , но запоминается окно с " файлом"
+                      (C) Copyright 1992 by Korzun E.G. (095) 924-52-73
+ ******************************************************************************}
+
+   Def_Int( ix , jx, bc , del_box := 0 , f_empty);
+   Def_Str(s , c , space [80] := '');
+
+   if Val(jx, Mparm_Str) = 0 THEN      { Номер маркера для установки задан    }
+		if (jx > 0) and (jx < 11) then
+         goto do_set;                  { Будем все делать молча               }
+		end;
+	end;
+
+   Working;
+   Run_Macro('K_CHK_MARK ');           { Проверить маркера и сменить ID       }
+
+   While (Svl(space) < 80) Do
+      space := ' ' + space;
+   End;
+
+  REDISPLAY:
+   jx := 0;
+   f_empty := 0;
+   While (jx < 10) Do
+      ++ jx;
+      s := Global_Str('K_WIN_MARK' + Str(jx));
+      If (Svl(s) > 0) Then
+         If (Copy(Str(Window_Id) + space,1,4) + File_Name = s) Then
+            If (Xpos('/?',Caps(Mparm_Str),1)) Then         { Нужено удалить   }
+               Set_Global_Str('K_WIN_MARK' + Str(jx),'');  { автоматом        }
+               Goto Exit;              { ------------------- и тихо уйти      }
+            End;
+            c := '|251';               { Это файл уже в окне                  }
+            Beep;
+            Make_Message('Window_Marker #' + Str(jx-1)
+                     + ' уже установлен на  File + Window ' + c );
+            f_empty := jx;
+         ElsIf Global_Int('!K_WIN_MARK' + Str(jx)) Then    { Файл загружен    }
+            c := '|240';
+         Else                          { Надо грузить                         }
+            c := '|175';
+         End;
+      Else                             { Маркер свободен                      }
+         c := ' ';
+         If (f_empty = 0) Then         { Первый  свободный маркер             }
+            f_empty := jx;
+         End;
+      End;
+      s := Str_Del(s,1,4);
+      If (Svl(s)) Then
+                                       { Window_Num                           }
+         s :=  Copy(Str(Global_Int('!K_WIN_MARK' + Str(jx))) + space ,1,4)
+                  + Copy(Truncate_Extension(Truncate_Path(s)) + space,1,8)
+                  + '.' + Copy(Get_Extension(s) + space,1,3)
+                  + ' ' + Get_Path(s) ;
+         Set_Global_Str('!K_TST_' + Str(jx),  Str(jx-1) + c + ' '
+                  + s
+                  );
+      End;
+      Set_Global_Str('!K_TST_' + Str(jx),  Str(jx-1) + c + ' '
+               + s
+               );
+   End;
+
+   If (Xpos('/?',Caps(Mparm_Str),1)) Then        { Нужно занести              }
+      If (f_empty = 0) Then            { автоматом не получтся                }
+         Beep;                         { Нет места - прогудим                 }
+         Make_Message('Нет "пустого" маркера для /? занесения');
+      Else                             { Есть куда занести                    }
+         jx := f_empty -1 ;
+         goto do_set;                  { Будем все делать молча               }
+      End;
+   End;
+
+   s := '';
+   If (Parse_Int('/X=',Caps(Mparm_Str)) > 0) Then
+      s := '/X=' + Str(Parse_Int('/X=',Caps(Mparm_Str))) ;
+   Else
+      s := '/X=21' ;
+   End ;
+   If (Parse_Int('/Y=',Caps(Mparm_Str)) > 0) Then
+      s := s + '/Y=' + Str(Parse_Int('/Y=',Caps(Mparm_Str))) ;
+   Else
+      s := s + '/Y=3' ;
+   End ;
+   Set_Global_Str('!K_DVS_EVENT1', '/T=Удалить'
+                                 + '/K1=0'
+                                 + '/K2=83'
+                                 + '/R=-2'       { Ответ Return_Int           }
+                                 + '/KC=<DEL>'   { Название KEY               }
+                                 + '/LL=1'       { Вниз окна                  }
+                                 );
+   Run_Macro('DVMENU^DVMENU /B=1/K=0/P=!K_TST_'
+            + s                        { Координаты BOX для Меню              }
+            + '/I=%'
+            + '/T=Select Window_Marker # to set '
+            + '/C=0/D=0/ED=1/O=0/H=PMRANDOM '
+            + '/SK=1/NR=1'
+            + '/GCLR=1/K=1'
+            + '/SN=' + Str(f_empty )
+            + '/#='  + Str(jx )
+            + '/DF2=WM_DEL Удалить маркер'
+            + '/EV#=1'
+            + '/EV=!K_DVS_EVENT'
+            );
+
+
+   del_box := 1;                       { Надо бы удалить картинки-отходы      }
+   f_empty :=  Val(jx, Copy(Return_Str,1,1)) ;   { Номер маркера из DVMENU    }
+   if Return_Int = 0 then              { При выборе выход по ESC              }
+		goto exit;
+	end;
+   if Return_Int = -2 then             { Команда удалить маркер               }
+      Set_Global_Str('K_WIN_MARK' + Str(jx+1),'');
+      Make_Message('Удален Маркер #' + Str(jx));
+      goto REDISPLAY;
+	end;
+
+	return_int := 100;
+
+ do_set:
+   del_box := 1;                       { Надо бы удалить картинки-отходы      }
+   Set_Global_Str('K_WIN_MARK' + Str(jx+1),
+         Copy(Str(Window_Id) + space,1,4) +  File_Name
+         );
+   Make_Message('Window_Marker #' + str(jx) + ' set to ' + File_Name );
+
+ EXIT:
+   If (del_box) Then
+      bc := parse_int('/BC=', mparm_str);
+      while box_count > bc do
+         kill_box;
+      end;
+   End;
+   jx := 0;
+   While (jx < 12) Do                  { Чистка GLOBAL                        }
+      ++ jx ;
+      Set_Global_Str('!K_TST_' + Str(jx), '');
+   End;
+
+ End_Macro;                            { K_Set_Mark                           }
+
+$Macro K_Get_Mark;                     { Window Get_Mark 16.07.92-13:50       }
+ {******************************************************************************
+                                        By   MULTI-EDIT MACRO Get_Mark
+ Name:   K_Get_Mark
+
+ Description:   Uses the new random access marker stack to set 10 markers.
+            If Get_Mark is executed without parameters, the user is prompted
+				to press a number key (0-9, 0=10) to specify the marker #.  If a
+				value of 1-10 is passed as a parameter, then the specified mark
+				is set without prompting the user.
+
+ Parameters: MParm_Str can contain 1-10 to denote going directly to the mark.
+         If the entire MParm_Str does not contain numeric characters, this
+         option will not work, and the menu will be invoked.  Under these
+         circumstances, the following parameters are expected:
+         /X=      The X coordinate for the menu
+         /X=      The X coordinate for the menu
+         /BC=  The amount of boxes which need to be killed upon exit
+
+							 (C) Copyright 1989 by American Cybernetics, Inc.
+ Все как и в Get_Mark , но запоминается окно с " файлом"
+                      (C) Copyright 1992 by Korzun E.G. (095) 924-52-73
+ ******************************************************************************}
+
+   Def_Int( jx, bc ,del_box := 0 , f_empty);
+   Def_Str(s , c , space [80]);
+
+   Working;
+   Run_Macro('K_CHK_MARK ');           { Проверить маркера и сменить ID       }
+
+   if Val(jx, Mparm_Str) = 0 THEN      { Номер маркера для установки задан    }
+		if (jx > 0) and (jx < 11) then
+         goto do_set;                  { Будем все делать молча               }
+		end;
+	end;
+
+   While (Svl(space) < 80) Do
+      space := ' ' + space;
+   End;
+                                       { Подготовка меню выбора               }
+ REDISPLAY:
+   jx := 0;
+   Return_Int := 0;                    { Счет активных маркеров               }
+   While (jx < 10) Do
+      f_empty := 1;                    { Признак - показать маркер в меню     }
+      ++ jx;
+      s := Global_Str('K_WIN_MARK' + Str(jx));
+      If (Svl(s) > 0) Then             { Маркер установлен                    }
+         If ( (Copy(Str(Window_Id) + space,1,4) + File_Name) = s) Then
+            f_empty := 0;              { Признак - убрать маркер из меню      }
+         End;
+         If (Global_Int('!K_WIN_MARK' + Str(jx)) > 0) Then { Файл загружен    }
+            c := '|240';
+         Else                          { Надо грузить                         }
+            c := '|175';
+         End;
+      Else                             { Маркер свободен                      }
+         c := ' ';
+         f_empty := 0;                 { Признак - убрать маркер из меню      }
+      End;
+
+      If (f_empty > 0) Then            { Маркер  задействован в меню          }
+         Return_Int := 1 + Return_Int; { Счет активных пунктов                }
+         s := Str_Del(s,1,4);          { Имя файла из выбранного маркера      }
+                                       { Window_Num                           }
+         s :=  Copy(Str(Global_Int('!K_WIN_MARK' + Str(jx))) + space ,1,4)
+                  + Copy(Truncate_Extension(Truncate_Path(s)) + space,1,8)
+                  + '.' + Copy(Get_Extension(s) + space,1,3)
+                  + ' ' + Get_Path(s) ;
+         Set_Global_Str('!K_TST_' + Str(Return_Int),  Str(jx-1) + c + ' '
+                  + s
+                  );
+      End;
+   End;                                { of DO -- While                       }
+
+   If (Return_Int = 0) Then            { Некого устанавливать                 }
+      Beep;
+      Make_Message('Нет активных маркеров для перехода..');
+      GoTo Exit;                       { - нет активных маркеров              }
+   End;
+
+   jx := Return_Int ;
+   s := '';
+   If (Parse_Int('/X=',Caps(Mparm_Str)) > 0) Then
+      s := '/X=' + Str(Parse_Int('/X=',Caps(Mparm_Str))) ;
+   Else
+      s := '/X=21' ;
+   End ;
+   If (Parse_Int('/Y=',Caps(Mparm_Str)) > 0) Then
+      s := s + '/Y=' + Str(Parse_Int('/Y=',Caps(Mparm_Str))) ;
+   Else
+      s := s + '/Y=3' ;
+   End ;
+   Set_Global_Str('!K_DVG_EVENT1', '/T=Удалить'
+                                 + '/K1=0'
+                                 + '/K2=83'
+                                 + '/R=-2 '      { Ответ Return_Int           }
+                                 + '/KC=<DEL>'   { Название KEY               }
+                                 + '/LL=1'       { Вниз окна                  }
+                                 );
+   Run_Macro('DVMENU^DVMENU /B=1/K=0/P=!K_TST_'
+            + s                        { Координаты BOX для Меню              }
+            + '/I=%'
+            + '/T=Select Window_Marker # to Go '
+            + '/C=0/D=0/ED=1/O=0/H=PMRANDOM '
+            + '/SK=1/NR=1'
+            + '/GCLR=1/K=1'
+            + '/SN=' + Str(1 )
+            + '/#='  + Str(jx )
+            + '/DF2=WM_DEL Удалить маркер'
+            + '/EV#=1'
+            + '/EV=!K_DVG_EVENT'
+            );
+
+
+   del_box := 1;                       { Надо бы удалить картинки-отходы      }
+   f_empty :=  Val(jx, Copy(Return_Str,1,1)) ;   { Номер маркера из DVMENU    }
+   if Return_Int = 0 then              { При выборе выход по ESC              }
+		goto exit;
+	end;
+   if Return_Int = -2 then             { Команда удалить маркер               }
+      Set_Global_Str('K_WIN_MARK' + Str(jx+1),'');
+      Make_Message('Удален Маркер #' + Str(jx+1));
+      goto REDISPLAY;
+	end;
+
+	return_int := 100;
+
+ do_set:
+   del_box := 1;                       { Надо бы удалить картинки-отходы      }
+
+   s := Global_Str('K_WIN_MARK' + Str(jx+1));
+   If (Svl(s) = 0) Then                { Нет описания  ???                    }
+      Beep;
+      Make_Message(' Маркер #' + Str(jx) + ' не установлен');
+      GoTo Exit;
+   End;
+   If (Copy(Return_Str,2,1) = '|240') Then       { Файл загружен в окно       }
+      Return_Int := Val(bc ,Remove_Space(Copy(s ,1,4)));
+      Switch_Win_Id(bc) ;              { Перейти в окно                       }
+      bc := 0;                         { Переход по действующему ID           }
+   Else                                { Надо поискать его сначала в памяти   }
+      s := Str_Del(s,1,4);             { Имя файла из выбранного маркера      }
+      If (Switch_File(s)) Then
+         bc := 1;                      { Переключение по имени файла          }
+      Else
+         Return_Str := s ;
+         bc := 2;                      { Загрузка файла по имени              }
+         Run_Macro('LDFILES '
+                  + '/LC=1'
+                  + '/MC=1'
+                  + '/NW=1'
+                  + '/CW=1'
+                  );
+         If Not(File_Exists(s)) Then   { А его то и нет                       }
+            bc := 3;                   { Загрузка файла по имени не удачна    }
+         End;
+      End;
+   End;
+   Set_Global_Str('K_WIN_MARK' + Str(jx+1),
+         Copy(Str(Window_Id) + space,1,4) +  File_Name
+         );
+
+   s := '';                            { Анализ результатов загрузки          }
+   If (bc = 1) Then
+      s := '+ Switch';
+   ElsIf(bc = 2) Then
+      s := '+ Loaded';
+   ElsIf(bc = 3) Then
+      s := '+ Loaded Empty';
+   End ;
+   Make_Message('Window_Marker #' + str(jx) + ' retrieved.' + s );
+   Window_Attr := ( Window_Attr SHR 1) SHL 1;    { Снять "спрятанность"       }
+
+ EXIT:
+   If (del_box) Then
+      bc := parse_int('/BC=', mparm_str);
+      while box_count > bc do
+         kill_box;
+      end;
+   End;
+   jx := 0;
+   While (jx < 12) Do                  { Чистка GLOBAL                        }
+      ++ jx ;
+      Set_Global_Str('!K_TST_' + Str(jx), '');
+   End;
+   New_Screen;
+   Redraw;
+ End_Macro;                            { K_Get_Mark                           }
+ { -------------------------------------------------------------------------- }
+$Macro K_QSRT Trans ;                  { 15.07.92-16:56                       }
+  { ------------------------------------------------------------------------- }
+{ ----- Алгоритм "Быстрой Сортировки" - по Б.МЕЙР К.БОДУЭН т.2 стр.167  ----- }
+  { -----   21.02.90 10:32  Корзун Е.Г.  v.m. 15.07.92-16:56 ---------------- }
+  { ------------------------------------------------------------------------- }
+  { --- Состоит из ГОЛОВНОЙ программы MAIN и следующих подпрограмм :    ----- }
+  {   - DIVIDE(I,J)    - нахождение "главного" элемента в подмассиве I : J ,  }
+  {                     результат: индекс IGL главного элемента;              }
+  {                     частично отсортрованный подмассив I : J ;             }
+  {   - COMPARE(CI,cj) - сравнение ключей элементов CI и cj ,                 }
+  {                     результат: IKEY : - 1 при K(CI) < K(cj)               }
+  {                                     :   0 при K(CI) = K(cj)               }
+  {                                     : + 1 при K(CI) > K(cj) ;             }
+  {   - CHANGE(CI,cj)  - поменять местами элементы CI и cj ;                  }
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  { ------------------------------------------                                }
+  {    КОНСТАНТЫ :                                                            }
+  {   - POROG        - порог для перехода к ENDSORT ( 8 - 20; 15)             }
+  { ------------------------------------------------------------------------- }
+  { !!! Результаты могут показаться странными,т.к. символьное-строковое  !!!  }
+  { !!! сравнение в ME 4.0 работает своеобразно (см K_COMP_S.SRC).       !!!  }
+  { ------------------------------------------------------------------------- }
+	Def_Str(Message);
+	Def_Int(start_line, End_Line, CH_LINE, cur_line, sort);
+	Def_Int( c_start, keylen, BL1, BL2, Caps_On, Descending,
+				BC1, BC2, Old_Block_Stat, o_marking );
+   Def_Int(o_save,o_rfrsh,o_im ,o_undo,k_qsrt := 0 , k_quit);
+	Def_Int(N);                         { Количество элементов                 }
+
+	Def_Int(Porog);                     { Значение "порога"                    }
+	Porog := 15;
+	Def_Int(IGL)  ;                     { Результат DIVIDE                     }
+	Def_Int(IKEY) ;                     { Значение сравнения в COMPARE         }
+
+	Def_Int(I,J ) ;                     { Текущие значения границ  массива     }
+	Def_Int(IS,JS);                     { Текущие значения границ - в стэк     }
+	Def_Int(CI,cj);                     { Значения индексов для COMPARE        }
+	Def_Int(Nstek);                     { Глубина стэка                        }
+
+	Def_Int(Midle,MI,MJ);               { DIVIDE : "середина",левый,правый     }
+	Def_Str(KI[2048],KJ[2048]);         { COMPARE: ключи сравниваемых эл-ов    }
+													{ CHANGE: собственно строки            }
+	Def_Str(si [2048], sj [2048] , Csj [2048]);
+	Def_Int(K,L);
+
+ START:
+													{ Подготовительные действия            }
+	o_im := Insert_Mode;                { На самом деле не нужно               }
+	o_undo := Undo_Stat;
+                     {  o_save := Autosave;
+                        Autosave := 0;  Отключаем автоматическое сохранение  }
+	o_rfrsh := Refresh;
+	Mark_Pos;
+	PUSH_UNDO;                          { Отметка в буфере UNDO - начало     * }
+	Refresh := FALSE;
+	working;
+   si := Caps(Mparm_Str) ;             { Не мучаясь с регистрами              }
+   k_qsrt := xpos( '/KKK', si, 1 ) <> 0;         { Обязательно мою            }
+   Descending := xpos( '/D', si, 1 ) <> 0;
+   Caps_On := Xpos( '/CASE', si, 1 ) <> 0;
+   c_start := parse_int( '/C=', si );
+   keylen  := parse_int( '/L=', si );
+   If (Xpos( '/U', si, 1 ) = 0) Then   { не запрещено выключать UNDO          }
+      Undo_Stat := 0;                  { Отключаем ведение статистики UNDO    }
+   End;
+   k_quit := 0;
+   If (Xpos( '/Q', si, 1 ) > 0) OR     { Запрещен вывод сообщений на экран    }
+      (Mode <> EDIT) Then
+      k_quit := 1;
+   End;
+   if c_start = 0 then                 { Колонка начала ключа                 }
+		c_start := 1;
+	end;
+   if (keylen <= 0) OR (Keylen > 2048) then      { Длина ключа не более  2048 }
+		keylen := 2048;
+	end;
+
+	sort := 0;
+   cur_line := C_LINE;                 { Номер текущей строки-когда нет блока!}
+
+	Old_Block_Stat := 0;
+	If (Block_Stat <> 0) Then
+      Old_Block_Stat := Block_Stat;    { Запомним кто он такой                }
+		o_marking := MARKING ;
+		BL1 := block_line1;
+		BL2 := block_line2;
+		BC1 := block_col1;
+		BC2 := block_col2;
+   End;                                { -- If ..                             }
+
+   if Xpos( '/B', si, 1 ) <> 0 then    { Заказан блок                         }
+		if Old_Block_Stat <> 1 THEN
+			BEEP;
+			RUN_MACRO('USERIN^VERIFY /C=3/L=5'
+            + '/T=Нет строчного блока.Сортируем Весь файл ?');
+         If (Return_Int) then          { Сказали сортировать все              }
+      		block_off;                 { Выключим его, чтобы не отсвечивал    }
+				GOTO NO_BLK;
+			end;
+			Message := 'Сортировка отменена';
+			goto exit;
+		end;
+      start_line := BL1;               { Это при сортировке строчного блока   }
+		End_Line   := BL2;
+		GOTO MAIN;
+	end;
+ NO_BLK:
+   Old_Block_Stat := 0;                { Всякие блоки теряют смысл            }
+	start_line := 1;
+	EOF;
+	End_Line := C_LINE;
+
+ MAIN:
+
+	EOF;
+   CH_Line := C_LINE;                  { Для проверки все ли O.KEY с заказом  }
+   If (End_line > CH_Line) Then        { Недоразумение - поправим             }
+		End_line := CH_Line;
+   End;                                { -- If ..                             }
+	I := start_line;
+	J := End_Line  ;
+	N := (J - I) + 1;
+   If (N < 2) Then                     { Недоразумение - делать нечего        }
+		GoTo End_ALL;
+   End;                                { -- If ..                             }
+	Nstek := 0;
+   sort := TRUE;                       { И в действительности сортируем       }
+   If (k_quit = 0 ) Then
+      Make_Message('K_QSRT 15.07.92-16:56 MAIN N=' + STR(N)
+            + ' c ' + Str(c_start) + ' длина=' + Str(keylen));
+   End;                                { -- If .. 14.07.92-14:14 --           }
+
+   Def_Str(SPACE);
+   cj := 0;
+   While (cj < Screen_Width) Do
+      SPACE := SPACE + ' ';
+      ++cj ;
+   End;
+   si := '/C=начало /L=длина /D-убывание /B-блок /U-не выкл. UNDO /CASE-CAPS';
+	Call CENTER_SI;                     { Центрировать линию  si               }
+   If (k_quit = 0 ) Then
+      Write(si,                        { Сообщим, чем занимаемся              }
+            1,fkey_row,0,fkey_Color);
+   End;                                { -- If .. 14.07.92-14:14 --           }
+	si := ' Запуск ';
+	If (o_undo <> Undo_Stat) Then
+		si := si + '(с выключением Undo_Stat) ';
+	End;
+	If (Copy(Version,1,1) > '5') AND (k_qsrt = 0) Then
+													{ Стандарт лучше чем у меня            }
+		sj :=  'Text^TextSort';
+	else
+		sj := ' параметры ';
+	End;
+	sj := sj
+			+ ' /C=' +Str(c_start)
+			+ ' /L=' +Str(keylen);
+	If (Old_Block_Stat) Then
+		sj := sj
+				+ ' /B';
+	End;
+	If (Descending) Then
+		sj := sj
+				+ ' /D';
+	End;
+	If (Caps_On) Then
+		sj := sj
+				+ '/CASE';
+	End;
+	si := si + sj;                      { Текст - кого запускаем и как         }
+	Call CENTER_SI;                     { Центрировать линию  si               }
+   If (k_quit = 0 ) Then
+      Write(si,
+            1,Min_Window_Row + 1,0,Message_Color);
+   End;
+
+	If (Copy(Version,1,1) > '5') AND (k_qsrt = 0) Then
+													{ Сообщим, чем занимаемся              }
+		si := 'Поскольку в версии ' + Version
+				+ ' лучше стандартная - запускаем ее';
+		Call CENTER_SI;                  { Центрировать линию  si               }
+      If (k_quit = 0 ) Then
+         Write(si,
+               1,Min_Window_Row + 2 ,0,Working_Color);
+      End;
+      Run_Macro(sj);                   { Запустить  Text^TextSort             }
+  		GoTo END_ALL;                    { И закочить                           }
+	End;
+   block_off;                          { Выключим его, чтобы не отсвечивал    }
+													{ Основной цикл - деление с главным .. }
+	While ((J - I) > Porog) OR (Nstek > 0 )Do
+		Call DIVIDE { (I , J ) } ;
+		If (IGL - I) < (J - IGL) Then    { Еслм слева меньше, то переходим влево}
+			IS := IGL + 1;
+			JS := J;
+			J  := IGL - 1;
+		Else                             { Иначе - вправо                       }
+			IS := I;
+			JS := IGL - 1;
+			I  := IGL + 1;
+		End;
+
+		If (JS - IS) > Porog Then        { Отложенный кусок больше порга-спрячем}
+			Nstek := Nstek + 2;           { Глубина одного шага - 2              }
+         If (k_quit = 0 ) Then
+            Write( '    Стэк=' + STR(NSTEK/2) + '   ',17,Min_Window_Row
+                     ,0,Eof_Color);
+         End;
+			Set_Global_Int('K_SRT_STEK' + STR(Nstek   ),IS);
+			Set_Global_Int('K_SRT_STEK' + STR(Nstek -1),JS);
+		End;
+
+		If ((J - I) < Porog) AND (Nstek > 0) Then  { Пора вынимать из стека     }
+			I := Global_Int('K_SRT_STEK' + STR(Nstek   ) );
+			J := Global_Int('K_SRT_STEK' + STR(Nstek -1) );
+			Set_Global_Int('K_SRT_STEK' + STR(Nstek   ),0);
+			Set_Global_Int('K_SRT_STEK' + STR(Nstek -1),0);
+			Nstek := Nstek - 2;
+		End;                             { -- If ..                             }
+	End;                                { -- Do .. While                       }
+													{ -- Конец MAIN                        }
+  { ------------------------------------------------------------------------- }
+   If (k_quit = 0 ) Then
+      Make_Message('K_QSRT-ENDSORT =' + STR(N) + ' ' + Mparm_Str);
+   End;
+	Call ENDSORT;                       { "Досортировка" массива               }
+  { ----- Подпрограммы   ---------------------------------------------------- }
+  GoTo END_ALL;
+
+													{ ------------------------------------ }
+ CENTER_SI:                            { Центрировать линию  si               }
+   cj := (Screen_Width - Svl(si))/2 ;
+   If (cj < 0) Then
+      cj := 0;
+   End;
+   si := Copy(SPACE,1,cj)
+      +  si
+      +  Copy(SPACE,1,cj) ;
+	Ret;
+													{ ------------------------------------ }
+ DIVIDE:
+  {   - DIVIDE(I,J)  - нахождение "главного" элемента в подмассиве I : J ,    }
+  {                     результат: индекс IGL главного элемента,              }
+  {                     частично отсортрованный подмассив I : J ;             }
+													{ ------------------------------------ }
+	IGL := I;
+	If (J <= I) Then                    { Делать уже нечего                    }
+		Ret;
+	End;                                { -- If ..                             }
+													{ Инициализация "среднего"             }
+	Midle := (I + J) / 2;
+	CI := J;
+	cj := Midle;
+	Call COMPARE    { (CI , cj ) } ;
+	If (IKEY < 0 ) Then                 { Cреднмй > Правого - меняем местами   }
+		Call CHANGE  { (CI , cj ) } ;
+	End;                                { -- If ..                             }
+
+	cj := I;
+	Call COMPARE    { (CI , cj ) } ;
+	If (IKEY < 0 ) Then                 { Левый   > Правого - меняем местами   }
+		Call CHANGE  { (CI , cj ) } ;
+	End;                                { -- If ..                             }
+
+	CI := I;
+	cj := Midle;
+	Call COMPARE    { (CI , cj ) } ;
+	If (IKEY < 0 ) Then                 { Средний > Левого  - меняем местами   }
+		Call CHANGE  { (CI , cj ) } ;
+	End;                                { -- If ..                             }
+
+													{ ------------------------------------ }
+													{ Теперь Слева - средний по значению 3 }
+													{ а      Справа- MAX     по значению 3 }
+													{ ------------------------------------ }
+	MI := I;
+	MJ := J + 1;                        { За границу не выйдем,т.к. начинаем   }
+													{ все действия с MJ - 1 и MI + 1       }
+	cj := I;
+	Call COMPARF    { (CI , cj ) } ;
+
+	While (MI < MJ) Do                  { Перестановки вокруг "среднего"       }
+
+		IKEY := 1 ;
+		CI := MI;
+		While IKEY Do                    { Поиск слева >= "среднего"            }
+			++CI;
+			Call COMPARL    { (CI , cj ) } ;
+		End;                             { -- While слева <  "среднего"         }
+		MI := CI;                        { Вот этот - нарушитель ! (слева)      }
+													{ У него ключ >=  "среднего"           }
+		IKEY := 1 ;
+		CI := MJ;
+		While IKEY Do                    { Поиск справа <= "среднего"           }
+			--CI;
+			Call COMPARG    { (CI , cj ) } ;
+		End;                             { -- While справа > "среднего"         }
+		MJ := CI;                        { Вот этот - нарушитель ! (справа)     }
+
+													{ Приводим в соотвествие-переставляем  }
+		cj := MI;                        { В CI Уже MJ - номер правого злодея   }
+		Call CHANGE  { (CI , cj ) } ;
+	End;                                { -- Do .. While . MJ < MI             }
+
+	Call CHANGE  { (CI , cj ) } ;       { Т.К. переусердствовали -> назад      }
+													{ Возвращаемый индекс "середины"       }
+	IGL := MJ;                          { индекс "середины" должен быть MIN    }
+
+	cj := I;                            { т.к. в CI осталось MJ                }
+	Call CHANGE  { (CI , cj ) } ;       { Осталось вставить на место среднего  }
+	Ret;                                { -- of DIVIDE                         }
+													{ ------------------------------------ }
+ COMPARE:
+  {   - COMPARE(CI,cj) - сравнение ключей элементов CI и cj ,                 }
+  {                     результат: IKEY : - 1 при K(CI) < K(cj)               }
+  {                                     :   0 при K(CI) = K(cj)               }
+  {                                     : + 1 при K(CI) > K(cj) ;             }
+													{ ------------------------------------ }
+	Put_Line_NUM(cj);
+	PUT_COL_NUM(CI);
+	Goto_Line(CI);
+	KI := COPY(GET_LINE,c_start,keylen);
+	Goto_Line(cj);
+	KJ := COPY(GET_LINE,c_start,keylen);
+	If (Caps_On) Then
+		KI := CAPS(KI);
+		KJ := CAPS(KJ);
+	End;                                { -- If ..                             }
+	IKEY := KI > KJ;
+	If (NOT(IKEY)) Then
+		If (KI < KJ) Then
+			IKEY := -1;
+		End;                             { -- If ..                             }
+	End;                                { -- If ..                             }
+	If Descending  Then
+		IKEY := - IKEY;
+	End;                                { -- If ..                             }
+	Ret;                                { -- of COMPARE                        }
+													{ ------------------------------------ }
+ COMPARF:
+  {   - COMPARF(cj) - запомнить в cj ключ, а в Csj - собственно строку    }
+													{ ------------------------------------ }
+	Put_Line_NUM(cj);
+	Goto_Line(cj);
+	Csj := GET_LINE;
+	KJ := COPY(GET_LINE,c_start,keylen);
+	If (Caps_On) Then
+		KJ := CAPS(KJ);
+	End;                                { -- If ..                             }
+	Ret;                                { -- of COMPARF                        }
+ COMPARS:                              { Сравнение текущего с буфером         }
+  {                     результат: IKEY : - 1 при K(CI) < K(cj)               }
+  {                                     :   0 при K(CI) = K(cj)               }
+  {                                     : + 1 при K(CI) > K(cj) ;             }
+													{ ------------------------------------ }
+	Goto_Line(CI);
+	KI := COPY(GET_LINE,c_start,keylen);
+	PUT_COL_NUM(CI);
+	If (Caps_On) Then
+		KI := CAPS(KI);
+	End;                                { -- If ..                             }
+	IKEY := KI > KJ;
+	If (NOT(IKEY)) Then
+		If (KI < KJ) Then
+			IKEY := -1;
+		End;                             { -- If ..                             }
+	End;                                { -- If ..                             }
+	If Descending  Then
+		IKEY := - IKEY;
+	End;                                { -- If ..                             }
+	Ret;                                { -- of COMPARS                        }
+													{ ------------------------------------ }
+ COMPARG:                              { Сравнение текущего с буфером  на >   }
+  {                     результат: IKEY :   TRUE  при K(CI) >  K(cj)          }
+  {                                     :   FALSE при K(CI) <= K(cj)          }
+													{ ------------------------------------ }
+	Goto_Line(CI);
+	si := GET_LINE;                     { Запомним это значение                }
+	KI := COPY(GET_LINE,c_start,keylen);
+	PUT_COL_NUM(CI);
+	If (Caps_On) Then
+		KI := CAPS(KI);
+	End;                                { -- If .. нет разницы загл./строчные  }
+	If Descending  Then
+		IKEY := KI < KJ;
+	Else
+		IKEY := KI > KJ;
+	End;                                { -- If ..  наоборот                   }
+	Ret;                                { -- of COMPARG                        }
+													{ ------------------------------------ }
+ COMPARL:                              { Сравнение текущего с буфером  на <   }
+  {                     результат: IKEY :   TRUE  при K(CI) <  K(cj)          }
+  {                                     :   FALSE при K(CI) >= K(cj)          }
+													{ ------------------------------------ }
+	Goto_Line(CI);
+	si := GET_LINE;                     { Запомним это значение                }
+	KI := COPY(GET_LINE,c_start,keylen);
+	PUT_COL_NUM(CI);
+	If (Caps_On) Then
+		KI := CAPS(KI);
+	End;                                { -- If .. нет разницы загл./строчные  }
+	If Descending  Then
+		IKEY := KI > KJ;
+	Else
+		IKEY := KI < KJ;
+	End;                                { -- If ..  наоборот                   }
+	Ret;                                { -- of COMPARL                        }
+													{ ------------------------------------ }
+ CHANGF:
+  {   - CHANGE(CI,cj)  - поменять местами элементы CI и cj - запомненное      }
+													{ ------------------------------------ }
+	Goto_Line(CI);
+	si := GET_LINE;
+	Put_Line(Csj);
+	Goto_Line(cj);
+	Put_Line(si);
+	Ret;                                { -- of CHANGF                         }
+													{ ------------------------------------ }
+ CHANGE:
+  {   - CHANGE(CI,cj)  - поменять местами элементы CI и cj ;                  }
+													{ ------------------------------------ }
+	Goto_Line(CI);
+	si := GET_LINE;
+	Goto_Line(cj);
+	sj := GET_LINE;
+	Put_Line(si);
+	Goto_Line(ci);
+	Put_Line(sj);
+	Ret;                                { -- of CHANGE                         }
+													{ ------------------------------------ }
+ ENDSORT:
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  {                    метод - "включением"                                   }
+													{ ------------------------------------ }
+	K := 1;
+	While (K < N ) Do
+		cj := start_line + K ;           { Включаемая запись                    }
+		CI := cj - 1;                    { Начало отсортированного куска снизу  }
+		Call COMPARF    { ( cj ) } ;
+		Call COMPARG    { (cj , cj - 1 ) } ;
+		While (CI >= start_line) Do
+			If IKEY Then                  { здесь Включаемый  <  Левого   ?      }
+													{ С этим уже можно менять              }
+				Call CHANGF     { (cj , cj - 1 ) } ;
+				cj := CI;
+				--CI;
+				Call COMPARG    { (cj , cj - 1 ) } ;
+			Else
+				CI := 0;                   { Признак выхода из цикла              }
+			End;                          { -- If .Правый  <  Левого . Else .. }
+		End;                             { -- Do .. While L > 0 AND K.L > K.L+1 }
+		++K;
+	End;                                { -- Do .. While K < N                 }
+	Ret;                                { -- of ENDSORT                        }
+													{ ------------------------------------ }
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  END_ALL:
+  { ----- Подпрограммы   - конец -------------------------------------------- }
+
+	EOF;
+	I := C_LINE ;
+	J := CH_Line;
+	If (J <> I) Then
+		BEEP;
+		Message := 'Ошибка K_QSRT - было строк: '+ STR(J)
+						+ '=до сортировки, ' + STR(I) + '= после';
+	Else
+		Message := 'K_QSRT - Сортировка закончена. ' + STR(N) + ' строк';
+	End;                                { -- If ..                             }
+	TOF;                                { В начало файла                       }
+ EXIT:
+	if Old_Block_Stat <> 0 THEN         { Был блок                             }
+		Goto_Line(BL1);
+		If (Old_Block_Stat = 1) Then
+			Block_Begin;
+			Goto_Line(BL2);
+		Else                             { Поточный или колонный                }
+			Goto_Col(BC1);
+			If (Old_Block_Stat =2) Then   { Колонный                             }
+				Col_Block_Begin;
+			Else
+				Str_Block_Begin;
+			End;                          { -- If .. Else ..                     }
+			Goto_Line(BL2);
+			Goto_Col(BC2 + 1);
+		End;                             { -- If .. Восстановления типа блока   }
+		If (o_marking >= 0) Then         { Был закрыт  -нет - все равно         }
+			Block_End;
+			Goto_Line(cur_line);
+		End;
+	End;
+	Pop_Undo;                           { Отметка в буфере UNDO - конец      * }
+	Undo_Stat := o_undo;
+                                       { Autosave := o_save;                  }
+	Goto_Mark;
+	Insert_Mode := o_im ;
+	Refresh := o_rfrsh ;
+   If (k_quit = 0 ) Then
+      Redraw;
+      New_Screen;
+      If (Svl(Message) > 0) Then
+         Make_Message(Message);
+      End;
+   End;
+ End_macro;                            { -- K_QSRT -                          }
+

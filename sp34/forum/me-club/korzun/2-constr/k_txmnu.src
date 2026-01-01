@@ -1,0 +1,446 @@
+$MACRO K_TXMNU TRANS ;
+ {* **************************** Korzun E.G. MACRO ****************************
+ Name: K_TXMNU  C  Korzun E.G.                        24.12.90-16:07
+                                     корректировка    14.01.91-18:07
+ Description: "Раскрытое"  Top Меню на N элементов с XMENU в каждом
+    Параметры :
+       /#= количество элементов в TOPMENU (и размер семейства "G")
+       /L= заголовок TOPMENU
+       /H= Help_ссылка для всего TOPMENU ( если не указано в "G")
+       /S= начальный номер установки TOPMENU (не обязательно)
+       /Y= где начать TOPMENU - строка  (может быть изменено в МАКРО)
+       /X= где начать TOPMENU - столбец (может быть изменено в МАКРО)
+       /DIV= nnn - ASCII код символа-разделителя "пунктов" в Global_Str
+                  (по умолчанию=92 , символ = "\" , нельзя "/" )
+       /OPEN - работа только с "раскрытым" меню нижнего уровня;
+            если задано, то по <ESC> сразу выход из макро, а не вверх;
+       /DSPC - если задано, то "показать" КУРСОР на экране
+       /GCLR=1 - "зачистить" Global_Str -ы =  семейства GLOBAL "G"
+       /G= имя Global_Str для "пунктов" XMENU (== "G" + # )
+        Первым в "G" стоит заголовок для пункта TOPMENU
+        , затем может быть [/H=Help_ссылка] - для пункта TOPMENU (и его XMENU),
+        а далее через разделитель = /DIV - заголовки пунктов соотв. XMENU.
+        После заголовка любого пункта может быть указано
+         /H=Help_ссылка - для данного пункта  XMENU .
+    Ответ :
+       Return_Int    - номер пункта TOPMENU (0 - при выходе по <ESC> из TOP )
+       K_Return_Int  - номер пункта XMENU   (0 - при <ESC> )    Global_Int
+       Return_Str    - "выбранный" заголовок из XMENU
+ ******************************************************************************}
+   Def_Int( jx , jkx ,jy, k_num ,kx , ky ,l_top ,s_parm ,dspc );
+   Def_Str(hlp[40] , ident , name[20] , ghelp[40] , cont , gstr[20] );
+   Def_Char(div_char);
+
+   ident := ' K_TXMNU:  CopyRight 1990 Korzun E.G. - 24.12.90-16:07 ';
+   dspc := Pos('/DSPC',Caps(Mparm_Str));
+   If (dspc > 0 ) Then
+      If (Global_Int('K_X_Place') = 0) Then
+         RM('K_CH_C^K_SAVCUR');        { Запомнить место курсора              }
+      End;
+   End;
+                                       { имя GlobaL_Str для буферных перемен. }
+   gstr := '@_K_' + Str(Global_Int('Menu_Level')) + '_T__!_' ;
+                                       { Какой символ-разделитель ?           }
+   jx := Parse_Int('/DIV=',Caps(Mparm_Str));
+   If jx = 0 Then                      { Не задан символ-разделитель          }
+      jx := 92;                        { Берем по умолчанию                   }
+   End;
+   div_char := Char(jx);               { Дураков с "\" не проверяем           }
+   kx := Parse_Int('/X=',Caps(Mparm_Str));
+   If kx = 0 Then                      { Не задан столбец меню                }
+      kx := 1;
+   End;
+   ky := Parse_Int('/Y=',Caps(Mparm_Str));
+   If ky = 0 Then                      { Не задана строка меню                }
+      ky := 4;
+   End;
+   ghelp := Parse_Str('/H=',Caps(Mparm_Str));
+   If (Svl(ghelp)) Then                { Общий Help для всех                  }
+      ghelp := '/H=' + ghelp;
+   End;
+   name := Parse_Str('/G=',Caps(Mparm_Str));
+   jx := Parse_Int('/#=',Mparm_Str);
+   If (jx <= 0) Then
+      Make_Message('K_TXMNU: Нет параметра #= in ' + Mparm_Str);
+      Beep;
+      GoTo NORUN_MACRO;
+   End;
+   l_top := 1;                         { Счет max. размер строки TOPMENU      }
+   k_num := 0;
+   jkx := jx;                          { Сколько было заказано                }
+   While (k_num < jx) Do
+                                       { 1. Номер очередного элемента TOPMENU }
+      ++ k_num;
+      cont := Global_Str(name + Str(k_num));
+      s_parm := Xpos(div_char, cont , 1 );       { Место начала параметров -\ }
+                                       { Вставляем "общий" HELP               }
+      hlp :=  ghelp;
+      jy := Xpos('/H=', Caps(cont),1); { Проверим, есть ли HELP для пункта    }
+      If (jy > 0) AND (jy < s_parm) Then
+         hlp := Copy(cont,jy , s_parm - jy );
+      End;
+                                       { 2. - Формирование имени элемента     }
+      If (jy > 0) AND (jy < s_parm) Then         { В jy-место начало SUB-HELP }
+         ident := Str_Del(cont, jy ,255);
+      Else
+         jy := s_parm;
+         ident := Str_Del(cont, jy ,255);
+      End;
+      If (Remove_Space(ident) = '') Then
+         ident := '<' + Str(k_num) + '>' ;
+      End;
+      If (l_top + Svl(ident) + 2)      { Ширины экрана мало , а элементов     }
+          >= Screen_Width Then         { Слишком много - не влезет -> режем   }
+         -- k_num;                     { Это последний влезший                }
+         Make_Message('K_TXMNU: Широковат TOP= ' + Str(l_top + Svl(ident) + 2)
+            + ' взято ' + Str(k_num) + ' элементов из ' + Str(jx)
+            + ' для ='  + Mparm_Str);
+         Beep;
+         If (k_num ) Then              { Но что-то поместилось                }
+            GoTo END_TOP;
+         End;
+         GoTo NORUN_MACRO;
+      End;
+      l_top := l_top + Svl(ident) + 1; { Счет размера строки выбора TOPMENU   }
+      If (Pos('/OPEN', Caps(Mparm_Str)) ) Then   { приказ - раскрыть меню     }
+          hlp := hlp + '/OPEN';
+      End;
+      If (dspc > 0 ) Then              { Показать курсор                      }
+          hlp := hlp + '/DSPC';
+      End;
+                                       { 3-1. - Запись Макро-вызова           }
+      Create_Global_Str(gstr + Str(k_num) , '/M=K_TXMNU^K_XMENU '            
+                                          + '/INDEX=' + Str(k_num)
+                                          + '/NAME=' + name + hlp
+                                          + '/L=' + ident
+                                          + '/DIV=' + Str(Ascii(div_char)));
+                                       { 3-2. -Запись заголовка пункта TOPMENU}
+      Create_Global_Str(gstr + 'X' + Str(k_num), ident );
+   End;                                { Цикла формирования "буферных" GLOBAL }
+
+
+ END_TOP:
+   If (l_top +kx) >= Screen_Width Then { Слишком много элементов - сдвиг влево}
+      kx := (Screen_Width - l_top) - 2 ;
+   End;
+
+   jx := Parse_Int('/S=',Caps(Mparm_Str));       { Начальный номер в TOPMENU  }
+   if NOT(jx) then                     { Не было явно - OLD по имени Global   }
+      jy := Val(jx ,Global_Str( name + '__0') );
+   end;
+
+   If (dspc > 0 ) Then
+      If (Global_Int('K_Y_Place') >= ky) AND     { Меню заслоняет курсор      }
+         (Global_Int('K_Y_Place') <= (ky + 3) ) Then
+         ky := Global_Int('K_Y_Place') + 4 ;
+      End;
+   End;
+   Push_Key(13 , 28) ;                 { ENTER - раскрыть меню                }
+   Set_Global_Int('K_Return_Int',0);   { На всякий случай                     }
+   Run_Macro('USERIN^TOPMENU /#=' + Str(k_num)
+            + '/X=' + Str(kx) + '/Y=' + Str(ky)
+            + '/S=' + Str(jx)
+            + '/L=' + Parse_Str('/L=',Mparm_Str)
+            + '/M='+ gstr + 'X/G='+ gstr
+            );
+
+   Set_Global_Str( name + '__0', Global_Str(gstr + '0') ); { Запомнить N элем.}
+   jy := Parse_Int('/GCLR=', Caps(Mparm_Str));   { Признак-чистить исх.Global }
+	jx := 0;
+   While jx < jkx Do                   { Чистка буферных GLOBAL               }
+      If (jy) Then                     { Чистка исходных USER - GLOBAL        }
+         Set_Global_Str( name + str(jx), '');
+      End;
+      Set_Global_Str(gstr + str(jx), '');
+      Set_Global_Str(gstr + 'X' + str(jx), '');
+		++ jx;
+   End;
+   If (Return_Str = div_char ) AND
+      (Pos('/OPEN', Caps(Mparm_Str))) Then       { Выход по ESC из K_XMENU    }
+      Return_Str := '';
+   End;
+   If (Return_Int  < 1 ) THEN          { Выход по ESC из TOPMENU              }
+      Return_Str := '';
+      jy := Val(jx ,Global_Str( name + '__0') ) ;
+      Return_Int := jx;                { Номер пункта TOPMENU ,где был <ESC>  }
+      Set_Global_Int('K_Return_Int',0);{ Номер строки XMENU неизвестен        }
+   End;
+
+  NORUN_MACRO:
+   If (dspc > 0 ) Then
+      Redraw;
+      Set_Global_Int('K_X_Place',0);
+   End;
+   Unload_Macro('K_XMENU');
+ End_Macro;                            { K_TXMNU                              }
+ { -------------------------------------------------------------------------- }
+
+ $Macro K_XMENU ;                 { Формирование XMENU меню для K_TXMNU  }
+ {* **************************** Korzun E.G. MACRO*****************************
+ Name: K_XMENU  C  Korzun E.G.                        24.12.90 16:07
+                                     корректировка    14.01.91-18:07
+ Description: Эквивалент XMENU Меню на произвольное кол-во элементов
+    Параметры :
+       /L= заголовок XMENU
+       /H= Help_ссылка для всего XMENU ( если не указано в "G")
+       /S= номер пункта начальный установки XMENU - необязательный
+       /Y= где начать XMENU - строка  (может быть изменено самим МАКРО)
+       /X= где начать XMENU - столбец
+       /OPEN - работа только с "раскрытым" меню нижнего уровня;
+            если задано, то по <ESC> сразу выход из макро,а не вверх;
+       /DSPC - если задано, то "показать" КУРСОР на экране
+       /INDEX= nn - уточнение для получения действительного имени Global_Str
+       /DIV= nnn - ASCII код символа-разделителя "пунктов" в Global_Str
+                  (по умолчанию=92 , символ = "\" , нельзя - "/" )
+       /NAME= имя семейства Global_Str для "пунктов" XMENU (== "G" + INDEX )
+    Все элементы в Global_Str до /DIV игнорируются , за ним первый пункт,далее
+         через разделитель "/DIV" - остальные пункты соответствующего XMENU
+        После заголовка любого пункта может быть указано
+         /H=Help_ссылка - для данного пункта  XMENU.
+    Ответ :
+       Return_Int   - =/INDEX - номер пункта TOPMENU ( 0 при LEFT и RIGHT)
+       K_Return_Int - номер пункта XMENU   (0 - при <ESC> )    Global_Int
+       Return_Str   - "выбранный" заголовок в XMENU
+                      (символ = /DIV при выходе по <ESC> в режиме /OPEN )
+       ------------------------------------------------------------------------
+       !! ВАЖНО !! при "автономной"  работе с K_XMENU (без K_TXMNU)  !!!
+       !! в режиме /DSPC занулить Global_Int('K_X_Place') и REDRAW   !!!
+       !!            в том МАКРО, где вызывали K_XMENU               !!!
+       ------------------------------------------------------------------------
+ ******************************************************************************}
+
+   Def_Int(j , jx ,jy ,jk , index , kjx , ky , kx ,l_elem , dspc);
+   Def_Str( name[20] , cont ,ident[80] , hlp[40] , elem  );
+   Def_Str( gstr[20] , ghelp[40] );
+   Def_Char(div_char);
+
+   ident := ' K_XMENU:  CopyRight 1990 Korzun E.G. - 24.12.90-16:07 ';
+   dspc := Pos('/DSPC',Caps(Mparm_Str));
+   If (dspc > 0 ) Then
+      If (Global_Int('K_X_Place') = 0) Then
+         RM('K_CH_C^K_SAVCUR');        { Запомнить место курсора              }
+      End;
+   End;
+   name := Parse_Str('/NAME=' ,Caps(Mparm_Str)); { Имя семейства Global       }
+   index := Parse_Int('/INDEX=' , Caps(Mparm_Str));    { Номер Global с загол.}
+   name := name + Str(index);
+   jx := Parse_Int('/DIV=',Caps(Mparm_Str));
+   If jx = 0 Then                      { Не задан символ-разделитель          }
+      jx := 92;                        { Берем по умолчанию                   }
+   End;
+   div_char := Char(jx);
+   ky := Parse_Int('/Y=', Caps(Mparm_Str));      { Номер строки начала SUBMENU}
+   kx := Parse_Int('/X=', Caps(Mparm_Str));      {Номер столбца начала SUBMENU}
+   l_elem := Length(Parse_Str('/L=' , Caps(Mparm_Str)));
+
+   Set_Global_Int('K_Return_Int',0);
+   If (dspc > 0 ) Then
+      If (Global_Int('K_X_Place') = 0) Then
+         RM('K_CH_C^K_SAVCUR');        { Запомнить место курсора              }
+      End;
+   End;
+                                       { имя GlobaL_Str для буферных перемен. }
+   gstr := '@_K_' + Str(Global_Int('Menu_Level')) + '_T__!_' + Str(index);
+
+   ghelp := Parse_Str('/H=' , Caps(Mparm_Str));  { Вставим общий HELP         }
+                                       { Формирование для XMENU               }
+   cont := Global_Str(name);
+   jx := 0;
+   jy := Pos(div_char, cont );
+   cont := Str_Del (cont, 1, jy);      { Вырезали все до первого элемента     }
+
+   While Svl(cont) Do
+      ++ jx;                           { Счет элементов XMENU                 }
+      jy := Pos(div_char, cont );
+      If (jy) Then                     { Элемент не последний                 }
+         elem := Copy(cont,1,jy-1);
+         cont := Str_Del (cont, 1, jy );         { Вырезали очередной элемент }
+      Else                             { Последний элемент SUBMENU            }
+         elem := cont;
+         cont := '';
+      End;
+
+      hlp := Parse_Str('/H=', elem )  ;{ Проверим, личный HELP                }
+      If Svl(hlp) > 0 Then
+         hlp := '/H=' + hlp;
+         jy := Xpos('/H=', elem , 1 )  ;         { Место HELP в элементе      }
+         elem := Str_Del( elem ,jy ,255);        { Выкинем HELP из элемента   }
+      Else
+         If (Svl(ghelp)) Then
+            hlp := '/H=' +  ghelp;
+         End;
+      End;
+      If (Svl(elem) > l_elem) Then     { Подсчет мах. ширины элемента         }
+         l_elem := Svl(elem) ;
+      End;
+      Create_Global_Str(gstr      + Str(jx) , hlp );
+      Create_Global_Str(gstr +'X' + Str(jx) , elem );
+   End;
+
+   If NOT(jx) Then                     { Подсунули "пустую" - без выбора      }
+      jx := 1;
+      elem := '<' + Char(240) + 'нет элементов>';
+      Create_Global_Str(gstr      + Str(jx) ,  '/H=' +  ghelp );
+      Create_Global_Str(gstr +'X' + Str(jx) , elem );
+      If (Svl(elem) > l_elem) Then     { Подсчет мах. ширины элемента         }
+         l_elem := Svl(elem) ;
+      End;
+   End;
+
+   kjx := jx;
+   If jx  >= (Screen_Length - 3) Then  { Слишком много элементов - нельзя     }
+      jx := (Screen_Length - 3) ;
+      Make_Message('K_TXMNU: Слишком много строк= ' + Str(kjx)
+         + ' взяты первые '+ Str(jx) + ' для ='  + Mparm_Str);
+      Beep;
+   End;
+
+   If (jx + ky) > (Screen_Length - 3) Then       { Слишком много строк- вверх }
+      ky := Screen_Length - 3 - jx ;
+   End;
+
+   ident := '';
+ {.  ----------  Сдвинуть столбец, чтобы не заслонять курсор -----------------
+   l_elem := l_elem + 2;
+   If (kx + l_elem ) >= Screen_Width Then        { Действителная колонка SUB  }
+      kx := Screen_Width - l_elem ;
+   End;
+   If (Global_Int('K_X_Place') >= kx) AND        { Меню заслоняет курсор      }
+      (Global_Int('K_X_Place') <= (kx +l_elem)) Then
+      If (Global_Int('K_X_Place') + l_elem) < Screen_Width Then
+         kx := Global_Int('K_X_Place') + l_elem + 1 ;      { Двигаем вправо   }
+      Else
+         kx := Global_Int('K_X_Place') - (l_elem ) ;       { Двигаем влево    }
+      End;
+      If (kx + l_elem ) >= Screen_Width Then     { Действителная колонка SUB  }
+         kx := Screen_Width - l_elem ;
+      End;
+      Ident := '/X=' + Str(kx);
+   End;
+  ------------------------- Пока не задействовано --------------------------- }
+
+   jk := Val(jy , Parse_Str('/S=',Caps(Mparm_Str)));       {Нач. пункт SUBMENU}
+   if NOT(jy) then                     { Не было явно - OLD по имени Global   }
+      jk := Val(jy ,Global_Str( name + '__0') );
+   end;
+
+   If (dspc > 0 ) Then
+      Run_Macro ('K_CH_C^K_DSPCUR');   { Показать место курсора               }
+   End;
+
+   Run_Macro('USERIN^SUBMENU /#=' + Str(jx) + ident
+               + '/M=' + gstr + 'X'
+               + '/G=' + gstr
+               + '/S=' + str(jy) +  Caps(Mparm_Str));
+
+   Set_Global_Str( name + '__0', Global_Str(gstr + '0') ); { Запомнить N элем.}
+
+   If (Return_Int > 0) Then            { Что-то действительно выбрали         }
+      Return_Str := Global_Str(gstr +'X' + Str(Return_Int) );
+      Set_Global_Int('K_Return_Int',Return_Int); { Номер строки XMENU         }
+      Return_Int := index;             { Номер колонки из TOP                 }
+   End;
+   If (Return_Int = -1 ) AND           { <ESC> а, не стрелки влево-вправо     }
+      (Pos('/OPEN', Caps(Mparm_Str)) > 0) Then   { При заказе "открытия" меню }
+      Return_Str := div_char;          { Уж этого точно не бывает             }
+      Set_Global_Int('K_Return_Int',0);{ Номер строки XMENU неизвестен        }
+      Return_Int := index;             { Номер колонки из TOP и признак уйти  }
+   End;
+   jx := 0;
+   While jx < kjx Do                   { Зачистить "рабочие" Global_Str       }
+      Set_Global_Str(gstr + str(jx), '');
+      Set_Global_Str(gstr + 'X' + str(jx), '');
+		++ jx;
+	end;
+ End_macro;                            { -- K_XMENU -                         }
+
+ 
+{
+ { ------------------- ТЕСТОВЫЙ пример для вызова --------------------------- }
+ { -.---10----.---20----.---30----.---40----.---50----.---------------------- }
+
+ $Macro K_TXMENUtst To <Alt'>;
+   Def_Str(s);
+
+   Set_Global_Str('K_TST_1','семья/H=K_HELP.HLP^*║мама║папа║тетя║дядя/H=K_HELP.HLP^K_SAVRCL% 1');
+   Set_Global_Str('K_TST_2','дома║большой║средний/H=K_HELP.HLP^*║мелкий');
+   Set_Global_Str('K_TST_3','ручка║перьевая║шариковая');
+   Set_Global_Str('K_TST_14','цифры║1║2║3║4║5║6║7║8║9║0║11║12║13║14║15║16║17'
+                        + '18║19║20║21║22║23║24║25║26');
+   Set_Global_Str('K_TST_5','семья║мама║папа║тетя║дядя');
+   Set_Global_Str('K_TST_6','дом║большой║средний║мелкий');
+   Set_Global_Str('K_TST_7','ручка║перьевая║шариковая');
+   Set_Global_Str('K_TST_8','║1║2║3456789║/L=23║/N=11');
+   Set_Global_Str('K_TST_9','семья║мама║папа║тетя║дядя');
+   Set_Global_Str('K_TST_10','Высотные/?=дома/H=K_HELP.HLP^*║большой║средний║мелкий');
+   Set_Global_Str('K_TST_11','ручк║перьевая║шариковая');
+   Set_Global_Str('K_TST_11','.║1║2║3║4║5║6║7║8║9║0║11║12║13║14║15║16║17║'
+                        + '18║19║20║21║22║23║24║25║26');
+   Set_Global_Str('K_TST_13','чка║очень (сильно) перьевая║шариковая║║'
+                  + '\19\20\21\22\23\24\25\26║║║');
+
+
+   Run_Macro('K_TXMNU^K_XMENU /DSPC/OPEN=1/INDEX=11/L= ТЕСТ K_XMENU '
+            + '/NAME=K_TST_/Y=3/X=1/H=DIRSHELL.HLP^*/DIV=186');
+
+   Redraw;
+   s := Return_Str ;
+   RUN_MACRO('KEYCODE^MAKEKEY  /K1=' + Str(Key1)
+                           + ' /K2=' + Str(Key2)
+                           + ' /M='  + STR(MODE));
+
+   Make_Message('Exit K_XMENU R_S=' + s + ' I='+ Str(Return_Int)
+         + ' K_R=' + Str(Global_Int('K_RETURN_INT'))
+         + ' k_x=' + Str(Global_Int('K_X_Place'))
+         + ' key=' + Return_Str
+         + ' k1='  + Str(Key1)
+         + ' k2='  + Str(Key2));
+   Set_Global_Int('K_X_Place',0) ;
+   BEEP;
+   Delay(2000);
+
+   Run_Macro('K_TXMNU /DSPC/OPEN/#=116/L= ТЕСТОВОЕ МЕНЮ для K_TXMENU - tst '
+            + '/G=K_TST_/Y=3/X=1/GCLR=1/H=DIRSHELL.HLP^*/DIV=186');
+
+   s := Return_Str ;
+   RUN_MACRO('KEYCODE^MAKEKEY  /K1=' + Str(Key1)
+                           + ' /K2=' + Str(Key2)
+                           + ' /M='  + STR(MODE));
+
+   Make_Message('Exit K_TXMNU R_S=' + s + ' I='+ Str(Return_Int)
+         + ' K_R=' + Str(Global_Int('K_RETURN_INT'))
+         + ' k_x=' + Str(Global_Int('K_X_Place'))
+         + ' key=' + Return_Str
+         + ' k1='  + Str(Key1)
+         + ' k2='  + Str(Key2));
+  End_macro;                           { -- K_TXMENUtst -                     }
+
+ { ------------------- ДОПОЛНИТЕЛНЫЕ МАКРОСЫ (ДЛЯ РЕЖИМА /DSPC ) ------------ }
+
+ {************************ ------------------------------ ********************}
+$Macro K_SAVCUR From ALL ;             { Запоминаиие места курсора в окне     }
+          { Для нормального взаимодействия  с сервисными МАКРО     }
+          { При выходе из головного - занулить K_X_PLACE   ------  }
+   If (Global_Int('K_X_PLACE') = 0 ) Then
+      If (WhereY = 0) Then             { Бывает после CONDENSE SEARCH  ?      }
+         Down; UP;                     { Попытаемся восстановить WhereY       }
+      End;
+      Set_Global_Int('K_Y_PLACE',WhereY);        { Запомним, где был курсор   }
+      Set_Global_Int('K_X_PLACE',WhereX);
+   End;
+ End_Macro;                            { of ----- K_SAVCUR  / --------------  }
+
+ {************************ ------------------------------ ********************}
+$Macro K_DSPCUR   Trans From ALL;      { Показать курсор в окне  где был      }
+   If (Global_Int('K_X_PLACE') = 0) Then         { Позиция курсора не известна}
+      RM ('K_SAVCUR');
+   End;
+   If (Global_Int('K_Y_PLACE')> 23 ) Then        { Показать место курсора     }
+      Write('|31' ,Global_Int('K_X_PLACE')       { сверху                     }
+                  ,Global_Int('K_Y_PLACE')-1,RED+8,WHITE);
+   Else
+      Write('|30' ,Global_Int('K_X_PLACE')
+                  ,Global_Int('K_Y_PLACE')+1,RED+8,WHITE);
+   End;
+ End_Macro;                            { of ----- K_DSPCUR  / --------------  }
+}

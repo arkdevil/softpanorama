@@ -1,0 +1,65 @@
+By: Michelangelo Jones
+Re: Re:display clock
+---------------------------------------------------------------------------
+ > had to cope with the problem of converting ticks into time (more
+ > precisely: into a string) too, recently, and came up with this.
+ > (Converted to be able to write directly to screen memory, _not_
+ > tested in this version)
+
+Gilles,
+
+I am shamed by your code. To do in so few instructions what requires
+so many for me...
+
+This code is exceedingly clever. In fact, the only problem I can find
+with it is that it's too clever for me to figure out. So far, anyway.
+
+Let me see if I can put my finger on it.
+
+ > void puttime(int far *s)
+ > {
+ >    long far *ClockLoc  = (long far *)0x0040006cL;
+ >    long v;
+ >    int i;
+ >
+ >    s[2] = s[5] = ATTRIB | ':';
+
+No problem so far. You've put the colons on the screen.
+
+ >    v = (*ClockLoc*225)/4096;
+
+4096/225 appears to be an approximation of 18.206...
+
+I found that I had to define ticks per second VERY accurately or my clock
+wouldn't behave properly around midnight. It might run to 24:00:04 before
+going to 00:00:00, or the like. Do you handle this somehow?
+
+Anyway, at this point it looks like v contains the seconds since midnight.
+
+ >    for(i = 0; i < 6; i++) {
+
+For each of the six digits...
+
+ >       int r;
+ >       if(!(i&1)) { r = (int)(v % 60); v /= 60; }
+
+Those two lines define and initialize r. "if(!(i&1))" says that r should
+be initialized only when i is 0, 2, or 4; the first, third, and fifth times
+through the loop. Otherwise, r is uninitialized, I think.
+
+Is r guaranteed to hold its value between calls of this loop? It must
+be, or this wouldn't work, I think.
+
+ >       s[7-i-i/2] = ATTRIB | (r%10+'0'); r /= 10;
+
+         ^^^^^^^^^^ This expression is very clever. Wow.
+
+ >    }
+ > }
+
+I guess I'll just have to try this and see how it works. But I don't
+understand why r is defined inside the loop.
+
+Regards,
+
+Mike

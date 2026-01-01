@@ -1,0 +1,245 @@
+(****************************************************************************)
+(*                      MPWINDOW.DEF 2.00                                   *)
+(*                    Modula Plus Tools 2.00                                *)
+(*                  Copyright (c) Holofax 1992.                             *)
+(*              All rights reserved. Ukraine. Kiev.                         *)
+(****************************************************************************)
+(*$G+*)
+DEFINITION MODULE MpWindow;
+(*╔════════════════════════════════════════════════════════════════════════╗*)
+(*║             Модуль работы с текстовыми окнами.                         ║*)
+(*╚════════════════════════════════════════════════════════════════════════╝*)
+
+TYPE  (* Режим вывода заголовка окна *)
+  TitleMode = (NoTitle,
+               LeftUpTitle,CenterUpTitle,RightUpTitle,
+               LeftDownTitle,CenterDownTitle,RightDownTitle);
+
+
+TYPE  (* Режим вывода тени окна *)
+  ShadowMode = (NoShadow,
+                LeftUpShadow,RightUpShadow,
+                LeftDownShadow,RightDownShadow);
+
+TYPE  (* Тип рамка окна *)
+  FrameType      = ARRAY[0..7] OF CHAR;     (* Characters for frame *)
+                                            (*     0     1     2    *)
+                                            (*     3           4    *)
+                                            (*     5     6     7    *)
+CONST
+    NoFrame   = FrameType('');
+    FrameDoub = FrameType('╔═╗║║╚═╝');
+    FrameUpDw = FrameType('╒═╕││└─┘');
+    FrameSing = FrameType('┌─┐││└─┘');
+    FrameUpDb = FrameType('╒═╕││╘═╛');
+
+
+
+
+TYPE
+  pTextWin = POINTER TO TextWin;
+  TextWin = RECORD (* текстовая информация окна *)
+              x,y   : CARDINAL;  (* Координаты вывода текста   *)
+              ptext : POINTER TO ARRAY[0..MAX(CARDINAL)-1] OF CHAR;
+                      (* Указатель на строку текста *)
+              next  : pTextWin; (* Следующаяя запись          *)
+            END; (* RECORD *)
+
+  (* ОКНО *)
+  Window = RECORD
+    aX,aY      : CARDINAL;  (* Левая верхняя точка                          *)
+    bX,bY      : CARDINAL;  (* Правая нижняя точка                          *)
+    cText      : CARDINAL;  (* *)
+    cBack      : CARDINAL;  (* Цвет фона                                    *)
+    Frame      : FrameType; (* Тип рамки                                    *)
+    cTextFrame : CARDINAL;  (* Цвет рамки                                   *)
+    cBackFrame : CARDINAL;  (* Цвет фона под рамкой                         *)
+    Title      : TitleMode; (* Положение заголовка                          *)
+    TitleStr   : POINTER TO ARRAY[0..132] OF CHAR;(* Текст заголовка        *)
+    cTextTitle : CARDINAL;  (* Цвет заголовка                               *)
+    cBackTitle : CARDINAL;  (* Цвет фона под заголовком                     *)
+    Shadow     : ShadowMode;(* Вид тени                                     *)
+    cShadow    : CARDINAL;  (* Цвет тени                                    *)
+    Explode    : BOOLEAN;   (* Признак сохранения под окном                 *)
+    Text       : pTextWin;  (* Текстовая информация                         *)
+      (* вспомогательная информация ---------------------- *)
+      WidthWin    : CARDINAL;(* Ширина окна                                 *)
+      DepthWin    : CARDINAL;(* Высота окна                                 *)
+      CurrentXWin : CARDINAL;(* Положение указателя (курсора)               *)
+      CurrentYWin : CARDINAL;(*                                             *)
+      Activ       : BOOLEAN; (* Окно активно                                *)
+      Buffer      : ADDRESS; (* Буффер сохраняемого изображения под окном   *)
+      SizeBuffer  : CARDINAL;(* Размер этого буффера                        *)
+    END; (* RECORD *)
+
+  pWindow = POINTER TO Window; (* Указатель на окно *)
+
+CONST (* размеры тени в знакоместах *)
+      ShadowX = 2;
+      ShadowY = 1;
+VAR
+  WrapOn : BOOLEAN; (* остаток вывода - в следующую строку *)
+
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+
+PROCEDURE MakeWindow(ax,ay,bx,by,cT,cB : CARDINAL;  expl : BOOLEAN) : pWindow;
+(* Создать окно по ax,ay,bx,by и установить цвет фона cback, цвет выводимого  *)
+(* текста ctext, eсли expl = TRUE, то сохранять экран под окном.              *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE ShowWindow(win : pWindow);
+(* Открыть окно.                                                              *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE HideWindow(win : pWindow);
+(* Закрыть окно.                                                              *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE KillWindow(VAR win : pWindow);
+(* Удалить окно из памяти (уничтожить).                                       *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+            (* ------------------------------------------- *)
+            (* Процедуры изменяющие данные созданного окна *)
+            (* ------------------------------------------- *)
+
+PROCEDURE SetColorsWindow(win : pWindow;
+                          ctext,      (* Цвет символов *)
+                          cback,      (* Цвет фона   *)
+                          ctextframe, (* Цвет рамки *)
+                          cbackframe, (* Цвет фона под рамкой *)
+                          ctexttitle, (* Цвет заголовка *)
+                          cbacktitle, (* Цвет фона под заголовком *)
+                          cshadow :   (* Цвет тени *)
+                          CARDINAL);
+(* Установить все цвета окна.                                                 *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE SetTitleWindow(win : pWindow;
+                         str : ADDRESS; (* Tекст заголовка *)
+                         tit : TitleMode;     (* Место вывода *)
+                         ctexttitle,          (* Цвет текста  *)
+                         cbacktitle :         (* Цвет фона    *)
+                         CARDINAL);
+(* Определить загогловок окна.                                                *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE SetShadowWindow(win : pWindow;
+                          sh  : ShadowMode;      (*  Положение тени *)
+                          cshadow : CARDINAL);    (*  Цвет тени      *)
+(* Определить тень для окна.                                                  *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+
+PROCEDURE SetFrameWindow(win : pWindow;
+                         fr : FrameType; (* Тип рамки   *)
+                         ctextframe,     (* Цвет рамки  *)
+                         cbackframe :    (* Цвет фона   *)
+                         CARDINAL);
+(* Определить рамку окна.                                                     *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE SetXYWindow(win : pWindow; x,y : CARDINAL);
+(* Установить новое положение окна.                                           *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE SetSizeWindow(win : pWindow; wid,dep : CARDINAL);
+(* Установить новый размер окна                                               *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+      (* -------------------------------------------------------------- *)
+      (* Процедуры, которое могут изменять отображенное на экране окно. *)
+      (* -------------------------------------------------------------- *)
+
+PROCEDURE TitleWindow(win : pWindow;
+                      str : ADDRESS; (* Tекст заголовка *)
+                      tit : TitleMode;     (* Место вывода *)
+                      ctexttitle,          (* Цвет текста  *)
+                      cbacktitle :         (* Цвет фона    *)
+                      CARDINAL);
+(* Изменить загогловок окна.                                                  *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE FrameWindow(win : pWindow;
+                      fr : FrameType; (* Тип рамки   *)
+                      ctextframe,     (* Цвет рамки  *)
+                      cbackframe :    (* Цвет фона   *)
+                      CARDINAL);
+(* Изменить рамку окна.                                                       *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE ReplaceWindow(win : pWindow; x,y : CARDINAL);
+(* Изменить положение окна на экране.                                         *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+                            (* ------ *)
+                            (* Курсор *)
+                            (* ------ *)
+
+PROCEDURE CursorWindow(win : pWindow; x,y : CARDINAL);
+(* Установить текущий указатель.                                              *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE GetCursorWindow(win : pWindow; VAR x,y : CARDINAL);
+(* Дать текущее положение указателя.                                          *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+                   (*****************************)
+                   (* Вспомогательные процедуры *)
+                   (*****************************)
+
+
+PROCEDURE NearPlaceWindow(win : pWindow; x,y : CARDINAL; dd : CARDINAL);
+(* Изменяет положение окна таким образом, чтобы оно находилось на расстоянии *)
+(* dd от точки x,y. Если это невозможно (большое),то в левый верхний угол.   *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE DrawFrame(aX,aY,bX,bY : CARDINAL; frame: FrameType;
+                         ct,cb  : CARDINAL);
+(* Рамка вокруг заданной области                                            *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE DrawTitle(aX,aY,bX,bY : CARDINAL;
+                    title       : ADDRESS;
+                    mode        : TitleMode;
+                    ct,cb       : CARDINAL);
+(* Bывод в область заголовка                                                *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE DrawShadow(aX,aY,bX,bY : CARDINAL;
+                            mode : ShadowMode;
+                            cShadow : CARDINAL);
+(* Рисуем тень                                                              *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE ClrWin(win : pWindow);
+(* Очистить окно.                                                           *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE OutChWin(win : pWindow;X,Y : INTEGER; Ch : CHAR;
+                         ColChar,ColBack : CARDINAL);
+(* Вывести символ в окно. (X,Y - относительные координаты                   *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE OutStrWin(win : pWindow;X,Y : INTEGER; Str : ARRAY OF CHAR;
+                         ColChar,ColBack : CARDINAL);
+(* Вывести строку в окно. (X,Y - относительные координаты                   *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE OutCtrlStrWin(win : pWindow; x,y : INTEGER; str : ARRAY OF CHAR;
+                                         cCtrlText,cCtrlBack : CARDINAL);
+(* Вывод строки с разделителями в окно.                                     *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE OutFixStrWin(win : pWindow; x,y : INTEGER; str : ARRAY OF CHAR;
+                       pos,n,cf,cb : CARDINAL);
+(* Вывод фиксированное число символов (n) в окно.                           *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE OutTextWin(win : pWindow; text : ADDRESS; xt,yt : CARDINAL);
+(* Текст меню, выводимый при выполнениии ShowWindow.                          *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+END MpWindow.
+

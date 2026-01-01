@@ -1,0 +1,200 @@
+$MACRO Cleanup DUMP;	{ Formerly part of CONVERT.SRC -- two older macros }
+	Def_Int (i);        { written by Alex Romanov. }
+	Def_Str (punctuation, what_to_search);
+
+{	Using a proper ^BCONFIG.ASC^b, you can export Russian texts from ChiWriter
+but there is a problem: ^BCONFIG.ASC^b cannot remap the first half of ASCII
+table, and Russian punctuation characters will be exported as dollar signs and
+ampersands -- unless you use the ^BCONFIG.ASC^b supplied with this package of
+macros. That ^BCONFIG.ASC^b turns Russian punctuation marks into "exotic" ASCII
+characters which are hardly ever used. The Cleanup macro quickly replaces them
+by ordinary punctuation characters as specified on this panel.			}
+
+	Set_Global_Str ('Clean_Istr_1','≥');
+	Set_Global_Str ('Clean_Iparm_1','/T=Substitute " for     /TP=0/C=7/L=1/W=1/H=CONVERT.HLP^CLEANUP');
+	Set_Global_Str ('Clean_Istr_2','≤');
+	Set_Global_Str ('Clean_Iparm_2','/T=Substitute : for     /TP=0/C=7/L=2/W=1/H=CONVERT.HLP^CLEANUP');
+	Set_Global_Str ('Clean_Istr_3','⌠');
+	Set_Global_Str ('Clean_Iparm_3','/T=Substitute ; for     /TP=0/C=7/L=3/W=1/H=CONVERT.HLP^CLEANUP');
+	Set_Global_Str ('Clean_Istr_4','⌡');
+	Set_Global_Str ('Clean_Iparm_4','/T=Substitute , for     /TP=0/C=7/L=4/W=1/H=CONVERT.HLP^CLEANUP');
+	Set_Global_Str ('Clean_Istr_5','÷');
+	Set_Global_Str ('Clean_Iparm_5','/T=Substitute . for     /TP=0/C=7/L=5/W=1/H=CONVERT.HLP^CLEANUP');
+	RM ('Userin^Data_In /#=5/PRE=Clean_/S=1/A=0/X=22/Y=6/W=33/T=Clean up after CHI export' );
+	If Return_Int Then
+		Make_Message (' Cleanup after CHI export... Processing line ');
+		Mark_Pos;
+		Undo_Stat := FALSE;
+		Refresh := FALSE;
+		Working;
+		what_to_search := '[';
+		punctuation := '":;,.';
+		i := 0;
+		While i < 5 Do
+			++ i;
+			what_to_search := what_to_search + '@' + Global_Str ('Clean_Istr_' + Str (i));
+		End;
+		what_to_search := what_to_search + ']';
+		Reg_Exp_Stat := TRUE;
+		Tof;
+		While Search_Fwd (what_to_search, 0) Do
+			Write (Str (C_Line), 46, Message_Row, 0, Message_Color);
+			i := 5;
+			While i Do
+				If Found_Str = Global_Str ('Clean_Istr_' + Str (i)) Then
+					Replace (Str_Char (punctuation, i));
+					GoTo loop;
+				End;
+				-- i;
+			End;
+	loop:;
+		End;
+		Goto_Mark;
+		Make_Message (' Cleanup complete.');
+	End;
+ exit:
+	Undo_Stat := TRUE;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+{-----------------------------------------------------------------------------}
+$MACRO Surfer_Textblock TRANS;	{ Prepare text block for SURFER }
+ {      Optional input parameter:                                          }
+ {                 /Sdoc=path to SURFER data directory.                    }
+ {                                                                         }
+	Def_Real (realnum);
+	Def_Int (i, old_window, clipped_lines, textlines, letter, maxlen);
+	Def_Str (filename, oper_kind, curr_line, new_line, cyrcodes, cyrillic);
+
+	If Not (Block_Stat = 1) Then
+		Make_Message (' Prepare a block of ≤ 10 lines to pass to SURFER and run this macro again.');
+		GoTo exit;
+	End;
+	If Global_Str ('Surfer_Istr_1') = '' Then
+		Set_Global_Str ('Surfer_Istr_1', Parse_Str ('/Sdoc=', Mparm_Str));
+	End;
+	Set_Global_Str ('Surfer_Iparm_1','/T=Filename to save this block [.TXT]  /TP=0/C=2/L=1/W=27/ML=64/H=DATABOX');
+	Set_Global_Int ('Surfer_Iint_2', 1 + Global_Int ('Surfer_Iint_2'));
+	Set_Global_Str ('Surfer_Iparm_2','/T=Number of this text block (0-9)     /TP=1/C=2/L=2/W=1/H=DATABOX');
+	Set_Global_Str ('Surfer_Iparm_3','/T=Symbol set # (0-4)                  /TP=1/C=2/L=3/W=1/H=DATABOX');
+	Set_Global_Int ('Surfer_Iint_4',11);
+	Set_Global_Str ('Surfer_Iparm_4','/T=Text color (0-15)                   /TP=1/C=2/L=4/W=2/H=DATABOX');
+	If Global_Str ('Surfer_Istr_5') = '' Then
+		Set_Global_Str ('Surfer_Istr_5','3.0');
+	End;
+	Set_Global_Str ('Surfer_Iparm_5','/T=Start of text X coord               /TP=2/C=2/L=5/W=8/H=DATABOX');
+	If Global_Str ('Surfer_Istr_6') = '' Then
+		Set_Global_Str ('Surfer_Istr_6','2.0');
+	End;
+	Set_Global_Str ('Surfer_Iparm_6','/T=Start of text Y coord               /TP=2/C=2/L=6/W=8/H=DATABOX');
+	If Global_Str ('Surfer_Istr_7') = '' Then
+		Set_Global_Str ('Surfer_Istr_7','0.0');
+	End;
+	Set_Global_Str ('Surfer_Iparm_7','/T=Text angle                          /TP=2/C=2/L=7/W=8/H=DATABOX');
+	If Global_Str ('Surfer_Istr_8') = '' Then
+		Set_Global_Str ('Surfer_Istr_8','0.15');
+	End;
+	Set_Global_Str ('Surfer_Iparm_8','/T=Text height                         /TP=2/C=2/L=8/W=8/H=DATABOX');
+	RM ('Userin^Data_In /#=8/PRE=Surfer_/S=1/A=0/X=7/Y=5/T=SELECT SURFER TEXT BLOCK PARAMS/NC=1' );
+	If Not (Return_Int) Then
+		Make_Message (' Operation aborted by user');
+		GoTo exit;
+	End;
+	If Rval (realnum, Global_Str ('Surfer_Istr_5')) or Rval (realnum, Global_Str ('Surfer_Istr_6')) or Rval (realnum, Global_Str ('Surfer_Istr_7')) or Rval (realnum, Global_Str ('Surfer_Istr_8')) Then
+		Make_Message (' Invalid real numbers encountered, macro aborted');
+		GoTo exit;
+	End;
+	filename := Fexpand (Global_Str ('Surfer_Istr_1'));
+	If Not (Pos ('.', Truncate_Path (filename))) Then
+		filename := filename + '.TXT';
+	End;
+	If File_Exists (filename) Then
+		Put_Box (15,6,65,11,0,M_B_Color,'FILE ALREADY EXISTS!', TRUE);
+		Write ('The following file already exists:', 23,7, 0, M_T_Color);
+		Write (filename,(Screen_Width - Svl (filename)) / 2, 8, 0, M_T_Color);
+		RM ('Userin^Xmenu /X=19/Y=9/T=0/B=0/M= Append to existing file (FIXEDMENU) Create new file (FIXEDMENU)');
+		Kill_Box;
+	End;
+	If Not (Return_Int) Then
+		Make_Message (' Operation aborted by user');
+		GoTo exit;
+	End;
+	Set_Global_Str ('Surfer_Istr_1', filename);
+	Working;
+	Refresh := FALSE;
+	cyrillic := '()"/#:,.;?%Çüéâäà≡åçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑ±ªº¿⌐¬½¼¡«»αßΓπΣσµτΦΘΩδ∞φε∩';
+	cyrcodes := '`~@#$%^&*()F<DULT?:PBQRKVYJGHCNEA{WXIO}SM">Zf,dult/;pbqrkvyjghcnea[wxio]sm''.z';
+	old_window := Cur_Window;
+	textlines := Block_Line2 - Block_Line1 + 1;
+	If textlines > 10 Then
+		textlines := 10;
+	End;
+	If Return_Int = 1 Then		{ Append to existing file }
+		oper_kind := ' Modified. ';
+		If Not (Switch_File (filename)) Then
+			Create_Window;
+			Load_File (filename) ;
+		End;
+		Eof;
+		Down;
+	Else
+		oper_kind := ' Created. ';
+		Create_Window;
+		File_Name := filename;
+	End;
+	Format_Stat := FALSE;
+	Put_Line ('textblock=' + Str (Global_Int ('Surfer_Iint_2')));
+	Down;
+	Put_Line ('textsymnum=' + Str (Global_Int ('Surfer_Iint_3')));
+	Down;
+	Put_Line ('textpen=' + Str (Global_Int ('Surfer_Iint_4')));
+	Down;
+	Put_Line ('textpos=' + Global_Str ('Surfer_Istr_5') + ',' + Global_Str ('Surfer_Istr_6'));
+	Down;
+	Put_Line ('textang=' + Global_Str ('Surfer_Istr_7'));
+	Down;
+	Put_Line ('textht=' + Global_Str ('Surfer_Istr_8'));
+	Down;
+	Put_Line ('textlines=' + Str (textlines));
+	Down;
+	Window_Copy (old_window);
+	Goto_Line (Block_Line1);
+	clipped_lines := 0;
+	While (C_Line <= Block_Line2) and (C_Line <= (Block_Line1 + 9)) Do
+		curr_line := Get_Line;
+		Tabs_To_Spaces (curr_line);
+		new_line := '.';
+		maxlen := Svl (curr_line);
+		If maxlen > 51 Then
+			maxlen := 51;
+			++ clipped_lines;
+		End;
+		i := 0;
+		While i < maxlen Do
+			++ i;
+			letter := XPos (Str_Char (curr_line, i), cyrillic, 1);
+			If letter Then
+				new_line := new_line + Str_Char (cyrcodes, letter);
+			Else
+				new_line := new_line + Str_Char (curr_line, i);
+			End;
+		End;
+		Put_Line (new_line);
+		Down;
+	End;
+	Goto_Col (1);
+	While Not (At_Eof) Do
+		Del_Line;
+	End;
+	Block_Off;
+	If clipped_lines Then
+		Make_Message ('"' + filename + '"' + oper_kind + ' Warning: ' + Str (clipped_lines) + ' line(s) clipped.');
+	Else
+		Make_Message ('"' + filename + '"' + oper_kind);
+	End;
+ exit:
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;

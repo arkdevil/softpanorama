@@ -1,0 +1,72 @@
+Here is my idea for version numbers in GNU.
+
+Version suffixes are part of the file name; they are just
+a way of interpreting the characters of the file name.
+`=' delimits version suffixes.  A suffix can contain any
+The suffixes can contain any characters (except =, which delimits
+them)
+
+At the lowest level, a version number is part of the file name.
+A version number suffix consists of a punctuation character
+followed by digits.  If a file name ends in a version number
+suffix then it has a version number.  If what is left when
+that suffix is removed also ends in a version number suffix,
+then the file has two version numbers; for example,
+`emacs-15.34'.  A file name can contain any number of version numbers.
+
+Version number suffixes are understood specially by the
+`open' system call.  Here are the details of how a name is opened:
+
+1) if O_NOVERSION is set, look for an exact match against the
+ specified NAME.  If no match, fail or create a file named exactly NAME.
+
+2) Otherwise, if NAME ends in a period, remove the period
+ to get REALNAME.  Look for an exact match for REALNAME;
+ if none, fail or create a file named exactly REALNAME.
+
+[Note that this allows you to specify any name whatever, for exact use,
+ by appending a period to it.]
+
+3) Otherwise, look for an exact match against NAME, and
+ use that file if a match is found.
+
+4) Otherwise, look for NAME followed by version number suffixes.
+ if reading,
+  choose the `largest' sequence of suffixes whose file has its `completed'
+  flag set, and open that file.
+ if writing,
+  choose the `largest' sequence of suffixes,
+  modify it by incrementing the last suffix in the sequence,
+  and use that to get the name to open.
+
+[The `completed' flag of a file will be set when the
+ file is closed normally.  If a program dies writing
+ a file, or the system crashes, the `completed' flag
+ will never be set (though there may be a system call to set it).
+ This way, files not completely written are normally invisible
+ when version numbers are in use, but they can be opened
+ using any tool by specifying the exact file name with a period.]
+ 
+5) If nothing is found with version number suffixes,
+ fail or create NAME.1
+
+Globbing is affected by version numbers, because two kinds of
+globbing are needed: with versions, and version-free.
+
+Here is the design I have thought of:
+
+If a globbing pattern ends in a period, then it is matched
+against a list of all filenames in the directory, including
+their version numbers if any, and each with a period tacked on.
+
+If a globbing pattern does not end in a period, then it is matched
+against a list of all filenames in the directory, each with
+all version numbers removed (and resulting duplicates deleted).
+
+Thus, `*.c.*.' might expand into
+ `bar.c.34.8. bar.c.34.9. foo.c.6. foo.c.7.'
+while `*.c' would expand into `bar.c foo.c'.
+To delete all files in a directory, you would have to type `rm *.'.
+To copy them all, `cp *. otherdir'.
+But `cp * otherdir' would be useful, copying the latest version of
+each file to a new version in otherdir.

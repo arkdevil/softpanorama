@@ -1,0 +1,314 @@
+```
+                         С O Ф Т П А Н О Р А М А
+                    Vol.4, No. 9 (33) - ноябрь 1992 г.
+
+                          С О Д Е Р Ж А Н И Е
+
+   contents.049 -- Содержание текущего выпуска СОФТПАНОРАМЫ
+   foreword.a49 -  Предисловие редактора бюллетеня
+   authors.1st, readme.1st, subscrip.1st - Условия распространения,
+                  цена подписки, информация для авторов
+
+\ARTICLES\ -------------------------------- СТАТЬИ УЧАСТНИКОВ СЕМИНАРА
+    antonov.a49 - В.Г.Антонов. Регулярная архитектура операционных систем.
+    compfaq1.a49, compfag2.a49 - Наиболее часто задаваемые вопросы по сжатию
+                  данных (Frequently Asked Questions (FAQ) for the groups
+                  comp.compression and comp.compression.research (Internet))
+    lai.a49      - Writing Computer Programs by Direct Manipulation of Data Structure
+    mod_spec.a49 - Схема: МОДЕМЫ   СЕРИИ  V  МККТТ.
+
+\FEATURES\ ----------------------------------- ЕЖЕМЕСЯЧНЫЕ РУБРИКИ ...
+
+    chronicl.a48 - Хроника заседаний семинара "СОФТПАНОРАМА"
+    humor.a49    - юмор
+    \HUMOR\ - Серков В.В. Получите свои биоритмы !
+        bio.exe, annot.bio, bio.doc
+    reviews.a49  - панорама компьютерной прессы
+    views.a49    - перепечатки некоторых сообщений из сети FIDO
+                   (in FIDO veritas)
+    news.a49     - новости
+
+\FEEDBACK\ ------------------ ОБРАТНАЯ СВЯЗЬ С ЧИТАТЕЛЯМИ СОФТПАНОРАМЫ
+    hacker.034 - Перевод теста на принадлежность к хакерам из SP34.
+    icp.rus - Перевод работы Сергея Пачковского.
+              Введение в методы защиты от копирования.
+              (Перевел  Максим Петров, г. Оренбург)
+    real_pro.036 - Перевод "Некоторых важных правил для настоящих
+              программистов" из SP36 (Перевел  Максим Петров, Оренбург.)
+
+    \IDEINFO\ - Реконструкция программы выдачи информации по IDE-контроллеру (автор Thomas J. Newman)
+        ideinfo.com, ideinfo.asm
+
+\FOND\ - Информация фонда независимой поддержки системных программистов  ОСП
+    report.a49 - промежуточный отчет о деятельности фонда
+
+\FORUM\ ------- ИСХОДНЫЕ ТЕКСТЫ ПРОГРАММ И ЗАМЕТКИ УЧАСТНИКОВ СЕМИНАРА
+    kb_fast.a49 - SERG & ALEX, V-LAB. Hебольшие pассуждения по поводу KB_FAST.
+
+    \4DOSCLUB\ - Клуб любителей командного процессора 4DOS (NDOS)
+        Вольницкий Л.В. Алиасы, файлы bat/btm и промпт для 4dos.
+        info.btm, prompt.doc, colors.btm, cp.btm, read.me, aliases, mv.btm
+
+    \ARC-CLUB\ -------- Клуб разработчиков и пользователей архиваторов
+        intro.txt - Peter Gutmann. An Introduction to Data Compression.
+        y-coding.txt - Daniel J. Bernstein.  Y coding.
+
+    \ASM-CLUB\ -- Клуб "Настоящие программисты предпочитают ассемблер"
+
+        \BOLING\ - Douglas Boling.
+                \EMS40\ - Исходники драйвера EMS40
+                       ems40-2.doc, ems40.asm, ems40.sys
+                \XMS20\ - Исходники драйвера XMS20
+                       cmacros.inc, himem, himem.asm, himem.sys, himem.txt,
+                       hitest, hitest.asm, hitest.com, readme.txt, test,
+                       test.c, test.exe, xm286.asm, xm386.asm, xmm.asm,
+                       xmm.h, xmm.lib, xmmlib.doc, xms.txt, xms20.doc, xmstime.exe
+
+        \KOLTSOV\ - Владимир Кольцов. Программа типа CURPOS В.Леднева.
+            cpos.com, cpos.asm, cpos.doc, readme
+
+        \POPCLOCK\ - Стивен Симрин & Максим Петров. Резидентный CLOCK.
+            popclock.com, popclock.asm
+
+        \PRE_PRO\ - Предприятие  "ЭКСПЕРТ". SPA - Структурный препроцессор для ассемблера.
+            spa.com, faces_hs.spa, spa.txt
+
+        \SYSOEV\ - Сысоев В.П. PF - протокол файлов  V 1.01.
+            pf.com, pf.asm, pf.doc, readme
+
+        \TITOV\ - Титов А.А. Префикс выполнения ZeroStart модулей.
+            readme.1st, gaystick.com, stbios.com, wdbios.com, l0.asm,
+            l0.bin, l5.asm
+
+        \VELICHKO\ - Н.Величко А.Снятков. Программа подсчета размера файлов в каталоге вместе
+                   с подкаталогами.
+            dsz.com, cmdsplit.asm, dirsize.asm, dsz.asm, ltoa.asm, readme.doc
+
+        \SHKOLNIK\ - Юрий Аркадьевич Школьников. Программа расширения экрана
+                     VGA на одну текстовую строку.
+            elv.com, elv.asm, elv.doc
+            nc60lc.doc - Коррекция Norton Commander-а для работы в
+                         режиме 30 и 60 строк на экране.
+
+    \C-CLUB\ ----------------- Клуб программистов, использующих язык С
+        oop-test.a49 -  Объектно-ориентированное тестирование
+
+!       \PCLEX\ - генератор лексических анализаторов(сканнеров) PCLEX Version 1.1
+                read me (описаны назначение и структура подкаталогов - см.ниже)
+                pclex_e.exe  - для MS-DOS
+                pclex_b.exe  - для OS/2
+                \WC ---------- исходники
+                \DOC
+                \INCLUDE
+                \DATE
+                \SKEL
+
+    \TP-CLUB\ ------------------------ Клуб пользователей Turbo Pascal
+
+        \V-LAB\ - Программы V-Lab Creative Group
+            \AGM\ - Пакет, реализующий графический курсор мыши в текстовом
+                    режиме
+                agm.com, tp_demo.exe, tv_demo.exe, agm.doc, agmouse.int,
+                agmouse.tpu, tp_demo.pas, tv_demo.pas
+
+            \TRAP\ - Резидентная ловушка прерываний TRAP v1.3
+                res_td.com, trap.com, res_td.asm, trap.doc
+
+            \SD\ - SDIMAGE v.1.0. Программа резервирования системных
+                   областей Lattice Secret Disk.
+                sdimage.exe, sdimage.doc, sdimage.pas, seccrack.bin,
+                secret.txt
+
+            \VIMAGE\ - VIMAGE v.1.0. Программа резервирования системных
+                       областей жесткого диска.
+                vimage.exe, make_d_d.bat, vimage.doc, vimage.pas
+
+        \ABDRASH\ - Абдряшитов Рушан Ирфанович.
+                    Программное средство для оформления экрана в текстовом
+                    режиме персонального компьютера (EGA,VGA).
+            tmg.exe, ptk_scr, tmg.doc, tmg.pic
+
+     \UNIXCLUB\ ----------------------------------------- Клуб юниксоидов
+         \DOSNIX92\ - G. Vrooman. Юниксоподбные утилиты для MS-DOS.
+                      DOSNIX ver. 0.92 Written 1991 by  G. Vrooman
+                      (collection of DOS utilities which have the look
+                      and feel of UNIX)
+            app.exe bugrpt.doc cat.exe chmod.exe cp.exe dosnix.doc edc.txt
+            ffind.exe ls.exe mv.exe mvdir.exe pg.exe register doc rm.exe
+            tee.exe tolower.exe touch.exe toupper.exe
+
+\REPRINTS\ ------------------------------------------------ ПЕРЕПЕЧАТКИ
+    ana4ik.a49 - Виктор Ананин. Близорукость и новая теория аккомодации.
+                 (перепечатано из ЧИК)
+    pirate1.a49, pirate2.a49 - Микрософт начинает борьбу с незаконным
+                 копированием своих продуктов (рейд по выявлению незаконных
+                 пользователей MS DOS 5.0) MICROSOFT RAIDS LEAD TO LARGEST
+                 COUNTERFEIT SOFTWARE SEIZURE IN HISTORY.
+    science.a49 - Mikhail Elashkin "О ситуации в науке без розовых очков"
+                  (из конференции SU.GENERAL FIDO)
+
+
+
+************************** КОММЕРЧЕСКОЕ ПРИЛОЖЕНИЕ **************************
+
+    readme.b ----- Информация для авторов
+    contents.b49 -- Содержание данного выпуска Софтпанорамы
+
+\BOOKS\ --------------------------------------------------------- ПРОДАЖА КНИГ
+    books --- Книги по сетям
+    upgrade - Книги по модернизации старых персоналок
+
+\CALENDAR\- Календарь конференций (редакция начинает перепечатку сообщений
+           из Internet, в частности конференций ACM и Usenix)
+    ismis93 -- Седьмой международный симпозиум по методологии построения
+               систем искусственного интеллекта.
+    securico - Семинар "Компьютерная безопасность" в Москве,
+               15-17 декабря 1992 года.
+
+\CRIMELOG\ --------------------------------- ХРОНИКА КОМПЬЮТЕРНЫХ ПРЕСТУПЛЕНИЙ
+    stolen - Как воруют, используя поддельные кpедитные каpточки
+
+\DEMO\--------------------------------------- ДЕМОНСТРАЦИОННЫЕ ВЕРСИИ ПРОГРАММ
+
+    \BONDAREN\ - Гипертекстовая система Cross Windows, Бондаренко А.Г.
+        atv.exe, 16.cr, a.cr, calc.cr, comp.cr, crcolors.clt, demo.bat,
+        mbox.bat, mbox.cr, menu.cr, p.cr, pgor.cr, s1.cr, s2.cr
+
+    \SHEHTMAN\ - QUICK-Help - инструментальная система для создания
+                 приложений на CLIPPER-е.
+                 НОВОКУЗНЕЦК, СП "ЭВРИКОМ-КУЗБАСС" В.Шехтман.
+        readme, qhreclam.exe
+
+    \TCS\ - Телекоммуникационная система ТКС-2400-ЭКСПЕРТ
+            НПВП "Эксперт", Марванов Ильдус & Максим Петров, г. Оренбург
+        mc.exe, ex_union.num, mc.cnf, mc.ref, paket.inf, print_me.rt,
+        print_me.tcs, read.me, read_me.1st, read_me.rt, read_me.tcs
+
+    \TVC\ - Turbo Vision Constructor 2.1, Игорь Горин, Киев
+        readme, tvc.exe, tp.res
+\HARDSELL\ ------------------------------------- РЫНОК АППАРАТНОГО ОБЕСПЕЧЕНИЯ
+    ibm.a49 - АО "ДиалогНаука" предлагает новые модели компьютеров фирмы IBM
+    servex.a49 -  Совместное украинско-росийско-швейцарское предприятие
+                  KIEV-SERVEX LTD предлагает компьютеры, принтеры,
+                  учрежденческие мини-АТС
+
+\SOFTSELL\ ------------------------------------ РЫНОК ПРОГРАММНОГО ОБЕСПЕЧЕНИЯ
+   Предприятие "КОМПЬЮТЕР - ГРАФИКА" предлагает
+        compgraf.rec, dnep.rec, embed.rec - МАЛОЕ ПРЕДПРИЯТИЕ "КОМПЬЮТЕР-ГРАФИКА"
+                   - что мы можем.
+        $sales.rec -- оборудование и лицензионное программное обеспечение
+                      зарубежных фирм для целей автоматизации проектирования
+                      и производства.
+        alibrus.rec - AutoLIB(tm)- программное средство для ведения
+                      библиотек слйдов AutoCAD
+        amenu.rec --- AutoMENU - пакет подпрограмм высокого уровня для
+                      построения графических производственных баз данных.
+        arm2new.rec - АРМ - КОНСТРУКТОРА ВЕРСИИ 3.0.
+        baza.skm ---- СКМ - БАЗА - пакет параметрических программ
+                      автоматизированного черчения машиностроительных
+                      нормализованных изделий.
+        dwgview.rec, dwg_new.rec - DWGVIEW - Программа визуализации
+                                   чертежных файлов AutoCAD.
+
+
+                                Выпуск С
+                       A Н А Л И З  П Р О Г Р А М М,
+     В О С С Т А Н О В Л Е Н И Е   П О В Р Е Ж Д Е Н Н Ы Х  Д А Н Н Ы Х,
+             К О М П Ь Ю Т Е Р Н А Я     В И Р У С О Л О Г И Я
+
+   readme.c ----- Информация для авторов
+   contents.c49 -- Содержание данного выпуска Софтпанорамы
+
+\FEATURES\ ----------------------------------------------- ЕЖЕМЕСЯЧНЫЕ РУБРИКИ
+!   ackerman.a49 -  Lorrie Ackerman ( Engineering and Policy Graduate Student
+                    Washington University  LFA1@CEC1.WUSTL.EDU)
+                    Should Reverse Engineering of Computer Software
+                    Through Intermediate Copying Be Prohibited?
+!   virconf9 ----- Шестая международная конференция по проблемам компьютерной
+                   безопасности и вирусов.
+
+\ANTIVIR\ --------------------------------------------- АНТИВИРУСНЫЕ ПРОГРАММЫ
+
+    \LOZINSKI\ - Дмитрий Лозинский. Полифаг AIDSTEST версии 389
+        aidsread.me, aidstest.exe
+
+!!! \BOGDANOV\ - Богданов Вадим Викторович. Антивирусный
+                 сторож-детектор-полифаг (на 483 вируса) ANTIAPE Версия 2.483
+        antiape.com, antiape.doc, antiape.lst, antiape.sys, cadaver.com
+
+\FORUM\ --------------------------------------------------------------- ФОРУМ
+
+    \TITOV\ - А.Титов. Простой антивирус против Dark Avenger (Eddie) 1800.
+        anti1800.asm, readme.1st
+
+\DEFENCE\ -------------------------------------------------- ЗАЩИТА ИНФОРМАЦИИ
+
+!   \LUKASH\ - Лукаш Д.В.,Слинчук А.В., Миргородский В.С.
+               Система Защиты Жесткого Диска HDPS (альтернатива ADM)
+        dirinfo, exuse_me.com, hdps.com, hdps.doc, maininfo.doc
+
+\RECOVER\ ------------------------------------------ ВОССТАНОВЛЕНИЕ ИНФОРМАЦИИ
+
+    \TITOV\ - А.Титов. Программы назначения и просмотра дефектных участков
+        readme.1st, bad.c, wherebad.c
+
+
+******************************  Выпуск E  ***********************************
+
+                                  EXE
+
+   readme.e ----- Информация для авторов
+   contents.e49 -- Содержание данного выпуска Софтпанорамы
+
+\ALEX\ - Алексей Грицак. ALTEST v2.2 - снятие расширенной статистики с
+         текстового файла.
+    altest.1st, altest.exe
+
+\MAKOVIK.SHR\ - В.Маковик. Гипертекстовая справочная система по CUA -
+                (Общий доступ пользователя)
+    cua!.exe, cua.hlp, cua.hpr, read.me
+
+\NOVIKOV\ - Новиков Евгений. Программа перенаправления вывода
+            с устройства LPT1 на уровне прерывания INT 17h в файл.
+    contents.frg, copy2prn.pic, prn2file.com, prn2file.doc, readme.1st
+
+\SERJAKOV.SHR\ - Серяков Владислав. Turbo Vision Source Code Generator V1.0
+    tvgen.arj
+
+\SIDIGAN.SHR\ - В.У.Сидыганов. Simple formula V1.5 - Программа быстрого
+                подбора формулы для статьи, отчета по НИИР, компьютерной
+                программы.
+    a.bat, alfa.exe, alfa.set, approx.exe, approx.lib, read!!!.me,
+    read.me, test1.dat, test2.dat, test3.dat, test4.dat, test6.dat,
+    test7.dat, test8.dat
+
+\TITOV\
+
+    \1200.SHR\ - О.В.Компаниец, А.А.Титов - Программа фонового автодозвона
+                 для распространенных советских модемов
+        dial.exe, dialmem.dat, dialmem.exe, kn1200.txt
+
+    \FSL\ - А.А.Титов. LISP-процессор с хорошей документацией и исходным
+            текстом на минимальном C.
+        box.fsl, box.lst, film.fsl, frame0.fsl, fsl.c, fsl.doc,
+        fsl.exe, fsl.h, readme.1st, run.bat, xletter.fsl
+
+\VHG\ - Программные продукты Vinnitsa Hacker's group.
+    vhg.(c) - Презентация.
+    ssf.txt -------- Программа быстрого поиска файлов в архивах
+                     (отсутствует собственно программа)
+    out_text.1st - \ Резидентная программа вывода векторных шрифтов
+    out_text.com - / на экран в режиме EGA/VGA 640x350
+    freemem.1st -- \ Менеджер резидентных программ для DR-DOS
+    freemem.com -- / (аналог - RELEASE)
+    clock.com ---- \ Резидентные часы с программой конфигурации
+    clockcfg.exe - /
+    rm.1st ------- \ Маленький драйвер виртуального диска
+    rm.sys ------- /
+    musoff.com --- \ Программа отключения PC Speaker-а и
+    nosound.com -- / резидентный вариант
+    mouse.hlp ---- \ Эмулятор мыши на клавиатуре
+    mouse3.com --- /
+    bacscr.com ----- Программа печати и сохранения CGA-экрана в файле
+    timer0.exe ----- ???????
+```

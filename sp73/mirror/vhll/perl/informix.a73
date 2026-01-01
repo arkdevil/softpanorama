@@ -1,0 +1,118 @@
+From: jmh@trumpet.jazz.att.com (1FA91-Justin M. Hornstein)
+Newsgroups: comp.lang.perl
+Subject: Get to Informix with PERL
+Date: Tue, 24 Jan 95 13:21:15 EST
+Organization: University Computing Services - Oregon State University
+Message-ID: <199501241821.AA053151675@trumpet.jazz.att.com>
+
+In volume 42 #5, ENG Ming-Hung asks:
+
+> Could someone tell me how can i access to the Informix database with Perl ???
+
+Here is an approach that I used with Informix ISQL to work my way
+through DB files.
+
+Say you have a query like
+
+select customer, customer_type, order, amount from \
+order_table where customer is not null
+
+You might package it at the UNIX shell level as
+
+isql allcust  2>> /dev/null<<!
+select customer, customer_type, order, amount from \
+order_table where customer is not null
+!
+
+Forgetting about standard error, the standard out provides a
+bunch of field tagged data records when this query is executed.
+
+Now, in PERL:
+
+$gimme_data=<<endsql;
+isql allcust  2>> /dev/null<<!
+select customer, customer_type, order, amount from \
+order_table where customer is not null
+!
+endsql
+
+open (DB,"$gimme_data |") || die "Problem with data stream $!\n";
+
+Provides a filehandle with the ISQL stream. To use this:
+
+while (<DB>){
+	unless (/customer\s*FOOD.*/) {next}
+
+allows for pattern selection on a field. You could put this
+selection into the ISQL query, but if you have string info
+that needs matching, no index will likely exist for it, and
+the PERL string match is better that that of ISQL. In general,
+I'd recommend putting that fastest, least specific query in
+the ISQL and using string selection with PERL pattern matching.
+
+We store the data in an associative array:
+
+($coltag,$keydatum)=split(/\s+/,$_);
+# We know this is a FOOD type customer
+$foodguy{$coltag} = $keydatum;
+# like $foodguy{'customer'} = "FOODWHATEVER"
+
+And the rest of the fields can be put in $foodguy with:
+
+for($ck=0;$ck < 3;$ck++){
+	($coltag,$keydatum)=split(/\s+/,<DB>);
+        unless ($keydatum =~ /^\d+|^-\d+/)
+        	{$keydatum = '"'.$keydatum.'"';}
+		#put quotes on alpha key fields
+       	$foodguy{$coltag} = $keydatum;
+}
+
+Three other fields existed from this query that 
+needed to be read. The next turn of the While(<DB>)
+gets the customer field of the next query.
+
+Now, let's say you want to use this info to get at another table:
+
+$gimme_cat=<<endsql;
+isql allcust 2>> /dev/null<<!
+select category from category_list where \
+        customer_type = $foodguy{'customer_type'} and \
+        order = $foodguy{'order'} and \
+!
+endsql
+
+Again, your ISQL field names become the string indecies of the
+array.
+
+open(CAT,"$gimme_cat |") || die "Problem with layout data $!\n";
+
+while(<CAT>){
+      chop;
+      if (/^category/){
+          ($noneedhere,$categoryline)=split(/\s+/,$_,2);
+          push(@catdata,$categoryline);
+      }
+} 
+
+will get all category lines from the DB query,
+and push them onto your list for this customer.
+
+Inserts, updates, etc. are about the same as this.
+
+This was done in PERL 4. I suppose you could try
+to interface with ESQL (PERL 5?), but the shell queries 
+provide a quick swipe at the data, and taking
+account of the field tags and data are pretty easy.
+Of course, you can even automate the data selection by schema 
+queries and use the index fields for the selection.
+
+Hope this helps.
+				Justin M. Hornstein
+				jmh@trumpet.att.com
+
+
+
+
+
+
+

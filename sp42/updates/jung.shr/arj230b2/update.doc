@@ -1,0 +1,661 @@
+
+     UPDATE.DOC, ARJ 2.30				    December 1991
+
+
+     This documents new or updated information since ARJ 2.21.
+     ARJ.DOC has been updated with this information.
+
+     ** IMPORTANT NEWS ****************************************************
+
+	File sharing violations have been reduced to a rare occurrence
+	even on file deletes.  ARJ now opens input files in a shared
+	read mode.  In addition, an option to trap all DOS critical
+	errors is available.
+
+	The ARJ 2.30 default compression method (-m1) has been modified
+	to increase compression in most cases, but it uses at least 20K
+	bytes MORE MEMORY than previous versions of ARJ.  The ARJ 2.30
+	option (-m2) is similar to the default of previous versions of
+	ARJ in compression and memory usage.
+
+	The "ARJ d archive *.*" will now prompt for permission to
+	complete the deletion.	If ARJ removes all of the files from an
+	archive, it will delete the archive.
+
+	There is a new main header flag (0x20) which indicates that an
+	archive is a "backup type".  There is a new local header flag
+	(0x20) which indicates that an internal archive file is a backup
+	file.
+
+        Unless the "-jr" (recover) switch is used, ARJ will delete any
+        file extracted with a CRC or Huffman code error.
+
+	The ARJ 2.30 "m" (move) command and "-d" option will NOW delete
+	directories selected with the "-a1" option.
+
+	The 2.21 version of ARJ does NOT correctly garble (-g option)
+	stored (-m0) files larger than 32767 bytes.  ARJed GIFs and
+	archives may have this problem, since ARJ reverts to storing
+	when unable to compress the file.  Archived files with this
+	problem will test/extract with a CRC error.  ARJ 2.30 has an
+	option "-h+" to CORRECTLY extract such files.
+
+	Example:  ARJ x archive -gpassword -h+
+
+	If the garbled archived file is the last file in an ARJ multiple
+	volume archive, you may have to use the "-h+1" or "-h+2" option.
+	You should specify the filename to ARJ.
+
+	Example:  ARJ x archive filename -gpassword -h+1
+
+	You should extract all 2.21 GARBLED (-g) archives and re-archive
+	with ARJ 2.30.	If you created 2.21 GARBLED self-extracting
+	archives, you should extract these and re-archive them.  I
+	apologize for any inconvenience this has caused.
+
+	Those of you who always use the "-jt" option to test while
+	ARJing should have NO problem archives.
+
+	There is a workaround for the problem of using STAGED writes to
+	the floppy disk when using HYPERDISK and ARJ multi-volume mode.
+	See the KNOWN ARJ ISSUES section in ARJ.DOC for details.
+
+	The ARJ LICENSE.DOC has been updated.
+
+     **********************************************************************
+
+
+     BACKUP TYPE ARCHIVES AND BACKUP FILES
+
+	New to ARJ 2.30 and ARJ archives is the concept of "backup" type
+	archives.  Normally, when adding duplicate files to an ARJ archive,
+	ARJ will overwrite the existing file.  However, at ARJ 2.30 with a
+	backup type archive, ARJ will keep the existing file by marking it
+	as a backup and inserting the new file.  This will make ARJ
+	archives larger than normal.  It is possible to have more than one
+	duplicate backup file.	You can make an archive a backup type by
+	using the "-jb" option during the add or by typing "ARJ y archive
+	-jb".  Any further additions of already existing files will result
+	in more files marked as backups.  You may reset that backup flag by
+	specifying the "-jb1" option as in "ARJ y archive -jb1".
+
+	This feature is useful when backing up frequently modified files.
+	One archive can have several days worth of backups.
+
+	The existence of backup files or the backup archive flag is
+	indicated when executing the "l" or "v" commands.  There will be a
+	message at the end of the of the display.  The backup files
+	themselves can be displayed by using the "-jg" or "-jg1" options
+	with the "l" or "v" commands.
+
+	To extract a specific backup file, you have several options.  You
+	can execute "ARJ e archive filename -jg -q" and enter "yes" on the
+	specific instance that you wanted extracted.  You can specify the
+	exact modification date-time that you want as in "ARJ e archive
+	filename -jg -o910101120000 -ob910101130000".  You can specify the
+	sequence number of the file in the archive.  To extract the fifth
+	file in the archive, type "ARJ e archive 5 -jg -#".  The sequence
+	number is available in the "v" command display.  Or you can extract
+	all occurrences of the file with "ARJ e archive filename -jg -jo".
+	Duplicates will be renamed with numeric file extensions (.000).
+
+	The "ARJ k archive *.*" command can be used to purge an archive of
+	all backup files.
+
+	You can unmark backup files with "ARJ y archive -jb2".	You can
+	unmark specific files such as the fifth file in the archive with
+	"ARJ y archive -# -jb2 5".
+
+	You should not use the "-e" option when adding files to a backup
+	type archive because ARJ will not have the ability to distinguish
+	between files with the same filespec and different pathspecs.  You
+	could end up with duplicate files in the archive as opposed to one
+	recent file and several backup files.
+
+	NOTE that this adds a new flag bit 0x20 to internal ARJ headers.
+	See the technical information in the UNARJ230.EXE for details.
+	Current programs that support the ARJ format will display and
+	process backup files as normal files.
+
+
+     ARJ COMMAND LINE PROCESSING
+
+	ARJ's option to leave off the ending "\" on the base directory
+	name on the command line will only work for the following
+	commands:  A, B, E, F, J, M, U, X.  For a command such as "ARJ t
+	-jt1 archive dir\", the ending "\" is required.
+
+	Concatenated switch options are NOW supported.	You may combine
+	"-i" and "-k" to form "-ik" to save command line length.  See
+	ARJ.DOC for details.
+
+	ARJ will now accept an ending "-" on all switches such as "-w-".
+	The one caveat is that for switches that support an optional
+	argument such as "-wd:\", that switch option must not be
+	followed by a concatenated switch option such as "-w-r".  An
+	option string such is "-rikw-" is acceptable because the "-w"
+	option is the last one.
+
+
+     ARJ COMMANDS
+
+     "b" command
+
+	The ARJ b command allows a user to execute a DOS command on
+	selected files in an archive.  The ARJ b command will prompt for a
+	DOS command string to execute per selected file.  By default ARJ
+	will extract the selected files to the filename ARJTEMP.$$$.  This
+	filename can be changed with the "-jw" option.	The base directory
+	option is ignored by the ARJ b command.  The output file will be
+	deleted by ARJ after the DOS command is executed.
+
+	Examples:  ARJ b archive
+		   ARJ b archive -jwtemp\tempfile
+
+	This option can substitute for a simple extract and run command
+	where the file to be extracted is an executable.  You would specify
+	a temporary executable name as the output name and use that name as
+	the DOS command to be executed.
+
+	Example:  ARJ b archive file.exe -jwTEMP.EXE
+		  TEMP arguments
+
+	You can supply the DOS command string on the command line with the
+	"-jq" option.  Switch options which have embedded blanks must be
+	enclosed by double quote marks.
+
+	Examples:  ARJ b archive file.exe -jwTEMP.EXE -jqTEMP
+                   ARJ b archive *.c "-jqgrep text ARJTEMP.$$$ >> output"
+
+
+     "c" command
+
+	To strip archive or file comments from an archive, you can use
+	the NUL file feature of MS-DOS.
+
+	Examples:  ARJ c archive -zNUL		 strips archive comment
+		   ARJ c archive name -jzNUL	 strips comment for "name"
+		   ARJ c archive -jzNUL 	 strips all file comments
+		   ARJ c archive -zNUL -jzNUL	 strips all comments
+
+
+     "d" command
+
+	If specify "*.*" as the filespec, ARJ will prompt for permission to
+	delete.  You can specify the "-y" or "-jyd" options to inhibit the
+	delete prompt.
+
+	If ARJ removes all files from an archive, it will delete the empty
+	archive.
+
+	The delete command normally only deletes non-backup files.  You
+	must specify the "-jg" option to select backup files, too.
+
+	You can specify the "-n" (new) option to delete the files in the
+	archive that DO NOT EXIST on the disk.	You can use the same "-n"
+	option with "ARJ l" to list the files that DO NOT EXIST on the
+	disk.
+
+	Examples:  ARJ d archive *.* -n
+		   ARJ d archive temp\ *.doc -n
+
+
+     "e", "x" command
+
+	The ARJ e and ARJ x commands now accept the "-d" option to provide
+	an extract and delete option.  This feature requires that you
+	specify the files to extract and delete.  This option actually uses
+	more disk space than a simple extraction because of the temporary
+	archive that is created during the extraction process.
+
+	If ARJ removes all files from an archive, it will delete the empty
+	archive.
+
+
+     "g" command
+
+	The ARJ g command allows a user to garble an already built ARJ
+	archive.  Please note that only ungarbled files will be garbled by
+	the ARJ g command.
+
+	Example:  ARJ g archive -gdinosaur
+
+
+     "k" command
+
+	The ARJ k command works similar to the ARJ d command except that
+	the ARJ k command only deletes files marked as backups.  The ARJ k
+	command requires a wildname or filespec as a selection option.
+
+	Examples:  ARJ k archive *.*
+		   ARJ k archive *.doc -y
+
+	If specify "*.*" as the filespec, ARJ will prompt for permission to
+	delete.  You can specify the "-y" or "-jyd" options to inhibit the
+	delete prompt.
+
+
+     "l" command
+
+	The "l" and "v" displays have been changed to indicate files that
+	are marked as backups by an "*" in the column right after the file
+	attributes.
+
+	When ARJ has detected a set backup flag in an archive, there will
+	be a message "[Backups ON]".  When ARJ has detected any backup
+	files in an archive, there will be a message "[Backup(s) found]".
+
+	The "-jg" option is needed to set the "l" and "v" commands to
+	display the names of backup files.  The "-jg1" option can be used
+	to display ONLY the names of backup files.
+
+	Example:  ARJ l archive -jg
+
+	You use the "-n" option with "ARJ l" to list the files that DO NOT
+	EXIST on the disk.
+
+
+     "m" command
+
+	The m command supports the deletion of directories when the "-a1"
+	option is used to archive the directories.  Directory delete errors
+	will occur if not all of the files in a directory are selected.
+
+	NOTE that the top directory in the following command is NOT
+	selected and NOT deleted:  "ARJ m archive dir\*.* -r -a1
+
+
+     "v" command
+
+	The "v" command now displays a sequence number preceding the
+	pathname.  This number can be used with the "-jb" option to access
+	specific files within an archive.
+
+	Example:  ARJ v archive -jg -jb
+		  ARJ x archive -jb 5 10
+
+
+     "w" command
+
+	The ARJ w command now supports the use of the "-jp" option to
+	page the display.
+
+	The "-jq" option can be used to supply the necessary parameters to
+	the ARJ w command.
+
+	The option string will be parsed as follows:
+        1) the first character must be either "+" or "-" indicating yes or
+	   no,
+        2) the next characters are the number of lines of context to display,
+        3) the next character is the search text delimiter,
+        4) the next characters are the search string optionally followed by
+           another delimiter and another search string, etc.
+
+        Examples:  ARJ w archive -jq+3+total
+                   caseless search, display 3 lines, search for "total".
+                   ARJ w archive "-jq-2-to be-that is the-seas"
+                   case sensitive search, display 2 lines,
+                   search for "to be", "that is the", and "seas".
+
+         The search text delimiter cannot be a character in any of the
+         search strings.
+
+
+     "y" command
+
+	The ARJ y command provides a easier interface to the -je and -je1
+	options as well as to the new -jb, -jb1, and -jb2 options.
+	Basically, the y command copies the entire archive to itself.
+
+	Examples:  ARJ y archive -je1	  convert an archive to an SFX
+		   ARJ y archive -jb	  make an archive a backup type
+		   ARJ y archive -jb1	  reset the generation flag
+		   ARJ y archive -jb2	  unmark all backup files
+
+
+     ARJ SWITCHES
+
+	If the ARJ_SW environment variable specifies a filename (text not
+	beginning with a switch character), ARJ will open that filename and
+	scan it looking for a line of text that begins in column 1 with the
+	same letter as the ARJ command being executed.	The following text
+	is processed as the ARJ_SW switches.  This allows each ARJ command
+	to have its own switch settings.  In addition, ARJ will also look
+	for the "+" (plus) symbol in column 1 to use as a miscellaneous
+	switch string.	This string will be added to any command switch
+	string found if any.  If no command switch string is found, ARJ
+	will use the miscellaneous switch string as the ARJ_SW switch
+	settings.  NOTE that the "+" switch settings will NOT be used
+	if the "+" string occurs below the command switch string.
+
+	SET ARJ_SW=C:\ARJ\ARJ.CFG
+
+	C:\ARJ\ARJ.CFG contains:
+	a -jm1 -jt -i1
+	c -zcomment.txt
+	+ -jv
+	l -jp
+	e -i1
+
+	AND is equivalent to:
+	a -jm1 -jt -i1
+	c -zcomment.txt
+	l -jp -jv
+	e -i1 -jv
+	f -jv
+	v -jv
+	all other commands
+	.
+	.
+	.
+
+
+     "-+" switch
+
+	The "-+" option can now be used to specify an environment variable
+	name to use in place of the default "ARJ_SW".  This option can only
+	be used on the command line.
+
+	Example:  ARJ a archive -+ARJ_SW2
+
+
+     "-&" switch
+
+	The "-&" option sets ARJ to install a critical error handler.  This
+	handler will intercept errors that produce the "Abort, Retry ..."
+	error messages like bad sector errors and file sharing violations.
+	It can be specified on the command line or via the environment
+	variable.  Please note that if you specify "-&" on the command
+	line, the handler is installed immediately before any files are
+	processed.  If you specify "-&" in the environment, ARJ will not
+	install the handler until all switches are processed.
+
+	Unattended or BBS uses of ARJ should use the "-&" switch.
+
+
+     "-#" switch
+
+	The "-#" option allows the user to select files from an archive by
+	their order number in the archive.  For example, the number 1
+	selects the first file in the archive.	This option is useful in
+	selecting files where there are duplicates in the archive.  It is
+	also useful for batch type utilities that need to extract files
+	sequentially from an archive for processing.
+
+	NOTE that the order number starts from 1 for each individual
+	archive including multiple volume archives.  In other words, the
+	first file in archive.a04 is number 1.
+
+	Do NOT mix filenames with the numbers other than the base
+	directory.
+
+	Example:  ARJ e -# archive basedir\ 1 3 5 20 21
+
+
+     "-d" switch
+
+	The "-d" option supports the deletion of directories when the "-a1"
+	option is used to archive the directories.  Directory delete errors
+	will occur if not all of the files in a directory are selected.
+
+
+     "-g?" switch
+
+	If the "-g" option is followed by a question mark "?", ARJ will
+	prompt the user for the password twice without displaying the
+	password input.  The backspace key can be used to erase characters.
+
+
+     "-m" switch
+
+	The "-m1" and "-m2" compression methods have been modified to
+	improve the compression ratios.  The new "-m1" (default) method
+	is almost the same as using the "-m1 -jm1" of previous versions.
+
+
+     "-n" switch
+
+	The "-n" option can be used with the ARJ "d" and "l" commands to
+	select only those files in the archive that DO NOT EXIST on disk.
+
+
+     "-o" switch
+
+	ARJ now accepts the use of "-o" and "-ob" options simultaneously to
+	specify a range of selected dates.  This is useful for selecting
+	files on a specific date.
+
+	Example:  ARJ a archive *.* -o910101 -ob910102
+
+	The "-o" option and/or the "-ob" option will default to today's
+	date at midnight (0000 hrs) when specified without dates.
+
+
+     "-t1" switch
+
+	As of ARJ 2.30, ARJ will allow archival and extraction of 8-bit
+	text files.  Graphics characters will NOT be stripped.	However,
+	when such archives are moved to a different host machine (IBM to
+	AMIGA), ARJ will strip the text to 7-bit text.
+
+	The text mode testing for binary file will now check for a
+	preponderance of byte values over hex 80.  You can still force
+	text mode compression with the "-t1f" option.  Since many
+	executables may pass this initial test and yet fail the size
+	check test, you will probably see more messages indicating that
+	a file failed to archive properly.
+
+        You should NOT use the "-t1" switch while archiving in multiple
+        volume mode.
+
+	Please note that the new "-jt1" option does NOT provide extra
+	security against using text mode on the WRONG type of file.
+
+
+     "-v" switch
+
+	ARJ normally only creates volumes numbered up to .A99 for one
+	hundred uniquely named volumes.  Then the numbers roll over to
+	.A00.  When the archive name ends in .000, ARJ will create volumes
+	numbered up to .999 for one thousand uniquely named volumes.
+
+	Example:  ARJ a -v720 -y -r archive.000 d:\
+
+	For those who want volumes to be identified in a more numerical
+	order, you can specify the initial archive with an appropriate
+	suffix such as .A01 or .001.  In this way, you can have ALL volumes
+	ending in numeric suffixes starting from "1" or whatever.
+
+	The modifier "w" specifies to ARJ that files are NOT to be split
+	across volumes except for one case.  That case is where the
+	archived file would not fit in ONE whole volume.  This feature does
+	not optimize the use of space in these type of volumes.  With this
+	feature, it is possible to have a volume of only 100 or less bytes.
+	The modifier "w" must be specified after the "v" modifier and
+	before the "a" modifier as in -vvwas.
+
+	An advantage to "w" type volumes is that updating of these volumes
+	is supported for the "f"reshen command and other commands that do
+	not add new files to the archive.  You can add files to these
+	volumes only if you do NOT limit the volume size.
+
+
+     "-jb" switch
+
+	If you modify an archive with the "-jb", ARJ sets the backup
+	flag in the archive.  On adding, updating, or moving files to an
+	backup type archive where a duplicate filename exist, ARJ marks
+	the original file as a backup and inserts a copy of the duplicate
+	filename.  The backup flag will stay set until reset with the
+	"-jb1" option.
+
+	These backup files take up space in the archive.  They can be
+	purged with the ARJ k command.
+
+	Examples:  ARJ a -jb archive dir\file1
+		   ARJ e -jb archive dir\file2
+		   ARJ k archive *.c
+		   ARJ y -jb archive	   just sets the backup flag
+
+	Normally, backup files will not be selected by ARJ commands.  In
+	other words, an ARJ l archive command will not display backup
+	files.	However, the "-jg" option will include backup files in the
+	selection process.  For example, ARJ l archive -jg will display all
+	files including backup files.
+
+	This option is especially useful for backing up files.	You can
+	maintain several generations of the same file in the same archive.
+
+
+     "-jb1" switch
+
+	This switch allows you to reset the backup flag in a backup type
+	archive.  Addition of files to such an archive will no longer
+	result in files being marked as backups.  However, this option does
+	not remove already existing backup files.
+
+	Example:  ARJ y archive -jb1
+		  ARJ a archive filename -jb1
+
+
+      "-jb2" switch
+
+	The "-jb2" option is used with the "y" command to unmark files
+	marked as backups.  Note that this may produce duplicate files in
+	the archive.
+
+	Example:  ARJ y archive -jb2	    unmark all backup files
+		  ARJ y archive *.doc -jb2  unmark all *.doc files
+		  ARJ y archive -# -jb2 5   unmark the 5th file
+
+
+      "-jb3" switch
+
+	The "-jb3" option is used with the "y" command to mark files as
+	backups.
+
+	Example:  ARJ y archive -jb3	    mark all files as backups
+		  ARJ y archive *.doc -jb3  mark all *.doc files
+		  ARJ y archive -# -jb3 5   mark the 5th file
+
+
+     "-jc" switch
+
+	The "-jc" option sets ARJ to exit early from an archive scan when
+	the specified number of files have been extracted, listed, printed,
+	etc.  If no number has been specified, ARJ will set that number to
+	the number of filename arguments.
+
+	WARNING!  This count must take into account that ARJ counts split
+	files in multiple volumes as individual files.	In other words, a
+	file split into three pieces by ARJ counts as three files.
+
+	Examples:  ARJ e -jc archive file1 file2 file3
+		   ARJ e -jc5 archive *.bat
+
+
+     "-jg" switch
+
+	The "-jg" switch allows the user to include the selection of
+	archive files that are marked as backups by the "-jb" option.  Only
+	the "k" and "y" commands automatically select files marked as
+	backups.  The "-jg1" option allows the user to select ONLY files
+	marked as backup files.
+
+	Examples:  ARJ l -jg archive
+		   ARJ e -jg -q archive name.c
+		   ARJ d -jg archive *.*
+		   ARJ l -jg1 archive
+
+
+     "-ji" switch
+
+	The "-ji" switch will log the following events:
+
+	a, f, m, u - Log actual filenames added to archive and if testing
+		     is enabled, the actual filenames that failed testing.
+	d	   - Log archived filenames deleted.
+	e, x	   - Log archived filenames successfully extracted.
+		     Extracted files with CRC errors are NOT logged.
+	j	   - Log archived filenames added to archive.
+	l, v	   - Log archived filenames listed.
+	t	   - Log archived filenames that failed testing.
+	w	   - Log archived filenames that contain string matches.
+
+
+     "-jo" switch
+
+	The "-jo" switch during extraction allows automated handling of
+	duplicate filenames.
+
+	On extraction with the "-jo" switch where the output file already
+	exists in the target directory, ARJ will attempt to generate a
+	unique filename by changing the file extension to a 3 digit number
+	from .000 to .999.  If ARJ cannot generate a unique name, it will
+	skip extracting the file.
+
+	Example:  ARJ e -jo archive dir\file1
+
+
+     "-jp" switch
+
+	You can specify the page size with the "-jp" option as in "-jp50".
+	This also turns on the pause mode.  If you wish to use this in
+	ARJ_SW, it is suggested that you use "-jp50 -jp" to set the page
+	size and to toggle off the pause mode.
+
+
+     "-jq" switch
+
+	The "-jq" option is used to supply additional parameters to the ARJ
+	w and ARJ b commands.  If the parameters contain blanks, then the
+	entire "-jq" option must be enclosed by two double quote marks.
+
+
+     "-jr" switch
+
+	It is much easier to recover files from a corrupted archive,
+	because ARJ no longer aborts on encountering a "Bad Huffman code".
+
+
+     "-jt" switch
+
+	The "-jt" switch can now be used with extract type commands to
+	set ARJ to verify the archive before doing any extraction of
+	files.	If the archive fails verification, the extraction is NOT
+	attempted.  This is useful for handling MAIL packets where archive
+	corruption due to a bad file transfer is a fairly frequent event.
+
+
+     "-jt1" and "-jt2" switches
+
+	The "-jt1" switch allows an actual file contents comparison in
+	addition to the normal file CRC calculation check.  This option
+	can also be used with the ARJ t (test) command.
+
+	When used with the ARJ t command, ARJ "-jt1" will use the
+	base_directory option and the filename stored in the archive to
+	locate the original file.
+
+	When used with the ARJ add/move/update type commands, ARJ will use
+	only the filename stored in the archive to locate the original
+	file.  Therefore, the "-jt1" option does NOT work with the "-e"
+	option or when the original filename has a drive letter or root
+	directory in it and you did not specify "-jf".
+
+	Examples:  ARJ t -jt1 archive dir\
+		   ARJ a -jt1 archive e:\temp\*.* -jf
+
+	The "-jt2" switch allows the same features as "-jt1" except that
+	the file compares are only done for the newly added/updated files.
+	This avoids the situation where the some of original input files
+	are missing or have changed.  NOTE that a problem can occur with
+	the "f" and "u" commands when files in the archive are NEWER than
+	the files being added. ARJ will considered the file up-to-date and
+	added and will do a file compare.
+
+	The "-ji" option now supports logging of files that fail testing.
+
+
+     end document
+

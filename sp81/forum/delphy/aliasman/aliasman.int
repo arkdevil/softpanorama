@@ -1,0 +1,221 @@
+unit Aliasman;
+
+{ BDE Alias Manager }
+
+{ Copyright (c) 1995 by Mark E. Edington }
+
+interface
+
+uses Classes, SysUtils, DbiTypes, PropStr;
+
+const
+
+ { BDE String Constants (don't localize) }
+
+  EmptyStr       = '';
+  BackSlash      = '\';
+  SSystem        = 'SYSTEM';
+  SInit          = 'INIT';
+  SDatabases     = 'DATABASES';
+  SDrivers       = 'DRIVERS';
+  SStandard      = 'STANDARD';
+  SDBInfo        = 'DB INFO';
+  SDBOpen        = 'DB OPEN';
+  SType          = 'TYPE';
+  SPath          = 'PATH';
+  SDefaultDriver = 'DEFAULT DRIVER';
+
+
+ { Error Messages }
+
+  SNODriver      = 'Driver type not specified';
+  SNoSuchAlias   = 'Alias %s does not exist';
+  SInvalidName   = 'Invalid alias name';
+
+ { Other Constants }
+
+  ValidChars     = ['0'..'9','A'..'Z','a'..'z','_',#80..#255];
+
+type
+
+{ Misc. Types }
+
+  EAliasManager = class(Exception);
+  TStringBuf = Array[0..255] of Char;
+  TConfigValue = Array[0..DBIMAXSCFLDLEN] of Char;
+  PFldDescArray = ^FldDescArray;
+  FldDescArray = Array[1..DBIMAXSCFIELDS] of FldDesc;
+  TChangeFlag = (cfNone, cfAdd, cfEdit, cfDelete, cfRename);
+  TAliasChangeEvent = procedure(Sender: TObject; const AliasName: String; ChangeFlag: TChangeFlag) of object;
+
+
+{ TAliasData }
+
+  TAliasData = class(TPropStringList)
+  public
+    ChangeFlag: TChangeFlag;
+  end;
+
+{ TAliasManager }
+
+ { This class provides functions for managing BDE Aliases. Here is a
+   description of the public methods and properties:
+
+    IsAlias
+      Boolean function used to determine if the specified alias already exists.
+
+    AddAlias
+      This method is used to create all types of aliases.  The alias parameters
+      are specified via a property based string list (see PROPSTR.PAS).  Here
+      is an example of how this function might be called:
+
+         with MyAliasManager do
+         begin
+           AliasParams.Value['TYPE'] := 'INTRBASE';
+           AliasParams.Value['SERVER NAME'] := 'MYSERVER:/PATH/DATABASE.GDB';
+           AliasParams.Value['USER NAME'] := 'MYNAME';
+           AddAlias('MY_IB_ALIAS', AliasParams);
+         end;
+
+      You can get a list of all the possible parameters by calling the
+      GetDriverData function described below.
+
+    AddStdAlias
+      A simplified version of the AddAlias call. Can only be used
+      for creating "Standard" (dBase, Paradox, or Ascii) aliases.
+      Example:
+
+         MyAliasManager.AddStdAlias('MY_TABLES', 'C:\DATA');
+
+    AddAliasIni
+      Allows an alias to be created directly from settings in an .INI file.
+      The section name will be used as the name of the alias.  Here is how
+      an .INI file might look:
+
+        [MY_IB_ALIAS]
+        TYPE=INTRBASE
+        SERVER NAME=MYSERVER:/PATH/DATABASE.GDB
+        USER NAME=MYNAME
+
+      Then to create the alias, you would use a call like:
+
+        MyAliasManager.AddAliasIni('MYALIAS.INI', 'MY_IB_ALIAS');
+
+    ModifyAlias
+      Modifies an existing alias.  Typically the parameters should
+      first be retrieved with a call to GetAliasData (described below)
+      Example:
+
+         with MyAliasManager do
+         begin
+           GetAliasData('MYALIAS', AliasParams);
+           AliasParams.Value['PATH'] := 'C:\DATA';
+           ModifyAlias('MYALIAS', AliasParams);
+         end;
+
+    RenameAlias
+      Renames an existing alias.
+
+    DeleteAlias
+      Deletes an existing alias.  No error is returned
+      if the specified alias does not already exist.
+
+    AliasParams
+      A pre-instansiated TPropStringList.  Useful when calling
+      AddAlias or any of the other methods that require a
+      TPropStringList.  Note that this list is used internally
+      by some routines, and is not guaranteed to be preserved
+      after calls to this class.
+
+    GetAliasList
+      Returns a list of all the aliases currently defined.
+
+    GetDriverList(DriverList: TStrings);
+      Returns a list of all the drivers currently installed.
+
+    GetAliasData
+      Returns a list of an alias's properties.
+
+    GetDriverData
+      Returns a list of a driver's properties.
+
+    GetAliasType
+      Retuns the driver type of an alias.
+
+    ConfigFile
+      Specifies a configuration file.  Typically this parameter should
+      be left blank.  When blank, changes to the configuration will
+      be available to all running BDE clients.  However, when a filename
+      is specified, changes will only affect the configuration file on disk,
+      and will NOT be available to running BDE clients (including the one
+      making the call!).  This is true even if the config file is the
+      same as the one used to iniatialize the BDE.
+
+    Save
+      Saves changes to disk.  If the ConfigFile parameter is blank, the
+      changes will be written to the config file which was used to
+      initialize the BDE (normally, this is the file specified in the
+      CONFIGFILE01 setting of the [IDAPI] section in WIN.INI).
+
+    Edit
+      Invokes a property editor which works much like the BDE Config
+      utility. Using this form, users can add, delete, and modify aliases.
+
+    Merge
+      Merges the Drivers and Aliases from a configuration file on disk
+      into the currently active config file.  This is the same as the
+      File | Merge menu option in the BDE Configuration utility.
+
+    OnChange
+      Event which is triggered whenever an alias is added, deleted,
+      renamed, or modified.  The event handler is passed the alias
+      name, and a variable of type TChangeFlag which can be inspected
+      to determine what type of change was made.
+
+ }
+
+  TAliasManager = class(TComponent)
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+    procedure Edit;
+    procedure Save;
+    property AliasParams: TAliasData;
+    procedure GetAliasList(AliasList: TStrings; GetData: Boolean);
+    procedure GetDriverList(DriverList: TStrings);
+    procedure GetAliasData(const AliasName: String; AliasData: TPropStringList);
+    procedure GetDriverData(const Driver: String; DriverData: TPropStringList);
+    function GetAliasType(const AliasName: String): String;
+    function IsAlias(const AliasName: String): Boolean;
+    procedure AddAlias(const AliasName: String; AliasData: TPropStringList);
+    procedure AddStdAlias(const AliasName, Path: String);
+    procedure AddAliasIni(const FileName, Section: String);
+    procedure ModifyAlias(const AliasName: String; AliasData: TPropStringList);
+    procedure RenameAlias(const OldName, NewName: String);
+    procedure DeleteAlias(const AliasName: String);
+    procedure Merge(const SourceConfig: String);
+  published
+    property ConfigFile: String;
+    property OnChange: TAliasChangeEvent;
+  end;
+
+{ Direct Function calls }
+
+{ These functions perform the same operation as the similarly named methods
+  in TAliasManager.  They are useful if you do not use TAliasManager as
+  a component and do not want to have instansiate it.  The SaveChanges
+  global variable determines if the changes are saved to the configuration
+  file on disk.}
+
+procedure AddAlias(const AliasName: String; AliasData: TPropStringList);
+procedure AddStdAlias(const AliasName, Path: String); export;
+procedure AddAliasIni(const FileName, Section: String); export;
+procedure DeleteAlias(const AliasName: String); export;
+const
+  SaveChanges: Boolean = True;
+
+{ Determines if an AliasName is valid, raises an exception if it is invalid }
+
+procedure CheckAliasName(const AliasName: String);
+
+implementation

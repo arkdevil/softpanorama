@@ -1,0 +1,2234 @@
+    THE PARSE INSTRUCTION
+
+
+
+The parse instruction allows a string to be "dissected" into sub-fields
+under control of a list of scanning specifiers and variable names.
+
+The syntax of the instruction is:
+
+  statement     ::=  PARSE [ upper ] specification template
+
+                     │      SOURCE           │
+  specification ::=  │      VERSION          │
+                     │ VALUE expression WITH │
+                     │ VAR   varname         │
+                     │ PULL  expression      │
+                     │ ARG   expression      │
+                     │ LINEIN  expression    │
+
+  template  ::=  [ firstPosition ] assignment
+                       [ assignment ]
+
+                                     │ varname │
+  assignment ::= [ nextPosition ]    │         │
+                                     │   dot   │
+                        [ stopPosition ]
+
+  firstPosition ::=  position
+
+  nextPosition  ::=  position [ nextPosition ]
+
+  stopPosition  ::=  position
+
+  position      ::=  │ searchPosition   │
+                     │ absolutePosition │
+                     │ relativePosition │
+                     │ ( varname )      │
+
+  searchPosition    ::= ' stringSought '
+
+  absolutePosition  ::=  columnNumber
+
+                         │+ number│
+  relativePosition  ::=  │        │
+                         │- number│
+
+  varname           ::=  variable containing position or literal info
+
+
+SIMPLE TEMPLATE
+
+
+1.  In its simplest form, the template is a list of variable names and
+    the source string is assigned to the variables listed in the template
+    one word at a time.  (A word is delimited by blanks).  For example,
+    the following instruction would assign "one" to "a", "two" to "b",
+    and "three" to "c".
+
+      parse value 'one two    three' with a b c d
+
+2.  If there are more words in the source string than variable names in
+    the template, the remainder of the string is assigned to the last
+    variable.  For example, the following instruction would assign "one"
+    to "a" and "two three" to "b":
+
+      parse value 'one two    three' with a b
+
+3.  If a dot appears in the template instead of a variable name, then the
+    word in the source string corresponding to the dot is thrown away.
+    For example, the following instruction would assign "one" to "a" and
+    "four" to "b":
+
+      parse value 'one two     three four'
+            with a . . b
+
+
+The Parse Instruction                                                  51
+TEMPLATE WITH PATTERNS
+
+
+1.  You can specify a  start position in the source string by specifying
+    a character pattern.  For example, the following instruction would
+    assign "one" to "a" and "two" to "b":
+
+      parse value 'a$one two three' with '$' a b .
+
+2.  You can also specify a stop position the same way.  For example, the
+    following instruction would assign "one" to "a", "two" to "b", and
+    "three" to "c":
+
+      parse value 'a:/one/two/three'
+            with '/' a '/' b '/' c
+
+
+
+TEMPLATE WITH ABSOLUTE COLUMN POSITIONS
+
+
+1.  Instead of character patterns, you can specify absolute column posi-
+    tions.  For example, the following instruction would assign "one" to
+    "a":
+
+      parse value '$$$one$$$two$$$three$$$' with 4 a 7
+
+2.  Multiple start and stop positions may be specified.  For example,, the
+    following instruction would assign "one" to "a", "two" to "b", and
+    "three" to "c":
+
+      parse value '$$$one$$$two$$$three$$$'
+            with 4 a 7 10 b 13 16 c 21
+
+
+
+TEMPLATE WITH RELATIVE COLUMN POSITIONS
+
+
+1.  A start position may be specified relative to the previous stop po-
+    sition.  For example, the following instruction would assign  "two"
+    to "a":
+
+      parse value 'one two/three' with '/' -3 a '/'
+
+2.  A stop position may be specified the same way.  For example, the
+    following instruction would assign "two" to "a":
+
+      parse value 'one two/three' with '/' -3 a +3
+
+      Note: A major bug, with relative position and literal matches,
+      was found during testing.  The rule states that the use
+      of a relative positionAFTER a literal search will
+      RESET the left edge to the LAST encountered LITERAL
+      MATCH and count from there.  If you find that your
+      previous programs are failing please check this area
+      carefully.  Sorry for the inconvenience but this has been
+      corrected.
+
+
+
+TEMPLATE WITH VARIABLES AS SPECIFICATIONS
+
+
+1.  A start or stop position may be specified by specifying a variable
+    name in parens.  For example, the following instruction would assign
+    "three" to "a" (assuming that varname spec contained the value '/'):
+
+      parse value 'one two/three' with (spec) a (spec)
+
+2.  A stop position may be specified the same way.  For example, the
+    following instruction would assign "two" to "a":
+
+      parse value 'one two/three' with (spec) -3 a +3
+
+
+The parse Instruction                                                  52
+FURTHER EXAMPLES
+
+
+For a good description of the parse instruction, the document The REXX
+Executor - General Documentation by Mike Cowlishaw is recommended read-
+ing.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The Parse Instruction                                                  53
+APPENDIX A. DEBUGGING
+
+
+
+The REXX language includes a mechanism for interactively controlling the
+execution of a program.
+
+Changing the TRACE setting to one with a prefix "?" (for example, "TRACE
+?ALL", or using the TRACE built-in function) turns on interactive tracing,
+and also informs the user that tracing is now interactive.  The language
+processor will then ignore further trace instructions in the program, and
+will pause after nearly all instructions that are traced.  Once the
+processor has paused then the following actions are possible:
+
+1.  Entering a null line (no blanks even) will make the language processor
+    continue execution until the next pause for interactive input.  Re-
+    peatedly entering a null line will therefore step from pause point
+    to pause point.  For "TRACE ?ALL", for example, this is equivalent to
+    single stepping through the program.
+2.  Anything else entered will be treated as a string of one or more
+    clauses to be interpreted immediately.  They are executed by the same
+    mechanism as the INTERPRET instruction, and the same rules apply (for
+    example, DO..END constructs must be complete, etc.).  If an instruc-
+    tion has a syntax error in it, a standard message will be displayed
+    and you will be prompted for input again. - the error will not be
+    trapped by SIGNAL ON SYNTAX or cause exit from the program.  Similarly
+    all other SIGNAL conditions are disabled while the string is inter-
+    preted, to prevent unintentional transfer of control.
+
+    Note: Currently for version 0.55 syntax errors WILL cause exit from
+    the program.
+
+    During interpretation of the string, no tracing takes place, except
+    that error return codes from host commands are displayed.  The special
+    variable RC is not set by commands executed from the string.
+
+    Once the string has been interpreted, the language processor pauses
+    again for further interactive input unless a TRACE instruction was
+    executed during the interpretation.  In this later case the processor
+    will immediately alter the trace setting (if necessary) and then
+    continue executing until the next pause point (if any). Hence to alter
+    the trace setting (from "ALL" to "Results" for example) and then re-
+    execute the instruction, you must use the built-in TRACE function.
+    For example,  "CALL TRACE I" will ensure that the trace setting is
+    "I" and allow re-execution of the clause after which the pause was
+    made.  Interactive tracing will be turned off only if a TRACE in-
+    struction uses a "?" prefix (or is "TRACE Off").
+
+The trace action selected by a TRACE instruction is saved and restored
+across subroutine calls.  This means that if you are stepping through a
+program (say after using "TRACE ?Results") then enter a subroutine in
+which you have no interest, you can then enter "TRACE Off".  No further
+instructions in the subroutine will be traced, but on return to the caller
+tracing will be restored.
+
+Similarly, if you are only interested in a subroutine, you can put a
+"TRACE ?R" instruction at its start.  Having traced the routine, the ori-
+ginal status of tracing will be restored and hence, (if tracing was off
+on entry to the subroutine) all tracing will be turned off until the next
+entry to the subroutine.
+
+Since any instructions may be executed during interactive tracing you have
+considerable control over execution.
+
+Examples:
+
+say expr  will display the result of evaluating the expression
+
+name=expr will alter the value of the variable name
+
+trace off will turn off all tracing
+
+trace ?all will turn off interactive tracing but continue tracing all
+          clauses.
+
+
+Appendix A. Debugging                                                  54
+trace L   will make the language processor pause at labels only.  This is
+          similar to the traditional "breakpoint" function, except that
+          you do not have to know the exact name and spelling of the la-
+          bels in the program.
+
+          Note: Notice the lack of a "?" in front of the "L", as inter-
+          active tracing is already active, it is not necessary.
+
+exit      will terminate execution of the program.
+
+Do i=1 to 10; say stem.i; end; would display ten elements of the array
+          "STEM".
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix A. Debugging                                                  55
+APPENDIX B. SPECIAL FILES
+
+
+
+The following filenames are treated specially by REXXPC88:
+
+1.  "screen"
+
+    This filename may be used with the seek(), read(), and write() func-
+    tions to directly access the contents of the video refresh buffer.
+    ∙   seek ('screen', position) sets the reading/writing position on the
+        screen and places the cursor there.  The position must be in the
+        range 0..1999.  0 corresponds to the upper left corner of the
+        screen, 1999 to the lower right.
+    ∙   read('screen')  returns  one  linefull  of  characters from the
+        screen, starting at the current reading position.  The reading
+        position is then advanced to the start of the next line, in
+        preparation for another read() or write ().
+    ∙   write('screen', text) writes the specified text to the screen at
+        the current writing position.  The writing position is then ad-
+        vanced by the length of the text, in preparation for another
+        write() or read().  The cursor is placed at this new writing po-
+        sition.
+    ∙   write('screen', text, attribute) writes the text with the indi-
+        cated attribute.  The attribute must be a number in the range
+        0..255.  For example the following instructions write a blinking
+        reverse video HELLO in the middle of the screen:  For more in-
+        formation concerning the attribute values see your Personal Com-
+        puter Technical Reference under Characters, Keystrokes, and
+        Colors.
+
+          /* goto center of screen */
+          call seek 'screen', (12 * 80) + 40
+          /* say HELLO */
+          call write 'screen', 'HELLO', 240
+
+2.  "keyboard"
+
+    This filename may be used with the read() function to obtain a single
+    unechoed keystroke.  The seek(), write(), and size() functions may not
+    be used on this file.
+
+3.  "con", "prn", etc.
+
+    The DOS filenames for the various input/output devices may be used
+    with the read() and write() functions, as appropriate.  The seek()
+    and size() function calls may not be used on these files.  Example:
+
+      /* write bell to the printer */
+      call write 'prn', '07'x
+      /* write 'clear' to ansi.sys */
+      call write 'con', '1b'x ││ '[2J'
+      x = read('con') /* read a line, standard input */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix B. Special Files                                              56
+APPENDIX C. SPECIAL VARIABLES
+
+
+
+THE SPECIAL VARIABLE "RESULT"
+
+
+The variable named "result" holds the value returned by the routine most
+recently invoked by call.  If the routine didn't return any value then
+"result" is uninitialized (i.e., its value is equal to its name).
+
+
+
+THE SPECIAL VARIABLE "RC"
+
+
+The variable rc holds the exit value returned by the most recent external
+REXXPC88 program, DOS system command, or user program and may be used to
+check for their successful completion.  Some notes on DOS return code
+behavior:
+
+1.  Many programs don't supply return codes when they exit (i.e. programs
+    returning via int 20H or int 21H, subfunction 0).  REXXPC88 supplies a
+    return code of "0" for such programs.
+2.  A positive return code indicates the program was executed and returned
+    the indicated value.
+3.  A negative return code indicates the command couldn't be executed.
+    Some of the more interesting return codes are:
+
+    -2    file not found
+
+    -3    path not found
+
+    -8    insufficient memory
+
+    -15   invalid drive
+
+    For a complete summary see your Disk Operating System manual, appendix
+    D, section "Error Return Table".
+
+4.  DOS "internal" commands don't supply return codes and REXXPC88  has
+    no way of checking for the successful completion of such commands.
+    Therefore, the value of "rc" for such commands should be ignored.  The
+    following commands are DOS "internal" commands:
+
+    a.  BREAK
+    b.  CD
+    c.  CHDIR
+    d.  CLS
+    e.  COPY
+    f.  CTTY
+    g.  DATE
+    h.  DEL
+    i.  DIR
+    j.  ECHO
+    k.  ERASE
+    l.  MD
+    m.  MKDIR
+    n.  PATH
+    o.  PAUSE
+    p.  PROMPT
+    q.  RD
+    r.  REN
+    s.  RENAME
+    t.  RMDIR
+    u.  SET
+    v.  TIME
+    w.  TYPE
+    x.  VER
+    y.  VERIFY
+    z.  VOL
+
+
+
+
+
+Appendix C. Special variables                                          57
+APPENDIX D. INSTALLATION AND USE
+
+
+THE CHOICES
+
+
+REXXPC88 may be used in two ways:
+
+∙   As a standalone program
+
+    With this version you must explicitly precede a command entered at
+    the keyboard with the word "REXXIBM" if you wish the command to be
+    processed by REXXIBM (i.e. "REXXIBM FOO RED BLUE" will execute the
+    batch file named "FOO" with the arguments "RED BLUE").
+
+∙   As a resident extension to DOS
+
+    With this version commands typed at the keyboard are resolved ac-
+    cording to the following hierarchy:
+
+    1.  is it a REXXPC88 batch file program?
+    2.  is it a DOS batch file program?
+    3.  is it a .COM program?
+    4.  is it an .EXE program?
+    5.  none of the above? ──> error
+
+
+
+WHICH VERSION IS FOR YOU?
+
+
+There are advantages and disadvantages to both versions:
+
+
+
+Characteristics of Resident Version
+
+
+1.  The resident version consumes approximately 80k of storage.
+2.  User extensions may be added by supplying code at software interrupt
+    7CH and watching for subfunction 0005.
+3.  REXXPC88 may be invoked by user programs via software interrupt 7CH
+    using subfunctions 0000 and 0001.
+
+
+
+Characteristics of Standalone Version
+
+
+1.  No storage is wasted when REXXPC88 programs are not running.
+2.  REXXPC88 programs cannot execute the "PATH" "CTTY" or "SET" commands.
+3.  REXXPC88 extensions may not be used.
+4.  REXXPC88 may be invoked by user programs via DOS function 4B.
+
+
+
+* BI-LINGUAL BATCH FILE SUPPORT
+*
+*
+* Starting with release 0.54 Dated June 5, 1987, REXXPC88 provides support
+* for bi-lingual batch files. A bi-lingual batch file can be run as a normal
+* DOS  batch  file  if REXXIBMR  is  not installed, or as a normal REXXPC88
+* program if REXXIBMR is installed.
+*
+* A normal REXXPC88 program is identified with the first character  of the
+* first line being '/*'.  The bi-lingual support allows the  first two char-
+* acters to be ':/' as well.
+*
+* The REXXSYS.SYS device driver will check for the resident version being
+* installed, and  if  this  is  a normal REXXPC88 program, an error message
+* will be displayed.  However,  if this is a bi-lingual batch file, control
+* will be passed on to DOS as normal.
+*
+* Following is the pseudo code for the device driver operation:
+
+
+Appendix D. Installation and Use                                       58
+*     if first char = '/' then
+*       if resident version installed
+*          process as REXXPC88 program
+*       else
+*          issue error message
+*     else
+*       if first two chars are ':/' then
+*         if resident version installed
+*            process as REXXPC88 program
+*         else
+*            process as DOS batch file
+*     else
+*       process as DOS batch file
+*
+*  An example batch file using this feature follows:
+*
+*   :/*  this is a bi-lingual REXXIBM program
+*   echo off
+*   goto notinstalled
+*              end of REXXIBM normal comment */
+*   'echo off'
+*   say 'Running as REXXPC88 program'
+*   parse source . .  fname
+*   say 'We were started from' fname
+*   say 'It looks like this'
+*   'dir' fname
+*   exit
+*   /*
+*   :notinstalled
+*   echo Running as Dos batch file
+*   echo We were started from %0
+*   echo It looks like this
+*   dir %0
+*   :*/
+*
+
+THE DISTRIBUTION DISKETTE
+
+
+The REXXPC88 distribution diskette contains these files:
+
+1.  REXXIBMR.EXE ── the resident version
+2.  REXXIBM.EXE ── the standalone version
+3.  REXXSYS.SYS ── the new interface for all DOS versions 2.0 thru 3.2
+    batch file processors for resident version.
+
+    Note: Use of this device driver requires NO patches to COMMAND.COM.
+4.  REXX88S.BAT ── a sample REXX88 program
+5.  REXX88EX.ASM ── a sample REXX88 extension program
+
+If you do not intend to use the resident version, read no further.
+REXXIBM.EXE is the only file you need.  (You may wish to execute the
+sample program by typing "REXXIBM REXX88S").
+
+If you intend to use the resident version, the next section describes how
+to install it.
+
+
+
+INSTALLING THE RESIDENT VERSION
+
+
+To install REXXPC88 on your system follow these instructions carefully:
+
+If you have already installed the resident version, to upgrade to this
+release, just copy the new REXXIBMR.EXE module to the appropriate direc-
+tory, and follow your normal startup procedures.
+
+Note: To users who have applied the patches, the new device driver RE-
+QUIRES that the patched copy of COMMAND.COM be removed from your system.
+Please copy the original from your DOS distribution diskette before con-
+tinuing.
+
+
+
+
+Appendix D. Installation and Use                                       59
+The use of the new device driver REXXSYS.SYS requires no patches to
+COMMAND.COM, so the installation is easier and more stable.
+
+1.  Add the following line to the file named "CONFIG.SYS" on your boot-
+    diskette (or create the file if it doesn't already exist).
+
+        DEVICE=REXXSYS.SYS
+
+    Note that you must include a pathname if you have placed REXXSYS.SYS
+    in a directory other than the root directory.
+
+    Note: Please insure that if you use ANSI.SYS or any ANSI.SYS re-
+    placement that the REXXSYS.SYS line is located after the ANSI line in
+    the CONFIG.SYS file.  This is to insure that control-break will be
+    handled correctly.
+2.  Reboot your machine using the boot-diskette.
+3.  Try executing the file called REXX88S.BAT.  You should see the message
+
+*       REXX isn't installed
+
+    This indicates that the installation of the device driver was com-
+    pleted correctly, but that the main program isn't resident yet.
+4.  Now type
+
+        REXXIBMR
+
+    to install the main program as a resident extension to DOS.  Execute
+    REXX88S.BAT again.  This time you should see:
+
+        REXX88 is up and running!
+
+    You've successfully installed REXXIBM.  You may wish to place the
+    REXXIBMR command into your AUTOEXEC.BAT file so it always makes itself
+    resident.
+
+
+
+PROBLEMS
+
+
+1.  The use of the new device driver is getting fairly well tested by now,
+    but in some environments you may execute a REXXPC88 program when you
+    meant to TYPE it via the DOS TYPE command.  If this should occur,
+    please append a message to REXX88 FORUM on IBMPC so that it can be
+    corrected.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix D. Installation and Use                                       60
+APPENDIX E. EXTERNAL PROGRAM INTERFACES
+
+
+
+This section documents the interfaces by which
+
+1.  A user program may invoke the REXXPC88 interpreter.
+2.  The REXXPC88 inperpreter may invoke user program(s).
+
+This section only applies to the "resident" version of REXXPPC88 and is
+only for the DOS version.  This section will probably only be of interest
+to people with an assembler background and familiarity with DOS internals.
+
+
+
+USER PROGRAM INVOCATION OF THE INTERPRETER
+
+
+REXXPC88 resides at interrupt 7CH and may be invoked by issuing a software
+interrupt to that location.  REXXPC88 operates by interpreting a program
+script and returning a string to the caller (usually the DOS command line
+handler) whenever an instruction of the form
+
+  commandstring argstring1 argstring2...
+
+is encountered.
+
+From the calling program's prospective, REXXPC88 returns lines of text
+as if they were being typed at the keyboard or read from a file.  One line
+is returned upon each call to REXXPC88.  Each line of text is terminated
+by a carriage return + linefeed + null except the final line, which con-
+sists of a eof + null.  Thus the following REXXPC88 program
+
+  /* Simple program */
+  x = 'three'
+  y = 'six'
+  'one two' x
+  'four five' y
+
+would return the following three lines upon successive calls:
+
+  one two three 0D 0A 00
+  four five six 0D 0A 00
+  1A 00
+
+The register conventions for invoking REXXPC88 are as follows:
+
+
+
+Initialization call
+
+
+This call tells REXXPC88 to throw away whatever program he is currently
+interpreting (if any) and prepare himself to interpret a new program.
+
+
+
+Values taken:
+
+
+AX        0000
+DS:SI     points to null terminated name of REXXPC88 program to be exe-
+          cuted.
+EB:BX     points to null terminated argument string to be passed to the
+          program.
+DX:DI     points  to  an  ENVIRONMENT  control  block  in  the  following
+          format:
+          DW        offset in segment to signature string
+
+                    The segment is that contained in DX and the signature
+                    is the UPPER CASE ASCIIZ string "REXX".
+
+                    In MASM this string would be defined as db 'REXX',0
+          DW        offset in segment to environment name ASCIIZ string
+
+
+Appendix E. External Program Interfaces                                61
+                    The segment is that contained in DX.
+
+                    In MASM this string could be defined as db 'MYENV',0
+
+                    Note: The environment name will be truncated if
+                    longer  than 32 characters.
+          DW        offset in segment to the file extension ASCIIZ string
+
+                    This segment is that contained in DX.
+
+                    In MASM this string could be defined as db 'CMD',0
+
+                    This allows the REXX processor to process files with
+                    extensions OTHER than "BAT".
+          DW        word value of 0 or non-zero.
+
+                    This controls the searching of the path for commands
+                    that might be REXX programs. 0 means no search made,
+                    non-zero means search first.
+          DW        x'AAAA'
+
+                    This is a signature that allows REXXPC88 to call your
+                    own defined routine when a command expression needs
+                    to be processed.
+          DD        Segment:offset (standard INTEL format) of environment
+                    work buffer, the first double word of the buffer MUST
+                    be the entry point address of the environment service
+                    routine to be called.  The rest of the buffer may be
+                    used in any way you choose and will NOT be examined or
+                    modified by REXXPC88.
+
+
+
+Environment Service routine parameters and return codes.
+
+
+When this entry point is called,  the  following register conditions
+exist:
+
+No registers need be saved or restored (except SS:SP obviously for the
+RET instruction). You will guaranteed that at least 128 words of stack
+space are available when the call takes place.
+
+Where noted the return code from this service routine is placed in AX
+before issuing the RET instruction and is a SIGNED number.
+
+
+ES:DI     points to buffer passed on init call (address following x'AAAA'
+          signature).
+
+AX        Contains the function code described as follows:
+
+          0         Command string to execute in DS:DX.  The string is in
+                    ASCIIZ   format   with   the   last   three   bytes
+                    x'0d',x'oa',x'00' (i.e., that is a carriage return,
+                    linefeed and binary zero are appended to the text of
+                    the string returned from the normal REXXPC88 ex-
+                    pression evaluator.
+
+                    On Exit a return code is expected in AX and will be
+                    used to set the REXXPC88 special variable RC.
+
+                    Return codes should be designed such that the fol-
+                    lowing general rules apply:
+
+                    AX less than 0 Invalid command string
+
+                    AX equal to 0 Command string executed successfully
+
+                    AX greater than 0 Command string presents valid com-
+                              mand, but it could not be executed for some
+                              reason, (i.e., syntax error).
+
+
+
+
+Appendix E. External Program Interfaces                                62
+          1         REXXPC88 is about to execute a DOS program in the
+                    background on behalf of the program running (i.e.
+                    ADDRESS DOS expression was issued), and your program
+                    should free any memory (via DOS function x'4A') pos-
+                    sible.  No notification will be made of background
+                    program termination, but is implied if another AX=0
+                    call is made or the int 7C interpret call returns.
+
+                    On exit no return code is expected or used.
+
+          2         REXXPC88 is about to output some data to the console
+                    on behalf of the program running.  This is a no-
+                    tification only, so that you may be aware that your
+                    display screen may become overwritten.  This text
+                    display will be made with standard DOS write to han-
+                    dle 0 calls and may cause the screen to scroll.
+
+                    On Exit a return code is expected in AX and may take
+                    one of the three following values:
+
+                    -1        Environment routine will process the text
+                              of any message to display.  This provides
+                              the opportunity for the environment to
+                              "window" the text or whatever.
+
+                    0         Environment will process screen updates at
+                              the end of program execution.  All text
+                              outputs should be processed normally by
+                              REXXPC88.
+
+                    1         The environment wants notification each
+                              time a write is about to occur so that any
+                              state information may be saved.  Please note
+                              that this is a NOTIFICATION call only.
+
+                              Note: This is the default method of inter-
+                              facing to your program.
+
+          3         REXXPC88 is about to output some data to the display
+                    console on behalf of the program currently running.
+                    You have requested to control the display of any such
+                    text by responding AX=-1 to a previous call AX=2.  On
+                    entry DS:DX points to the ASCIIZ text of the data
+                    about to be output and MAY contain control characters
+                    such as carriage return, linefeed and others.  The
+                    length of this text is unknown but is terminated at
+                    the FIRST byte of binary zero (x'00').
+
+                    BX will contain 1 of 2 values and indicates whether
+                    the line currently being output is complete.  If BX=1
+                    your routine should process a carriage return
+                    linefeed equivalent after displaying the text data.
+                    Otherwise more data will be sent on another AX=3
+                    call.
+
+                    On Exit AX is expected to contain one of the following
+                    return codes:
+
+                    0         display text processed by environment rou-
+                              tine.
+
+                    -1        Environment routine could not display text,
+                              REXXPC88 should process it normally.
+
+          4         Console read request.  REXXPC88 is about to read some
+                    data from the system console on behalf of the program
+                    currently running.  You have requested to control the
+                    display  of  any text by responding AX=-1 to a
+                    previous call AX=2.  On entry DS:DX points to the
+                    output buffer, CX contains the maximum size of the
+                    buffer, and BX contains the echo status flag. If BX=1
+                    then characters should be echoed as they are read.
+                    If BX=0 then no echoing should take place.  On return
+                    AX is expected to contain one of the following return
+                    codes:
+
+Appendix E. External Program Interfaces                                63
+                    0 or greater input read is in buffer at DS:DX and is
+                              of this length.
+
+                              Note:  The carriage return is NOT counted
+                              in this length.  And extended ASCII codes
+                              should have the high order bit turned on
+                              x'80'.
+
+                    -1        Environment routine could not process read;
+                              REXXPC88 should process it normally.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix E. External Program Interfaces                                64
+Example Environment control block in MASM
+
+
+  signature       db      'REXX',0
+  envname         db      'MYENV',0
+  envextension    db      'CMD',0
+
+  savebuf         dw      offset myproc   ; entry point offset
+  entryseg        dw      0               ; entry point segment
+                  dw      20 dup(0)       ; set up ADDRESS
+                                          ; save area buffer
+
+  cb              dw      offset signature
+                  dw      offset envname
+                  dw      offset envextension
+                  dw      1
+                  dw      0AAAAh
+                  dw      offset savebuf
+  savebufbs       dw      0               ; used for segment address
+                  .
+                  .
+                  .
+                  mov     dx,ds
+                  mov     savebufbs,dx
+                  mov     ax,cs
+                  mov     entryseg,ax
+                  mov     di,offset cb
+                  .
+                  .
+                  .
+                  mov     ax,0
+                  int     7ch
+                  .
+                  .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix E. External Program Interfaces                                65
+Example user environment routine shell.
+
+  myproc          proc    far
+                  cmp     ax,0            ; command execution ?
+                  jne     try_freemem     ; see if free mem request
+                  .
+                  process command in DS:DX
+                  .
+                  mov     ax,rc
+                  jmp     env_done
+  try_freemem:
+                  cmp     ax,1            ; free memory request?
+                  jne     try_notify      ; no, try notify
+                  .
+                  free memory if possible
+                  jmp     env_done        ; note no return code in ax
+  try_notify:     cmp     ax,2            ; notify of text?
+                  jne     try_text        ; no, see if text
+                                          ; message request
+                  .
+                  process notify
+                  .
+                  mov     ax,notify_rc    ; set return code
+                  jmp     env_done
+  try_text:       cmp     ax,3
+                  jne     try_read
+                  .
+                  process text message in DS:DX
+                  BX contains end of line status
+                  .
+                  mov     ax,write_rc     ; set return code
+                  jmp     env_done
+  try_read:       cmp     ax,4
+*                   jne   bad_operation
+                  .
+                  process read request into DS:DX
+                  BX contains echo status
+                  CX contains max read count
+                  .
+                  mov     ax,read_rc      ; set return code
+*                 jmp     env_done
+* bad_operation:
+*                 mov     ax,-1
+  env_done:
+                  ret
+  myproc          endp
+
+Note: The default environment name and extension are 'DOS' and 'BAT' re-
+spectively.  The default name is selected if the signature pointed to by
+the first word at DX:DI is NOT 'REXX'.
+
+The  name  of  the current environment can be found using the ADDRESS
+built-in function.
+
+
+
+Values returned:
+
+
+Nothing is returned.  The only way to tell if the program exists and can
+be executed is by examining a value returned by the program in the next
+call described below.  If the program returns an end of program indication
+and a string was expected instead, it means that the program was not found
+or could not be executed for some reason.
+
+
+
+Register use:
+
+
+All registers except SS and SP are destroyed.  The caller must save any
+other registers of interest.
+
+
+
+
+Appendix E. External Program Interfaces                                66
+Interpretation call
+
+
+This call tells REXXPC88 to interpret the REXXPC88 program until a value
+is produced.
+
+
+
+Values taken:
+
+
+AX        0001
+
+
+
+Values returned:
+
+
+DS:DX     points to a result string, terminated by a CR + LF + NULL.  The
+          final result string (which marks the end of the program) con-
+          sists of nothing but EOF + NULL.  REXXPC88 will continue to re-
+          turn this "end of program" string until re-initialized via an
+          AX=0000 call as described above.
+
+
+
+Register use:
+
+
+All registers except SS and SP are destroyed.  The caller must save any
+other registers of interest.
+
+
+
+Termination call
+
+
+This call allows  resident  REXXPC88 extensions to terminate execution of
+a REXXPC88 program, typically after detecting an error.
+
+
+
+Values taken:
+
+
+AX        0002
+DS:SII    points to null terminated string to be displayed as an error
+          message before terminating the REXXPC88 program.
+
+
+
+Values returned:
+
+
+          never returns to caller.  Terminates the REXXPC88 program and
+          returns control to DOS.
+
+
+
+Load call
+
+
+This call tells REXXPC88 to look up a program variable and return its
+current value (if any).
+
+
+
+Values taken:
+
+
+AX        0003
+DS:SI     points to null terminated name of REXXPC88 program variable.
+
+
+
+
+Appendix E. External Program Interfaces                                67
+Values returned:
+
+
+DS:DX     points to the null terminated string value of the program vari-
+          able.  DX is zero if the program variable is currently unde-
+          fined.  This string is in REXXPC88's data area and must be
+          treated read-only.
+
+
+
+Register use:
+
+
+All registers except SS and SP are destroyed.  The caller must save any
+other registers of interest.
+
+
+
+Store call
+
+
+This call tells REXXPC88 to store a null terminated string as the value
+of a program variable.
+
+
+
+Values taken:
+
+
+AX        0004
+DS:SI     points to null terminated name of REXXPC88 program variable.
+ES:BX     points to null terminated string to be assigned to the variable.
+
+
+
+Values returned:
+
+
+Nothing is returned. The string is copied into REXXPC88's data dictionary.
+If there is insufficient storage to store the string, REXXPC88 terminates
+execution of the program with an error message and returns to DOS.
+
+
+
+Register use:
+
+
+All registers except SS and SP are destroyed.  The caller must save any
+other registers of interest.
+
+
+
+REXXPC88 INVOCATION OF USER WRITTEN EXTENSIONS
+
+
+REXXPC88 resolves procedure and function references according to the
+following list:
+
+1.  If a routine having the specified name exists as a label in th cur-
+    rent REXXPC88 program then control is passed to that label.
+2.  If a built-in REXXPC88 routine having the specified name exists, then
+    control is passed to that built-in routine.
+3.  An interrupt 7CH is issued (AX = 0005), passing the name of the rou-
+    tine sought and the arguments to that routine.  User code at that
+    interrupt location may choose to "answer" the interrupt with a result
+    string, in which case that string is returned as the value of the
+    function.
+4.  Finally, REXXPC88 looks for a REXXPC88 program on disk by checking
+    each directory named in the current PATH environment string. If found,
+    that routine is loaded and given control.  When it terminates, the
+    string value it produced via a return or exit instruction is returned
+    as the value of the function.
+5.  If none of the above yield a value, REXXPC88 issues an "undefined
+    routine" error and terminates the program.
+
+
+Appendix E. External Program Interfaces                                68
+The convention I've adopted for adding extensions to REXXPC88 is to allow
+users to "chain" their code onto interrupt 7CH and issue a "terminate but
+remain resident" DOS call.  The instructions initially placed by REXXPC88
+at that location to answer a "call extension" request do nothing but re-
+turn a NIL pointer, indicating that no extensions have answered the in-
+terrupt.
+
+∙   User code is expected to watch for a "call extension" request (AX =
+    0005) and to answer the interrupt by returning a string pointer to a
+    result value.
+
+∙   If AX <> 0005 then control must be passed to the next routine in the
+    interrupt chain, preserving all registers.
+
+∙   If AX == 0005 and the user's code chooses not to answer the interrupt
+    because the function named in the parameter block is unrecognized then
+    control must be passed to the next routine in the chain, but only the
+    values of AX, SS, and BP need be preserved.
+
+
+
+Values passed in:
+
+
+AX        0005
+SS:BP     points to a C stackframe containing a two-byte pointer to the
+          null terminated function name, a  two-byte  integer specifying
+          the number of arguments, and  a  two-byte pointer to an array
+          of pointers (each two bytes)  to the arguments (each argument
+          is a null terminated string).
+
+
+
+Values passed out:
+
+
+DS:SI     must point to a null terminated result string.  A pointer of
+          NIL (DS == 0, SI == 0) is reserved by REXXPC88 and indicates
+          that "no REXXPC88 extensions answered the function".
+
+
+
+Register use:
+
+
+All registers except SS, SP, and BP are available for use.
+
+
+
+Stack use:
+
+
+Since the amount of REXXPC88 stack space remaining for growth can't be
+ascertained by the user extension program,  the user may wish to switch
+to a local stack if he requires more than about 128 bytes of stack growth.
+
+A sample REXXPC88 extension program is available on the IBMPC conferencing
+disk in a file named "REXX88EX ASMBIN".
+
+
+
+Queue call
+
+
+This call tells REXXPC88 to place data on the data or external interrupt
+queue either FIFO or LIFO.
+
+
+
+Values taken:
+
+
+AX        0006
+BH        00 Internal data queue accessible via PULL and PARSE PULL
+
+
+Appendix E. External Program Interfaces                                69
+BH        01 External interrupt queue accessible via LINEIN(EXQUE)
+BL        00 Queue data FIFO on selected queue
+BL        01 Queue data LIFO on selected queue
+DS:SI     points to null terminated string to be queued.
+
+          For the Internal data queue a string may not exceed 127 char-
+          acters.
+
+          For the External interrupt queue a string may not exceed
+          available storage.
+
+
+
+Values returned:
+
+
+AX
+
+0         Message queued successfully.
+1         No REXXPC88 program running at current time. Message not queued.
+2         Not enough storage available for message.  Message not queued.
+3         Either BH (queue number) or BL (FIFO/LIFO flag) out of range.
+          Message not queued.
+
+
+
+Register use:
+
+
+All registers except SS and SP are destroyed.  The caller must save any
+other registers of interest. AX contains return code from service request.
+
+
+
+Loaded call
+
+
+This call provides a way for a REXXPC88 extension to find out if a copy
+is already loaded, and to exchange information with a resident version.
+
+
+
+Values taken:
+
+
+AX        0007
+SS:BP     points to a C stack frame containing  a  two-byte pointer to
+          the null terminated name of the REXXPC88 extension.
+
+
+
+Values returned:
+
+
+If the extension is already loaded, then DS:SI points to an ASCIIZ string
+'1', and other registers are used as desired by the extension to commu-
+nicate with its non-resident copy.  (Generally, this involves pointing
+ES:BX to the resident portion's entry point).  If the extension is not
+yet resident, then DS:SI points to an ASCIIZ '0'.
+
+
+
+Register use:
+
+
+All registers except SS, SP and BP are available for use.
+
+
+
+
+
+
+
+
+
+
+Appendix E. External Program Interfaces                                70
+Reserved call
+
+
+This call is reserved for communication between REXXSYS.SYS and REXXIBMR.
+
+
+
+Values taken:
+
+
+AX        0008
+
+
+
+Values given:
+
+
+NONE
+
+
+
+Installed call
+
+
+This call provides external applications a way to determine if REXXIBMR
+is installed.
+
+
+
+Values taken:
+
+
+AX        0009
+
+
+
+Values returned:
+
+
+AX=FFFF   REXXIBMR is not installed
+AX=AAAA   REXXIBMR is installed
+
+Note: It is assumed that your application will inspect the value of the
+7C interrupt vector prior to issuing this interrupt.  If the vector is
+0000:0000 then REXXIBMR is not installed and this function will cause the
+system to crash.
+
+
+
+* Uninstall resident version
+*
+*
+* This call is used to uninstall a resident version
+*
+*
+*
+* Values taken:
+*
+*
+* AX        000A
+* BX        AAAA
+*
+*
+*
+* Values returned:
+*
+*
+* AX = 0    Resident version uninstalled
+* AX = 1    Resident version cannot uninstall,  as  one interrupt vector has
+*           been modified by some other program in a non-conforming manner.
+* AX = FFFF The  installed  resident  version does NOT support the uninstall
+*           request code (i.e., it is pre 0.55 level).
+
+
+
+
+Appendix E. External Program Interfaces                                71
+APPENDIX F. REXXPC88 VS. REXX370
+
+
+
+Every attempt has been made to maintain consistency between REXXPC88 and
+its big brother REXX370, within the contexts of a small machine environ-
+ment.
+
+* The FIND function is called WORDPOS as the REXX 3.5 spec defines.  Please
+* see the WORDPOS definition in the built-in function section of this docu-
+* ment.
+*
+* Note:  Please note that the parameter order for WORDPOD is different than
+* that of the REXX370 FIND function.
+*
+* A "difference"  has  been  discovered in the processing of quoted literal
+* strings.  The REXX 3.5 spec says that quoted literal strings MUST be con-
+* tained completely on the same line, and if not,  is  treated as an error.
+* Apparently REXX370 adds the missing quote instead of reporting the error.
+
+REXXPC88 is now at almost full language spec and should provide for easy
+transfer of programs between PC/DOS and VM.  Very minor differences still
+exist, but are mainly in the error recovery functions (i.e., SIGNAL ON
+SYNTAX, etc.).
+
+Some built-in functions remain to be done.  These are the ones that could
+conflict with the current C language implementation (i.e., BITXOR,
+CHARIN, etc.).
+
+Also those whose performance impacts are not yet evaluated (i.e., LINEIN,
+SOURCELINE, etc.).
+
+This implementation is in the process of being upgraded to full REXX370
+3.5 level.  If you see something not mentioned below, please bring it to
+my attention.
+
+
+
+Missing Features
+
+
+1.  Some built-in functions that might result in a byte of binary zero
+    being returned in a string.  As the current versions of REXXPC88 are
+    written in C, the default string terminator is a byte of binary zero.
+
+
+
+Added Features
+
+
+1.  Primitive file management functions (directory(), size(), seek(),
+    read(), and write()) and console I/O functions (ask()) are included
+    as part of the REXXPC88, although they are not part of the language
+    itself.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix F. REXXPC88 vs. REXX370                                      72
+APPENDIX G. BUGS AND LIMITATIONS
+
+
+
+REXXPC88 is still under development.  This section discusses known bugs
+or limitations.  Please report any others you find to me.
+
+1.  The operation of the parse instruction should NOT differ  from that
+    of the REXX370 version.   If you discover a difference, please tell
+    me about it.
+2.  The read() function is limited to a line size of 256 bytes or the
+    setting of the number on the command line preceding the 'r' parm.
+    ((512r sets the read size to 512 characters.
+
+    Note:  There is a difference between the resident and non-resident
+    versions concerning the read size parameter.  For the non-resident
+    version unless otherwise specified the read size will default to 256.
+    For the resident version the default read size will be reset by this
+    parameter and will be used unless specifically reset. The minimum size
+    is 132.
+3.  The 'maximum number of open files' specified on the REXXPC88 command
+    line must be less than the number of files specified in your
+    'config.sys' file since DOS needs file descriptors to perform program
+    execution and command line redirection.
+4.  Nesting of procedure and function calls is limited to a depth of 70.
+5.  Argument lists are limited tto 10 arguments.
+6.  When running under PC-DOS, pressing the BREAK key (either Control-
+    Break or Control-C)  will cause the batch file to be terminated at
+    the next clause boundary.  This condition can be trapped by use of the
+    SIGNAL ON HALT instruction.  If SIGNAL ON HALT is not used, a message
+    will be issued, and the batch file terminated.
+
+    The DOS "Terminate Batch File Y/N" prompt will NOT appear.
+
+    If Control-C is pressed, at the next DOS function causing the break
+    to be recognized, a Control-C character will be printed prior to the
+    batch file recognition of the key press.  This is a DOS issue.  This
+    condition does NOT occur with Control-Break.
+
+    This break-trapping now should allow one to safely terminate a
+    REXXPC88 program without rebooting.  If you should discover a problem,
+    please let me know.
+7.  Command line redirection does not work with the resident version of
+    REXXPC88.  Thus it is impossible to direct the output of a REXXPC88
+    program executed by the resident version to the printer, for example.
+    (Use of redirection operators within the REXXPC88 program works fine
+    though).
+
+    This behavior seems to be due to the way DOS handles command line
+    redirection, since the standalone version of REXXPC88 does not have
+    this problem.
+8.  DOS's treatment of 'environment' space leaves much to be desired and
+    causes the following difficulties when using the SET and PATH com-
+    mands:
+    a.  The resident version of REXXPC88 now points to and uses the master
+        copy of the environment owned by COMMAND.COM.  You will notice
+        that some programs that try to identify resident extensions by
+        their environment (like SWAP), will not be able to identify res-
+        ident REXXPC88.
+    b.  Notice that any changes in the environment (i.e. CD or PATH) made
+        during execution of standalone REXXPC88 programs do not persist.
+        REXXPC88 invokes a temporary copy of the command executor to
+        perform DOS commands, when the command is finished the temporary
+        executor and its modified environment are thrown away.
+9.  Execution of a DOS batch file from within a REXXPC88 program is NOT
+    supported, as DOS only allows ONE batch file to be executing at any
+    one time.  This would cause termination of the current REXXPC88 pro-
+    gram.
+
+    PC/DOS 3.3 supports nested DOS batch files thru the CALL instruction.
+    REXXPC88 does NOT support this feature.
+
+
+
+
+
+Appendix G. Bugs and Limitations                                       73
+APPENDIX H. SAMPLE PROGRAM
+
+
+
+/* DISKINFO.BAT
+* This is a demonstration program which counts
+* the number of files in a specified directory
+* and adds up their sizes.  It uses the DOS
+* 'dir' command to create a list of the files
+* and then scans the list to extract the
+* required information.
+*
+* Some examples of how you might invoke it to:
+*  summarize root directory
+*                         DISKINFO A:
+*  summarize directory 'foo'
+*                         DISKINFO A:\FOO
+*  summarize 'asm' files in 'foo'
+*                         DISKINFO A:\FOO\*.ASM
+*
+* Sample directory listing to aid
+* you in understanding this program:
+*                1         2         3
+*       123456789012345678901234567890123456789
+*       ---------------------------------------
+*     1
+*     2  Volume in drive D has no label
+*     3  Directory of  D:\execs
+*     4
+*     5 .            <DIR>      2-15-84   4:30p
+*     6 ..           <DIR>      2-15-84   4:30p
+*     7 DISKINFO BAT     1674   2-21-84   2:03p
+*     8         3 File(s)   1638400 bytes free
+*       ---------------------------------------
+*
+
+* Acknowledgment to Ray Holland
+* for the ideas used herein.
+*/
+/*trace ?r*/
+'echo off'                      /* suppress DOS screen output */
+'cls'                           /* clear the screen */
+arg dirname .
+if dirname== '?' then
+  do                            /* give user help if he needs it */
+    say 'Summarize disk usage for specified files of a directory'
+    say
+    say 'Format:   DISKINFO A:          (summarize root)'
+    say '          DISKINFO A:\FOO      (summarize foo directory)'
+    say
+    exit
+  end
+
+files = 0;                      /* number of files counted       */
+dirs = 0;                       /* number of directories counted */
+spaceused = 0;                  /* space occupied by the files   */
+minsize=''
+maxsize=''
+swchar=''
+
+curdir=directory()          /* get current drive and directory */
+
+if dirname=='' then dirname=curdir /* if no name spec use dir */
+
+if substr(dirname,2,1)к=':'     /* if no drive spec use default */
+      then dirname=left(curdir,2)  dirname
+
+
+
+
+
+
+
+
+
+
+  Appendix H. Sample Program                                         74
+curdrive=left(curdir,2)         /* get default drive letter */
+
+dirdrive=left(dirname,2)        /* get requested drive letter */
+
+if curdriveк=dirdrive then do   /* if not the same */
+  dirdrive                      /* switch drives */
+  othdir=directory()        /* get that drives current directory */
+end
+                            /* did requested dir end in backslash */
+if right(dirname,1)='\' then swchar='\'   /* no  */
+                         else swchar=''    /* yes */
+
+                            /* was request for directory contents */
+if dirname==directory(dirname) /* change to directory (if same ok */
+    then swchar=swchar  '*.*'  /* then was directory set filespec */
+else swchar=''                 /* was for full filespec list */
+
+/* Get the directory information */
+listfile(dirname  swchar,63,fifo) /* list file info to queue */
+
+
+say '        DISKINFO'
+/* Scan the directory listing */
+do queued()                     /* for number of files found */
+   parse pull filename filesize fileattr filedate filetime dir
+  select
+   when dir == '<DIR>' then do          /* count directory */
+     if filename =='.'& filename =='..' then
+       dirs = dirs + 1
+     end
+
+   when dir == '<VOL>' then nop         /* skip vol entry */
+   otherwise files=files+1              /* was a file count it */
+             spaceused = spaceused + filesize /* and its space */
+             if minsize='' then minsize=filesize
+                           else minsize=min(minsize,filesize)
+             if maxsize='' then maxsize=filesize
+                           else maxsize=max(maxsize,filesize)
+   end
+end
+
+/* Print a summary */
+say
+say '"'dirname'" contains' files 'files and' dirs 'directories.'
+say
+say 'Storage used = ' spaceused ' bytes ('(spaceused % 1024)'k)'
+say
+if minsize='' then minsize=0
+if maxsize='' then maxsize=0
+say 'Average file size is' spaceused % files 'bytes'
+say 'Minimum file size is 'minsize 'bytes'
+say 'Maximum file size is 'maxsize 'bytes'
+end
+say
+if dirdriveк=curdrive then do
+    call directory othdir
+    end
+call directory curdir
+exit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix H. Sample Program                                           75
+ APPENDIX I. SYNTAX DIAGRAMS
+
+
+
+program ::=              instructionlist
+
+instructionlist ::=      instruction
+                         instructionlist
+
+instruction ::=          label-instruction
+                         assignment-instruction
+                         keyword-instruction
+                         command-instruction
+
+label-instruction ::=    name : ;
+
+assignment-instruction ::= name = expression ;
+
+keyword-instruction ::=
+
+DO ; instructionlist END ;
+DO expression ; instructionlist END ;
+DO FOREVER ; instructionlist END ;
+DO name = expression [TO expression
+          [BY expression]] ;
+   instructionlist END ;
+LEAVE ;
+CALL name expressionlist ;
+RETURN ;
+RETURN expression ;
+EXIT ;
+EXIT expression ;
+IF expression [;] THEN [;] instruction
+IF expression [;] THEN [;] instruction
+                  ELSE [;] instruction
+PARSE  upper SOURCE template;
+PARSE  upper VERSION template ;
+PARSE  upper VALUE  expression WITH template ;
+PARSE  upper VAR  varname template ;
+PARSE  upper PULL template ;
+PARSE  upper ARG template ;
+PARSE  upper LINEIN template ;
+PULL   expression
+PUSH   expression
+QUEUE  expression
+NUMERIC DIGITS expression
+NUMERIC FUZZ expression
+NUMERIC FORM SCIENTIFIC
+NUMERIC FORM ENGINEERING
+OPTIONS expression
+SAY expression ;
+TRACE expression ;
+PROCEDURE ;
+PROCEDURE EXPOSE namelist ;
+DROP namelist ;
+
+command-instruction ::=  expression ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Appendix I. Syntax Diagrams                                        76
+expressionlist ::=    expression
+                      expression , expressionlist
+
+expression ::=        term operator expression
+                      empty-expression
+
+term ::=              ( expression )
+                      constant
+                      name
+                      name( expressionlist )
+
+constant ::=          ' characterlist '
+                      ' hexdigitlist 'x
+                      decimaldigitlist
+
+operator ::=          abuttal
+                      whitespace
+                      ==
+                      /==
+                      =
+                      <>
+                      <
+                      <=
+                      >
+                      >=
+                      │
+                      &
+                      +
+                      -
+                      *
+                      %
+                      //
+                      /
+                      **
+                      ││
+                      \
+
+namelist ::=       name
+                   name namelist
+
+name ::=           simple-name
+                   compound-name
+                   stem
+
+compound-name ::=  stem subscripts
+
+stem ::=           simple name .
+
+subscripts ::=     [ simple-name ]
+                   . [ subscript ]
+
+simple-name ::=    letter [ letter
+                          │ digit ]...
+
+characterlist ::=  [ any-character ]...
+
+hexdigitlist ::=   [0..9 │ a..f │ A..F]...
+
+decimaldigitlist ::=  [ 0..9 ]...
+
+letter ::=         a..z │ A..Z
+
+digit ::=          0..9
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Appendix I. Syntax Diagrams                                        77
+APPENDIX J. KEYWORDS
+
+
+
+Keywords are no longer reserved except where noted with certain clauses
+and may be used as variable names:
+
+1.   do
+2.   forever
+3.   leave
+4.   end
+5.   call
+6.   return
+7.   procedure
+8.   if
+9.   then
+10.  else
+11.  parse
+12.  source
+13.  version
+14.  value
+15.  with
+16.  say
+17.  trace
+18.  exit
+19.  expose
+20.  drop
+21.  to
+22.  by
+23.  pull
+24.  push
+25.  queue
+26.  var
+27.  arg
+28.  numeric
+29.  digits
+30.  fuzz
+31.  form
+32.  options
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix J. Keywords                                                   78
+APPENDIX K. ERROR MESSAGES
+
+
+
+Here is a list of error messages that you may encounter.  The '%c', "%c',
+and '%s' are replaced by an appropriate number, character, or string,
+respectively.  The messages should be self explanatory, except for the
+"Internal error" message.  The latter indicates that the interpreter found
+itself in an inconsistent state.  I'd like to hear from you if this ever
+happens.
+
+  DET800 Program '%s' is unreadable",
+  DET801 Input line can't exceed %s characters",
+  DET802 Invalid hex value",
+  DET803 User Cancelled",
+  DET804 Unmatched quote",
+  DET805 Command shell %s not found",
+  DET806 ------------unused----------------
+  DET807 Input line too complicated; please simplify",
+  DET808 Unclosed comment starting in line %s, ending",
+  DET809 %s() didn't return a value",
+  DET810 DO n=x TO y BY z; z must evaluate to a number",
+  DET811 DO n=x TO y BY z for w; w must evaluate to a whole number";
+  DET812 Too many nested calls",
+  DET813 ------------unused----------------
+  DET814 Comma expected in argument list",
+  DET815 DO n=x TO y BY z; x must evaluate to a number",
+  DET816 Unexpected keyword (%s)",
+  DET817 Invalid syntax for PARSE instruction",
+  DET818 Invalid expression",
+  DET819 Invalid PARSE template",
+  DET820 DO n; n must evaluate to a whole number",
+  DET821 Logical value not 0 or 1",
+  DET822 Do n=x To y BY z; n must evaluate to a whole number",
+  DET823 Missing THEN after %s",
+  DET824 No active loop",
+  DET825 Not enough storage %s",
+  DET826 Program '%s' not found",
+  DET827 Non-numeric value (%s) found during expression evaluation",
+  DET828 ------------unused----------------
+  DET829 Procedure name expected",
+
+  DET830 Can't write output file '%s'",
+  DET831 Unmatched parenthesis in argument list",
+  DET832 Semicolon expected following %s",
+  DET833 DO n=x TO y BY z; y must evaluate to a number",
+  DET834 Term expected after operator (%s)",
+  DET835 Can't use more than %s arguments",
+  DET836 Can't use more than %s files",
+  DET837 ------------unused----------------
+  DET838 Undefined routine (%s)",
+  DET839 Incomplete DO or IF block",
+  DET840 ------------unused----------------
+  DET841 Variable name expected",
+  DET842 Invalid argument or wrong number of arguments",
+  DET843 Internal error in '%s'",
+  DET844 Invalid trace flag (%s)",
+  DET845 '%s' expected instead of '%s'",
+  DET846 Division by zero",
+  DET847 Control variable name for \"%s %s\" not found",
+  DET848 Labelname expected",
+  DET849 Labelname could not be found",
+  DET850 WHEN or OTHERWISE expected",
+  DET851 OTHERWISE expected",
+  DET852 Numeric Overflow/Underflow during evaluation",
+  DET853 Invalid block address",
+  DET854 Storage chain damaged",
+  DET855 Invalid value for NUMERIC DIGITS %d",
+  DET856 Invalid value for NUMERIC FUZZ %d",
+  DET857 Invalid expression for NUMERIC FORM %s",
+* DET998 Can't uninstall resident version
+* DET999 Resident version does not support uninstall
+
+
+
+
+Appendix K. Error messages                                             79
+

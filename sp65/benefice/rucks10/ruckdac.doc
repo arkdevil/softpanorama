@@ -1,0 +1,3920 @@
+
+
+
+
+
+
+     RUCKUS-DAC Copyright (C)1993 Cornel Huth
+     Documentation Copyright (C)1993 Cornel Huth
+     All Rights Reserved.
+
+     Version 1.0d.
+     18-Oct-93/C.
+
+     For ordering information, license agreement, and product support
+     information, see Appendix Z.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     Introduction
+
+     RUCKUS-DAC is one part of the RUCKUS sound toolkit for DOS programmers. Its
+     forte is its ability to play digital data in three different formats and
+     record in two: VOC, WAVE, and MOD. The other part of the RUCKUS sound
+     toolkit is RUCKUS-MIDI. Its forte is its ability to play standard MIDI data
+     files. See RUCKUS-MIDI for more.
+
+     RUCKUS-DAC currently supports six sound devices: the PC speaker, a DAC on
+     an LPT port, Disney Sound Source, AdLib MSC, Sound Blaster, and the Sound
+     Blaster Pro (stereo). Since most sound devices emulate one of the above,
+     RUCKUS-DAC should handle most devices likely to be found in a PC. RUCKUS-
+     DAC is implemented to be device-independent. As new sound hardware (with
+     supporting documentation) becomes available to this programmer, it will be
+     added. The code you write to play any of the digital formats using RUCKUS
+     will play on any new device added later without any code changes to your
+     program. You just supply the new device ID (see InitDac for more). 
+
+     The RUCKUS toolkit supports most DOS compilers as is. This documentation
+     describes using RUCKUS with C DOS compilers. Also available is a BASIC-
+     specific version (BASIC7/QB45/VBDOS/etc.) of this documentation. Other
+     implementations should be able to get the necessary details using this
+     documentation. Note that these toolkits will not work with the current or
+     past Turbo Pascal compilers. This is due to Turbo Pascal's proprietary
+     linkage methods.
+
+     To provide compiler-independence, RUCKUS (and all of my latest toolkits)
+     implements a simple calling scheme: a single far pointer (segmented) is
+     passed to RUCKUS. The data structure that is pointed to varies depending on
+     RUCKUS function. There are 13 structure types ("packs") currently. The
+     first two data members of each pack are identical in all packs. These are
+     Func and Stat. The remaining members, if any, vary depending on
+     requirements. For instance, the LoadDac routine uses, in addition to Func
+     and Stat, six additional members: FilenamePtr, StartPos, LoadSize, XMMflag,
+     XMMhandle and LoadPtr. The steps needed to load a digital (LoadDac is for
+     VOC/WAVE files, LoadMod is for MOD files) data file to memory would be as
+     follows:
+
+
+          1. Allocate pack. Packs are reusable and can be allocated any way you
+          want. Here we make a static allocation for simplicity.
+
+          struct LoadPack LP;
+
+          2. Assign member values:
+      
+          gets(filename);
+          LP.Func = LoadDac;
+          LP.FilenamePtr = filename;
+          LP.StartPos = 0L;                    
+          LP.LoadSize = 0L;
+          LP.XMMflag = 0;  
+
+          3. Call RUCKUS:
+
+
+
+
+
+
+
+
+
+
+
+
+
+          rez = RUCKDAC(&LP);
+
+          4. On return from the call:
+
+          if (rez == 0)
+             // LP.LoadPtr -> address of digital data in memory
+             // or, if XMMflag then LP.XMMhandle is XMS handle of storage 
+
+     After the load you can immediately call the PlayDac routine using the
+     LP.LoadPtr returned from the LoadDac call. You don't need to use the RUCKUS
+     LoadDac routine; you can perform your own digital data file loads to memory
+     (VOC and WAV only, MODs must be loaded by RUCKUS-DAC). However, RUCKUS can
+     load up to 32 separate digital files at one time (and 96 more to XMS) and
+     performs all the necessary memory allocations and deallocations
+     automatically. See LoadDac/LoadMod for more.
+
+     As you can see, using RUCKUS is easy. If you'd rather use a traditional 
+     calling convention, wrap the RUCKUS routines in a C function and call it as
+     you normally would, e.g., rez = LoadDacFile(filename,LP) where LoadDacFile
+     contains the actual code (as shown above).
+
+     Now that I have your interest, let me tell you why I've provided this
+     toolkit for you. Shareware. That's right. Shareware. What I've done is
+     provide you with a means to evaluate this product completely, with no
+     upfront obligations. If you can't make use of this product, no problem.
+     Think of this as the ultimate return policy. You can actually take the
+     goods home, try it out, break it in. Then, if after a period of no more
+     than 21 days, you feel that this product is well worth the price I'm
+     asking, by all means, you should go ahead and fill out the order form and
+     send it in. If you do not register, then of course, it means the product is
+     not something you can use. If you can't use it, I don't want your money.
+     But if it's something you will use, it's only fair that you register. The
+     PROFESSIONAL registered versions does not have any built-in advertising
+     screens. The PERSONAL DEVELOPER registered version does display a sign-on
+     banner once. See Appendix Z. for ordering options and other related
+     information specific to this product.
+
+     The documentation that follows describes each of the function routines as
+     to use, pack type used, and sample code in C. Also available is a BASIC
+     version of this toolkit, differing only in example programs and
+     documentation. For additional source examples see the included X files on
+     disk.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     RUCKUS-DAC Functions.
+
+      0. SysInfoDac  ...........................................  5
+      1. InitDac  ..............................................  6
+      2. ExitDac  ..............................................  7
+      3. AtExitDac  ............................................  8
+      4. LoadDac  ..............................................  9
+      5. PlayDac  .............................................. 10
+      6. RecordDac  ............................................ 11
+      7. StoreDac  ............................................. 13
+      8. EndDac  ............................................... 14
+      9. PauseDac  ............................................. 15
+     10. DeallocDac  ........................................... 16
+         11 to 19 are not used 
+     20. SetAllDac  ............................................ 17 
+     21. SetVolumeDac  ......................................... 19
+     22. SetIntRateDac  ........................................ 20
+     23. SetPriorityDac  ....................................... 21
+         24 to 27 are not used
+     28. GetBufferDataDac  ..................................... 22
+     29. GetBytePosDac  ........................................ 23
+     30. SetAllSBP  ............................................ 24
+     31. SetVolMainSBP ......................................... 26
+     32. SetVolVocSBP  ......................................... 27
+     33. SetLevelMicSBP  ....................................... 28
+     34. SetLevelCDSBP   ....................................... 29
+     35. SetLevelLineSBP  ...................................... 30
+     36. SetFilterOutSBP  ...................................... 31
+     37. SetFilterInSBP  ....................................... 32
+     38. SetSourceSBP  ......................................... 33
+     39. SetStereoSBP  ......................................... 34
+     40. SetSpeakerSB  ......................................... 35
+         41 to 47 are not used
+     48. GetMixerRegSBP  ....................................... 36
+     49. GetDacSB .............................................. 37
+     50. ExitMod  .............................................. 38
+     51. AtExitMod  ............................................ 39
+     52. LoadMod  .............................................. 40
+     53. PlayMod  .............................................. 41
+     54. EndMod  ............................................... 42
+     55. PauseMod  ............................................. 43
+     56. SetIntRateMod ......................................... 44
+     57. SetSpeedMod ........................................... 45
+     58. SetVolumeMod  ......................................... 46
+     59. SetPositionMod ........................................ 47
+     60. SetStereoMod .......................................... 48
+     61. SetFastMod ............................................ 49
+         Appendix A. Tips and Tricks ........................... 50
+         Appendix B. Pack Structure ............................ 51
+         Appendix C. Compiler, Linker and Call Use ............. 55
+         Appendix D. RUCKUS-DAC Data Area ...................... 56
+         Appendix Z. Ordering Information, License Agreement
+                     and Product Support........................ 58
+
+
+
+
+
+
+
+
+
+
+
+
+
+     SysInfoDac          Func: 0        Pack: SysInfoPack
+
+     Before doing any other RUCKUS function, you should call SysInfoDac to
+     determine what sound devices are available. RUCKUS-DAC currently supports
+     the following devices:
+
+          0. PC speaker
+          1. LPT-DAC device on a printer port, commonly home-built
+          2. Disney Sound Source, a printer port DAC device
+          3. AdLib Music Synthesizer Card
+          4. Sound Blaster (DSP version 1.03 and up)
+          5. Sound Blaster Pro
+          6. UltraSound*
+
+     *The UltraSound (GUS) will be supported in an upcoming release. PAS16
+     native support soon after.
+
+     Since many current sound cards are Sound Blaster compatible, RUCKUS-DAC
+     supports somewhere around 95% of all sound devices in active use on PC-
+     compatible computers.
+
+     SysInfoDac scans for and detects all devices. In the case of the DAC on the
+     printer port (LPT-DAC), it can only detect if a printer port is available.
+     All other sound cards are detected by their manufacturer's documented
+     methods, and should be 100% reliable. Information returned includes the
+     device's base port address, IRQ line, DMA channel, and capabilities.
+
+     Since the SB Pro is SB-compatible, and since the SB is AdLib-compatible,
+     these lower devices are also detected in these cards.
+
+
+     Sample Use:
+
+     struct SysInfoPack SIP;
+
+     SIP.Func = SysInfoDac;   //SysInfoDac is a CONST in RUCKDAC.BI
+     rez = RUCKDAC(&SIP);     //call to RUCKUS library code
+     if (rezt == 0) {
+        printf("CPU type is %u/%u\n", SIP.CPU, SIP.MHz);
+        if (SIP.SD[5].Device != 0)
+            printf("SB PRO at port %x\n", SIP.SD[5].Port);
+        if (SIP.SD[4].Device != 0)
+            printf("SB 1.5 at port %x\n", SIP.SD[4].Port);
+        :
+        printf("PC speaker always available\n");
+     }
+
+
+
+
+
+
+
+
+
+                                                                               5
+
+
+
+
+
+
+
+
+
+
+     InitDac             Func: 1        Pack: InitPack
+
+     Before you can use a sound device, you must inform RUCKUS about it. The
+     InitDac routine sets up default sets of data that RUCKUS uses, or that you
+     can later change. You cannot operate a device until you have called this
+     routine. You should not InitDac more than one sound device at a time. If
+     you want to use a different device, first ExitDac then InitDac again.
+
+     The information that InitDac requires is available from the SysInfoDac
+     routine. InitDac returns with information on its data section address and
+     size, and the address of the ExitDac routine (in case AtExitDac doesn't
+     work for your esoteric compiler or run-time library).
+
+     InitDac is used for both RUCKUS-DAC and the RUCKUS-DAC mod extension code.
+
+     There is a special feature available for the PC speaker and the AdLib
+     devices: 2x upsampling. To use 2x upsampling, use the I/O port as returned
+     by SysInfoDac for IP.IOport. To use standard (in some cases downsampling)
+     play for the PC speaker and AdLib (recommended for play of samples with
+     rates above 8kHz) use an IP.IOport=0. For an example of 2x upsampling see
+     the MODAC1 documentation. Upsampling is available only for VOC and WAVE
+     playback.
+
+
+     Sample Use:
+
+     struct InitPack IP;  
+
+     IP.Func = InitDac;       // CONST in RUCKDAC.BI
+     IP.DeviceID = device;    // see SysInfoDac for device numbers
+     IP.IOport = port;        // and other info needed by InitDac
+     IP.IRQline = IRQ;
+     IP.DMAch = DMA;
+     rez = RUCKDAC(&IP);
+     if (rez == 0)
+        // device initialized okay
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                               6
+
+
+
+
+
+
+
+
+
+
+     ExitDac             Func: 2        Pack: XitPack
+
+     When using RUCKUS, certain aspects of the computer are controlled by the
+     RUCKUS code. To have RUCKUS return full control back to the computer and
+     operating system, ExitDac must be called. To ensure that this happens, even
+     after an abnormal termination (such as an untrapped divide by zero), RUCKUS
+     provides a routine that ensures that ExitDac is always called before your
+     application ends. See AtExitDac for more.
+
+     Once a sound device has been initialized with InitDac, you must call
+     ExitDac before you can switch to another device with InitDac. Calling
+     ExitDac releases any memory allocations made while the previous sound
+     device was active (allocations made by LoadDac, LoadMod, or RecordDac).
+     Memory allocations that your program has made on its own are not affected.
+
+     Tip: If you call InitDac with one device, load a file, then call InitDac
+     again with another device, the memory allocated by the load is not
+     released. This allows you to play data from previous load operation(s) on
+     all the RUCKUS-supported devices. To force the release of a previous memory
+     allocation, see DeallocDac. 
+
+
+     Sample Use:
+
+     struct XitPack XP;
+
+     XP.Func = ExitDac;
+     rez = RUCKDAC(&XP);
+     if (rez != 0)
+        // error
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                               7
+
+
+
+
+
+
+
+
+
+
+     AtExitDac           Func: 3        Pack: XitPack
+
+     To ensure that all machine control is returned to the operating system and
+     that all RUCKUS-made memory allocations are released before your
+     application program ends, AtExitDac should be used. This routine takes
+     advantage of most compiler's _atexit enregistration routine. This _atexit
+     compiler run-time library routine allows for up to 32 different calls to be
+     made just prior to it (the compiler's run-time code) returning to the
+     operating system (program termination). Most of the time, you can make all
+     the necessary shutdowns that your program requires in your app's code.
+     However, abnormal terminations -- terminations that can cause a bypass of
+     your own shutdown code -- may mean that when the operating systems regains
+     control, certain machine operations are not in a stable state. The
+     AtExitDac routine ensures that ExitDac is called no matter what (in most
+     all cases, except where the program locks up, in which case the session
+     needs to be reset anyway). 
+
+     Note: AtExitDac should be called only once in your program's execution. 
+
+     Graphically, your program executes like this:
+
+        DOS C>program.exe
+          |
+        Compiler startup code (performs basic setup)
+          |
+          +----->+
+                 | Your program starts, ends
+          +<-----+
+          |   
+         rest of startup code, _atexit registered routines
+          |
+         DOS C>_
+
+     Caution: In order for the _atexit registered routines to be called by your
+     compilers run-time, you must not allow you program to exit via non-standard
+     ways. Calling INT21/4C is on example (you should never do this from
+     compiled code, anyway). Note that some compilers' run-time code bypasses
+     _atexit when Ctrl-C or Ctrl-Break is used. If this is the case, you must
+     trap these and perform an ExitDac before returning to DOS.
+
+     The startup code is basically a program that sets up your program to run,
+     calls your program, regains control when your program ends, then performs
+     the necessary shutdown actions required, including calling all routines
+     registered with _atexit.
+
+     Sample Use:
+
+     struct XitPack XP;
+
+     XP.Func = AtExitDac;
+     rez = RUCKDAC(&XP);
+     if (rez !=0)
+        // error (more than 32 calls made to _atexit)
+
+
+                                                                               8
+
+
+
+
+
+
+
+
+
+
+     LoadDac             Func: 4        Pack: LoadPack
+
+     Though not required, you can have RUCKUS load a digital file into memory
+     for you. It makes the necessary memory allocations and loads the data into
+     conventional or XMS memory. You can load up to 32 separate digital data
+     files to conventional memory at one time, and up to 96 more into XMS.
+     RUCKUS takes care of the memory allocation details.
+
+     LoadDac can also be instructed to start loading at any particular byte in a
+     file for as many bytes as you specify. This would be useful, for example,
+     if you have a single file made up of several VOC or WAVE files appended to
+     form one large data file.
+
+     Sample Use:
+
+     struct LoadPack LP;
+
+     LP.Func = LoadDac;
+     LP.FilenamePtr = filename;
+     LP.StartPos = 0L;         // start load at first byte of file
+     LP.LoadSize = 0L;         // have RUCKUS load all of it
+     LP.XMMflag = 0;           // -1 if loading into XMS
+     rez = RUCKDAC(&LP);
+     if (rez == 0) 
+        // okay load
+
+     Note that even though loading into XMS memory, RUCKUS-DAC still needs some
+     conventional memory to use as a buffer. After the load to XMS, the low
+     memory is no longer required.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                               9
+
+
+
+
+
+
+
+
+
+
+     PlayDac             Func: 5        Pack: PlaybackPack
+
+     Once the digital data is in either conventional or XMS memory, you can play
+     it to any of the RUCKUS-supported devices. XMS memory, however, requires
+     DMA playback mode; this mode is supported in the Sound Blasters only. Also,
+     for STEREO playback, DMA mode is required (SB Pro only).
+
+     In addition to DMA-mode playback, you can instruct RUCKUS to play in the
+     background or foreground. Playing in the background allows your computer
+     program to regain control immediately after play has begun. If you choose
+     foreground play, control does not return to your program until the end of
+     the data has been played, or, until CTRL-ALT is pressed.
+
+     All RUCKUS-supported devices can be played in the background. Only the
+     Sound Blasters can be played using DMA. DMA playback is similar to
+     background play in that control is returned to your program immediately,
+     but it is also much more efficient since DMA playback uses no CPU time.
+     Background play, on the other hand, can require anywhere from 1 to 100% of
+     available CPU time, depending on what playback rate has been selected (see
+     SetIntRateDac). 
+
+     Since it's possible to load several data files into memory at one time, to
+     play a particular data file requires that you specify its start address or,
+     if loaded to XMS memory, its XMS handle. Given the code sequence example in
+     LoadDac, the following PlayDac code takes up from there:
+
+     struct PlaybackPack PBP;
+
+     PBP.Func = PlayDac;
+     PBP.Mode = 2;       // mode 0=foreground, 1=background, 2=DMA
+     PBP.XMMhandle = 0;  // 0=conv memory data follow, 1+=XMS data follows
+
+     'If conventional memory used, then the following pointer is the 
+     'segment:offset start address of the VOC/WAVE data to play.
+     '
+     'If XMS memory used, the following pointer is the 32-bit offset within the
+     'XMS handle (PBP.XMMhandle) that the data starts. If you just load one data
+     'file to one XMM handle, then these will always=0. However, if you're short
+     'on available XMM handles, you could load several data files into a single,
+     'huge, XMM allocation. In order to do this, you must do your own data
+     'loads since LoadDac loads one file per XMM handle.
+     '
+     PBP.LoadPtr = LP.LoadPtr;
+
+     'Note: the PBP.BufferSize is used by PlayMod only. Also, you may want/need
+     'to perform pre-Play tasks. See SetAllDac/SetAllSBP.
+
+     rez = RUCKDAC(&PBP);
+     if (rez == 0)
+        // if DMA or background mode then the digital data is playing now, 
+        // but if foreground mode, the play has ended by the time we get here
+
+
+
+
+                                                                              10
+
+
+
+
+
+
+
+
+
+
+     RecordDac           Func: 6        Pack: RecordPack
+
+     The Sound Blasters can record as well as play digital data. As with play,
+     you can record directly into conventional or XMS memory. You can let RUCKUS
+     make the memory allocations, or you can allocate your own memory and record
+     into that. With the SB Pro, you can also record in stereo.
+
+     With the Sound Blaster Pro you can select among three input sources: mic,
+     line, and CD. The earlier Sound Blaster has one input, the mic. A quality
+     microphone can make a big difference. For other-than-mic input on the SB,
+     you can pipe the headphone output of a CD player into the mic input. Your
+     results may vary, but this is better than mic'ing a loudspeaker. For
+     anything other than mic input, the SB Pro is recommended. Its recording
+     quality is very good since it allows sampling rates up to 45.5kHz in mono,
+     and 22.75kHz in stereo. The SB allows recording sampling rates up to 12kHz
+     (rated to 13kHz record and 23kHz playback). The sampling size is 8 bits.
+
+     NOTE: TO RECORD IN STEREO AT A GIVEN SAMPLE RATE, YOU MUST SPECIFY TWICE
+           THE RATE DESIRED. FOR EXAMPLE, TO RECORD OFF A CD DECK CONNECTED TO
+           THE LINE INPUT OF THE PRO, AT A SAMPLE RATE OF 22.5kHz, YOU MUST
+           SET THE SP.SetIntRate=44100.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              11
+
+
+
+
+
+
+
+
+
+
+
+     Sample Use:
+
+     struct RecordPack RP;
+     struct XitPack XP;   
+     EP.Func = EndDac;         // preload EP.Func here for space reasons
+
+     RP.Func = RecordDac;
+     RP.SampleRate = 23000;
+
+     /* To record into XMM and have RUCKUS make the allocation, set RP.XMMhandle
+     to -1. If you made your own XMS allocation, set this to your handle.
+     To load into conventional memory and have RUCKUS make the allocation,
+     set RP.RecordPtr to NULL. If you made your own allocation, set this
+     to your far segmented pointer. */
+
+     RP.XMMhandle = 0;         // use conventional memory if this is 0
+     RP.RecordPtrOff = 0;      // have RUCKUS make the memory allocation
+     RP.RecordPtrSeg = 0;      // if this is 0 (and if RP.XMMhandle=0)
+
+     /* By using the DACDATA.MemDOS or .MemXMM, we can record as many bytes
+     as we have available. Below we reserve 5K (more for XMS) for misc use, as
+     you should, too. This is the max bytes to record; we can also stop
+     at any point before this. */
+
+     RP.RecordBytes = (DACDATA.MemDOS - 5) * 1024;  
+     RP.StereoFlag = 0;
+     rez = RUCKDAC(&RP);
+     if (rez == 0)  {
+        // we are recording right now, using DMA, so, while we could do just
+        // about anything we wanted, in this example, we just wait until the
+        // record is over
+
+        do 
+           ;
+        while (DACDATA.End == 0);
+        rez2 = RUCKDAC(&XP);   // stop recording (XP defined/assigned above)
+     }
+
+     /* The above loop won't be exited until all the bytes requested have been
+     recorded. The number of bytes recorded (not counting any file headers added
+     by StoreDac) is in DACDATA.RecordLen.
+
+     Now you can save the data by using StoreDac, or play it using PlayDac. On
+     return from the RECORD, RP.RecordPtr is set to the segment:offset of the
+     first byte recorded in conventional memory, or if using XMS memory,
+     RP.XMMhandle is set to the XMS handle. */
+
+
+
+
+
+
+
+
+                                                                              12
+
+
+
+
+
+
+
+
+
+
+     StoreDac            Func: 7        Pack: SaveDataPack
+
+     Once digital data has been loaded or recorded in memory, you can store it
+     do disk in either VOC or WAVE format. If you want, you can load a file in
+     one format and save it in the other with just a few lines of code (shown
+     below).
+
+     Sample Use:
+
+     struct SaveDataPack SDP;
+
+     SDP.Func = StoreDac;
+     SDP.FilenamePtr= filename;
+
+     // the LP pointer below is from (say) a just-loaded VOC file (using
+     // LoadDac), and we want to convert and store it to WAVE format
+
+     SDP.DataPtr = LP.LoadPtr // segment:offset of conventional memory
+                              // or 0 if storing from an XMS handle
+     SDP.FileType = 2;        // 1=VOC, 2=WAVE
+     SDP.XMMhandle = 0;       // 0 if DOS data, else XMS handle 
+     rez = RUCKDAC(&SDP);
+     if (rez == 0)
+        // data stored to filename$
+     else
+        //file save error in stat
+
+     /* Caution: Be sure to account for the additional memory required once data
+     has been stored to a file. StoreDac builds the appropriate VOC or WAV
+     header and this adds to the total memory required to reload. I suggest that
+     you do not record so much data as to not be able to load it back in once
+     saved to VOC or WAVE format. */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              13
+
+
+
+
+
+
+
+
+
+
+     EndDac              Func: 8        Pack: XitPack
+
+     EndDac is used to end (stop) play or record on command. Once PlayDac has
+     started, it continues to play in the background until either the end of the
+     digital data has been reached, or you call this routine. In the case of a
+     record, play continues until the number of bytes requested has been
+     recorded, or this routine is called.
+
+     Sample Use:
+
+     struct XitPack XP;
+
+     // LoadDac and PlayDac, or RecordDac, have already been called
+     // see those routines for more information
+
+     XP.Func = EndDac;     // if play or record is active this call
+     rez = RUCKDAC(&XP);   // ends it
+
+     // See RecordDac on getting the number of bytes actually recorded
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              14
+
+
+
+
+
+
+
+
+
+
+     PauseDac            Func: 9        Pack: PausePack
+
+     PauseDac allows you to temporarily pause and then restart a playback.
+
+
+     Sample Use:
+
+     struct PausePack PP;
+
+     PP.Func = PauseDac;
+     PP.Pause = 1;        // non-zero pauses, zero restarts
+     rez = RUCKDAC(&PP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              15
+
+
+
+
+
+
+
+
+
+
+     DeallocDac          Func: 10       Pack: DeallocPack
+
+     If you have RUCKUS load digital data files, which is most likely the case,
+     it makes memory allocations from the operating system memory pool. RUCKUS
+     tracks up to 32 consecutive DOS loads, and up to 96 loads to XMS (provided
+     enough memory and XMS handles). These should be higher than you'll ever
+     likely use at one time. DeallocDac "unloads" files that RUCKUS has loaded,
+     thus releasing the memory that they used. 
+
+     As an example, let's say that you want to start up your program with 5
+     digital data files in XMS memory. You have 5MB of XMS available. Each data
+     file is 1M in size. To load a new data file after these 5, you will need to
+     unload one of the 5 already loaded. DeallocDac does that for you. The
+     following example loads a single data file to XMS then immediately unloads
+     it.
+
+     DeallocDac is not used for releasing LoadMod allocations. 
+
+     Sample Use:
+
+     struct LoadPack LP;
+     struct DeallocPack DP;
+
+     LP.Func = LoadDac;
+     LP.FilenamePtr = filename;
+     LP.StartPos = 0L;
+     LP.LoadSize = 0L;   
+     LP.XMMflag = 1;        // non-zero means use XMS for load
+     rez = RUCKDAC(&LP);
+
+     if (rez == 0) {
+        DP.Func = DeallocDac;
+        DP.HandSeg = LP.XMMhandle; // XMM handle returned by RUCKDAC(LP)
+        DP.TypeFlag = LP.XMMflag;  // 0=DOS allocation, 1=XMS
+        rez = RUCKDAC(&DP);     // if this were a DOS allocation, DP.HandSeg
+                                // would be set to LP.LoadPtrSeg only since
+                                // _FP_OFF(LP.LoadPtr)==0 as returned by LoadDac
+     }
+     if (rez != 0)
+        // file load error or deallocate error in rez
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              16
+
+
+
+
+
+
+
+
+
+
+     SetAllDac           Func: 20       Pack: SetPack
+
+     This routine sets the overall playback volume, interrupt rate, and RUCKUS
+     priority in one call.
+
+     The playback volume affects VOC or WAVE output for non-DMA mode, only. In
+     other words, it's for controlling the volume on the PC speaker, LPT-DAC,
+     Disney Sound Source, and AdLib only. To control the playback volume of the
+     Sound Blaster, you must operate it under non-DMA mode. To control the
+     playback of the Sound Blaster Pro, a separate set of RUCKUS routines are
+     used. See the SetAllSBP routine for more.
+
+     The default volume is set to 16. Minimum is 0, maximum is 127. For a linear
+     approximation of this volume control, 16 is about half-volume, 8 about 1/4,
+     64 about 3/4, and 127 full volume. A volume other than 16 may
+     cause a slowdown in performance so 16 should be used as much as possible.
+
+     Note: SETTING THE VOLUME TO 0 TURNS OFF THE SOUND BLASTER AND PRO'S
+           SPEAKER (REQUIRED BEFORE RECORDING). ANY OTHER SETTING TURNS
+           THE SPEAKER CONNECTION ON.
+
+     The interrupt rate sets the playback rate of background play for non-DMA
+     mode. For example, let's say you load a file that was recorded with a
+     sample rate of 8000Hz (this information is stored with the VOC or WAVE).
+     That is the value to which you set the interrupt rate. Easy enough. But
+     let's say that it was recorded at 44,100Hz and in stereo. Normally, this
+     data file couldn't be played except with high-end sound cards. What you can
+     do is set the interrupt rate to 8000Hz and have RUCKUS-DAC perform on-the-
+     fly downsampling so that you can play this file on any of the supported
+     devices (in non-DMA mode).
+
+     In addition to downsampling, RUCKUS-DAC can upsample with the PC Speaker
+     and AdLib cards (the two that need it the most). Let's take that 8000Hz
+     sample rate file again. Upsampling performs on-the-fly adjustments to the
+     data so that it sounds as if the file sample rate were twice the original.
+     This results in a much cleaner sound. There is a drawback: much more CPU
+     time is needed at this high rate, and it should only be used on powerful
+     CPUs. To use the upsampling capabilities of RUCKUS-DAC, set the interrupt
+     rate to the original sample rate. There is also a special method used in
+     the initialization of the device. See InitDac for more. You can experiment
+     with the down- and upsampling of RUCKUS-DAC by using the MODAC.EXE program.
+
+     When using non-DMA mode, you can select from three priority levels. The
+     default priority=1. This level allows the system to run as normal, even
+     though the computer's ticker has been sped up some thousand times. Priority
+     level 2 hogs all background time for the RUCKUS-DAC playback. The
+     computer's clock is not updated. Priority level 0 gives top priority to
+     other computer events. This level may result in a warbly sound. Priority
+     only affects non-DMA VOC/WAVE output. Use the default level (1).
+
+
+
+
+
+
+                                                                              17
+
+
+
+
+
+
+
+
+
+
+     The default interrupt rate is 10989. If you are on a slow machine, this may
+     be too high for non-DMA operations. The following table shows the min, max,
+     and nominal interrupt rate for the supported devices. In all cases, higher
+     rates require more CPU power, except in DMA mode. Nominal values based on a
+     386/25 CPU.
+
+       Device   MinRate   MaxRate  Nominal  Comments
+       ------   -------   -------  -------  ------------------------------------
+       PCSKP0      5000     18000     8000  rates < 16000 may be noisy
+       PCSPK1      5000      9000     8000  effective rate=rate*2
+       LPTDAC      5000     23000    15000  not tested
+       DISNEY      5000      7000     7000  max usable rate is 7000Hz
+       ADLIB0      5000     12000     8000  AdLib very slow as digital device
+       ADLIB1      5000      6000     5500  effective rate=rate*2
+       SB          5000     23000    15000  DMA mode is 5-23000, record to 12kHz
+       SB PRO      5000     23000    15000  DMA mode is 5-45500
+
+     Sample Use:
+
+     struct SetPack SP;
+
+     SP.Func = SetAllDac;
+     SP.Volume = 16;       // any other value slows down performance
+     SP.IntRate = 8000;      
+     SP.Priority = 1;
+     rez = RUCKDAC(&SP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              18
+
+
+
+
+
+
+
+
+
+
+     SetVolumeDac        Func: 21       Pack: SetPack
+
+     SetVolumeDac does two things. First, it controls the non-DMA mode output
+     volume. Second, it turns the SB's speaker on and off; the SB speaker must
+     be off, and remain off, while recording. Under normal use, the SB speaker
+     is turned on and off by RUCKUS automatically.
+
+     Because of the extra calculations required when the volume is set to
+     anything other than the default (16), it's recommended that the volume be
+     changed only when necessary (especially on slow machines).
+
+     This routine controls the output volume on all devices in non-DMA mode. In
+     DMA-mode, the SB's volume is not controllable. The SB PRO, however, has a
+     large set of mixer controls that can be controlled via RUCKUS-DAC. See
+     SetAllSBP for more.
+
+     Sample Use:
+
+     struct SetPack SP;
+
+     SP.Func = SetVolumeDac;
+     SP.Volume = 127;          // set to max volume
+     rez = RUCKDAC(&SP);
+     if (rez != 0)
+        // you probably didn't set SP.Func correctly
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              19
+
+
+
+
+
+
+
+
+
+
+     SetIntRateDac       Func: 22       Pack: SetPack
+
+     SetIntRateDac, with respect to the -DAC section of RUCKUS, controls the
+     playback rate of non-DMA output.
+
+     After loading a file, that file's sample rate is available in the DAC data
+     section. You may choose to have the digital data file played back at that
+     rate, or, you may choose to downsample the original rate. Downsampling is
+     useful since it allows slower computers to play data files originally
+     sampled at rates too high to be played back -- RUCKUS can play a 44.1kHz
+     stereo VOC or WAVE file back through the PC speaker, or any of the other
+     supported devices. Note that the actual downsampled rate is not always
+     exactly what you specify, but a best-fit approximation.
+
+     As an example, let's suppose you have a VOC file originally sampled at
+     22050Hz, mono format. While this can easily be played on the SBs using DMA-
+     mode playback, non-DMA mode requires a very powerful CPU to handle that
+     high a rate. After loading using LoadDac, the 22050 sample rate, and its
+     mono format, is determined by reading the DAC data section. To play back
+     this file through PCSPKR0, say, at 11kHz, you'd set SP.IntRate=11025.
+
+     With the PC speaker and the AdLib, there are two different output modes.
+     The first either plays at the original rate, or is downsampled to a lower
+     rate (as specified by you). The second mode upsamples. By upsampling,
+     RUCKUS can output a much cleaner sound than playing at the original sample
+     rate. However, this is useful only for samples that were originally at a
+     low sample rate. You would not want to upsample a VOC file that was sampled
+     at 22kHz, since that would demand too much CPU power, plus, very little
+     benefit would be achieved. The best use of upsampling is on data that was
+     originally sampled at, say, 8kHz or less. In order to properly upsample,
+     you need to specify a SP.IntRate equal to the original sample rate (this
+     can be found in the DAC data section immediately after a LoadDac).
+
+     As mentioned, upsample mode is available on the speaker and AdLib devices
+     only. To specify this mode, set the IP.IOport to the physical port when
+     initializing the device (InitDac). In the PC speaker's case, IP.IOport=0x42
+     would activate up-sample mode. Using IP.IOport=0 would have the regular
+     mode used. For the AdLib, specify IP.IOport=0x388. As with the PC speaker,
+     setting IP.IOport=0 uses the regular AdLib play mode.
+
+     Sample Use:
+
+     struct SetPack SP;
+
+     SP.Func = SetIntRateDac;
+     SP.IntRate = 11025;
+     rez = RUCKDAC(&SP);
+
+
+
+
+
+
+
+
+                                                                              20
+
+
+
+
+
+
+
+
+
+
+     SetPriorityDac      Func: 23       Pack: SetPack
+
+     When operating in non-DMA mode playback of VOC or WAVE data, RUCKUS
+     reprograms the system timer. Normally, this timer runs at the familiar 18.2
+     times per second rate. When you play back at, say, a SP.IntRate=10000, this
+     is the new rate that the system timer is set to operate at. So, instead of
+     the timer interrupting the CPU (via IRQ0) 18.2/sec, it interrupts at
+     10,000/sec. 
+
+     The routine allows you to control the priority given to other events while
+     the timer is operating at this accelerated pace. The default priority is 1.
+     At the priority, the playback code is called at the desired rate, and,
+     given a 10kHz rate, every 550th time the playback code is executed, the
+     original timer-dependant code is executed. This allows the system clock,
+     and any other system in the computer dependant on the clock, to be properly
+     maintained. On each 550th call, RUCKUS first performs all tasks that needs
+     to be done, then it calls the original system code. In most cases, if not
+     all, this priority works best.
+
+     Priority 0 is exactly like priority 1 except that control is released as
+     soon as the RUCKUS code starts. The permits other tasks to interrupt
+     RUCKUS. This may cause a warbly-type sound, but permits, say, high-speed
+     communications code to operate in the background with missing a beat.
+
+     Priority 2 causes RUCKUS to use (hog) all background processing time for
+     itself. The system clock is not maintained. Use this priority only if the
+     other two are causing problems (doubtful) or if you want to get the maximum
+     sound performance out of RUCKUS and don't care if the system clock is
+     maintained.
+
+
+     Sample Use:
+
+     struct SetPack SP;
+
+     SP.Func = SetPriorityDac;
+     SP.Priority = 1;   // 1 is the default so no need to call unless changed
+     rez = RUCKDAC(&SP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              21
+
+
+
+
+
+
+
+
+
+
+     GetBufferDataDac    Func: 28       Pack: GetDataPack
+
+     Used to get a specified number of bytes from the current digital data path.
+
+     This routine is currently under development and should not be used.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              22
+
+
+
+
+
+
+
+
+
+
+     GetBytePosDac       Func: 29       Pack: GetDataPack
+
+     Used to determine where in the current digital data path processing is
+     occurring.
+
+     Sample Use:
+
+     struct GetDataPack GDP;
+
+     GDP.Func = GetBytePosDac;
+     rez = RUCKDAC(&GDP);
+     if (rez == 0)
+        printf("Curr pos relative start of data is %ul", GDP.BytePos);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              23
+
+
+
+
+
+
+
+
+
+
+     SetAllSBP           Func: 30       Pack: SetProPack
+
+     This routine allows you to control the mixer facility of the Sound Blaster
+     Pro including main volume, VOC volume, mic level, CD level, line level,
+     output filter, input source selection, record filters, input source, and
+     stereo/mono record mode.
+
+     During initialization of the Sound Blaster Pro (InitDac), the main and VOC
+     volumes are set to maximum (15) for both left and right channels, the three
+     input levels are set to their minimums (1), all filters are set to off,
+     mode is set to mono record, and input selection is set to mic.
+
+     NOTE: PLAYBACK OF VOC AND WAVE STEREO DATA FILES IS AUTOMATIC. THE STEREO
+           MODE SETTING IS FOR RECORDING ONLY. TO PLAY STEREO FILES IN MONO
+           ON THE SB PRO, USE THE SOUND BLASTER (DEVICE 4) INSTEAD.
+
+     The main volume (left and right, as are all mixer controls except mic)
+     adjusts both the digital and synthesizer outputs of the PRO (the
+     synthesizer, or FM section, is not used by RUCKUS-DAC, but is in RUCKUS-
+     MIDI). In normal use the main volume channels would be set to 15, the
+     maximum.
+
+     The VOC volume adjusts the volume of the digital output channels. Anything
+     played through the SB PRO's digital channels can be adjusted with this. As
+     with the main volume, the VOC volume is normally set to 15, the maximum.
+
+     The SB PRO provides for three inputs. Mic, CD, and Line. Each of these have
+     separate level adjustments. The mic input level is the odd one out. Unlike
+     the other two, the mic level does not adjust the mic input level, but
+     rather the mic output level. Whenever you record via the mic input line at
+     the back of the card, the input level is controlled by an AGC, automatic
+     gain control. The AGC acts as a real-time level adjuster -- high signal
+     levels (loud sounds) have the AGC automatically decrease the mic input
+     sensitivity -- low signal levels (quiet sounds) have it automatically
+     increase the mic input sensitivity. The actions of an AGC has its drawbacks
+     in reduced dynamic range and perhaps a noticeable "breathing" of the sound
+     on playback. Breathing is where the background noise increases as the level
+     of the sound decreases. However, often the reduced dynamic range makes for
+     a better final results, especially when using a mic/SB combination.
+
+     The CD input level adjusts the level of the CD-ROM device. No testing has
+     been done with this. It controls the input level from the proprietary CD-
+     ROM drive that CLabs distributes for the SB PRO, or one which is compatible
+     (and is hooked up to the SB PRO's CD connector). Any CD should be able to
+     plug into the CD audio connector of the SB PRO (see the SB PRO docs) and so
+     have its level controllable via RUCKUS-DAC.
+
+     The Line input level adjusts the input sensitivity. Normally, when
+     recording from this input, the Line level should be set to 15, the maximum.
+     For preamps that have an unusually high line out level, reducing the PRO's
+     line input level may produce a better recording.
+
+     The output filter can be used to reduce the noise at the mid and high end
+     of the digital data being played. Normally, this filter is not needed.
+
+                                                                              24
+
+
+
+
+
+
+
+
+
+
+
+     The recording filters are very useful and should be used whenever the
+     recording sample rate is below 18kHz and the source being record has
+     frequencies above 9kHz. There are two filters to choose from: one has a
+     3.2kHz cutoff, the other 8.8kHz.
+
+     Whenever you are recording from a source that will include frequencies
+     higher than 3.2kHz, and you have the PRO recording at a sample rate under
+     6.4kHz, you should select the 3.2kHz filter. This will attenuate
+     frequencies higher than 3.2kHz and should help produce a cleaner recording.
+     Along the same lines, if you are recording frequencies higher than 8.8kHz,
+     and are recording using a sample rate less than 17.6kHz, you should use the
+     8.8kHz filter. Note that filter use as described above is not a rule, just
+     a guideline. You may find that using no filters is best.
+
+     With the SB PRO you have 3 input sources to record from: the mic, a CD-ROM
+     drive attached to the SB PRO (requires special cable), or a line-level
+     input. The mic allows mono recording only. The CD-ROM facility controls
+     only a CD-ROM drive hooked up to the SB PRO. The line input can be
+     connected directly to a preamplifier's line out jacks.
+
+     The SB PRO allows you to record in STEREO from the CD and LINE input
+     sources; mic is always mono. When recording in stereo, the sample rate you
+     record at must be set to twice the desired rate. For example, if you want
+     to record from the LINE input at 22.05kHz, in stereo, set the recording
+     rate to twice 22,050, or 44,100. The SB PRO can sample up to a 45,500Hz
+     rate (which, if a stereo recording, is an effective rate of 22,750Hz). See
+     RecordDac for more.
+
+     Sample Use:
+
+     struct SetProPack SPP;  // be careful not to type SBP
+
+     SPP.Func = SetAllSBP;
+     SPP.Volume = 0x0F0F;    // max out volumes
+     SPP.VolVoc = 0x0F0F;
+
+     SPP.VolMic = 0;         // minimized mic input level
+     SPP.CD = 0;             // actual min for SB Pro is 1
+     SPP.LI = 0;
+
+     SPP.FilterOut = 0;      // 0=off filter, 1=on (output filter)
+     SPP.FilterIn = 0;       // 0=off filter, 1=3.2kHz, 2=8.8kHz (record filter)
+     SPP.SourceIn = 0;       // 0=mic, 1=CD, 2=line
+     SPP.StereoIn = 0;       // record mode: 0=mono, 1=stereo
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+                                                                              25
+
+
+
+
+
+
+
+
+
+
+     SetVolMainSBP       Func: 31       Pack: SetProPack
+
+     The main volume (left and right) adjusts both the digital and synthesizer
+     outputs of the PRO; it is the overall volume setting. Each of these outputs
+     also has its own volume control. In normal use, the main volume channels
+     would be set to 15, the maximum.
+
+     The range of volume is 1 to 15, in steps of 2 (1,3,5,7,9,11,13,15). To set
+     the left channel main volume, multiply the volume desired by 256. To set
+     the right channel, just add its value. For example, to set the main volume
+     to maximum (15, or 0F hex), multiply 15*256 and add 15. In hex, this value
+     is 0F0F (decimal 3855, but decimal is much too awkward). If you know
+     beforehand that you want the main volume at maximum, you can forego the
+     multiplication and simply use 0F0F, as in the example below.
+
+     NOTE: Since you are the programmer and you have the documentation, do not
+           depend on RUCKUS correcting out-of-value parameters. If you use 
+           parameters that are not within specifications, the results are
+           undefined.
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetVolMainSBP;
+     SPP.Volume = 0x0F0F;
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              26
+
+
+
+
+
+
+
+
+
+
+     SetVolVocSBP        Func: 32       Pack: SetProPack
+
+     The VOC volume (left and right) adjusts the digital output volume of the
+     PRO. The range of volume is 1 to 15, in steps of 2 (1,3,5,7,9,11,13,15). To
+     set the left channel VOC volume, multiply the volume desired by 256. To set
+     the right channel, just add its value. For example, to set the VOC volume
+     to maximum (15, or 0F hex), multiply 15*256 and add 15. In hex, this value
+     is 0F0F (decimal 3855, but decimal is much too awkward). If you know
+     beforehand that you want the VOC volume at maximum, you can forego the
+     multiplication and simply use 0F0F, as in the example below.
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetVolMainSBP;
+     SPP.VolVoc = 0x0F0F;
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              27
+
+
+
+
+
+
+
+
+
+
+     SetLevelMicSBP      Func: 33       Pack: SetProPack
+
+     This routine does not actually adjust the mic input level, but rather the
+     mic output level. Whenever you record via the mic input line at the back of
+     the card, the input level is controlled by an AGC, automatic gain control.
+     The AGC acts as a real-time level adjuster -- high signal levels (loud
+     sounds) have the AGC automatically decrease the mic input sensitivity --
+     low signal levels (quiet sounds) have it automatically increase the mic
+     input sensitivity. The actions of an AGC has its drawbacks in reduced
+     dynamic range and perhaps a noticeable "breathing" of the sound on
+     playback. Breathing is where the background noise increases as the level of
+     the sound decreases. However, often the reduced dynamic range makes for a
+     better final results, especially when using a mic/SB combination.
+
+     By setting the mic input level, you can use the computer as a public
+     address system. To do this, select mic as the input source, set the mic
+     input level to maximum, and turn on the SB speaker. To avoid feedback, keep
+     the mic away from the loudspeakers.
+
+     The input level range is 1 to 7, in steps of 2 (1,3,5,7). This setting has
+     no effect on recording level (see above).
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetVolMicSBP;
+     SPP.VolVoc = 0x07;
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              28
+
+
+
+
+
+
+
+
+
+
+     SetLevelCDSBP       Func: 34       Pack: SetProPack
+
+     The CD input level (left and right) adjusts the input level of the attached
+     CD-ROM drive. This has not been tested. For its use, see SetLevelLineSBP.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              29
+
+
+
+
+
+
+
+
+
+
+     SetLevelLineSBP     Func: 35       Pack: SetProPack
+
+     The line level (left and right) adjusts the analog input level of the PRO.
+     The range of volume is 1 to 15, in steps of 2 (1,3,5,7,9,11,13,15). To set
+     the left channel line level, multiply the volume desired by 256. To set the
+     right channel, just add its value. For example, to set the line level to
+     maximum sensitivity (15, or 0F hex), multiply 15*256 and add 15. In hex,
+     this value is 0F0F (decimal 3855, but decimal is much too awkward). If you
+     know beforehand that you want the line level at maximum, you can forego the
+     multiplication and simply use 0F0F, as in the example below.
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetVolMainSBP;
+     SPP.VolLI = 0x0F0F;
+     stat = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              30
+
+
+
+
+
+
+
+
+
+
+     SetFilterOutSBP     Func: 36       Pack: SetProPack
+
+     The output filter of the PRO can be used to reduce the noise at the mid and
+     high end of the digital data being played. Normally, this filter is not
+     needed. Recordings made at a very low sample rate, say, under 6kHz, may
+     sound better with this output filter on.
+
+     The digital output filter, and also the analog recording filter, is set off
+     by default. 
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetFilterOutSBP;
+     SPP.FilterOut = 1;          // enable output filter
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              31
+
+
+
+
+
+
+
+
+
+
+     SetFilterInSBP      Func: 37       Pack: SetProPack
+
+     The recording filters are very useful and should be used whenever the
+     recording sample rate is below 18kHz and the source being record has
+     frequencies above 9kHz. There are two filters to choose from: one has a
+     3.2kHz cutoff, the other 8.8kHz.
+
+     Whenever you are recording from a source that will include frequencies
+     higher than 3.2kHz, and you have the PRO recording at a sample rate under
+     6.4kHz, you should select the 3.2kHz filter. This will attenuate
+     frequencies higher than 3.2kHz and should help produce a cleaner recording.
+     Along the same lines, if you are recording frequencies higher than 8.8kHz,
+     and are recording using a sample rate less than 17.6kHz, you should use the
+     8.8kHz filter. Note that filter use as described above is not a rule, just
+     a guideline. You may find that using no filters is best.
+
+     The input filter is off by default.
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetFilterInSBP;
+     SPP.FilterIn = 1;       // 0=no filter, 1=3.2kHz cutoff, 2=8.8kHz cutoff
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              32
+
+
+
+
+
+
+
+
+
+
+     SetSourceSBP        Func: 38       Pack: SetProPack
+
+     With the SB PRO you have three input sources to record from: the mic, a CD-
+     ROM drive attached to the SB PRO (requires special cable), or a line-level
+     input. The mic allows mono recording only. The CD-ROM facility controls
+     only a CD-ROM drive hooked up to the SB PRO. The line input can be
+     connected directly to a preamplifier's line out jacks.
+
+     Recording with the mic requires only that it be selected. The mic input
+     level does not control the recording level, but rather the PA output. See
+     SetAllSBP for more.
+
+     Recording from the connected CD-ROM drive has not been tested. If you can
+     control the CD, you can record from it using RUCKUS.
+
+     Recording from the line-level input is simple. Just hook your tape-out
+     jacks from your preamplifier to the cable supplied with the SB PRO. This
+     cable, a 1/8-inch mini stereo to 2 RCA phono jacks is the same one that
+     comes with the original Sound Blaster. You'll probably need more cable
+     unless you have your preamp nearby. 
+
+     When recording from either the CD or line, you must set the source's input
+     level. Normally, setting it to maximum (15) is best. If you have
+     particularly high line output levels, you may need to set this lower. As
+     with all mixer settings, settings are 1 to 15 in steps of 2. The mic is 1
+     to 7, by 2.
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetSourceSBP;
+     SPP.SourceIn = 2;         // set input source to line input
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              33
+
+
+
+
+
+
+
+
+
+
+     SetStereoSBP        Func: 39       Pack: SetProPack
+
+     The SB PRO allows you to record in STEREO from the CD and LINE input
+     sources; mic is always mono. When recording in stereo, the sample rate you
+     record at must be set to twice the desired rate. For example, if you want
+     to record from the LINE input at 22.05kHz, in stereo, set the recording
+     rate to twice 22,050, or 44,100. The SB PRO can sample up to a 45,500Hz
+     rate (which, if a stereo recording, is an effective rate of 22,750Hz). See
+     RecordDac for more.
+
+     You must set the mode to stereo or mono before starting the actual record.
+
+     Sample Use:
+
+     struct SetProPack SPP;
+
+     SPP.Func = SetStereoSBP;
+     SPP.StereoIn = 1;         // set to stereo record
+     rez = RUCKDAC(&SPP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              34
+
+
+
+
+
+
+
+
+
+
+     SetSpeakerSB        Func: 40       Pack: SetPack
+
+     The routine activates or deactivates the Sound Blasters' output. When
+     recording it must be off. When playing back, it must be on. When starting a
+     recording, RUCKUS automatically turns the speaker off; when playing back it
+     turns the speaker on. For those occasions when you want to control the
+     speaker connection, use this routine.
+
+     Note that the generic SetVolumeDac also controls the SB's speaker
+     connection. If the speaker is currently on and you set the volume to 0, the
+     SB speaker is turned off. And, of the speaker is currently off, and you set
+     the volume to a non-zero value, the speaker is turned on. This routine lets
+     you control the connection without changing the generic volume setting.
+
+     Sample Use:
+
+     struct SetPack SP;
+
+     SP.Func = SetSpeakerSB;
+     SP.Volume = 0;           // use the volume member of SP to control speaker
+     rez = RUCKDAC(&SP);      // to turn the speaker on, set SP.Volume = 1
+                              // THIS DOES NOT ALTER THE VOLUME
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              35
+
+
+
+
+
+
+
+
+
+
+     GetMixerRegSBP      Func: 48       Pack: GetDataPack
+
+     Get a SB PRO mixer port-value.
+
+     This routine is under development and should not be used.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              36
+
+
+
+
+
+
+
+
+
+
+     GetDacSB            Func: 49       Pack: GetDataPack
+
+     This routine gets a byte from the Sound Blasters data channel. This routine
+     should not be called while the Sound Blaster is playing or record. It can
+     be used for level tests.
+
+     Before using this routine on the PRO, first select the input device (mic,
+     CD, or line) and then perform a 64-byte record from that device. This
+     because the input device is not selected until you actually record from it.
+
+     Unlike the other RUCKDAC routines, the return value is not the error code,
+     but rather the data byte itself. To check for an error, use GDP.stat (as
+     you can in all RUCKUS functions).
+
+     Sample Use:
+
+     struct GetDataPack GDP;
+
+     GDP.Func = GetDacSB;
+     data = RUCKDAC(&GDP);
+     if (GDP.stat != 0) 
+       // error 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              37
+
+
+
+
+
+
+
+
+
+
+     ExitMod             Func: 50       Pack: XitPack
+
+     When using RUCKUS, certain aspects of the computer are controlled by the
+     RUCKUS code. To have RUCKUS return full control back to the computer and
+     operating system, ExitMod must be called. To ensure that this happens, even
+     after an abnormal termination (such as an untrapped divide by zero), RUCKUS
+     also provides a routine that ensures that ExitMod is always called before
+     your application ends and returns to the operating system. See AtExitMod
+     for more.
+
+     Once you have loaded a mod file via LoadMod, or performed any mod function,
+     you must call ExitMod before you end you program and return to DOS. Calling
+     ExitMod releases any memory allocations made, and also performs other
+     system cleanup.
+
+     Sample Use:
+
+     struct XitPack XP;
+
+     XP.Func = ExitMod;
+     rez = RUCKDAC(&XP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              38
+
+
+
+
+
+
+
+
+
+
+     AtExitMod           Func: 51       Pack: XitPack
+
+     To ensure that all machine control is returned to the operating system and
+     that all RUCKUS-made memory allocations are released, before your
+     application program ends, AtExitMod should be used (if you have used the
+     mod extensions to RUCKUS-DAC). This routine takes advantage of most
+     compiler's _atexit enregistration routine. This _atexit compiler run-time
+     library routine allows for up to 32 different calls to be made just prior
+     to it (the compiler's run-time code) returning to the operating system
+     (program termination). Most of the time, you can make all the necessary
+     shutdowns that your program requires in your app's code. However, abnormal
+     terminations--terminations that can cause a bypass of your own shutdown
+     code, may mean that when the operating systems regains control, certain
+     machine operations are not in a stable state. The AtExitMod routine ensures
+     that ExitMod is called no matter what (in most all cases, except where the
+     program locks up, in which case the session needs to be reset anyway). 
+
+     Graphically, your program executes like this:
+
+        DOS C>program.exe
+          |
+        Compiler startup code (performs basic setup)
+          |
+          +----->+
+                 | Your program starts, ends
+          +<-----+
+          |   
+         rest of startup code, _atexit registered routines
+          |
+         DOS C>_
+
+     Caution: In order for the _atexit registered routines to be called by your
+     compilers run-time, you must not allow you program to exit via non-standard
+     ways. Calling INT21/4C is on example (you should never do this from
+     compiled code, anyway).
+
+     The startup code is basically a program that sets up your program to run,
+     calls your program, regains control when your program ends, then performs
+     the necessary shutdown actions required, including calling all routines
+     registered with _atexit. See AtExitDac for an important addition.
+
+     Sample Use:
+
+     struct XitPack XP;
+
+     XP.Func = AtExitMod;
+     rez = RUCKDAC(&XP);
+     if (rez != 0)
+        puts("_atexit is full (more than 32 calls made to _atexit)");
+
+
+
+
+
+
+                                                                              39
+
+
+
+
+
+
+
+
+
+
+     LoadMod             Func: 52       Pack: LoadPack
+
+     It is required that RUCKUS load mod files into memory. RUCKUS makes the
+     necessary memory allocations and loads the data into conventional memory,
+     with UMB blocks used if available and controlled by DOS (via DOS=,UMB in
+     CONFIG.SYS). Only one mod file may be in memory at any one time. To unload
+     the mod file you must execute an ExitMod call.
+
+     LoadMod can be instructed to start loading at any particular byte in a
+     file. This would be useful, for example, if you have a single file made up
+     of several mod files, appended to form one large data file.
+
+     Sample Use:
+
+     struct LoadPack LP;
+
+     LP.Func = LoadMod;
+     LP.FilenamePtr = filename;
+     LP.StartPos = 0L;  // start load at first byte of file
+     LP.LoadSize = 0L;  // have RUCKUS load all of it
+     LP.XMMflag = 0;    // this must be set to zero
+     rez = RUCKDAC(&LP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              40
+
+
+
+
+
+
+
+
+
+
+     PlayMod             Func: 53       Pack: PlayBackPack
+
+     Once the mod file has been loaded, you can play it to any of the RUCKUS-
+     supported devices. There are 4 modes that can be used for playback; non-DMA
+     foreground, non-DMA background, DMA foreground, and DMA background. The DMA
+     modes require the Sound Blasters. Also, for STEREO mod playback, DMA mode
+     is required (SB Pro only).
+
+     Playing in the background allows your computer program to regain control
+     immediately after play has begun. If you choose foreground play, control
+     does not return to your program until the end of the data has been played,
+     or, until CTRL-ALT is pressed. In all cases, mod file playback is best done
+     on a fast computer, though excellent results can be gotten from 286-class
+     machines. For slow machines, DMA foreground allows for best sound, since
+     you can set the mod process rate higher than you can if you choose a
+     background mode.  
+
+     Before play, you should set up other parameters by calling the other Set
+     mod routines (SetIntRateMod, SetStereoMod, and SetFastMod).
+
+     NOTE: SOME MACHINES ARE NOT ABLE TO HANDLE BACKGROUND DMA MODE AT HIGH 
+           RATES, EVEN ON 486-CLASS MACHINES. HOWEVER, BOTH MY 486/33 AND
+           MY 286/16 WORK WELL IN THIS MODE. THE 486/33 CAN PROCESS MOD DATA
+           AT RATES UP TO THE PRO'S MAX, 45,500Hz. THE 286/16 CAN PROCESS UP 
+           TO 16kHz IN THIS MODE AND 22kHz IN DMA FOREGROUND. A 286/6 HAS 
+           BEEN TESTED TO 8kHz (DMA FOREGROUND) AND PERFORMS WELL. A 12MHz
+           DID 16kHz. ON SLOWER MACHINES, USING A LARGER DMA BUFFER SIZE
+           AND A HIGHER DMAX: VALUE ALLOWS FOR HIGHER RATES TO BE ACHIEVED.
+           IT IS POSSIBLE TO LOCK UP A MACHINE IF TOO HIGH A RATE IS ATTEMPTED.
+
+     struct PlaybackPack PBP;
+
+     PBP.Func = PlayMod;
+     PBP.Mode = 3;      // mode 0=foreground, 1=background, 2=DMA FG, 3=DMA BG
+     PBP.XMMhandle = 0; // this must be set to 0
+
+     // PBP.LoadPtr is not used by PlayMod
+
+     PBP.BufferSize = 4096;// buffer size is bytes per buffer (2 buffers used)
+                           // minimum size is 2048, maximum is 65520
+                           // buffers allocated only if DMA play (mode=2 or 3)
+     rez = RUCKDAC(&PBP);
+     if (rez == 0)
+        // if background mode then the mod data is playing now, but
+        // if foreground mode, the play has ended by the time we get here
+     else
+        // play error (could be not enough memory for PBP.BufferSize)
+
+
+
+
+
+
+
+
+                                                                              41
+
+
+
+
+
+
+
+
+
+
+     EndMod              Func: 54       Pack: XitPack
+
+     EndMod is used to end (stop) play on command. Once PlayMod has started, it
+     continues to play in the background until either the end of the mod data
+     has been reached, or you call this routine.
+
+     Sample Use:
+
+     struct XitPack XP;
+
+     // LoadMod and PlayMod have already been called
+     // see those routines for more information
+
+     XP.Func = EndMod;     // if play is active this call
+     rez = RUCKDAC(&XP);   // ends it
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              42
+
+
+
+
+
+
+
+
+
+
+     PauseMod            Func: 55       Pack: PausePack
+
+     PauseMod allows you to temporarily pause and then restart a playback.
+
+     Sample Use:
+
+     struct PausePack PP;
+
+     PP.Func = PauseMod;
+     PP.Pause = 1;        // non-zero pauses, zero restarts
+     rez = RUCKDAC(&PP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              43
+
+
+
+
+
+
+
+
+
+
+     SetIntRateMod       Func: 56       Pack: SetModPack
+
+     SetIntRateMod, with respect to the mod extensions of RUCKUS, controls the
+     mod data processing rate, which in turn, is the playback rate (the opposite
+     of sample rate).
+
+     A process rate of 22kHz should be considered a practical maximum. Higher
+     process rates are possible (up to 45.5kHz with the PRO) but the improvement
+     in sound quality over 22kHz is negligible (to me). If the machine is
+     capable, a rate of at least 16kHz should be used. At this rate, sound is
+     reasonably good sounding. Rates below 16kHz will most likely incur a high-
+     pitched whistling noise that can be very annoying. Using the output filter
+     of the SB PRO helps. The whistle is totally absent from the output of the
+     Disney Sound Source (which internally plays at 7kHz regardless of the input
+     stream rate). For PC speaker output, rates above 18kHz are not recommended.
+     Best performance for the PC speaker is at 16kHz. The AdLib, being a very
+     slow device when made to play digital data, has an effective top-end of
+     about 13kHz. 
+
+     When using the SB PRO in stereo mode, the mod process rate must not exceed
+     45.5kHz/2, or 22.75kHz. This is a limitation of the Sound Blaster. In mono,
+     you can run up to 45.5kHz if you have the muscle to do so (typically
+     requires a 486, and a DMAX: setting of at least 4). Buffer sizes above 4K
+     matter most on slower machines.
+
+     Adjusting the mod processing while playing is permitted, though it's
+     recommended to do so only when not.
+
+     Sample Use:
+
+     struct SetModPack SMP;
+
+     SMP.Func = SetIntRateMod;
+     SMP.IntRate = 22000;     
+     rez = RUCKDAC(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              44
+
+
+
+
+
+
+
+
+
+
+     SetSpeedMod         Func: 57       Pack: SetModPack
+
+     Temporarily increases or decreases the playback speed of the mod file
+     playing. The basic speed of a mod, with regard to this routine, is 6.
+     However, at any particular point in the mod file this can change.
+
+     The speed range is 1 to 15, with 1 resulting in fast play, and 15 resulting
+     in a very slow play.
+
+     Sample Use:
+
+     struct SetModPack SMP;
+
+     SMP.Func = SetSpeedMod;
+     SMP.Speed = 4;          // increase play by 33% over norm
+     rez = RUCKDAC(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              45
+
+
+
+
+
+
+
+
+
+
+     SetVolumeMod        Func: 58       Pack: SetModPack
+
+     SetVolumeMod controls each of the four mod digital output channels.
+     Normally they would all be set to maximum (255). In order to adjust channel
+     volume, FastMod mode must be off.
+
+     Sample Use:
+
+     struct SetModPack SMP;
+
+     SMP.Func = SetVolumeMod;
+     SMP.VolCh1 = 255;
+     SMP.VolCh2 = 255;
+     SMP.VolCh3 = 255;
+     SMP.VolCh4 = 255;
+     rez = RUCKDAC(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              46
+
+
+
+
+
+
+
+
+
+
+     SetPositionMod      Func: 59       Pack: SetModPack
+
+     Each mod file is composed of several tracks, known as patterns. Each
+     pattern contains 64*4 notes (64 notes per channel). A mod file can contain
+     up to 63 separate patterns, and can play up to 128 patterns in total
+     (though any pattern can be made to repeat). SetPositionMod lets you move to
+     the start of any pattern to be played (up to the number of patterns to
+     play). The first pattern is pattern number 0. The last possible patter
+     number is 127.
+
+     Sample Use:
+
+     struct SetModPack SMP;
+
+     SMP.Func = SetPositionMod;
+     SMP.Position = 0;          // restart play from the beginning
+     rez = RUCKDAC(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              47
+
+
+
+
+
+
+
+
+
+
+     SetStereoMod        Func: 60       Pack: SetModPack
+
+     Mod data files contain four channels of information. In mono playback mode,
+     all four of these are combined to form a single digital output stream. In
+     stereo mode (SB PRO only), you can select from three different combine
+     modes. You can increase this to nine stereo combinations by setting the
+     high bit of SMP.Stereo. If set, the left/right channels are reversed.
+
+     Sample Use:
+
+     struct SetModPack SMP;
+
+     SMP.Func = SetPositionMod;
+     SMP.Stereo = 1;          // 0=mono
+     rez = RUCKDAC(&SMP);     // 1=LEFT:ch1+ch3  RIGHT:ch2+ch4
+                              // 2=LEFT:ch1+ch4  RIGHT:ch2+ch3
+                              // 3=LEFT:ch1+ch2  RIGHT:ch3+ch4
+                              // &H8000 + mode then LEFT <-> RIGHT, e.g.,
+                              // &H8001=LEFT:ch2+ch4  RIGHT:ch1+ch3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              48
+
+
+
+
+
+
+
+
+
+
+     SetFastMod          Func: 61       Pack: SetModPack
+
+     Mod files require lost of CPU power and lots of CPU attention. The most
+     often executed code performs 4 BPTR IMUL instructions every tick of a
+     process clock (10,000 times/sec if that is the process rate selected).
+     Multiply on the 8088 is a very time consuming operation. If an 8088-based
+     computer is to play mod files, these multiplies must be sped up. SetFastMod
+     performs this task by implementing an alternate method. Note that with
+     FastMod mode enable, some mod files may sound odd.
+
+     The SliceAdj instructs the DMA buffer fill code to perform more than one
+     mix per interrupt. By increasing this number you reduce the interrupt-
+     latency time wasted (since more mod data is processed per interrupt) but
+     you also decrease the amount of time given to other tasks (tasks other than
+     mod playback). Fast CPUs have no problem keeping the DMA buffers full, so
+     even a large SliceAdj will have little of any impact on these machines.
+     However, on slow machines where the DMA buffers are constantly needing to
+     be filled (where neither DMA buffer is ever filled) a SliceAdj above 1 may
+     be desirable. Typically, though, the default of 1 works fine.
+
+     Sample Use:
+
+     struct SetModPack SMP;
+
+     SMP.Func = SetFastMod;
+     SMP.FastMode = -1;      // 0=normal, 1=fast mode enabled, -1 to skip
+     SMP.SliceAdj = 32;      // DMA buffer fill count (1-4096, default=1)
+     rez = RUCKDAC(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              49
+
+
+
+
+
+
+
+
+
+
+     Appendix A. Tips and Tricks.
+
+     See the RUCKUS-MIDI documenation.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              50
+
+
+
+
+
+
+
+
+
+
+     Appendix B. Pack Structure.
+
+     #pragma pack(1)
+
+     int __far __pascal RUCKDAC(void __far *datapack);
+
+     #define SysInfoDac      0
+     #define InitDac         1
+     #define ExitDac         2
+     #define AtExitDac       3
+     #define LoadDac         4
+     #define PlayDac         5
+     #define RecordDac       6
+     #define StoreDac        7
+     #define EndDac          8
+     #define PauseDac        9
+     #define DeallocDac      10
+
+     #define SetAllDac       20
+     #define SetVolumeDac    21
+     #define SetIntRateDac   22
+     #define SetPriorityDac  23
+     #define GetBufferDataDac 28
+     #define GetBytePosDac   29
+
+     #define SetAllSBP       30
+     #define SetVolMainSBP   31
+     #define SetVolVocSBP    32
+     #define SetLevelMicSBP  33
+     #define SetLevelCDSBP   34
+     #define SetLevelLineSBP 35
+     #define SetFilterOutSBP 36
+     #define SetFilterInSBP  37
+     #define SetSourceSBP    38
+     #define SetStereoSBP    39
+
+     #define SetSpeakerSB    40
+     #define GetMixerRegSBP  48
+     #define GetDacSB        49
+
+     #define ExitMod         50
+     #define AtExitMod       51
+     #define LoadMod         52
+     #define PlayMod         53
+     #define EndMod          54
+     #define PauseMod        55
+     #define SetIntRateMod   56
+     #define SetSpeedMod     57
+     #define SetVolumeMod    58
+     #define SetPositionMod  59
+     #define SetStereoMod    60
+     #define SetFastMod      61
+     /* current highest function is 61 */
+
+
+                                                                              51
+
+
+
+
+
+
+
+
+
+
+
+     struct DeallocPack {    /* DP */
+      unsigned Func;
+      int Stat;
+      unsigned HandSeg;      /* RUCKUS allocates either XMM handle/DOS para */
+      unsigned TypeFlag;     /* 0=DOS para, 1=XMS handle */
+     }; /* 8 */
+
+     struct GetDataPack {    /* GDP */
+      unsigned Func;
+      int Stat;
+      unsigned long BytePos; /* current byte relative base ptr */
+      char __far *BufferPtr; /* far pointer to buffer to fill with data */
+      long StartPos;         /* start get at this offset relative BufferPtr */
+      unsigned BufferCnt;    /* bytes to fill (2-65520) */
+      unsigned MixerReg;     /* SBPro mixer register to get */
+     }; /* 20 */
+
+     struct InitPack {       /* IP */
+      unsigned Func;
+      int Stat;
+      unsigned DeviceID;     /* 0=SPKR,1=LPTDAC,2=DSS,4=SB,5=SBPro */
+      unsigned IOport;
+      unsigned IRQline;
+      unsigned DMAch;
+      unsigned Flags;        /* see Appendix D. */
+      void __far *InfoPtr;     /* ret:far ptr to dac info */
+      void __far *DacExitPtr;  /* ret:far ptr to dac's ExitDac routine */
+      void __far *ModExitPtr;  /* ret:far ptr to mod's ExitMod routine */
+     }; /* 26 */
+
+     struct LoadPack {       /* LP */
+      unsigned Func;
+      int Stat;
+      void __far *FilenamePtr;/* far ptr to filenameZ to load */
+      unsigned long StartPos; /* offset into file to start load at */
+      unsigned long LoadSize; /* number of bytes to load (or 0 for autosize) */
+      int XMMflag;            /* if <> 0 use XMS for load */
+      int XMMhandle;          /* ret:XMS handle, or */
+      void __far *LoadPtr;    /* ret:DOS seg:offset (offset always 0) */
+     }; /* 24 */
+
+     struct PlaybackPack {   /* PBP */
+      unsigned Func;
+      int Stat;
+      unsigned Mode;         /* mode (0=int FG,1=BG,2=DMA,3=DMA+BG for mod) */
+      unsigned XMMhandle;    /* if <> 0 this XMM handle used regardless */
+      void __far *LoadPtr;   /* seg:off to start of data to play */
+      unsigned BufferSize;   /* size of DMA buffer for mod playback */
+     }; /* 14 */
+
+
+
+
+
+                                                                              52
+
+
+
+
+
+
+
+
+
+
+
+     struct PausePack {      /* PP */
+      unsigned Func;
+      int Stat;
+      unsigned Pause;        /* 0=unpause else pause */
+     }; /* 6 */
+
+     struct RecordPack {     /* RP */
+      unsigned Func;
+      int Stat;
+      unsigned SampleRate;
+      int XMMhandle;         /* -1 auto XMS (ret here) else use this handle */
+      void __far *RecordPtr; /* seg:off of buffer to store (0 for auto-store) */
+      unsigned long RecordBytes; /* bytes to record */
+      unsigned StereoFlag;   /* stereo flag */
+     }; /* 18 */
+
+     struct SaveDataPack {   /* SDP */
+      unsigned Func;
+      int Stat;
+      void __far *FilenamePtr; /* far ptr to filenameZ to save */
+      void __far *DataPtr;   /* pointer to start of data to save */
+      unsigned FileType;     /* 1=VOC,2=WAV */
+      unsigned XMMhandle;    /* XMS handle of data to save (0 if DOS data) */
+     }; /* 16 */
+
+     struct SetPack {        /* SP */
+      unsigned Func;
+      int Stat;              /* (if volume=0 SB speaker off'ed else on'ed) */
+      unsigned Volume;       /* volume (left ch=MSB,right=LSB) (0-127,0-127) */
+      unsigned IntRate;      /* playback interrupt rate (5000-23000) */
+      unsigned Priority;     /* priority level (0-2, default=1) */
+     }; /* 10 */
+
+     struct SetModPack {     /* SMP */
+      unsigned Func;
+      int Stat;
+      unsigned VolCh1;       /* channel volume (0-255) */
+      unsigned VolCh2;       /* channel volumes adjustments made only */
+      unsigned VolCh3;       /*  if FastMode=0 */
+      unsigned VolCh4;
+      unsigned Stereo;       /* playback mode (0=mono,stereo 1,2,3) */
+      int FastMode;          /* fast playback (0=normal,1 fast,-1 skip) */
+      unsigned IntRate;      /* playback interrupt rate (5000-45500) */
+      unsigned Position;     /* pattern list position (0-patterns to play) */
+      unsigned Speed;        /* temp playback speed (1-15,default=6,15=slow) */
+      unsigned SliceAdj;     /* slice adj (1-4096,default=1) set via FastMod */
+     }; /* 24 */
+
+
+
+
+
+
+
+                                                                              53
+
+
+
+
+
+
+
+
+
+
+
+     struct SetProPack {     /* SPP */
+      unsigned Func;
+      int Stat;
+      unsigned Volume;       /* volume (low=right;0-15, high byte=left;0-15) */
+      unsigned VolVoc;
+      unsigned VolMic;       /* (mono only, 0-7) input level */
+      unsigned VolCD;        /* input level (0-15,0-15) */
+      unsigned VolLI;        /* input level (0-15,0-15) */
+      unsigned FilterOut;    /* 0=filter off, 1=filter on */
+      unsigned FilterIn;     /* 0=filter off, 1=3.2kHz, 2=8.8kHz */
+      unsigned SourceIn;     /* 0=mic,1=CD,2=line */
+      unsigned StereoIn;     /* 0=mono,1=stereo record */
+     }; /* 22 */
+
+     struct XitPack {        /* XP */
+      unsigned Func;
+      int Stat;
+     }; /* 4 */
+
+     struct SysDev {         /* SD (used by SysInfoPack below) */
+      int Device;            /* =1 device available */
+      unsigned Port;
+      unsigned IRQ;
+      unsigned DMA;
+      unsigned Flags;        /* bit4=MIDI/3=XMS/2=DMA/1=REC/0=PLAY */
+     }; /* 10 */
+
+     struct SysInfoPack {    /* SIP */
+      unsigned Func;
+      int Stat;
+      unsigned CPU;          /* CPU class (88,286,386,486) */
+      unsigned CPUmode;      /* 0=real mode,1=PM,2=PM w/paging */
+      unsigned MHz;          /* approx speed (5,20,33) */
+      struct SysDev SD[6];
+     }; /* 70 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              54
+
+
+
+
+
+
+
+
+
+
+     Appendix C. Compiler, Linker, and Call Use.
+
+     Consult your development system's documentation on the use of external
+     library files. For call use, see the example X*.c files.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              55
+
+
+
+
+
+
+
+
+
+
+     Appendix D. RUCKUS-DAC Data Area.
+
+     To access the DAC data area in your code:
+
+          extern struct DacDataArea pascal DACDATA;
+          :
+          printf("DACDATA DeviceID is %u", DACDATA.DeviceID);
+
+     /* dac data area structure */
+
+     #pragma pack(1)  /* ALL Ruckus data structures MUST be byte-aligned */
+
+     struct DacDataArea {
+      unsigned DeviceID;     /* 0   ;device ID */
+      unsigned IOport;       /* 2   ;port of device */
+      unsigned IRQ;          /* 4   ;IRQ of device */
+      unsigned DMA;          /* 6   ;DMA of device */
+      unsigned Flags;        /* 8   ;bit0=1 use DOS UMB memory */
+                             /*     ;bit1-3 reserved */
+                             /*     ;bit4=1 force SBPro if SB15 (DSPtype=3) */
+                             /*     ;       (but DSPversion remains same) */
+                             /*     ;bit5=1 force XMS2 to be used */
+                             /*     ;bit6=1 force dev speaker on until exit */
+                             /*     ;bit7=1 force passed parms to be used */
+                             /*     ;       Following values are ret bits */
+                             /*     ;bit8=1 paging in force, no UMBs */
+                             /*     ;bit9-15 reserved */
+      unsigned End;          /* 10  ;=1 end of play (dac, not mod) */
+      unsigned Pause;        /* 12  ;=1 pause play */
+      unsigned EndOfMod;     /* 14  ;=1 end of mod play */
+                             /*     (when dac@end AND dac@endmod   */
+                             /*     ;both are 1 then play is done) */
+      unsigned MemDOS;       /* 16  ;DOS memory available (in K) */
+      unsigned MemXMM;       /* 18  ;XMS memory available (in K) */
+      unsigned Type;         /* 20  ;digital file type (1=VOC,2=WAV,3=MOD) */
+      unsigned MemUsed;      /* 22  ;memory used for last file load (in K) */
+      unsigned SampleRate;   /* 24  ;sample rate currently playing */
+      unsigned Stereo;       /* 26  ;stereo playback (data is stereo) */
+      unsigned long VocLen;  /* 28  ;length of voc block (only current block) */
+      void __far *VocPtrPtr; /* 32  ;pointer to pointer->current data */
+      unsigned long RecordLen;/*36  ;length of recorded data */
+     }; /* 40 */
+
+     #pragma pack()
+
+
+
+
+
+
+
+
+
+
+
+                                                                              56
+
+
+
+
+
+
+
+
+
+
+     /*
+     To access the MOD data area in your code:
+
+          extern struct ModDataArea pascal MODDATA;
+          :
+          printf("MODDATA Type is %u", MODDATA.Type);
+     */
+
+     #pragma pack(1)  /* ALL Ruckus data structures MUST be byte-aligned */
+
+     struct ModDataArea {
+
+      void near *chInfoPtr;/* -2  ;near ptr to channel info (not listed) */
+
+      unsigned Type;         /*  0  ;mod type (15 or 31 samples) */
+      unsigned Samples;      /*  2  ;number of instrument samples in mod */
+      unsigned HeaderSeg;    /*  4  ;header segment (aka sample info) */
+      unsigned PatternSeg;   /*  6  ;pats' segment (1 to pats2play 1K pats) */
+      unsigned SampleSeg[31];/*  8 (+62) ;list of sample segments */
+
+      unsigned Stereo;       /* 70  ;=1 then play stereo (only SBPro can set) */
+      unsigned FastMode;     /* 72  ;=1 then channel volume adjusts disabled */
+
+      unsigned PatListPos;   /* 74  ;byte pos within mod@patterList (0-127) */
+      unsigned NotePatPos;   /* 76  ;note pos within pattern 1K area (0-1008) */
+                             /*     ;pattern#=patternList(patListPos) */
+                             /*     ;note is at offset (pat#*1024)+notePatPos */
+                             /*     ;-- in segment mod@patternSeg */
+      unsigned HiPattern;    /* 78  ;highest pattern # to play/+1!/ (0-63) */
+      unsigned Pats2play;    /* 80  ;pats to play (direct DOS file load here) */
+      char PatternList[128]; /* 82  (+128) ;pattern positions (to here) */
+      char MKoverflow[6];    /*210 (+6)   ;overflow for 31-instr patpos read */
+
+      unsigned MemUsed;      /*216 ;DOS mem needed by mod file loaded (paras) */
+      unsigned long VS;      /*218 ;times VS handler entered (50Hz rate) */
+     }; /* 222 */
+
+     #pragma pack()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              57
+
+
+
+
+
+
+
+
+
+
+     Appendix Z. Ordering Information, License Agreement and Product Support.
+
+     To order you must you the order form included with the distribution files.
+     Its filename is !ORDER.FRM. Orders made without this form may be delayed.
+
+     There are two RUCKUS packages available. The PERSONAL DEVELOPER version is
+     for the hobby-programmer while the PROFESSIONAL version is for the
+     professional programmer.
+
+     The PERSONAL DEVELOPER version is for persons that are not creating
+     programs for distribution to others. With the PERSONAL DEVELOPER license
+     you may not distribute any programs you create with RUCKUS. In addition, a
+     sign-on banner is issued once, displaying the RUCKUS copyright and license
+     restriction.
+
+     The PROFESSIONAL version has no distribution restrictions on end-user
+     programs you create with RUCKUS. The PROFESSIONAL license provides you with
+     the right to create all the end-user programs royalty-free. You also have
+     direct access to the latest version of RUCKUS free-of-charge by way of my
+     support BBS and the RUCKUS Developer's Conference there. No sign-on banner
+     is issued.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              58
+
+
+
+
+
+
+
+
+
+
+     License Agreement
+
+     Before using this software you must agree to the following:
+
+     1. You are not allowed to operate more than one (1) copy of this software
+     package at one time per license. This means that if you have 10 programmers 
+     that COULD possibly use the RUCKUS library at the same time, you must also  
+     have ten (10) RUCKUS licenses. 
+
+     2. You are not allowed to distribute non-executable code containing RUCKUS 
+     code. This means that you are not allowed to redistribute RUCKUS code as    
+     another .LIB, for example. Also, if RUCKUS code is to be contained in a    
+     Dynamic Link Library (DLL) then it must be part of a stand-alone product. 
+     This means that you cannot provide a .DLL containing RUCKUS code if that    
+     .DLL is to be used as a programming library for other programmers. If you   
+     wish to distribute non-executable code containing RUCKUS code you must    
+     obtain written permission from the author.
+
+     3. This license grants you the right to use the RUCKUS library code on a   
+     royalty-free basis, except when the license is the PERSONAL DEVELOPER, in
+     which case you may not distribute any program in which RUCKUS has been
+     used.
+
+     4. RUCKUS is owned by the author, Cornel Huth, and is protected by United  
+     States copyright laws and international treaty provisions. You are not    
+     allowed to make copies of this software except for archival purposes.
+
+     5. You may not rent or lease RUCKUS. You may not transfer this license
+     without the written permission of the author. If this software is an update
+     or upgrade, you may not sell or give away previous versions.
+
+     6. You may not reverse engineer, decompile, or disassemble this software.
+
+     7. There are no expressed or implied warranties with this software.
+
+     8. All liabilities in the use of this software rest with the user.
+
+     9. U.S. Government Restricted Rights. This software is provided with    
+     restricted rights. Use, duplication, or disclosure by the Government is    
+     subject to restrictions as set forth in subparagraph (c)(1)(ii) of the    
+     Rights in Technical Data and Computer Software clause at 52.227-7013.    
+     Manufacturer is Cornel Huth/6402 Ingram Rd/San Antonio, TX 78238.
+
+     This agreement is governed by the laws of the state of Texas.
+
+
+
+
+
+
+
+
+
+
+
+                                                                              59
+
+
+
+
+
+
+
+
+
+
+     Product Support
+
+      BBS support telephone: 1(210)684-8065. V.32bis (1200-14.4k bps)
+      Hours: Monday through Friday, 5pm to 9am next morning
+             Weekend hours are 1pm to 9am next morning.
+             All times USA Central [-0600/-0500]
+
+     E-mail:
+
+     Internet: chuth@lonestar.utsa.edu -or-
+               cornel.huth@LChance.sat.tx.us -or-
+               cornel.huth@p8.f800.n387.z1.fidonet.org
+      Fidonet: 1:387/800.8
+
+     PROFESSIONAL version licensees have _free_ access to all future RUCKUS
+     updates AND upgrades via the RUCKUS Developer's Conference on The Fortieth
+     Floor BBS (1(210)684-8065). PERSONAL DEVELOPER licensees have restricted
+     access to in-version maintenance updates at no charge.
+
+     End of the RUCKUS-DAC DOCUMENT. See also the RUCKUS-MIDI DOCUMENT.

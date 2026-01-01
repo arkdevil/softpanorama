@@ -1,0 +1,195 @@
+NewMem2 v1.0 Programmer's Manual  Copyright 1994 Anthony Brummett
+
+Contents:
+1 - Introduction
+2 - Changes from NewMem
+3 - Description of new procedures
+4 - Description of the swapping mechanism
+5 - Run-time messages
+6 - Notes
+
+
+Section 1 - Introduction
+
+The heap manager in Turbo Pascal uses free lists to manage the memory.
+After many calls to GetMem and FreeMem, the list of free memory can become
+fragmented. An application I am writing needed to use a small amount of
+heap memory as efficiently as possible. That's why I wrote the NewMem unit
+(See NEWMEM.DOC for more info on that). As the memory requirements grew,
+I didn't want to increase the amount of real memory the program used. That
+was the inspiration for the NewMem2 unit. It implements a memory swapping
+scheme for keeping the memory usage as small as wanted.
+
+NewMem2 is not completely source code compatible with NewMem. The most
+basic difference is that MemGet no longer returns a pointer to the
+allocated memory. It returns what I call a Descriptor, a term borrowed
+from protected mode programming. Both Descriptors are similar in what
+they represent: not a direct pointer to memory, but tells the memory
+manager where to find the memory. All references to memory allocated with
+NewMem2 should be through the ADDR method of the Descriptor object which
+returns a pointer to the memory. You should always use the ADDR method
+because the actual location of the allocated memory can move around, or
+could be swapped to disk.
+
+The swapping and allocation method is designed to be as lazy as possible;
+it dosen't do anything until it actually has to. One example of this is
+that when you allocate memroy with MemGet, the block of memory used to
+store your data may not have been allocated yet. The block is only
+allocated when you reference it with the ADDR method.
+
+
+Section 2 - Changes from NewMem
+
+Most of the procedures with the same name as those in the NewMem unit
+behave as they did before. The added procedures control the swapping
+mechanism. They are MemSwapOn (Activare swapping), MemSwapResize (Change
+the in-memory size), MemSwapOff (Deactivate swapping), MemLock (Lock
+a block in memory), MemNotDirty (Mark a page clean to speed up swapping),
+SwapBlock (Manually swap a block out to disk) and LoadBlock (Manually
+swap a block in to memory). Also, if swapping is enabled, you cannot
+allocate a buffer with a data block larger than the maximum in-memory
+size set by MemSwapOn.
+
+
+Section 3 - Description of new procedures
+
+procedure MemGet(var p:descriptor; ptr:HeaderTypePtr; ReqSize:word);
+
+Just like MemGet in the NewMem unit, but returns its value as a
+descriptor instead of a pointer.
+
+procedure MemSwapOn(filename:string; size:longint);
+
+Activates the swapping mechanism. filename is a string containing the name
+of the file to swap to. If it exists, the length is truncated to 0. size
+is the maximum amount of space that is to be in memory at one time. size
+must be at least as large as the largest block you allocate with
+AllocateBuffer. The swap file is kept open until MemSwapOff is called.
+
+
+procedure MemSwapResize(size:longint);
+
+Changes the in-memory maximum size. If the new size is lower than the
+previous size, blocks will be swapped out until it is below the new limit.
+If size is larger, blocks will not be swapped in until they are needed.
+
+procedure MemSwapOff;
+
+Deactivates the swapping mechanism. All swapped-out blocks are swapped in.
+This also closes the swap file.
+
+procedure MemLock(ptr:HeadertypePtr; l:boolean);
+
+Changes the locked bit for a block. If l is TRUE, the block will not be
+swapped out under any circumstances. If it is currently swapped out, this
+will swap it in. If l is FALSE, the block may be swapped out as needed. The
+default setting for new blocks allocated with AllocateBuffer is FALSE.
+
+procedure MemNotDirty(ptr:HeadertypePtr);
+
+When the dirty bit is set on a block, it means something has changed since
+it was created or swapped in. Since this memory manager cannot detect only
+when something changes, it sets the dirty bit whenever a bit of memory is
+referred to with the ADDR method. If a block is loaded in, and you only
+intend to read from it, you can set it NotDirty. Then is needs to be swapped
+out, nothing is written to the disk since nothing has changed.
+
+
+procedure SwapBlock(ptr:HeaderTypePtr);
+
+Manually swaps a block out to disk. First, it clears the SWAPPED_IN bit
+in the flags field of ptr, writes the block to disk, then increases the
+memory counter by the number of bytes in the swapped block. Finally,
+it calls FreeMem on the no longer needed block;
+
+procedure LoadBlock(ptr:HeaderTypePtr);
+
+Menually swaps in a block to memory. First, it allocates a chunk of memory
+large enough to hold ptr's data block with GetMem, reads the block from
+the disk, sets the SWAPPED_IN bit, and decreases the memory counter by
+the size of the data block.
+
+
+Section 4 -Description of the swapping mechanism
+
+As stated before, this memory manager tries to be as lazy as possible. The
+example previously given describes one aspect of this. Other features are
+that it dosen't swap a block in until it is needed, it also dosen't swap
+out blocks until the memory pool is exhaused. If a block is not dirty, it
+simply deallocates it's memory instead of writing it to disk first.
+
+When a block is allocated with AllocateBuffer, heap memory is allocated
+for the header record, the bitmap array, and the sizes array. Its
+reference count is set to 0 and the flags set to all 0, meaning the block
+is not locked, the block hasn't been allocated, not dirty and swapped out.
+When memory is allocated with MemGet, the bitmap and sizes arrays are
+updated, but no new heap memory is allocated. When a pointer is referenced
+with the ADDR method, if the MALLOCED bit is clear, heap memory is allocated
+for the block, but only after enough blocks are swapped out to make room
+for the new one. If the block has been MALLOCED, but is swapped out, it
+reads the block in. Finally, a pointer is constructed to point to the
+memory.
+
+When a block needs to be swapped, the "best" one is swapped. Best is first
+defined as the last block allocated which has not been referenced yet, and
+secondly as the largest block in memory. When a block is swapped, only the
+data block gets written to disk. The header info and  bitmap array stay in
+memory. This allows you to allocate memory from the block without needing
+it in memory.
+
+
+Section 5 - Run-time messages
+
+When the global variable MemDebug is set to true (it is set to false by
+default), debugging output is sent to standard out. You can redirect the
+output of the program to a file and look at what steps are done by the
+memory managert as the program executes. Most of the messages are self
+explanitory, but here are a few clarifications.
+
+When a referrence is made to a "buffer at XXXX:YYYY", this is the address
+of the header info.
+
+file "offset X" is the offset from the beginning of the swap file.
+
+When freeing a block with ReleaseBuffer, the message
+"Warning: RefCount is not 0!" means there are still some pointers allocated
+to this buffer, you should have freed them with MemFree. This is not a
+fatal error, just a reminder.
+
+You can also get a run-time error 204: Invalid Pointer Operation in two
+cases:
+  1) You tried getting the pointer of a descriptor which has not been
+     allocated with MemGet. If this is the case, you will get the message
+     "Segmentation Violation"
+  2) There is not enough heap memory left to swap in a block which is
+     needed. This is usually caused by having too many locked blocks.
+     If this is the problem, you will get the message:
+     "No swap space. Exiting..."
+
+
+Section 6 - Notes
+
+There are a few things you should keep in mind when using this unit:
+
+1) Expect things to work a little slower. All the translating going on
+   takes some time.
+
+2) Allocate all your headers first, if at all possible. Since the data
+   blocks are allocated when they are referenced, by allocating all the
+   headers before referencing their data localizes all the headers in one
+   spot in memory and puts all the data in one spot. This makes it more
+   likely that there will be room to swap blocks as needed.
+
+3) When you need to access a block of memory quickly (mabye an array or
+   list), without wanting to go through the ADDR slowness, you can get
+   the address of your data with the ADDR method once and assign it to
+   a normal pointer variable, then access the array with the saved
+   pointer. However, you must use MemLock to lock the block in memory.
+   Otherwise, the block could get swapped out or moved while you're
+   messing with it. Then you'll be writing over some random info.
+
+4) Avoid locking blocks if you can. This decreases the effectiveness of the
+   memory manager. If a block needs to be swapped in and there are so many
+   blocks locked that it cannot find room to put the new one in, an error
+   message will be printed and the program will die.
+

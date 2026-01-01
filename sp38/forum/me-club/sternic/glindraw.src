@@ -1,0 +1,1022 @@
+$MACRO GLinDraw FROM EDIT;
+	Def_Int( X1,Y1,X2,Y2,Xx1,Yy1,Xx2,Yy2,x,y,dx,dy ,Mode_Insert,
+			Lt,Ch,c1,linestyle, cy, Shft, fkey, Mous );
+	Def_Char( s,s1,s2,r1,r2,r3,r4 );
+	Def_Str( m[35], me[40], ls[14],st[38] );
+Def_Str(
+	firm[30] := 'Псевдографика  G.SterniK° ║',
+	ol[14] := ' └───┼───┐ ',
+	dl[14] := ' ╚═══╬═══╗ ',
+	sl[10] := ' Стирание ',
+	ar[35] := ' Shift +<><><><> - Рисование  ',
+	sv1[13]   := '╘╧╛└┴┘╚╩╝╙╨╜',
+	sv2[13]   := '╒╤╕┌┬┐╔╦╗╓╥╖',
+	sv3[13]   := '╖╢╜┐┤┘╗╣╝╕╡╛',
+	sv4[13]   := '╓╟╙┌├└╔╠╚╒╞╘',
+	lev1[13]  := '─┌├└┬┼┴╓╟╙╥╫╨',
+	lev2[13]  := '═╔╠╚╦╬╩╒╞╘╤╪╧',
+	prav1[13] := '─┬┼┴┐┤┘╥╫╨╖╢╜',
+	prav2[13] := '═╦╬╩╗╣╝╤╪╧╕╡╛',
+	verh1[13] := '│┌┬┐├┼┤╒╤╕╞╪╡',
+	niz1[13]  := '│└┴┘├┼┤╘╧╛╞╪╡',
+	verh2[13] := '║╔╦╗╠╬╣╓╥╖╟╫╢',
+	niz2[13]  := '║╚╩╝╠╬╣╙╨╜╟╫╢',
+	st1[39] := '│└┘┌┐├┤┴┬┼╘╛╒╕╞╡╧╤╪─└┘┌┐├┤┴┬┼╙╜╓╖╟╢╨╥╫',
+	st2[39] := '║╙╜╓╖╟╢╨╥╫╚╝╔╗╠╣╩╦╬═╘╛╒╕╞╡╧╤╪╚╝╔╗╠╣╩╦╬',
+	st3[39] := '     ─────    ═════     │││││    ║║║║║',
+	sb1[23] := '╔ ╦ ╗ ┌ ┬ ┐ ╓ ╥ ╖ ╒ ╤ ╕',
+	sb2[23] := '╠ ╬ ╣ ├ ┼ ┤ ╟ ╫ ╢ ╞ ╪ ╡',
+	sb3[23] := '╚ ╩ ╝ └ ┴ ┘ ╙ ╨ ╜ ╘ ╧ ╛',
+	sb4[23] := '│ ║ ─ ═ ░ ▒ ▓ █ ▐ ▌ ▀ ▄',
+	sb5[30] := 'Char ■ Ё ░ ▒ ▓ █ ▐ ▌ ▀ ▄ ▐▀▄▌');
+
+	IF ( Mou_Installed ) THEN
+	Mous := Mouse_Mode;
+		IF (Mouse_Mode = 0 ) THEN
+			Mouse := 0;
+			Mouse_Mode := 1 ;
+			Mou_Disappear := 1;
+			Mou_Set_Pos ( WhereX, WhereY);
+			Mouse := 1;
+		END;
+	END;
+	dx := 1;
+	dy := 1;
+	me := firm ;
+	ls := ol;
+	Lt := 1;
+	ST := St1;
+	m := ar;
+	Mode_Insert := Insert_mode;
+	Insert_mode := FALSE;
+	LineStyle := 3;
+	Tab_Expand := False;
+	push_labels;
+	flabel('Двойн.', 2, $FF);
+	flabel('Рисов' , 3, $FF);
+	flabel('Пр,Лин', 4, $FF);
+	flabel('░▒▓█▄▌', 5, $FF);
+	flabel('Штамп ', 6, $FF);
+	flabel('Од.Сим', 7, $FF);
+
+Make_Message( me + m + ls );
+OTKL:
+	Read_key;
+	R_AX := $0200;
+	INTR($16);
+	Shft := ((R_AX and $0003) > 0);
+	IF ( Key1 = 27) THEN
+	Goto FINAL;
+	END;
+		if ( (Key1 = 45 ) Or (Key2 = 14) ) then
+			Rm('Mesys^Undo');
+			Make_Message( me + m + ls );
+			goto OTKL;
+		END;
+		if Key2 = 28 then
+			Push_Key(13,28);
+			goto RECT;
+		END;
+		if (Key1 > 0) then
+			goto SOU;
+		END;
+		IF ((key2 > 239) ANd (key2 < 244 )) THEN
+				PASS_KEY(Key1,Key2);
+				goto OTKL;
+		end;
+SHIFT_RIS:
+				IF ((Key2 > 70) AND (Key2 < 82 ))  THEN
+			IF ( Shft = False ) THEN
+				PASS_KEY(Key1,Key2);
+				goto OTKL;
+			Else
+				Refresh := 0;
+				push_undo;
+				x := C_COL; y := C_Line;
+				IF ( Key2 = 72 )  THEN    { Shift Up }
+				x1 := x;    y1 := y-1;
+				x2 := x;    y2 := y;
+				call Draw;
+				Run_Macro('ScrollUP');
+				Up;Up;
+				goto OTK;
+				END;
+				IF ( Key2 = 80 )  THEN    { Shift Dn }
+				x1 := x;    y1 := y;
+				x2 := x;    y2 := y+1;
+				call Draw;
+					goto OTK;
+				END;
+				IF   (Key2 = 75)  THEN    { Shift Left }
+					IF   (x = 1)  THEN   goto OTK; END;
+				x1 := x-1;  y1 := y;
+				x2 := x;    y2 := y;
+				call Draw;
+					GoTo_Col(x-1);
+					Goto_Line(y);
+					goto OTK;
+				END;
+				IF ( Key2 = 77 )  THEN    { Shift Rigth }
+					x1 := x;    y1 := y;
+					x2 := x+1;  y2 := y;
+					call Draw;
+					goto OTK;
+				END;
+			END;
+		end;
+		if (key2 > 58) AND (key2 < 67) then
+			Call FUNCKEY;
+		Else
+SOU:        Sound(1000);
+			delay(5);
+			Sound(0);
+
+		END;
+OTK:
+Refresh := 1;
+Redraw;
+pop_undo;
+goto OTKL;
+
+
+ODIN:
+x1 := 14;
+y1 := 8;
+RM('TEXT^MARKPOS');
+push_undo;
+Call Cursor_To;
+	Put_Box( 2, 4, 30, 15, 2, M_B_COLOR, 'Выберите Символ', TRUE );
+		{Приглашение}
+	Write( sb1,4,6,2,15 );
+	Write( sb2,4,8,2,15 );
+	Write( sb3,4,10,2,15 );
+	Write( sb4,4,12,2,15 );
+		{Ожидание нажатия}
+s := '┤';
+Make_Message('Текущий символ  ');
+Write( s,17,Message_Row,12,15 );
+Getc:
+	Read_key;
+	IF ( Key1 = 27) THEN
+	 Make_message(' ');
+	 Kill_Box;
+	 Goto OK;
+	END;
+REAK:
+		X1 := WhereX;
+		Y1 := Wherey;
+		IF (( Key1 <> 13) AND (Key2 < 244))
+		THEN
+		   IF (Key1 > 0) then goto Getc;
+		   END;
+		   if (key2 > 58) AND (key2 < 67) then
+				GoTo_Col(x);
+				Goto_Line(y);
+				Refresh := 1;
+				Redraw;
+				Call FUNCKEY;
+		   End;
+		   IF ((Key2 = 72) OR (Key2 = 240) )THEN
+				 IF ( y1 < 7 ) THEN GoTo Getc;
+				 else up; up;
+				 END;
+		   ELSE
+				 IF ((Key2 = 80) OR (Key2 = 241)) THEN
+					   IF ( y1 > 11 ) THEN goto Getc;
+					   Else Down; Down;
+					   END;
+				 ELSE
+					   IF ((Key2 = 75) OR (Key2 = 242)) THEN
+							 IF ( x1 < 5 ) THEN goto Getc;
+							 Else Left;
+							 END;
+					   ELSE
+							 IF ((Key2 = 77) OR (Key2 = 243)) THEN
+								   IF ( x1 > 25 ) THEN goto Getc;
+								   Else Right;
+								   END;
+							 ELSE goto Getc;
+							 END;
+					   END;
+				 END;
+			END;
+			X1 := WhereX;
+			Y1 := Wherey;
+			X1 := x1-3;
+			IF (( y1 <> 6 ) AND (Y1 <> 8) AND (Y1 <> 10) AND ( Y1 <> 12 )) THEN
+			Make_Message('Текущий символ  ');
+			GoTo Getc;
+			END;
+			IF ( y1 = 6 ) THEN s := copy(sb1,x1,1);
+			ELSE
+				IF ( y1 = 8 ) THEN s := copy(sb2,x1,1);
+				ELSE
+					IF ( y1 = 10 ) THEN s := copy(sb3,x1,1);
+					ELSE
+					s := copy(sb4,x1,1);
+					END;
+				END;
+			END;
+		   IF ( s = ' ') THEN  goto REAK;
+		   END;
+            Write( s,17,Message_Row,12,15 );
+			goto Getc;
+			END;
+	Kill_Box;
+	call Restor;
+Make_Message('Символ  <'+ s + '> . Подведите курсор к НУЖНОМУ МЕСТУ и нажмите <Enter>');
+call OTKLI;
+	Text(s);
+	X := C_Col;
+	Y := C_Line;
+	pop_undo;
+	goto ODIN;
+OK:
+	pop_undo;
+	call Restor;
+	Key2 := FKey;
+	Call FUNCKEY;
+
+{ Подпрограмма устанавливающая курсор в точку с координатами дисплея x1,y1 }
+Cursor_To:
+	X := C_Col;
+	Y := C_Line;
+	x2 := Wherex;
+	GoTo_Col( C_col - x2 + x1 );
+	cy := WhereY;
+	RM('Mesys^TopWin');
+	WHILE ( WhereY < y1 ) DO down;
+	END;
+Ret;
+
+{--------- Подпрограмма обработки функциональных клавиш --------------}
+FUNCKEY:
+			if (key2 = 59) then
+			help('Glindraw.hlp^*');
+			Make_Message( me + m + ls );
+			Goto Vozvrat;
+			end;
+			if (key2 <> 65) then   { запомним точку возврата для F7}
+			fkey := Key2; end;
+{***************** F2 Переключение режима линии-стирание *****************}
+			if (key2 = 60) then
+				IF ( Lt = 3 ) THEN
+					flabel('Двойн.', 2, $FF);
+					LineStyle := 1;
+					st := st1;
+					Lt := 1;
+					ls := ol;
+					ElsIF ( Lt = 1 ) THEN
+						flabel(' Стир ', 2, $FF);
+						LineStyle := 1;
+						Lt := 2;
+						st := st2;
+						ls := dl;
+						r3 := ' '; r2 := ' ';
+						r1 := ' '; r4 := ' ';
+					else
+						flabel('Одинар', 2, $FF);
+						Lt := 3;
+						st := st3;
+						ls := sl;
+					end;
+			Make_Message( me + m + ls );
+			end;
+{************************** F3 alt Рисование ********************** }
+			if (key2 = 61) then
+				LineStyle := 0;
+				me := firm;
+				m := ar;
+				Make_Message( me + m + ls );
+				GoTo OTKL;
+			end;
+{******************* F4 Линии и прямоугольники **********************}
+			if (key2 = 62) then     { F3 line & Rect. }
+RECT:           LineStyle := 1;
+				m := ' Прямоугольники   ';
+			ZAPROS:
+				call Coor;
+				x := C_Col;
+				y := C_Line;
+				IF (LineStyle = 1 ) THEN
+				   call Rect_Ris;
+				   else
+				   call Ris;
+				END;
+				goto ZAPROS;
+			end;
+{****************** F6 Штамповка прямоугольников ********************}
+			if ((key2 = 64) and ( LineStyle > 0 )) then   { f5 Stamp }
+				m := ' Штамповка   ';
+				Me := ' Укажите току привязки, <Enter>.  ESC - сброс ║ ';
+		 Vvod_t:
+				Make_Message( me + m + ls );
+				Call OTKLI;
+				xx1 := C_Col;
+				yy1 := C_Line;
+				xx2 := dx + xx1;
+				yy2 := dy + yy1;
+				x := xx1;
+				y := yy1;
+				IF (LineStyle = 1 ) THEN
+				   call Rect_Ris;
+				   else
+				   call Ris;
+				END;
+				goto Vvod_t;
+			end;
+	{***************** F5 Рисование символом *****************}
+			if (key2 = 63) then
+				LineStyle := 2;
+				r3 := '▀';  r2 := '▐';
+				r1 := '▄';  r4 := '▌';
+				m := 'Рисование символом  ';
+				x1 := 7;
+				y1 := 6;
+				RM('TEXT^MARKPOS');
+				Call Cursor_To;
+
+				Put_Box( 2, 4, 35, 9, 2, M_B_COLOR, 'Выберите Символ', TRUE );
+					{Приглашение}
+				Write( sb5,4,6,0,M_T_COLOR );
+					{Ожидание нажатия}
+				Make_Message(' Другой символ  ');
+Ge:
+				Read_key;
+				IF ( Key1 = 27) THEN
+				Make_message(' ');
+				Kill_Box;
+				Goto OKey;
+				END;
+
+					IF (( Key1 <> 13) AND (Key1 <> 32))
+						THEN
+						IF (Key1 > 0) then goto Ge;
+						END;
+						if (key2 > 58) AND (key2 < 67) then
+								GoTo_Col(x);
+								Goto_Line(y);
+								Refresh := 1;
+								Redraw;
+								Key2 := fkey ;
+								Call FUNCKEY;
+						End;
+						X1 := WhereX;
+						IF (( Key2 = 75) or (key2 = 242 ))  THEN
+								IF ( x1 < 8 ) THEN goto Ge;
+								Else Left; Left;
+								END;
+						ELSE
+								IF (( Key2 = 77) or (key2 = 243 )) THEN
+									IF ( x1 > 30 ) THEN goto Ge;
+									Else Right; Right;
+									END;
+								ELSE goto Ge;
+								END;
+						END;
+			   TEST_X:
+							X1 := WhereX;
+							X1 := x1-3;
+
+{sb5 := 'Char ■ Ё ░ ▒ ▓ █ ▐ ▌ ▀ ▄ ▐▀▄▌';  }
+
+						IF ( x1 < 5  )
+						THEN
+						Make_Message(' Другой символ  ');
+						else
+							IF ( x1 > 24  )
+							THEN
+							Make_Message(' Символы ▐▀▀▀▀▄▄▄▄▌ ');
+							else
+							s := Str_Char(Sb5,x1);
+							if ( s = ' ') then
+								left; goto TEST_X;
+							end;
+							Make_Message('      Символ  ');
+                            Write( s,17,Message_Row,12,15 );
+							end;
+						END;
+						goto Ge;
+					END;
+			OKey:
+				if ( x1 < 25 ) then
+					if( x1 < 5 )  then
+				{** RM('SUPPort^ASCII');**}
+
+Box1:                   Return_str := '' ;
+Run_Macro('USERIN^Querybox  /N=0 /C=8 /W=1 /ML=1 /L=5 /P=    Введите Символ: /NK=1 /H=Glindraw.hlp^*');
+							IF ( Return_int = 0 ) THEN goto KB;
+							else s := Char( Ascii(Return_Str));
+							end;
+					end;
+					r1 := s;  r2 := s;
+					r3 := s;  r4 := s;
+				end;
+	   KB:      Kill_Box;
+				call Restor;
+				ls := r2 + r1 +r1 + r3 + r3 + R4 ;
+				goto  ZAPROS;
+			end;
+{******************* F7 Одиночные символы **********************}
+
+			if (key2 = 65) then   { f5 One Char }
+				goto ODIN;
+			end;
+Vozvrat:    Ret;
+
+{--------- Подпрограмма обработки вводимых клавиш --------------}
+OTKLI:
+	Read_key;
+	IF ( Key1 = 27) THEN
+	Goto FINAL;
+	END;
+	IF (( Key1 <> 13) AND (Key1 <> 32) And ( Key2 < 244 ) )
+		THEN
+		if ( (Key1 = 45 ) Or (Key2 = 14) ) then
+			Rm('Mesys^Undo');
+			Make_Message( me + m + ls );
+			goto OTKLI;
+		END;
+		if (Key1 > 0)  then  goto PISK; END;
+		IF (((Key2 > 70) AND (Key2 < 82 )) OR (Key2 > 239)) THEN
+		R_AX := $0200;
+		INTR($16);
+		IF ( (R_AX and $0003) > 0) then;
+                Shft := 1;
+				LineStyle := 0;
+				me := firm;
+				m := ar;
+				Make_Message( me + m + ls );
+				Goto SHIFT_RIS;
+		END;
+			PASS_KEY(Key1,Key2);
+			goto OTKLI;
+		END;
+		if (key2 > 58) AND (key2 < 67) then
+			Call FUNCKEY;
+		else
+PISK:       Sound(1000);
+			delay(5);
+			Sound(0);
+		end;
+		goto OTKLI;
+	END;
+	RM('TEXT^MARKPOS');
+	Ret;
+{----------------------end------------------------------------------}
+
+{-------------- Подпрограмма ввода координат -----------------------}
+Coor:
+Me := 'Укажите ПЕРВУЮ току, <Enter>. ESC - сбр. ║ ';
+Make_Message(me + m + ls);
+ {WRITE('ПЕРВУЮ',9,Message_Row,0,Message_COLOR + 128);}
+	Call OTKLI;
+	Xx1 := C_Col;
+	Yy1 := C_Line;
+Me := 'Укажите ВТОРУЮ току, <Enter>. ESC - сбр. ║ ';
+Make_Message(me + m + ls );
+ {Write('ВТОРУЮ',9,Message_Row,0,Message_COLOR + 128);}
+	Call OTKLI;
+	Xx2 := C_Col;
+	Yy2 := C_Line;
+	Ret;
+
+{--------- Подпрограмма рисования прямоугольников --------------}
+Rect_Ris:
+	Make_message(' ');
+	PUsh_UNDO;
+	WORKING;
+	Refresh := 0;
+	GOto_col(Xx1);
+	GoTo_Line(Yy1);
+	IF ( ( xx1 = xx2 ) Or ( yy1 = yy2 ))
+	THEN
+		x1 := xx1;  y1 := yy1;
+		x2 := xx2;  y2 := yy2;
+			call Draw;
+	ELSE
+		x1 := xx1;  y1 := yy1;
+		x2 := xx1;  y2 := yy2;
+			call Draw;
+
+		x1 := xx2;  y1 := yy1;
+		x2 := xx2;  y2 := yy2;
+			call Draw;
+
+		x1 := xx1;  y1 := yy1;
+		x2 := xx2;  y2 := yy1;
+			call Draw;
+
+		x1 := xx1;  y1 := yy2;
+		x2 := xx2;  y2 := yy2;
+			call Draw;
+	END;
+	call Restor;
+	Pop_Undo;
+	Ret;
+
+{-------------- Подпрограмма рисования линий -----------------------}
+DRAW:
+
+	IF ((x1 = x2 )) THEN
+		goto VERLIN;
+	ELSE
+		IF (y1 = y2 ) THEN
+		goto HORLIN;
+	END;
+	End;
+
+VERLIN:
+	IF (y2 < y1 ) THEN
+	ch := y2 ;
+	y2 := y1;
+	y1 := ch;
+	END;
+	dy := y2-y1;
+	GoTo_Col(x1);
+	Goto_Line(y1);
+	s := Cur_Char;
+	Ch := ASCII(s);
+	if(C_Col > 1 ) then
+		Left;
+		s1 := Cur_Char;
+		RIGHT;
+	else
+		s1 := ' ';
+	end;
+	RIGHT;
+	s2 := Cur_Char;
+	Left;
+		IF ((Ch < 179) OR (Ch > 218) {OR ( Ch = 186)})
+		THEN
+		Text( Str_Char(St,1));  GoTo V_LIN_1;
+		ELSE
+			IF  (lt = 2)  then
+				if ( XPOS( s,'╠╬╣╟╫╢',1) > 0 )
+				THEN  Right; GoTo V_LIN_1;
+				END;
+			else
+			IF  (lt = 1)  then
+				if ( XPOS( s,'╞╪╡├┼┤',1) > 0 )
+				THEN  Right; GoTo V_LIN_1;
+				END;
+			else
+				c1 :=  XPOS( s,'╞╪╡├┼┤╠╬╣╟╫╢',1) ;
+				if ( c1 > 0 )
+				THEN  Text(Str_Char(sv1,c1));  GoTo V_LIN_1;
+				END;
+			end;
+			End;
+			IF ( s = Str_Char(St,2))
+			THEN Text(Str_Char(St,6));   GoTo V_LIN_1;
+			END;
+			IF ( s = Str_Char(St,3))
+			THEN Text(Str_Char(St,7));   GoTo V_LIN_1;
+			END;
+			IF ( s = Str_Char(St,11))
+			THEN Text(Str_Char(St,15));  GoTo V_LIN_1;
+			END;
+			IF ( s = Str_Char(St,12))
+			THEN Text(Str_Char(St,16));  GoTo V_LIN_1;
+			END;
+			IF(((XPOS(s1,lev1,1) > 0)  AND ( XPOS(s2,prav1,1) > 0 )) or (s = '╥') or (s = '┬')) then
+				IF ( s = Str_Char(St,8))
+				THEN Text(Str_Char(St,10));
+				ELSE  Text(Str_Char(St,9));
+				END;
+				GoTo V_LIN_1;
+			END;
+			IF ( (  ( XPOS(s1,lev1,1) > 0)) OR (s = '┐') or (s = '╖'))
+			THEN Text(Str_Char(St,5));   GoTo V_LIN_1;
+			END;
+			IF (  ( XPOS(s2,prav1,1) > 0 ) OR (s = '┌') or (s = '╓'))
+			THEN Text(Str_Char(St,4));   GoTo V_LIN_1;
+			END;
+			IF((( XPOS(s1,lev2,1) > 0 ) AND ( XPOS(s2,prav2,1) > 0 )) or (s = '╤') or (s = '╦')) then
+				IF ( s = Str_Char(St,17))
+				THEN Text(Str_Char(St,19));
+				ELSE  Text(Str_Char(St,18));
+				END;
+				GoTo V_LIN_1;
+			END;
+			IF ( (  ( XPOS(s1,lev2,1) > 0 )) OR (s = '╦') or (s = '╕'))
+			THEN Text(Str_Char(St,14));   GoTo V_LIN_1;
+			END;
+			IF ( (  ( XPOS(s2,prav2,1) > 0 ) ) OR (s = '╓') or (s = '╔'))
+			THEN Text(Str_Char(St,13));   GoTo V_LIN_1;
+			END;
+			Text(Str_Char(St,1));
+		END;
+V_LIN_1:
+	IF ( ( y2 - y1)  = 1 ) THEN
+		GoTo V_LIN_2;
+	End;
+	Down;
+	WHILE (C_Line < Y2) DO
+	s2 := Cur_Char;
+	Left;
+	s := Cur_Char;
+	Ch := ASCII(s);
+	if(C_Col > 1 ) then
+		Left;
+		s1 := Cur_Char;
+		RIGHT;
+	else
+		s1 := ' ';
+	end;
+		IF ((Ch < 179) OR (Ch > 218)  {OR ( s = '║')})
+		THEN
+		Text(Str_Char(St,1));  GoTo V_LIN_2;
+		ELSE
+IF ((XPOS(s1,lev1,1) > 0)  AND ( XPOS(s2,prav1,1) > 0 )) or ( XPOS(s,'┼┬┴╥╨╢',1) > 0 )
+			THEN Text(Str_Char(St,10));   GoTo V_LIN_2;
+			END;
+IF (((XPOS(s1,lev1,1) > 0) ) OR ( XPOS(s,'┤╢┘╜┐╖',1) > 0 ))
+			THEN Text(Str_Char(St,7));   GoTo V_LIN_2;
+			END;
+IF ((( XPOS(s2,prav1,1) > 0 )) ) OR  ( XPOS(s,'├╟╙└╓┌',1) > 0 )
+			THEN Text(Str_Char(St,6));   GoTo V_LIN_2;
+			END;
+IF ((( XPOS(s1,lev2,1) > 0 ) AND ( XPOS(s2,prav2,1) > 0 )) or  ( XPOS(s,'╪╧╤╩╦╬',1) > 0 ))
+			THEN Text(Str_Char(St,19));   GoTo V_LIN_2;
+			END;
+IF ((( XPOS(s1,lev2,1) > 0 ) ) OR (s = '╡') or  ( XPOS(s,'╛╕╗╝╣',1) > 0 ))
+			THEN Text(Str_Char(St,16));   GoTo V_LIN_2;
+			END;
+IF ((( XPOS(s2,prav2,1) > 0 )) OR ( XPOS(s,'╘╒╞╚╔╠',1) > 0 ))
+			THEN Text(Str_Char(St,15));   GoTo V_LIN_2;
+			END;
+			Text(Str_Char(St,1));   GoTo V_LIN_2;
+		END;
+V_LIN_2:
+	Down;
+	END;
+	s2 := Cur_Char;
+	Left;
+	s := Cur_Char;
+	Ch := ASCII(s);
+	if(C_Col > 1 ) then
+		Left;
+		s1 := Cur_Char;
+		RIGHT;
+	else
+		s1 := ' ';
+	end;
+		IF ((Ch < 179) OR (Ch > 218){OR ( s = '║')})
+		THEN
+		Text(Str_Char(St,1));  GoTo V_LIN_3;   {символ ║}
+		ELSE
+			IF  (lt = 2)  then
+				if ( XPOS( s,'╠╬╣╟╫╢',1) > 0 )
+				THEN  Right; GoTo V_LIN_3;
+				END;
+			else
+				IF  (lt = 1)  then
+					if ( XPOS( s,'╞╪╡├┼┤',1) > 0 )
+					THEN  Right; GoTo V_LIN_3;
+					END;
+				else
+					c1 :=  XPOS( s,'╞╪╡├┼┤╠╬╣╟╫╢',1) ;
+					if ( c1 > 0 )
+					THEN  Text(Str_Char(sv2 ,c1));  GoTo V_LIN_3;
+					END;
+				end;
+			End;
+			IF ( s = Str_Char(St,4))
+			THEN Text(Str_Char(St,6));   GoTo V_LIN_3;
+			END;
+			IF ( s = Str_Char(St,5))
+			THEN Text(Str_Char(St,7));   GoTo V_LIN_3;
+			END;
+			IF ( s = Str_Char(St,13))
+			THEN Text(Str_Char(St,15));  GoTo V_LIN_3;
+			END;
+			IF ( s = Str_Char(St,14))
+			THEN Text(Str_Char(St,16));  GoTo V_LIN_3;
+			END;
+
+			IF (((XPOS(s1,lev1,1) > 0) AND  ( XPOS(s2,prav1,1) > 0 )) or (s = '╨') or (s = '┴'))then
+				IF ( s = Str_Char(St,9))
+				THEN Text(Str_Char(St,10));
+				ELSE Text(Str_Char(St,8));
+				END;
+			GoTo V_LIN_3;
+			END;
+			IF ((XPOS(s1,lev1,1) > 0) OR (s = '┘') or (s = '╜'))
+			THEN Text(Str_Char(St,3));   GoTo V_LIN_3;
+			END;
+			IF (( XPOS(s2,prav1,1) > 0 ) OR (s = '╙') or (s = '└'))
+			THEN Text(Str_Char(St,2));   GoTo V_LIN_3;
+			END;
+			IF ((( XPOS(s1,lev2,1) > 0 ) AND  ( XPOS(s2,prav2,1) > 0 ) ) or (s = '╧') or (s = '╩')) then
+				IF ( s = Str_Char(St,18))
+					THEN Text(Str_Char(St,19));
+					ELSE Text(Str_Char(St,17));
+				END;
+				GoTo V_LIN_3;
+			END;
+			IF ( (  ( XPOS(s1,lev2,1) > 0 )) OR (s = '╛') or (s = '╝'))
+			THEN Text(Str_Char(St,12));   GoTo V_LIN_3;
+			END;
+			IF ( (   ( XPOS(s2,prav2,1) > 0 ) ) OR (s = '╘') or (s = '╚'))
+			THEN Text(Str_Char(St,11));   GoTo V_LIN_3;
+			END;
+			Text( Str_Char(St,1) );   GoTo V_LIN_3;
+		END;
+V_LIN_3:
+	Left;
+goto END_MA;
+
+HORLIN:
+	IF (x2 < x1 ) THEN
+	ch := x2 ;
+	x2 := x1;
+	x1 := ch;
+	END;
+	dx := x2-x1;
+	Goto_Line(y1);
+	GoTo_Col(x1);
+	if(C_Line > 1) Then
+		up;
+		s1 := CUR_CHar;
+		Down;
+	Else
+		s1 := ' ';
+	end;
+	s := Cur_Char;
+	Ch := ASCII(s);
+	Down;
+	s2 := CUR_CHar;
+	Up;
+		IF ((Ch < 179) OR (Ch > 218){OR ( s = '═')})
+		THEN
+		Text( Str_Char(St,20) );  GoTo H_LIN_1;
+		ELSE
+			IF  (lt = 2)  then
+				IF ( XPOS(s,'╦╬╩╤╪╧',1) )
+				THEN  Right; GoTo H_LIN_1;
+				END;
+			else
+				IF  (lt = 1)  then
+				if ( XPOS( s,'╥╫╨┬┼┴',1) > 0 )
+				THEN  Right; GoTo H_LIN_1;
+				END;
+				else
+					c1 :=  XPOS( s,'╥╫╨┬┼┴╦╬╩╤╪╧',1) ;
+					if ( c1 > 0 )
+					THEN  Text(Str_Char(sv3 ,c1));  GoTo H_LIN_1;
+					END;
+				end;
+			End;
+			IF ( s = Str_Char(St,22))
+			THEN Text(Str_Char(St,27));   GoTo H_LIN_1;
+			END;
+			IF ( s = Str_Char(St,24))
+			THEN Text(Str_Char(St,28));   GoTo H_LIN_1;
+			END;
+			IF ( s = Str_Char(St,31))
+			THEN Text(Str_Char(St,36));  GoTo H_LIN_1;
+			END;
+			IF ( s = Str_Char(St,33))
+			THEN Text(Str_Char(St,37));  GoTo H_LIN_1;
+			END;
+			IF ((( XPOS(s1,verh1,1) > 0 )  AND ( XPOS(s2,niz1,1) > 0 ) ) or (s = '╞') or (s = '├') )then
+				IF ( s = Str_Char(St,26))
+					THEN Text(Str_Char(St,29));
+					ELSE Text(Str_Char(St,25));
+				END;
+			GoTo H_LIN_1;
+			END;
+			IF ((( XPOS(s1,verh1,1) > 0 ) ) OR (s = '╘') or (s = '└'))
+			THEN Text( Str_Char(St,21) );   GoTo H_LIN_1;
+			END;
+			IF ((( XPOS(s2,niz1,1) > 0 ) ) OR (s = '┌') or (s = '╒'))
+			THEN Text( Str_Char(St,23) );   GoTo H_LIN_1;
+			END;
+			IF ((( XPOS(s1,verh2,1) > 0 )  AND ( XPOS(s2,niz2,1) > 0 )  ) or (s = '╟') or (s = '╠') )then
+				IF ( s = Str_Char(St,35))
+					THEN Text(Str_Char(St,38));
+					ELSE Text(Str_Char(St,34));
+				END;
+			GoTo H_LIN_1;
+			END;
+			IF ( (  ( XPOS(s1,verh2,1) > 0 ) ) OR (s = '╙') or (s = '╚'))
+			THEN Text( Str_Char(St,30) );   GoTo H_LIN_1;
+			END;
+			IF ( (  ( XPOS(s2,niz2,1) > 0 ) ) OR (s = '╓') or (s = '╔'))
+			THEN Text( Str_Char(St,32) );   GoTo H_LIN_1;
+			END;
+			Text( Str_Char(St,20) );
+		END;
+H_LIN_1:
+	IF (  ( x2 - x1 ) = 1 ) THEN
+		GoTo H_LIN_2;
+	END;
+
+	WHILE (C_col < x2) DO
+	if(C_Line > 1) Then
+		up;
+		s1 := CUR_CHar;
+		Down;
+	Else
+		s1 := ' ';
+	end;
+	s := Cur_Char;
+	Ch := ASCII(s);
+	Down;
+	s2 := CUR_CHar;
+	Up;
+		IF ((Ch < 179) OR (Ch > 218) OR ( s = Str_Char(St,20)))
+		THEN
+		Text( Str_Char(St,20));  GoTo H_LIN_2;
+				ELSE
+IF ( (  ( XPOS(s1,verh1,1) > 0 )  AND ( XPOS(s2,niz1,1) > 0 ) ) or  ( XPOS(s,'╞╪╡├┼┤',1) > 0 ) )
+			THEN Text( Str_Char(St,29) );   GoTo H_LIN_2;
+			END;
+IF ( (   ( XPOS(s1,verh1,1) > 0 ) ) OR ( XPOS(s,'┘╛└╘┴╧',1) > 0 ) )
+			THEN Text( Str_Char(St,27) );   GoTo H_LIN_2;
+			END;
+IF ( (  ( XPOS(s2,niz1,1) > 0 ) ) OR ( XPOS(s,'┐┌╕╒┬╤',1) > 0 ) )
+			THEN Text( Str_Char(St,28) );   GoTo H_LIN_2;
+			END;
+IF ( (  ( XPOS(s1,verh2,1) > 0 )  AND ( XPOS(s2,niz2,1) > 0 ) ) or  ( XPOS(s, '╟╫╢╠╬╣',1) > 0 ) )
+			THEN Text( Str_Char(St,38) );   GoTo H_LIN_2;
+			END;
+IF ( (  ( XPOS(s1,verh2,1) > 0 ) ) OR  ( XPOS(s,'╨╙╜╝╚╩',1) > 0 ) )
+			THEN Text( Str_Char(St,36) );   GoTo H_LIN_2;
+			END;
+IF ( (  ( XPOS(s2,niz2,1) > 0 ) ) OR  ( XPOS(s,'╥╖╓╗╔╦',1) > 0 ) )
+			THEN Text( Str_Char(St,37));   GoTo H_LIN_2;
+			END;
+			Text( Str_Char(St,20));   GoTo H_LIN_2;
+		END;
+H_LIN_2:
+	END;
+	if(C_Line > 1) Then
+		up;
+		s1 := CUR_CHar;
+		Down;
+	Else
+		s1 := ' ';
+	end;
+	s := Cur_Char;
+	Ch := ASCII(s);
+	Down;
+	s2 := CUR_CHar;
+	Up;
+		IF ((Ch < 179) OR (Ch > 218) {OR ( s = '═')})
+		THEN
+		Text( Str_Char(St,20));  GoTo H_LIN_3;
+		ELSE
+			IF  (lt = 2)  then
+				IF ( XPOS(s,'╦╬╩╤╪╧',1) )
+				THEN  Right; GoTo H_LIN_3;
+				END;
+			else
+				IF  (lt = 1)  then
+				if ( XPOS( s,'╥╫╨┬┼┴',1) > 0 )
+				THEN  Right; GoTo H_LIN_3;
+				END;
+				else
+					c1 :=  XPOS( s,'╥╫╨┬┼┴╦╬╩╤╪╧',1) ;   { стирание }
+					if ( c1 > 0 )
+					THEN  Text(Str_Char( sv4 ,c1));  GoTo H_LIN_3;
+					END;
+				end;
+			End;
+			IF ( s = Str_Char(St,21))
+			THEN Text(Str_Char(St,27));  GoTo H_LIN_3;
+			END;
+			IF ( s = Str_Char(St,23))
+			THEN Text(Str_Char(St,28));  GoTo H_LIN_3;
+			END;
+			IF ( s = Str_Char(St,30))
+			THEN Text(Str_Char(St,36));  GoTo H_LIN_3;
+			END;
+			IF ( s = Str_Char(St,32))
+			THEN Text(Str_Char(St,37));  GoTo H_LIN_3;
+			END;
+			IF ((( XPOS(s1,verh2,1) > 0 )  AND ( XPOS(s2,niz2,1) > 0 ) ) or (s = '╢') or (s = '╣'))then
+				IF ( s = Str_Char(St,34))
+					THEN Text(Str_Char(St,38));
+					ELSE Text(Str_Char(St,35));
+				END;
+			GoTo H_LIN_3;
+			END;
+			IF ((( XPOS(s1,verh2,1) > 0 ) ) OR (s = '╜') or (s = '╝'))
+			THEN Text( Str_Char(St,31));   GoTo H_LIN_3;
+			END;
+			IF ((( XPOS(s2,niz2,1) > 0 ) ) OR (s = '╖') or (s = '╗'))
+			THEN Text( Str_Char(St,33));   GoTo H_LIN_3;
+			END;
+			IF ((( XPOS(s1,verh1,1) > 0 )  AND ( XPOS(s2,niz1,1) > 0 ) ) or (s = '┤') or (s = '╡'))then
+				IF ( s = Str_Char(St,25))
+					THEN Text(Str_Char(St,29));
+					ELSE Text(Str_Char(St,26));
+				END;
+			GoTo H_LIN_3;
+			END;
+			IF ( (  ( XPOS(s1,verh1,1) > 0 ) ) OR (s = '┘') or (s = '╛'))
+			THEN Text( Str_Char(St,22));   GoTo H_LIN_3;
+			END;
+			IF ( (  ( XPOS(s2,niz1,1) > 0 ) ) OR (s = '┐') or (s = '╕'))
+			THEN Text(Str_Char(St,24)); GoTo H_LIN_3;
+			END;
+			Text( Str_Char(St,20));   GoTo H_LIN_3;
+		END;
+H_LIN_3:
+Left;
+END_MA:
+Ret;
+
+{-------------- Подпрограмма рисования символом --------------------}
+Ris:
+	WORKING;
+	Refresh := 0;
+	PUSH_Undo;
+
+	IF (xx2 < xx1 ) THEN
+	x1 := xx2;
+	x2 := xx1;
+	else
+	x2 := xx2;
+	x1 := xx1;
+	END;
+
+	IF (Yy2 < Yy1 ) THEN
+	y1 := yy2;
+	y2 := yy1;
+	else
+	y2 := yy2;
+	y1 := yy1;
+	END;
+
+	dx := x2-x1;
+	dy := y2-y1;
+
+	GoTo_Col(x1);
+	Goto_Line(y1);
+
+	IF( x1 <> x2 ) THEN
+		WHILE ( C_col <= x2) DO
+			Text( r1 );
+		END;
+	Else Right;
+	END;
+
+	IF( y1 = y2 ) THEN goto CONE;
+	END;
+
+	IF( y1 <> y2 ) THEN
+		WHILE (C_line < y2) DO
+			Left; Down;
+			Text( r2 );
+		END;
+	END;
+
+	IF( x1 = x2 ) THEN goto CONE;
+	END;
+
+		GoTo_Col(x1);
+		Goto_Line(y1+1);
+
+	IF( y1 <> y2 ) THEN
+		WHILE (C_line < y2) DO
+			Text( r4 );
+			Left; Down;
+		END;
+	END;
+
+
+	IF( x1 <> x2 ) THEN
+		WHILE (C_col <= x2) DO
+		Text( r3 );
+		END;
+	END;
+CONE:
+	call Restor;
+	Pop_Undo;
+Ret;
+
+
+{-- Подпрограмма восстановления вертикальной позиции курсора на экране --}
+Restor:
+	RM('TEXT^GOToMark');
+	GoTo_Col(x);
+	Goto_Line(y);
+	Refresh := 1;
+	Redraw ;
+Ret;
+{------------------------- end Subroutines ------------------------------}
+
+FINAL:
+Insert_mode := Mode_Insert ;
+pop_labels;
+IF ( Mou_Installed ) THEN
+	Mouse := 0;
+	Mouse_Mode := Mous ;
+	Mouse := 1;
+END;
+Redraw;
+Make_message('SterniK° ║   Режим рисования отключен');
+END_MACRO;

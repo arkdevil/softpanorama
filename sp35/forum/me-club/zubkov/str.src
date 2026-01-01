@@ -1,0 +1,445 @@
+$MACRO STR TO <ALT1> FROM EDIT;
+
+{*****************************************************************************
+  Макрос для разбивки текста на страницы.
+  Макрос отлажен в версии 5.00P Multi-Edit
+  Разработчик - Зубков Ю.Н.
+  17.04.91 10.45
+ ****************************************************************************}
+
+  Def_Str(PRAV_GR,D_S);
+  Def_Int(Nom_Str1,Nom_Str,A,PR_GR,L_PR_GR,DL_ST);
+  Doc_Mode := True;
+  Nom_Str := 0;
+  PR_GR := 75;
+  A := 0;
+Nachalo:
+  If Nom_Str <> 0 Then Kill_Box; End;
+  Refresh := 1;
+  Insert_Mode := True;
+  If Nom_Str = 0 Then
+  Make_Message (' Выберите операцию из предложенного меню'); End;
+  Down;
+  RM('USERIN^XMENU /T=1/B=1/X=2/Y=3/L=STR/M= Проверка постоянной ширины()
+Проверка переменной ширины() Проверка длины страниц() Разбивка на страницы()
+Нумерация страниц() Удаление разбивки и нумерации ()
+Разбивка текста с таблицами() Просмотр разбивки()');
+  If Return_Int > 0 Then
+   If Return_Int = 1 Then GoTo Gr75; End;
+   If Return_Int = 2 Then GoTo Gr110; End;
+   If Return_Int = 3 Then GoTo Dlina; End;
+   If Return_Int = 4 Then GoTo Razb;  End;
+   If Return_Int = 5 Then GoTo Numer;  End;
+   If Return_Int = 6 Then GoTo Ud_Razb; End;
+   If Return_Int = 7 Then Run_Macro('S4'); GoTo Nachalo; End;
+   If Return_Int = 8 Then GoTo Prosm; End;
+  End;
+  If Marking Then Block_Off; End;
+  GoTo Konec;
+
+Gr75:
+If Nom_Str = 0 Then
+ Return_Int := 75;
+ RM('QUERYBOX /T=ВВЕДИТЕ ПРАВУЮ ГРАНИЦУ [75]/C=46/L=4/W=3/N=1/MAX=256/ML=3');
+ If Return_Str = 'FALSE' Then GoTo Nachalo; End;
+ PR_GR := Return_Int;
+ Run_Macro ('DLINA_F');
+End;
+   Make_Message ('');
+   Run_Macro ('SHIRMA');
+   Run_Macro ('BOX');
+   Write ( 'ИДЕТ  ПРОВЕРКА ПРАВОЙ  ГРАНИЦЫ  - '+ Str(PR_GR), 17, 17, Green, White );
+   While C_Col < PR_GR And Not (At_Eof) Do
+     Down;
+     Eol;
+     Nom_Str := Nom_Str + 1;
+     If Nom_Str = 10 Then Run_Macro('TABLO'); Nom_Str := 1; End;
+   End;
+   If At_Eof Then Make_Message ('Конец текста  !!!');
+     Run_Macro('TABLO');
+     RM('MUSIC');
+     Delay(1000);
+     Kill_Box; Kill_Box;
+     Refresh := 1;
+     Tof;
+     GoTo Nachalo;
+   End;
+   If Not (At_Eof) Then Make_Message ('Превышена длина строки  !!!  ');
+     Beep;
+     Mark_Pos;
+     Refresh := 1; Redraw;
+     Block_Begin; Block_End;
+     Kill_Box; Kill_Box;
+     GoTo_Mark;
+   End;
+   GoTo Nachalo;
+
+Gr110:
+   If A = 0 Then
+    Run_Macro ('DLINA_F');
+    Return_Int := 110;
+    RM('QUERYBOX /T=ВВЕДИТЕ ПРАВУЮ ГРАНИЦУ [110]/C=46/L=4/W=3/N=1/MAX=256/ML=3');
+    If Return_Str = 'FALSE' Then GoTo Nachalo; End;
+    L_PR_GR := Return_Int;
+    End;
+   A := 1;
+   Make_Message ('');
+   Run_Macro ('SHIRMA');
+   Run_Macro ('BOX');
+   Write ( 'ИДЕТ  ПРОВЕРКА ПРАВОЙ  ГРАНИЦЫ  - ' + Str(L_PR_GR), 17, 17, Green, White );
+Nach:   Down;
+        Eol;
+        Nom_Str := Nom_Str + 1;
+        If Nom_Str = 10 Then Run_Macro('TABLO'); Nom_Str := 1; End;
+        If At_Eof Then GoTo Koncc; End;
+          IF C_Col > L_PR_GR Then GoTo Prew; End;
+            IF C_Col < 3 Then GoTo Nach; End;
+              IF C_Col < PR_GR Then GoTo Kon; Else GoTo Nach; End;
+Koncc:  Make_Message ('Конец текста  !!!'); RM('MUSIC'); GoTo 1;
+Prew:   Make_Message ('Превышена длина строки  !!! ');
+        Mark_Pos;
+        Refresh := 1; Beep;
+        Redraw;
+        Block_Begin; Block_End;
+        GoTo_Mark;
+        GoTo 1;
+Kon:    Make_Message ('Конец широкого поля  !!!');
+        Refresh := 1;
+        RM('MUSIC');
+        Kill_Box;
+1:      Kill_Box;
+        GoTo Nachalo;
+
+Dlina:
+  Return_Int := 58;
+  RM('QUERYBOX /T=ВВЕДИТЕ ДЛИНУ СТРАНИЦЫ [58]/C=46/L=4/W=3/N=1/MAX=256/ML=3');
+  If Return_Str = 'FALSE' Then GoTo Nachalo; End;
+  DL_ST := Return_Int + 1;
+  Make_Message ('');
+  Run_Macro ('DLINA_F');
+  Run_Macro ('SHIRMA');
+  Run_Macro ('BOX');
+  Write ( 'ИДЕТ  ПРОВЕРКА ДЛИНЫ СТРАНИЦ '+Str(DL_ST-1), 17, 17, Green, White );
+  GoTo_Line(1);
+  Make_Message('');
+  Def_Int (N_Str); N_Str := 1;
+  While Not (At_Eof) Do
+    If Search_Fwd (Char(12),DL_ST) Then
+      Run_Macro('TABLO');
+      N_Str := N_Str + 1;
+      Down;
+    Else GoTo 2;
+    End;
+  End;
+2: If (Global_Int ('Длина Файла') - C_Line) > (DL_ST-2) Then
+     Make_Message('Длинная страница !!!');
+     Nom_Str := 1;
+     Beep;
+     GoTo_Line( C_Line + DL_ST );
+   Else;
+     Eof;
+     Run_Macro('TABLO');
+     RM('MUSIC');
+     Write('КОНЕЦ ТЕКСТА, ЧИСЛО СТРАНИЦ -  ',17,17,Green,White);
+     Write(' '+ Str(N_Str)+' ',47,17,Red,White);
+     Write('                                  ',17,19,13,14);
+     Write(' Для продолжения нажмите "пробел" ',17,20,13,14);
+     Write('                                  ',17,21,13,14);
+     Read_Key;
+     Tof;
+     End;
+   Kill_Box; Kill_Box;
+   Refresh := 1; Up;
+   GoTo Nachalo;
+
+Razb:
+  Return_Int := 58;
+  RM('QUERYBOX /T=ВВЕДИТЕ ДЛИНУ СТРАНИЦЫ [58]/C=46/L=4/W=3/N=1/MAX=256/ML=3');
+  If Return_Str = 'FALSE' Then GoTo Nachalo; End;
+  DL_ST := Return_Int + 1;
+  Make_Message ('');
+  Tof;
+  Run_Macro('NEW_FILE');
+  Run_Macro ('DLINA_F');
+  Run_Macro ('SHIRMA');
+  Run_Macro ('BOX');
+  Write ( 'ИДЕТ РАЗБИВКА НА СТРАНИЦЫ', 17, 17, Green, White );
+  GoTo_Line(1); GoTo_Col(1);
+  Def_Int (Strr, N_Str);
+  N_Str := 1;
+  Strr := 1;
+  While Not (At_Eof) Do
+    While DL_ST - Strr > 0 Do
+      If Search_Fwd(Char(12),2) Then Down; Strr := 1; End;
+      GoTo_Col(1);
+      Down;
+      Strr := Strr + 1;
+      Nom_Str := Nom_Str + 1;
+      Set_Global_Int('Длина Файла',Global_Int('Начальная Длина Файла')+Nom_Str);
+      If Nom_Str = 10 Then Run_Macro('TABLO'); Nom_Str := 1; End;
+    End;
+    If Not (At_Eof)  Then
+      Cr; Up; GoTo_Col(1); Text (Char(12));
+    Strr := 1;
+    End;
+  End;
+  If Not (At_Eof) Then
+   Up; Up; Del_Line; Up; Del_Line; End;
+  Save_File;
+  If Error_Level <> 0 Then Run_Macro('MEERROR'); End;
+  Kill_Box; ToF;
+  Make_Message('Конец работы');
+  RM('MUSIC');
+  Kill_Box; Kill_Box;
+  GoTo Nachalo;
+
+Numer:
+  Def_Int (N_Str,N_Strr,A);
+  Def_Str(Nomm_Str);
+  Return_Int := 1;
+  RM('QUERYBOX /T=ВВЕДИТЕ НОМЕР ПЕРВОЙ СТРАНИЦЫ/C=44/L=4/W=3/N=1/MAX=256/ML=3');
+  If Return_Str = 'FALSE' Then GoTo Nachalo; End;
+  N_Strr := Return_Int;
+  ToF;
+  Make_Message ('');
+  Run_Macro('NEW_FILE');
+  Run_Macro ('DLINA_F');
+  Run_Macro ('SHIRMA');
+  Run_Macro ('BOX');
+  Write ( 'ИДЕТ НУМЕРАЦИЯ СТРАНИЦ', 17, 17, Green, White );
+  N_Str := 0;
+  N_Str := N_Str + N_Strr;
+  If N_Str > 1 Then
+    Cr; Up;
+    Text ('                                   - ');
+    Text (Str(N_Str));
+    Text (' -'); Cr; Cr; Up;
+    N_Str := N_Str + 1;
+  Else N_Str := 2; End;
+  While Not (At_Eof) Do
+   Next_Page_Break;
+   Run_Macro('TABLO');
+   If Not (At_Eof) Then
+    Cr; Up;
+    Text ('                                   - ');
+    Text (Str(N_Str));
+    Text (' -'); Cr; Cr; Up;
+    N_Str := N_Str + 1;
+   End;
+  End;
+  Kill_Box; Kill_Box;
+  ToF;
+  Make_Message('Конец работы');
+  RM('MUSIC');
+  GoTo Nachalo;
+
+Ud_Razb:
+  Make_Message ('');
+  Run_Macro ('DLINA_F');
+  Run_Macro ('SHIRMA');
+  Run_Macro ('BOX');
+  Write ( 'ИДЕТ УДАЛЕНИЕ РАЗБИВКИ И НУМЕРАЦИИ СТРАНИЦ',17,17,Green,White );
+  Def_Str(Stroka);
+  GoTo_Line(1);
+  While Not (At_Eof) Do
+   Next_Page_Break;
+   Run_Macro('TABLO');
+   If Not (At_Eof) Then
+    Up; Del_Line;
+    Stroka := Get_Line;
+    Stroka := Copy ( Stroka, 1, 33 );
+    If Search_Fwd ('                                   - ',1) Then
+      Del_Line;
+    End;
+    If Search_Fwd( '%$' ,1) Then Replace('%'); End;
+    If Search_Fwd( '%$' ,1) Then Replace('%'); End;
+    End;
+   End;
+   Kill_Box; Kill_Box; EoF;
+  Make_Message('Конец работы');
+  RM('MUSIC');
+  GoTo Nachalo;
+
+Prosm:
+  Tof;
+  A := 10;
+  While A > 0 Do Down; A := A-1; End;
+  Return_Int := 2000;
+  RM('QUERYBOX /T=ВВЕДИТЕ ПАУЗУ ПРОСМОТРА В MСЕК /C=46/L=4/W=4/N=1/MAX=9999/ML=4');
+  If Return_Str = 'FALSE' Then GoTo Nachalo; End;
+  A := Return_Int;
+  Make_Message('Для прекращения просмотра нажмите <Ctrl-Break>');
+  While Not (At_Eof) Do
+   If Search_Fwd(Char(12),0) Then
+     Scroll_Box_Up(1,4,80,24, (Back_Color shl 4) or Text_Color);
+     GoTo_Line ( C_Line + 1 );
+     Refresh := 1;
+     Redraw;
+     Delay( A );
+     Refresh := 0;
+   Else RM('Music'); GoTo Nachalo;
+   End;
+  End;
+  Beep;
+  GoTo Nachalo;
+
+Konec:
+END_MACRO;
+
+
+$MACRO S4;
+  Def_Str (F_N, Rasm_F);
+  Def_Real (Res);
+  Def_Int (Strr,Zagol,Dl_F,Cont,NN,N,Dovesok,Blokk,DL_ST);
+  Insert_Mode := True;
+  Dovesok := 0;
+
+Razb:
+  Return_Int := 58;
+  RM('QUERYBOX /T=ВВЕДИТЕ ДЛИНУ СТРАНИЦЫ [58]/C=46/L=4/W=3/N=1/MAX=256/ML=3');
+  If Return_Str = 'FALSE' Then GoTo Konec; End;
+  DL_ST := Return_Int + 1;
+  Make_Message ('');
+  Tof;
+  Run_Macro('NEW_FILE');
+  Run_Macro('SHIRMA');
+  Run_Macro ('BOX');
+  Write ( 'ИДЕТ РАЗБИВКА НА СТРАНИЦЫ', 17, 17, Green, White );
+  Dl_F := Global_Int ('Начальная Длина Файла');
+  While Not (At_Eof) Do
+1:  While DL_ST - Pg_Line > 0 Do
+      If At_Eof Then GoTo 5; End;
+      If Search_Fwd('{    [0-9]. }||{    [0-9][0-9]. }',1) Then
+        If Pg_Line > 3 Then
+          GoTo_Col(1);
+          Cr;
+          While C_Col > 1 Do Left; Del_Char; End;
+          Up;
+          Text (Char(12));
+          Dovesok := Dovesok +1;
+          Down;
+          Down;
+          GoTo 1;
+        End;
+      End;
+    Down;
+    End;
+    If Not (Search_Fwd('{│}||{─}||{═}||{║}',1)) Then GoTo 3; End;
+    Down;
+    GoTo_Col(1);
+    If Search_Fwd('{%$}',2) Then GoTo 3; Else Up; End;
+    Cont := 1;
+    While Cont < 8 Do
+      GoTo_Col (1);
+      If Search_Fwd('{│}||{─}||{═}||{║}',1) Then Up; Else GoTo 3; End;
+      Cont := Cont + 1;
+      End;
+    Down; Down; Down; Down; Down; Down; Down;
+    Mark_Pos;
+      If Search_Bwd('{─}||{═}',0) Then Block_Begin; Blokk := C_Line; End;
+4:    GoTo_Col (1);
+      If Search_Bwd('{абл}',2) Then Block_End; Zagol := 1; GoTo 2; Else
+        If Search_Fwd('{%$}',1) Then Block_End; Zagol := 0; GoTo 2; End;
+      Up;
+      GoTo 4;
+      End;
+2:    Dovesok := Dovesok + Blokk - C_Line;
+      GoTo_Mark;
+      Copy_Block;
+      Block_Off;
+      If Zagol = 1 Then
+        Insert_Mode := False;
+        If Not (Search_Fwd('родолж',2)) And (Search_Fwd('абл',2)) Then
+          GoTo_Col ( C_Col - 10 );
+          Text ('Продолжение табл.');
+          End;
+        Insert_Mode := True;
+      End;
+3:  GoTo_Col(1);
+    Cr;
+    While C_Col > 1 Do Left; Del_Char; End;
+    Up;
+    Text (Char(12));
+    Dovesok := Dovesok +1;
+    Down;
+    Set_Global_Int ('Длина Файла', Dl_F + Dovesok);
+    Run_Macro( 'TABLO');
+    End;
+5: Make_Message('Конец работы');
+    Res := Real_I(C_Line)/Real_I(Dl_F + Dovesok)*100.0;
+    Write( '100 ',18,7, 3,Red);
+    NN := Int_R ( Res / 5.0 + 5. );
+    N := 5;
+    While N < NN Do
+      Write(Char(219), N, 9, Green,White);
+      N := N + 1;
+    End;
+    RM('MUSIC');
+    Delay(1000);
+    Kill_Box; Kill_Box;
+    EoF;
+Konec: Make_Message (''); Tof;
+END_MACRO;
+
+$MACRO TABLO;
+    Def_Real (Res);
+    Def_Int (N,NN,Hvost);
+      Hvost := Global_Int ('Длина Файла');
+      Res := Real_I(C_Line)/Real_I(Hvost)*100.0;
+      If Res < 100.1 Then Write(RStr( Res, 2, 1),18,7, 3,Red); End;
+      NN := Int_R ( Res / 5.0 + 5. );
+      N := 5;
+      While N < NN Do
+        Write(Char(219), N, 9, 3,White);
+        N := N + 1;
+      End;
+END_MACRO;
+
+$MACRO BOX;
+  Put_Box ( 3, 6, 30, 12, 3, Blue,'', True);
+  Write(' МИНУТКУ ',11,7, 3, Blue);
+  Write('ВЫПОЛНЕНО -       %',6,7,3, Blue);
+  Write('████████████████████', 5, 9, 3,Blue);
+END_MACRO;
+
+$MACRO NEW_FILE;
+  Refresh := 0;
+  Def_Str (F_N);
+  F_N := File_Name;
+  Save_File;
+  Create_Window;
+  Load_File (F_N);
+  Doc_Mode := True;
+  Run_Macro ('DLINA_F');
+  File_Name := Truncate_Extension(File_Name) + '.NEW';
+END_MACRO;
+
+$MACRO DLINA_F;
+  Refresh := 0;
+  Eof;
+  Set_Global_Int ('Длина Файла', C_Line);
+  Set_Global_Int ('Начальная Длина Файла', C_Line);
+  Tof;
+END_MACRO;
+
+$MACRO SHIRMA;
+  If Video_Mode = 0 Then
+  Put_Box ( 1, 4, 80, 24, Green, Blue, '', False ); Else
+  Put_Box ( 1, 4, 80, 42, Green, Blue, '', False ); End;
+  Refresh := 0;
+END_MACRO;
+
+$MACRO MUSIC;
+  Def_Str (TONE,DLIT,TN,DT);
+  Def_Int (NOTA,FR,DL);
+  TONE := '5000 9000 8000 9000 7000 8000 3000 2000 9000';
+  DLIT := '150  150  150  150  150  150  350  550  150';
+  NOTA := 0;
+  While NOTA < 9 Do
+    TN := Copy( TONE, ((NOTA*4)+1), 4 );
+    DT := Copy( DLIT, ((NOTA*4)+1), 4 );
+    Val(FR,TN);  Val(DL,DT);
+    Sound(FR); Delay(DL);
+    NOTA := NOTA + 1;
+  End;
+END_MACRO;

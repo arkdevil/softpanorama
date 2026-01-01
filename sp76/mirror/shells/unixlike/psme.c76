@@ -1,0 +1,127 @@
+From: cbusch@ub.d.umn.edu (Chris Busch)
+Newsgroups: comp.unix.shell
+Subject: psme - useful UNIX scanning utility
+Date: 4 Apr 1995 17:30:53 -0500
+Organization: University of Minnesota, Duluth
+
+psme is a useful UNIX scanning utility written in Korn shell.  psme can do
+directory scans, process scans, and is infinitely configurable.
+
+
+
+------------------cut here-------------
+#! /bin/ksh -p
+#psme by Chris Busch
+#psme is a useful scanning utility for UNIX.
+psmetitle="psme by Chris Busch v1.0.0 (c) 1994"
+#Copyright 1994 All Rights Reserved
+#written by Chris Busch (cbusch@d.umn.edu)
+#Disclaimer: No guarantees or promises are made about the fitness or 
+#  performance of this program.  Not responsible for use or misuse.
+#Please do not remove my name from this program, I have wasted a lot
+#of time on it.  Please do not add one feature to this program and take 
+#all of the credit for this.
+#If you have an idea for psme please email me.
+#last change: Apr 1995
+
+
+function killme
+{
+        print
+        print 'done.'
+        /bin/rm $psmetmp
+        exit
+}       
+
+
+print $psmetitle
+
+
+IFS=','
+psmenice=nice
+psmetrylist="who,w,ps aux"
+psmerc=~/.psmerc
+psmetmp=/tmp/.psme.$$.$RANDOM 
+psmetmpset="${psmetmp}.2"
+psmewhere=$( uname -n )
+psmewhat=$LOGNAME          #set in diff places
+psmepager=more
+psmehelp="
+psme means 'probably scanning me' (fka 'process scan me')
+help:
+ psme scans for particular items, default is your username.
+usage: $0 [-options] [item] [item]...
+-h           help
+-u name      use named variable given in psmerc file for items
+-d           look for files in current directory with given items
+-p proglist  use other programs to do the scanning, where proglist is 
+             separated by commas ie 'ls,ls -F,ls -R'
+-R           register this program for nothing"
+
+trap killme INT
+
+if [ -f $psmerc ];then
+    . $psmerc
+else
+    print '#psme by C Busch rc file' > $psmerc
+    print '#separate fields by commas' >> $psmerc
+    print 'psmewhat="'$LOGNAME'"' >> $psmerc
+    print 'psmepager="'$psmepager'"' >> $psmerc
+fi
+
+
+while getopts ":hu:dRp:" option
+do
+    case $option in
+        h) print "$psmehelp"
+        exit
+        ;;
+        u) 
+        print 'psmewhat=$'$OPTARG > $psmetmpset
+        . $psmetmpset
+        /bin/rm $psmetmpset
+        ;;
+        d) psmetrylist='/bin/ls -la'
+        ;;
+        R) 
+        print $psmetitle | mail -s 'psme registration' cbusch@d.umn.edu
+        print 'Thank you for registering psme.'
+        exit
+        ;;  
+        p) psmetrylist=$OPTARG
+        ;;
+        \?) print 'Invalid option: "'$OPTARG'"'
+        exit
+        ;;
+    esac
+done
+shift $(( $OPTIND - 1))
+
+if [ $# -ne 0 ] ;then
+    psmewhat=$@
+fi
+#psme by Chris Busch
+print "Scanning "$psmewhere
+{
+for psmeprog in $psmetrylist
+do
+    eval $psmenice $psmeprog >| $psmetmp
+    
+    for psmewho in $psmewhat    
+    do
+        print ">>>>> looking for $psmewho with $psmeprog"
+        grep -- "$psmewho" $psmetmp
+    done
+done
+} | $psmepager
+
+killme
+
+#end of psme
+-----------------------cut here---------------
+
+--
+Chris Busch                    "Slugs can also be trapped using a variety
+cbusch@ub.d.umn.edu                           of bait, including beer and 
+http://www.d.umn.edu/~cbusch/                   cocoa." - The Waste Paper
+

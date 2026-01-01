@@ -1,0 +1,272 @@
+
+					Include Utils.Asi
+;-----------------------------------------------------------------
+;
+;	CCMD.BSD -- DOS Driver for passing commands to cache device
+;
+;       Developed for using with  Datamorphics / DiskCache v.2.04
+;
+;       Purpose: initialize Cache's RamDrive so 4DOS
+;       can be swapped out to it.
+;
+;	(C)  1990 Compact Soft
+;------------------------------------------------------------------
+
+		Version  1 0
+
+.model tiny
+.code
+
+assume nothing
+assume cs:DGROUP
+
+org	0
+
+		dd	-1
+DevAttr	dw	8000h			; char device, no IOCTL support
+		dw	offset	Strategy
+		dw	offset	Interrupt	
+
+		db	8 dup (' ')
+		org	$ - 8
+
+DevName	db	'ResetRD_'		; device name
+		org	DevName + 8
+
+request_s	struc
+	len		db	?
+	unit		db	?
+	cmd		db	?
+	status	dw	?
+	dummy	db	8 dup (?)	
+request_s	ends
+
+Request		label	dword
+ReqOffs		dw	?
+ReqSegm		dw	?
+
+FuncTable	label	word
+		dw	offset	Initialize
+
+MaxFunc	equ	($ - FuncTable) / 2
+
+assume		ds:nothing, es:nothing, ss:nothing
+
+Strategy	proc	far
+		mov	ReqSegm, es
+		mov	ReqOffs, bx
+		ret
+Strategy	endp
+
+Interrupt	proc	far
+		push	ax bx cx dx si di ds es
+		push	cs
+		pop	ds
+		assume	ds:DGROUP
+		les	bx, Request
+		mov	al, es:[bx].cmd
+		cmp	al, MaxFunc
+		ja	@@FuncTooBig
+		cbw
+		shl	ax, 1
+		add	ax, offset FuncTable
+		mov	di, ax
+
+	; on entry: [es:bx] -> request block
+		clc
+		call	[di]
+	; on exit: CF set if error (& al = error code)
+
+@@RetFromFunc:
+		mov	ah, 1		; done
+		$IF	C
+			mov	ah, 81h	; done & error
+		$ENDIF
+		mov	es:[bx].status, ax
+				
+		pop	es ds di si dx cx bx ax
+		ret
+
+@@FuncTooBig:
+		call	BadFunction
+		jmp	@@RetFromFunc
+		
+Interrupt	endp
+		
+BadFunction	proc	near
+		mov	al, 03		; bad command passed to driver
+		stc
+		ret
+BadFunction	endp
+
+DeviceTop	label	near
+
+.data
+                                                                              
+db_cache	macro
+		db	'CACHE__Q'   ; cache driver name
+endm
+
+Fname     	label	byte
+		db_cache
+		db	0
+
+DisplayCmd	db   'd '             ; 'display errors' command for driver
+Null		db	0             ; trailing null
+
+CRLF$		db	13, 10, '$'
+
+Title$		db	'CCMD.SYS  Version '
+		db_ver
+		db	'  (C)', 255, ' 1990 Compact Soft'
+		db_$
+
+CannotOpen$	db	'Cannot open cache device: '
+		db_cache 
+		db_$
+NotDevice$	db	'Not a device: '
+		db_cache
+		db_$                                                                              
+DeviceError$	db	'Error in IOCTL call', '$'
+
+WriteError$	db	'Write error device: '
+		db_cache
+		db_$
+
+Normal$		db	'Command accepted by cache driver:', '$'
+		
+StringPtr	dw	2 dup (?)
+StringLen	dw	?
+
+writeln		proc	near
+		push	ax dx
+		lea	dx, CRLF$
+		DOS	9
+		pop	dx ax
+		ret
+writeln		endp
+
+Initialize	proc	near
+
+	push	ax bx cx dx es
+		
+	call	writeln
+	lea	dx, Title$
+	DOS	9
+
+	push	es
+		les	di, dword ptr es:[bx] + 12h
+		jmp	@@test_space
+@@search1:
+		inc	di
+@@test_space:
+		cmp	byte ptr es:[di], ' '
+		jne	@@search1	
+
+		mov	StringPtr [0], di
+		mov	StringPtr [2], es
+
+		clr	cx
+		jmp	@@test_null
+
+@@search2:
+		inc	cx
+		inc	di
+@@test_null:
+		cmp	byte ptr es:[di], 0
+		je	@@end_search2
+		cmp	byte ptr es:[di], 13
+		je	@@end_search2
+		cmp	byte ptr es:[di], 10
+		jne	@@search2
+
+@@end_search2:
+		mov	StringLen, cx
+
+	pop	es
+
+        mov  al, 01h             ; open the cache file
+        mov  dx, offset Fname
+        DOS  3dh
+        jc   @@error0
+                     
+        mov  bx, ax  
+        mov  al, 00h             ; check file is a device
+        DOS  44h     
+        jc   @@error1            ; branch on DOS error
+        test al, 80h             ; check for device
+        jz   @@error2            ; branch if this is a file, not a device
+
+                                        ; write first 2 bytes, 'D '
+        mov  cx, 2                	;  to ensure errors are displayed
+        mov  dx, offset DisplayCmd	;  on the screen
+        DOS  40h                 
+        jc   @@error3            ; branch on write error
+
+        assume ds:nothing
+        push	ds
+		mov  cx, StringLen        ; write command string
+		  
+		lds  dx, dword ptr StringPtr
+
+	        DOS  40h
+	pop	ds
+	assume ds:DGROUP
+
+        jc   @@error3            ; branch on write error
+
+        mov  ah,40h              ; write trailing null
+        mov  cx,1
+        mov  dx,offset Null
+        DOS  40h           
+        jc   @@error3            ; branch on write error
+
+        DOS  3eh                 ; close the file
+
+		call	writeln
+		lea	dx, Normal$
+		DOS	9
+		push	ds
+		assume	ds:nothing
+			lds	dx, dword ptr StringPtr
+			mov	cx, StringLen
+			mov	bx, stdout
+			DOS	40h
+		pop	ds
+		assume	ds:DGROUP
+		call	writeln
+
+		jmp	@@exit
+
+@@error0:
+		lea	dx, CannotOpen$
+		jmp	@@printerr
+@@error1:
+		lea	dx, DeviceError$
+		jmp	@@printerr
+@@error2:
+		lea	dx, NotDevice$
+		jmp	@@printerr
+@@error3:
+		lea	dx, WriteError$
+		jmp	@@printerr
+
+@@printerr:
+		call	writeln
+		DOS	9
+		call	writeln
+
+@@exit:
+		pop	es dx cx bx ax
+
+		mov	word ptr es:[bx] + 0eh, 0  
+			; installed size = 0 => no driver
+		push	cs
+		pop	word ptr es:[bx] + 10h
+		mov	FuncTable [0], offset BadFunction 
+		clc
+		ret
+Initialize	endp
+
+end
+

@@ -1,0 +1,343 @@
+x-title: Programming with the Standard Template Library
+x-author: Thomas Keffer
+X-FILE: Keffer
+
+   Dr. Dobb's Journal Sourcebook, July - August 1995
+
+     _________________________________________________________________
+
+                PROGRAMMING WITH THE STANDARD TEMPLATE LIBRARY
+
+  BY THOMAS KEFFER
+
+   In terms of algorithms, data structures, internationalization, and
+   language support, the Standard C++ Library could well be the single
+   most powerful library ever incorporated into a standardized language.
+   The Standard C++ Library includes an iostream facility, a locale
+   facility, a templatized string class, a templatized class for
+   representing complex numbers, a class for numerical arrays, support
+   for memory management (new and delete), and language support
+   (terminate(), unexpected(), and so on). It also includes one other
+   important component - the Standard Template Library.
+
+   The Standard Template Library (STL) was developed by Alexander
+   Stepanov and Meng Lee at HP Labs. In July of last year, HP proposed to
+   the ANSI/ISO Standardization Committee that the STL be included as
+   part of the Standard C++ Library. This addition was approved by the
+   committee, and last August Hewlett-Packard offered a freely copyable
+   version of the STL (available for anonymous FTP at
+   [1]butler.hpl.hp.com and mirror sites). Earlier this year, DDJ named
+   Stepanov as a recipient of the "Excellence in Programming Award" for
+   his work on the STL; see "Dr. Dobb's Journal Excellence in Programming
+   Awards" (DDJ, March 1995).
+
+   The STL is a large set of templatized classes and has an unusual and
+   elegant architecture. A key concept of the STL is that it separates
+   data structures from algorithms. This prevents it from being very
+   object oriented, but it also gives it unusual flexibility. While this
+   library is currently known informally as "STL," it will eventually
+   lose its distinct identity as it becomes subsumed by the rest of the
+   Standard C++ Library. Eventually, it will all be known as the
+   "Standard C++ Library."
+
+  ALGORITHMS AND THE STL
+
+   Algorithms in the STL are written in generic terms, without regard for
+   the data structure that might be used to hold the elements upon which
+   they will operate. This allows you to add additional data structures
+   that can immediately leverage existing algorithms. Conversely, you can
+   add new algorithms that will work with any data structure. Of course,
+   different data structures have different time/space characteristics,
+   which, after all, is why more than one data structure is useful.
+   Hence, for this approach to work, the time/space characteristics of
+   both data structures and algorithms must be recorded and standardized.
+   This is what the STL does, allowing structures and algorithms to be
+   combined in highly predictable ways.
+
+   Algorithms can be generalized to work on any data type and any
+   STL-compliant data structure. Consider, for example, the linear-search
+   algorithm in Figure 1(a), which searches an array of integers for an
+   element with a particular value. Figure 1(b) shows how you might use
+   such a function to find the integer value 5 in a given array. Note
+   that if the search fails, the algorithm will return a pointer to one
+   past the end of the array (address a+20, in this case). While there is
+   no element there, both C and C++ guarantee that this is always a valid
+   address. You can't dereference such an address, but you can build a
+   pointer that contains it.
+
+
+     _________________________________________________________________
+
+
+
+
+>
+
+
+
+Figure 1: (a) Linear-search algorithm; (b) using find1() to locate the integer
+5 in an array; (c) using templates to generalize the linear-search algorithm;
+(d) find2() will work for type that supports an inequality operator.
+
+
+
+
+
+  __________________________________________________________________________
+
+
+
+
+
+
+Hence, this is a completely general algorithm for finding an element within a
+C-like array of like-typed elements. You can generalize the algorithm to work
+with any data type using templates as in Figure 1(c). This will work not only
+with integers, but with linear arrays of any type that supports an inequality
+operator; see Figure 1(d). Our templatized algorithm, find2(),
+requires:
+
+
+
+
+     * That for a variable a of type T and a variable q of type pointer
+       to T, the expression *q!=a be convertible to type bool.
+
+     * That the second parameter be reachable from the first; that is,
+       that you be able to continually increment the first pointer and
+       eventually reach the second pointer.
+
+
+
+
+   In return, our algorithm promises to:
+
+
+
+     * Return a pointer pos for which the expression *pos!=value
+       evaluates False.
+
+     * Return the value end if no such pointer can be found.
+
+     * Take linear time.
+
+
+
+
+
+This last promise states that as elements are added, the time taken for the
+algorithm to execute will expand linearly (as opposed to quadratically,
+logarithmically, and so on).
+
+
+This is as precise a statement as we can make about the algorithm. Given types
+and values that satisfy the input requirements of the algorithm, you can make
+very strong statements about the output variables. These strong statements make
+it possible to combine types and STL algorithms in new and novel ways, while
+making strong guarantees about the outcome.
+
+
+  GENERALIZING AN ALGORITHM
+  AS GENERAL AS OUR ALGORITHM IS, IT CAN BE MADE STILL MORE GENERAL. RIGHT NOW,
+  IT WILL WORK ONLY WITH LINEAR ARRAYS. BUT OTHER KINDS OF LINEAR SEARCHES ARE
+  POSSIBLE, THROUGH A LINKED LIST, FOR EXAMPLE. HOW MIGHT YOU ACCOMMODATE
+  THESE?
+  THE PROBLEM IS THAT OUR FIRST ATTEMPT AT AN ALGORITHM ADVANCES TO THE NEXT
+  ELEMENT BY INCREMENTING A POINTER. TO ADVANCE DOWN A LINKED LIST, YOU NEED TO
+  CHASE A POINTER.
+
+
+
+You can generalize to any kind of linear search by introducing a kind of
+abstract pointer called an "iterator." The iterator is
+incremented by the familiar p++ notation, but the actual implementation
+might involve chasing a pointer or taking even more exotic actions. Figure 2
+presents the most general kind of linear-search find algorithm, as
+provided in the STL.
+
+
+  __________________________________________________________________________
+
+
+
+
+template <class InputIterator, class T> InputIterator
+find(InputIterator first, InputIterator end, const T& value)
+{
+  while(first != end && *first != value)
+    first++;
+  return first;
+}>>
+
+Figure 2: General linear-search algorithm as presented in the
+STL.
+
+  __________________________________________________________________________
+
+
+
+
+
+Like the previous algorithm, Figure 2 has been templatized on type T, but it
+has also been templatized on the type of pointer. It performs a linear search
+between the element pointed to first and the element just before end,
+looking for value. If successful, it returns an iterator that points to the
+matching element. If unsuccessful, it returns an iterator equal to end.
+The actual type of the pointer parameterized by the type InputIterator
+pointer is left unspecified.
+
+
+I find it useful to think of an iterator as a kind of pointer but, really, all
+they have in common with pointers is a similar interface. As a minimal
+requirement, you need to be able to apply a dereferencing operator (*p)
+to an iterator and be able to increment it (p++). These operators can be
+either the native operators for built-in pointer types or overloaded operators
+that you have supplied for nonnative types.
+
+
+Remember, algorithms are written in terms of a "signature" on
+types. So long as your iterator offers the correct signature, it will work. For
+example, Figure 3(a) presents a linked-list class. Because a simple pointer
+type will not suffice for traversing this list, I also supply the list iterator
+shown in Figure 3(b).
+
+
+  __________________________________________________________________________
+
+
+
+
+
+
+(a)     // Forward declaration:
+template <class T> class ListIterator<T>;
+template <class T> struct Link
+{
+  Link<T>* next_;
+  T val_;
+  Link(T p) : val_(p), next_(0) {;}
+};
+template <class T> class List
+{
+  Link<T>* head_;
+public:
+  typedef ListIterator<T> iterator;
+  List() : head_(0) {;}
+  void addLink(Link<T>>* link)
+    {link->next_=head_; head_=link;}
+  ListIterator<T> begin() const
+    {return ListIterator<T>(head_);}
+  ListIterator<T> end() const
+    {return ListIterator<T>(0);}
+  friend class ListIterator<T>;
+  };
+
+(b)     template <class T> class ListIterator
+{
+  Link<T>* current_;
+public:
+  ListIterator(Link<T>* link) : current_(link) {;}
+  T operator*()
+    {return current_->val_;}
+  void operator++(int)
+    { current_ = current_->next_; }
+  int operator!=(const ListIterator<T>& it)
+    {return current_!=it.current_;}
+};>>
+
+
+Figure 3: (a) A template class for linked lists; (b) a list-iterator class.
+
+
+  __________________________________________________________________________
+
+
+
+
+
+
+
+Note that the iterator supports a dereferencing interface through an overloaded
+"*" operator. You can also increment the iterator through an
+overloaded "++" operator. Finally, an overloaded
+"!=" operator tests for inequality of iterators. With these
+supported interfaces, the list iterator is indistinguishable from a built-in
+pointer, as far as the find() algorithm is concerned.
+
+
+Because the relationship between iterators and the data structure over which
+they traverse can be complicated, STL data structures supply simplified
+interfaces for the most common iterator values: the start of the structure
+(member function begin()) and one past the end of the structure
+(end()). The class in Figure 3(a) shows sample implementations of
+begin() and end(); Figure 3(b) shows the ListIterator used
+by these functions.
+
+
+Finally, given a data structure type, it is useful to know the type of its
+corresponding iterator. This is supplied by a public typedef, also shown
+in Figure 3(a). Figure 4 shows how you use the results. Note how our
+find algorithm is completely comfortable using either built-in arrays or
+linked lists, of any type. Provided that we have included sensible iterators,
+it will also be just as efficient as any algorithm coded with a particular data
+structure in mind.
+
+
+
+  __________________________________________________________________________
+
+
+
+
+
+int main()
+{
+  List<int> list;
+  list.addLink(new Link<int>(1));
+  list.addLink(new Link<int>(2));
+  list.addLink(new Link<int>(3));
+  list.addLink(new Link<int>(4));
+
+  List<int>::iterator pos  = find(list.begin(), list.end(),2);
+  assert(*pos == 2);
+
+  List<int>::iterator pos2 = find(list.begin(), list.end(),6);
+  assert(!(pos2 != list.end()));
+  return 0;
+}>>
+
+Figure 4: Using an iterator's type information.
+
+
+  __________________________________________________________________________
+
+
+
+
+
+
+
+
+
+Many other algorithms are offered by the STL. For example, there is a
+binary-search algorithm for sorted sequences, as well as algorithms for
+sorting, merging, copying, and shuffling sequences.
+
+
+
+  [2]CONTINUED NEXT PAGE
+
+
+  [3]BACK TO SOURCEBOOK INDEX
+
+
+[4] Home  [5] Pubs  [6] Subs  [7] Ads  [8] CDs  [9] Contacts
+
+
+
+    Please send comments to: [10]webmaster@valdes.com
+
+  __________________________________________________________________________
+
+ (c) 1995, Dr. Dobb's Journal, Miller
+Freeman, Inc.  All rights reserved.

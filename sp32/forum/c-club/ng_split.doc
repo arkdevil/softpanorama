@@ -1,0 +1,151 @@
+/************************************************************************/
+/*									*/
+/*	ng_split - splits Norton Guides database into components	*/
+/*									*/
+/************************************************************************/
+/*									*/
+/*	ng_split, Copyright (C) 1988, by John C. Gordon			*/
+/*	Norton Guides Splitter, 12 August 1988, ALL RIGHTS RESERVED	*/
+/*									*/
+/*	This program is meant for those of us who bought the Norton	*/
+/*	Guides and were disappointed by the fact that we couldn't	*/
+/*	modify the databases provided for our own purposes (by making	*/
+/*	the fatal assumption that "customizing the Guides" included	*/
+/*	the ability to customize the published databases).		*/
+/*									*/
+/*	I have been able to take the databases provided in the Guides,	*/
+/*	"un-compile" (split) them into their component parts, and	*/
+/*	then re-compile them back into a database using the NGC and	*/
+/*	NGML utilities provided with the Guides.  The resulting		*/
+/*	database is identical to the original using DOS 'comp'		*/
+/*	(except for a six-character difference in the Microsoft C	*/
+/*	database, which does not affect execution).			*/
+/*									*/
+/*	I have tested this program on the Norton Guides for Turbo C	*/
+/*	Microsoft C.  Others have tested it on the other published	*/
+/*	databases and some public domain ones.  If you find that it	*/
+/*	does not work for some database, I will be glad to look at	*/
+/*	the code to see if I can get it to work.  I will need a copy	*/
+/*	of the database file, however (only for debugging - the		*/
+/*	disk(s) will be returned with a copy of the new program).	*/
+/*									*/
+/*	There are some funny file formats possible which NG_SPLIT	*/
+/*	doesn't handle right now.  They will be corrected in V2.0 in	*/
+/*	a couple of months.  They do not appear in any of Norton's	*/
+/*	databases (as far as I know), but they can be created by the	*/
+/*	NG software.  Please send me a copy of anything that NG_SPLIT	*/
+/*	can't handle, so I can make sure that everything is covered.	*/
+/*	Included in V2 or V3 will be a utility to re-write the funny	*/
+/*	source code into something more reasonable, since usually the	*/
+/*	strange formats mess up the operation of the grey + key.	*/
+/*									*/
+/*	If you like this program and would like to see more like	*/
+/*	it, please contribute whatever you think this program is	*/
+/*	worth to you (recommended $5 or $10).  Thank you.		*/
+/*									*/
+/*			John C. Gordon					*/
+/*			Post Office Box 25107				*/
+/*			Alexandria, VA  22313-5107			*/
+/*									*/
+/*			Home phone : (703) 528-2205			*/
+/*									*/
+/************************************************************************/
+
+/************************************************************************/
+/*									*/
+/*	ng_split		Version 1.2		12 August 1988	*/
+/*									*/
+/*	Purpose:	Split a Norton Guides .ng database into		*/
+/*			its original component source files		*/
+/*									*/
+/*	Syntax:		ng_split db_name				*/
+/*	Where:		'db_name' = the name of the Norton Guides	*/
+/*			database (with or without the .ng suffix)	*/
+/*									*/
+/*	Restrictions:	1)  The NG database must be located in your	*/
+/*			    current working directory.			*/
+/*			2)  The database must not be "active" when	*/
+/*			    you run ng_split.  You must either		*/
+/*			    uninstall the Guides or copy the database	*/
+/*			    to a different (work) directory first.	*/
+/*			3)  Due to the intensive character I/O, you	*/
+/*			    should run from your RAMdisk, if possible.	*/
+/*									*/
+/*	Remarks:	ng_split will create several files in your	*/
+/*			current working directory :			*/
+/*									*/
+/*		'db_name':	the menu link control file		*/
+/*		'db_name'.bat:	a batch file containing the commands	*/
+/*			to re-create the database			*/
+/*		'dbxx'_000:	the individual source data files are	*/
+/*			named 'dbxx'_000 through 'dbxx'_999, depending	*/
+/*			on how many files are needed.  Note : 'dbxx'	*/
+/*			is the first four characters of 'db_name'.	*/
+/*		temp:	a temporary file which is deleted on exit	*/
+/*									*/
+/*	For example : if you are splitting the Turbo C database tc.ng,	*/
+/*		you would use the command:	ng_split tc		*/
+/*		which would create files:	tc			*/
+/*						tc.bat			*/
+/*						tc_000 through tc_011	*/
+/*						temp (deleted)		*/
+/*									*/
+/*	Change history:							*/
+/*		V 1.0 - 17 June 88 - original program			*/
+/*		V 1.1 - 18 July 88 - allow databases with names longer	*/
+/*				than six characters or with more than	*/
+/*				26 source files and update docs		*/
+/*		V 1.2 - 12 August 88 - fix bug with !short with no data	*/
+/*				following it and !file.  also added	*/
+/*				status lines and better error messages	*/
+/*									*/
+/************************************************************************/
+
+/************************************************************************/
+/*									*/
+/*	Hints on interpreting error messages :				*/
+/*									*/
+/*	In general, all error messages indicate that NG_SPLIT was	*/
+/*	unable to successfully split your database.  In those cases,	*/
+/*	I would appreciate it if you could send me a copy of the	*/
+/*	database, so I can correct the program.  There are two error	*/
+/*	messages, however, which I can do nothing about :		*/
+/*									*/
+/*	Write error - possibly out of disk space			*/
+/*		- this indicates that either you are out of space	*/
+/*		  OR your directory cannot hold any more files.		*/
+/*									*/
+/*	WARNING - Database error					*/
+/*		- this one comes up if there is an error in the		*/
+/*		  database itself.  It occurs when it is trying to	*/
+/*		  locate a !seealso segment and the database contains	*/
+/*		  an illegal address.  You can verify this by looking	*/
+/*		  at the output file which contains the error and	*/
+/*		  searching for the string :		_???.ngo:	*/
+/*		  Make note of the name of the faulty !seealso clause	*/
+/*		  ( the name in quotes after the colon ) and the name	*/
+/*		  of the !short section which contains it ( backward	*/
+/*		  search for !short: ).  Next, look at the menu link	*/
+/*		  control file ( same name as the database, but without	*/
+/*		  the .ng suffix ) and look for the name of the output	*/
+/*		  file which contained the error.  Make note of the	*/
+/*		  menu heading and the menu item which corresponds to	*/
+/*		  that file.  Now, bring up the database and find the	*/
+/*		  menu heading and menu item.  Then, look up the name	*/
+/*		  of the !short item you located before.  You will	*/
+/*		  notice that it has a !seealso item with the faulty	*/
+/*		  clause name.  If you try to select that !seealso	*/
+/*		  clause, nothing will happen.  I don't know why this	*/
+/*		  happens and have only seen it happen in one database	*/
+/*		  If I get several different databases with this	*/
+/*		  problem, I may be able to find a pattern and find a	*/
+/*		  way to correct the database and the source files.	*/
+/*									*/
+/*		  Of course, the above instructions to verify the	*/
+/*		  database error are a little more complicated if the	*/
+/*		  error is in a !file instead of a !short called from	*/
+/*		  the menu, but its the same principle - its just a	*/
+/*		  little more work to find out which !short the error	*/
+/*		  is in.						*/
+/*									*/
+/************************************************************************/

@@ -1,0 +1,4 @@
+BEGIN {
+    i=1; for (   ;i<10;i++) { printf " %d", i                         }
+    printf "\n"
+}

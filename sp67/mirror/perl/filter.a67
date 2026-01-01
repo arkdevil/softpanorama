@@ -1,0 +1,122 @@
+From: heimann@news.enst.fr (Sonia Heimann)
+Newsgroups: comp.lang.perl
+Subject: Re: Scanning filtered mail and making a summary
+Date: 1 Sep 1994 10:21:23 GMT
+Organization: Telecom Paris (ENST), France
+Message-ID: <3449v4$l36@enst.enst.fr>
+
+Leiman Ian (leiman@dshp02.ntc.nokia.com) wrote:
+: Here is a perl script that solves the problem quoted below.
+: It should be easy to get the idea how to do more complex things.
+: Please email me all improvements, bugs, etc...
+
+OK .. I've got a problem with this script, because filter doesn't use the 
+header Status:R .... So I've changed it a little.
+
+Now, it uses the last access time from the folder (that is, the last time
+you read it) and the date ni the From header, to determine whether it's a
+read mail or not
+
+Here we go : 
+
+
+: #!/usr/bin/perl
+: # mailstat (a perl script)
+: # reports status of mail folders specified on cmd line
+: # example: cd ~/mail; mailstat INBOX*
+: #
+: # by Ian Leiman <ian.leiman@ntc.nokia.com>, Aug 24, 1994
+# and slightly improved by S. Heimann heimann@enst.fr
+: #
+: $/="";				# read paragraphs ie. $_ = msg header
+: $*=1;				# enable multi-line patterns
+
+%monthlist=('Jan',0 ,'Feb',1 ,'Mar',2 ,'Apr',3 ,'May',4 ,'Jun',5 ,'Jul',6 ,'Aug',7 ,'Sep',8 ,'Oct',9 ,'Nov',10 ,'Dec',11 );
+sub old_mail {
+  local ($fTim,$mY,$mM,$mD,$mH,$mMn,$mS)=@_;
+        # the mail time
+        local ($fS,$fMn,$fH,$fD,$fM,$fY,$Twday,$Tyday,$Tisdst) = localtime($fTim);
+        # the folder time
+        $mM=$monthlist{$mM};
+($mY < $fY) && return (1); # mail year < folder year?
+        ($mY > $fY) && return (0); # mail year > folder year?
+        ($mM < $fM) && return (1); # and so on...            
+        ($mM > $fM) && return (0);               
+        ($mD < $fD) && return (1);               
+        ($mD > $fD) && return (0);
+        ($mH < $fH) && return (1);  
+        ($mH > $fH) && return (0);  
+        ($mMn < $fMn) && return (1);
+        ($mMn > $fMn) && return (0);
+        ($mS <= $fS) && return (1);
+        return(0);
+  # OK maybe there's a more elegant way to do this
+}
+
+: while (@ARGV){                  # read all args from cmd line
+:     $folder = shift @ARGV;      # we call them folder names
+:     open (FOLDER, "$folder");   # open all folders
+
+      @file_stat=stat(FOLDER);
+			$mtime=$file_stat[8];
+			# $mtime contains the last access time from the folder
+
+:     $n=0;			# reset msg count
+:     while (<FOLDER>){		# read paragraphs
+: 	@hdr = split ("\n");	# split header lines to @hdr
+: 	$h = shift(@hdr);	# get first line
+: 	if ($h =~ /^From\s+(\S+)/){	# if From then msg header begins
+
+        $From = $1;
+
+: 	    $n++;		# one more msg found
+: 	    while (@hdr){	# make an associative array %hdrs of @hdr
+: 		$h = shift(@hdr);
+: 		$h =~ /(\S+):\s+(.*)/; # header pattern
+: 		$hdrs{$1} =  $2;
+: 	    }
+
+# : 	  if ( $hdrs{'Status'} =~ /R/ ) # Read status?
+# : 	    { $rmsgs{$folder}++; } # inc read count
+				if ($From =~ /^\S+\s+\S+\s+(\S+)\s+(\S+)\s+(\S+):(\S+):(\S+)\s+19(\S+)/){
+				# matches the From XXX Tue Aug 30 14:43:23 1994 header
+					if (&old_mail($mtime,$6,$1,$2,$3,$4,$5)) 
+					{ $rmsgs{$folder}++; } # inc read count
+				}
+
+: 	    if ( $hdrs{'X-Status'} =~ /A/ ) # ANS status of pine?
+: 	    { $amsgs{$folder}++; } # inc ans count
+: 	}
+:     }
+:     $fmsgs{$folder} = $n;
+: }
+
+: printf "Folder summary\n%-20s msgs read unrd ans.\n\n", "folder";
+: foreach $f (keys(%fmsgs)){
+:     printf "%-20s %4d %4d %4d %4d\n", 
+:     $f, $fmsgs{$f}, $rmsgs{$f}, $fmsgs{$f}-$rmsgs{$f}, $amsgs{$f};
+: }
+: print "\n\n";
+: # end of script
+: __END__
+
+Hope this helps
+
+++Nia
+--
+                  (((())))
+                 ((      ))
+                ((  O  ~  ))                ********************************
+ **************ooO********Ooo***************                                *
+*       Sonia Heimann (aka Niania on IRC)  *      I released the words,     *
+*              heimann@enst.fr             *        now the questions       *
+*        Ecole Nationale Superieure        *      shall be yours, to do     *
+*      des Telecommunications de Paris     *       what you will with.      *
+*      http://www.res.enst.fr/~heimann     *                                *
+ **********************Oooo*************************************************
+                 ooo0  (   )                
+                 (   )  ) /
+                  \ (  (_/
+                   \_)
+:w :q :wq :wq! X exit ^X^C ^[x X Q :quitbye CtrlAltDel :savequit ^D :!QUIT ^]q
+

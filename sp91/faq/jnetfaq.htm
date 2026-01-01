@@ -1,0 +1,524 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+
+<HEAD>
+<META NAME="AUTHOR" CONTENT="Jim Driscoll">
+<TITLE>Java Networking FAQ</TITLE>
+</HEAD>
+
+<BODY>
+
+<H1>Java Networking FAQ - DRAFT Copy</H1>
+
+
+<H2>Table of Contents</H2>
+
+<OL>
+<LI>Preamble
+<OL>
+<LI>Legal Stuff
+<LI>Introduction
+<LI>Credits
+<LI>Why a separate FAQ?
+</OL>
+<LI>The Basics
+<OL>
+<LI>Using AppletContext.showDocument() more than once
+<LI>Client-side counters
+</OL>
+<LI>High Level APIs
+<OL>
+<LI>SMTP/FTP/NNTP/HTTP
+<LI>SNMP/POP/HTML
+<LI>SSL
+<LI>CGI-GET (HTTP GET)
+<LI>CGI-HTTP (HTTP POST)
+<LI>Write a file to the server (HTTP PUT)
+<LI>Ping
+</OL>
+<LI>Bugs
+<OL>
+<LI>Sockets don't close (Win95)
+<LI>Windows95 crashes
+<LI>Creating a Socket from an IP address
+<LI>InetAddress.getLocalHost().getHostName returns local part of host name.
+</OL>
+<LI>Security and DNS 
+<OL>
+<LI>General security errors
+</OL>
+<LI>Advanced Topics
+<OL>
+<LI>Content handlers
+<LI>non-http URLs
+<LI>CGI programs in Java
+</OL>
+<LI>The Future
+<OL>
+<LI>Java 1.1 changes
+</OL>
+<LI>Resources
+<OL>
+<LI>Online Resources
+<LI>Bibliography
+</OL>
+</OL>
+<H2>Preamble</H2>
+
+<P>
+FAQ: JAVA-Networking<BR>
+VER: 0.6 (12 DEC 96)<BR>
+LOC: <A HREF="http://www.io.com/~maus/JavaNetworkingFAQ.html">
+         http://www.io.com/~maus/JavaNetworkingFAQ.html</A><BR>
+Written by James Driscoll (<A HREF="mailto:maus@io.com">maus@io.com</A>) Aug 11th 1996.<BR>
+Please <A HREF="mailto:maus@io.com">e-mail me</A> corrections/improvements/suggestions.
+</P>
+
+<H3>Legal Stuff</H3>
+
+<BLOCKQUOTE>
+&quot;Java is a trademark of Sun Microsystems, Inc.,
+and refers to Sun's Java programming language.  
+The Java Networking FAQ is not sponsored by or
+affiliated with Sun Microsystems, Inc.&quot;
+</BLOCKQUOTE>
+
+<P>
+You are free to distribute this FAQ as long as this section is
+distributed &quot;as is&quot; along with it.  This document is Copyright 1996 by James Driscoll
+<P>
+Please direct any questions to me (Jim Driscoll) <A HREF="mailto:maus@io.com">maus@io.com</A>
+
+<H3>Introduction</H3>
+Welcome to the Java Networking FAQ.  This document is designed to be a primary resource for 
+anyone programming TCP/IP applications in the Java language.  It is currently in a state of disarray, 
+as it is a work in progress.  Please feel free to comment on anything you see in this document.  In particular,
+scattered throughout this document are notes which I have written both to myself and the Net at large.  These 
+sections require further research, and I would be greatful to anyone who could answer the questions they posed.
+
+<H3>Credits</H3>
+<P>
+I stand on the shoulders of giants, as all FAQ maintainers do.  I would especially like to thank the following people
+for their help and guidance in the preparation of this document.  
+<P>
+Ronald Tschalaer, Ronald.Tschalaer@psi.ch <BR>
+David Brown, David.A.Brown@Eng.Sun.COM <BR>
+Bob Pasker, rbp@weblogic.com <BR>
+Pavani Diwanji, pavani@Eng.Sun.COM <BR>
+
+
+<P>
+All errors are of course my own.
+
+<H3>Why a separate FAQ?</H3>
+
+<P>
+I created this FAQ because I felt that existing FAQs did not address many network
+related issues.   I hope that this document can be a resource for everyone who would
+like to fully utilize the java.net.* classes.
+
+<H2>The Basics</H2>
+
+<H3>Why can't I open more than one document with AppletContext.showDocument?</H3>
+
+<P>
+More than likely, the problem is that you are using the version of showDocument with one parameter.  
+This version calls a new page on the browser, which unloads the current page.  This leads to two problems: 
+First, the stop() method of your applet is called (no big deal but be aware of it). Second (and more seriously), 
+the AppletContext is no longer valid.  The way to get around this is through the use of HTML frames.  Create 
+a separate frame for the applet.  You can then use the version of showDocument that has two arguments:<BR>
+<CODE>
+getAppletContext().showDocument(new URL("http://www.mysite.com"), "otherframe");<BR>
+</CODE>
+Optionally, you could call up a new web browser window with the following:<BR>
+<CODE>
+getAppletContext().showDocument(new URL("http://www.yahoo.com"), "_blank");<BR>
+</CODE>
+</P>
+
+<H3>Can I create a web counter using only an applet?</H3>
+
+<P>
+No.  If you can't write to your server, you can't save the information on the current count.  Your only option
+is CGI.  Sorry.
+</P>
+
+<H3>Any tips on debugging?</H3>
+<P>I find the <KBD>telnet</KBD> command to be an invaluable aid in debugging server 
+processes.  To use telnet to do this, enter the command <BLOCKQUOTE><KBD>telnet host port</KBD></BLOCKQUOTE>
+Where host is the hostname or IP of the machine the server is running on (localhost or 127.0.0.1 for local), and
+port is the port number that the server is listening on.  For example, to open up a whole new world of email from
+Santa Claus, try telnetting to your mailhost at port 25 (the SMTP port). 
+</P>
+
+<H3>Can I use an http URL to write to a file on the server from an applet?</H3>
+<P>No.  You will have to implement some sort of control on the server side to allow that, using CGI.
+</P>
+
+<H3>Can Java sockets talk to C/C++/Perl/Foo sockets?</H3>
+<P>Yes.  Java sockets use the IP protocols TCP and UDP.  These are standard internet sockets, and will
+work with any sockets that also use TCP and UDP.  You've just discovered why people get so excited
+talking about "open systems".  I recommend that you pick up Stevens' book (in the bibliography) for 
+an in depth look at how they work.  
+</P>
+
+<H3>I get a SocketException of "Permission Denied" when I try to open up a ServerSocket.  What's wrong?</H3>
+<P>More than likely, you are running under Unix, and trying to open a server socket with a port number
+&lt;1024.  Try a port number &gt;1024, or run your server as root.</P>
+
+<H2>High level API's</H2>
+
+<H3>I want to write SMTP/FTP/NNTP/HTTP or Mime encoding in Java,
+any tips? </H3>
+
+<P>
+The easiest answer is &quot;it's been done&quot;.
+
+<P>
+Implementations of these classes are shipped with Sun's Java class library
+(check under sun.net), but they are non-standard API's.
+They do work, and work well - but Javasoft reserves the right
+to change them at any time, without warning. They are also undocumented...
+You can, however, find javadoc built documentation at 
+<A HREF="http://www.cdt.luth.se/java/doc/sun/">http://www.cdt.luth.se/java/doc/sun/</A>.
+Finally, keep in mind that your end user does not necessarily
+have access to them, as they are only shipped to Java licensees.  Apparently,  
+Microsoft Internet Explorer 3.0 contains these libraries, while Netscape 3.0 does not.
+<P>
+Additionally, many people have also had this idea before you:  check Gamelan or your favorite search
+engine for existing code before you start writing.  SMTP, at least, has been beaten to death.
+
+<H3>How do I write SNMP/POP/HTML in Java?</H3>
+
+<P>
+Implementations of these already exist. Check gamelan or
+your favorite search site to find them.
+
+<H3>Is there a Java class for SSL?</H3>
+
+<P>
+There is a beta SSL class available from <A HREF="http://www.phaos.com/">http://www.phaos.com/</A> 
+Netscape says they'll include an SSL class in Netscape 4.0.  JavaSoft is working on one in conjunction with
+the Java Server project.
+
+<H3>How do I do a CGI-GET (HTTP GET) in Java?</H3>
+
+<P>
+This one is easy. Just build a URL with the query string on the
+end in the usual way.  i.e. <CODE>http://www.site.com/perl-script.pl?val1=Put+stuff+here</CODE>.  
+java.net.URLEncode.encode() is a static method that will properly encode a string for you, as well.  
+Optionally, you could perform an java.applet.AppletContext.showDocument(), which also will submit the 
+information, using the browser to display the output.
+<P>
+[Note: Write sample code for here]
+
+<H3>How do I do a CGI-POST (HTTP POST) request in Java? Or, I wrote a CGI-POST using 
+URLConnection, why wont it work in Netscape?</H3>
+
+<P>
+[Note: This is a fairly complex question, a complete rewrite of this section is in the works]
+<P>
+Performing a POST operation in Java using a URLConnection is a little more complicated 
+than most other tasks.  First, Netscape disabled posting via URLConnection in the beta 
+versions of 3.0.  It has been reenabled in 3.0.  The description below should work for Netscape 3.0, 
+Internet Explorer 3.0, and applications.  [Note:  tests still need to be done by me to ensure this is so.]
+<P>
+When connecting with URLConnection to a URL formed with the <KBD>http:</KBD> protocol, the 
+HttpURLConnection class is called.  This class determines whether the connection is to be made 
+with a GET or a POST by watching the order in which output and input streams are created.  The following 
+comment is from the source code, and I beleive is quite clear:<BR>
+<PRE>
+<CODE>
+    /*
+     * Allowable input/output sequences:
+     * [interpreted as POST] 
+     * - get output, [write output,] get input, [read input] 
+     * - get output, [write output] 
+     * [interpreted as GET] 
+     * - get input, [read input] 
+     * Disallowed: 
+     * - get input, [read input,] get output, [write output]
+     */
+</CODE>
+</PRE>
+<P>
+Additionally, in Navigator, appletviewer/Hotjava and all other standalone java-apps as of Java 1.1, 
+you must also setDoOutput(true) on the URLConnection object before getting the output stream.
+<P>
+[Note: add working code snip here.]
+<P>
+[Note:  add discussion of URLConnection and Proxies.]
+<P>
+[Note:  add section on writing files to the server, and HTTP PUT]
+
+<H3>Why can't I write ping in Java?</H3>
+
+<P>
+Ping requires ICMP packets. These packets can only be created
+via a socket of the SOCK_RAW type. Currently, Java only allows
+SOCK_STREAM (TCP) and SOCK_DGRAM (UDP) sockets. It seems unlikely that this will be added
+very soon, since many Unix versions only allow SOCK_RAW sockets to be created by root, and winsock
+does not address ICMP packets (win32 includes an unsupported and undocumented ICMP.DLL).
+<P>
+For a full discussion of socket types, see Stevens' book (in the bibliography).  
+
+
+<H2>BUGS</H2>
+
+Javasoft's bug page is at <A HREF="http://java.sun.com/products/JDK/1.0.2/KnownBugs.html#Net">
+http://java.sun.com/products/JDK/1.0.2/KnownBugs.html#Net</A>
+
+<H3>It looks like my sockets never close, what's wrong?</H3>
+
+<P>
+If you are running Windows 95, this is a known bug that was fixed
+in Java version 1.02. Pick up the latest version of the software,
+it should fix it for you.
+
+<H3>I did that, but I still get crashes when I use too many sockets.
+What now?</H3>
+
+<P>
+This is a bug in Windows 95. Resources are not properly reclaimed
+when a socket is closed. See the microsoft web site for a patch.
+(http://www.microsoft.com/)
+
+<H3>Can't I use an IP address to create a socket?</H3>
+
+<P>
+Only on some machines. This is one of those annoying platform differences 
+that can apparently be traced back to the basic networking libraries on each machine.
+There will be a patch in the 1.1 release for this behavior.  See 
+<A HREF="http://www.cdt.luth.se/~peppar/java/InetAddress/">
+http://www.cdt.luth.se/~peppar/java/InetAddress/</A> for one solution to this.
+
+<P>
+The example code we are discussing is:<BR>
+<CODE>Socket sock = new Socket(&quot;155.152.5.1&quot;, 23);</CODE><BR>
+<P>
+On Solaris and Windows NT, the IP address does not work for IP addresses that do not have
+associated hostnames.  
+On Linux and Windows 95, the IP address is OK.  [Note:  Here I am merely repeating things 
+that I've read on USENET.  Independent confirmation of this would be appreciated.]
+
+<P>
+This is apparently related with problems in the InetAddress class.  When InetAddress is 
+instantiated with an IP address, a reverse DNS lookup is done.  If the IP address is not 
+associated with a valid hostname, the instantiation will fail.  This is part of anti-spoofing, 
+and will be relaxed in Java 1.1.  In the new version, the reverse lookup will not occur 
+until the hostname is asked for.  In Java 1.1, <BR>
+<CODE>InetAddress in = InetAddress.getByName(&quot;155.152.5.1&quot;);</CODE><BR>
+should always work.
+<P>
+
+<H3>InetAddress.getLocalHost().getHostName() returns just the local part of the host name.  
+I need the domain name too, what should I do?</H3>
+
+<P>
+Returning the fully qualified hostname is not guarenteed.  Currently, whether this series of calls does or
+not is platform dependant.  On Solaris, it will return only the unqualified host name.  On Windows, it <I>may</I> 
+return the fully qualified name, or it may not.  It will depend on the version of Winsock in use.  If you are 
+using the Microsoft Winsock, you will get the fully qualified name.  The 1.1 FCS JDK should have a fix for
+the Solaris part of this problem, anyway.
+
+<H2>Security</H2>
+
+<H3>Why won't my networked applet work, I get a security error?
+</H3>
+
+<P>
+In both Netscape and Microsoft Internet Explorer, the security
+manager is both very restrictive and not subject to configuration.
+Applets are only allowed to create sockets back to the same server
+that they came from. While this is probably overkill for the home
+user, there is a very good reason for this policy: Firewalls.
+In the corporate world, most Internet security is established
+through the use of firewalls, which restrict incoming connection
+requests. A Java applet that could connect anywhere could establish
+a link that allowed hacker.org to telnet in to payroll.largecomp.com.
+Since even HTTP-GET connections can pass along sensitive information
+(<KBD>http://www.hacker.org/dummy.cgi?Bob+has+no+password</KBD>),
+all connections have to be restricted. The security manager will
+be configurable in Netscape 4.0, due out at the end of the year (maybe),
+and this may be one of the configurable options.  For a good discussion of applet 
+security issues, see <A HREF="http://www.innovation.ch/java/HTTPClient/security.html">
+http://www.innovation.ch/java/HTTPClient/security.html</A>
+
+
+<H2>Advanced Topics</H2>
+
+<H3>What are content handlers and why should I care? </H3>
+
+<P>
+Apparently, there are no content handlers defined in the Java
+spec. [Note: I need to check on this. I found no reference in
+the API reference.] The JDK from sun provides Content handlers
+as Java's way to add functionality to the URL class. By adding
+content handlers, the URL class can be made to return various MIME 
+types as objects with the getContent method.  With the proper content 
+handlers in place, downloading GIFs, JPEGs, MPEGs, and Postscript 
+documents, to name a few, is just a single method call.
+
+<H3>What are protocol handlers?</H3>
+
+<P>
+Protocol handler are another way to extend the URL class.  Again, there
+are no standard protocol handlers defined in the Java spec.  [Note:  Again, I 
+find that I have to get Gosling's book to check this.]  In a URL, the protocol is the 
+first part of the URL string, the part that preceeds the colon.  With the proper
+protocol handlers in place, URLs can handle ftp, mail, gopher,
+and even finger. Check out <A HREF="http://java.sun.com/people/brown/">
+http://java.sun.com/people/brown/</A> for an implementation of a finger 
+protocol handler.
+
+<H3>Can I use non-<KBD>http:</KBD> URLs?</H3>
+
+<P>
+Netscape apparently supports the <KBD>ftp:</KBD>, <KBD>mailto:</KBD>, 
+<KBD>gopher:</KBD>, and even the <KBD>telnet:</KBD>
+content handlers (I couldn't find anywhere this was documented).
+As near as I can tell, noone else does at this time. As a result,
+you may wish to use this sparingly. It is very easy to test at runtime for content 
+handler support, however.  Simply create a URL using the protocol handler.  
+<P>
+<PRE>
+        URL testurl;
+        boolean goodmailto;
+        try {
+            testurl = new URL("mailto:maus@io.com");
+            goodmailto = true;
+        }
+        catch (MalformedURLException e) {
+            goodmailto = false;
+        }
+</PRE>
+<P>
+In this example, goodmailto will be true if the protocol handler exists, and false if it does not.  
+[Note: Include link to sample applet at my site which does this.]
+<P>
+[Note:  Does anyone know where the documentation is for using these non-http content handlers?]
+
+<H3>Should I write my CGI programs in Java?</H3>
+
+<P>
+The best answer to that is - &quot;It depends&quot;. If you intend
+to write client-side CGI handling in Java, the mechanisms for
+it are there and easy to use (see CGI-POST and CGI-GET questions
+above). If you would like to write CGI server-side programs, be
+aware that Java has no defined way to grab the enviroment variables
+that you will need from the HTTP server.  JavaSoft has introduced the Servlet API as 
+a standard way to do this, but adoption of this standard by the major server players is still
+somewhat distant.
+<P>
+If you do not have access to a server with a Java API for CGI, you will have to write a 
+shell wrapper for your Java programs, since Java has no way of obtaining 
+enviroment variables.  Examples exist on the web, if you need guidance.
+
+<H2>The future of Java Network Programming</H2>
+
+<H3>Are there going to be any changes to socket programming in Java version 1.1?</H3>
+
+<P>Glad you asked!  Yes, there are lots of exciting things happening in Java 1.1.  Please see 
+<A HREF="http://www.javasoft.com/products/JDK/1.1/designspecs/net/index.html">
+http://www.javasoft.com/products/JDK/1.1/designspecs/net/index.html</A> 
+for proposed changes, due late this year.  
+
+<P> 
+General information on changes to the Java Language can be found at 
+<A HREF="http://www.javasoft.com/products/JDK/1.1/designspecs/index.html">
+http://www.javasoft.com/products/JDK/1.1/designspecs/index.html</A>.
+
+<H2>Resources</H2>
+
+Here is a list of resources for Java Network Programming.
+
+<H3>Online Resources</H3>
+
+<UL>
+<LI>Usenet Newsgroup: comp.lang.java.api (for java.net.* and sun.net.* questions)
+<LI>Usenet Newsgroup: comp.lang.java.programmer  (for more general how-to questions)
+<LI>Sun Java Buglist - Networking Section <A HREF="http://java.sun.com/products/JDK/1.0.2/KnownBugs.html#Net">
+http://java.sun.com/products/JDK/1.0.2/KnownBugs.html#Net</A>
+<LI>java-networking-list (see <A HREF="http://www.cdt.luth.se/~peppar/java/java-networking-list/" 
+NAME="java-networking-list">http://www.cdt.luth.se/~peppar/java/java-networking-list/</A> for 
+subscription information
+<LI>Javasoft's Java Tutorial <A HREF="http://www.javasoft.com/doc/tutorial.html" 
+NAME="tutorial">http://www.javasoft.com/doc/tutorial.html</A> contains an excellent discussion 
+of networking issues that are specific to Java.
+<LI>General information on changes to the Java Language can be found at 
+<A HREF="http://www.javasoft.com/products/JDK/1.1/designspecs/index.html">
+http://www.javasoft.com/products/JDK/1.1/designspecs/index.html</A>
+<LI>Specific information on the changes in Java 1.1 to the java.net.* classes can be found at 
+<A HREF="http://www.javasoft.com/products/JDK/1.1/designspecs/net/index.html">
+http://www.javasoft.com/products/JDK/1.1/designspecs/net/index.html</A> 
+<LI>Javasoft also has an FAQ on Applet Security (<A HREF="http://java.sun.com/sfaq" 
+NAME="AppSecFAQ">http://java.sun.com/sfaq)</A>
+<LI>San Diego State University has a set of coursenotes online for CS595 - Client/Server 
+Programming and Java Networking - <A HREF="http://saturn.sdsu.edu/~whitney/courses/spring96/cs596/index.html">
+http://saturn.sdsu.edu/~whitney/courses/spring96/cs596/index.html</A>
+<LI>Dave Brown, a Javasoft employee, has a discussion on his page of creating a content handler 
+<A HREF="http://www.javasoft.com/people/brown/">(http://www.javasoft.com/people/brown/)</A>
+<LI>Pavani Diwanji, another Javasoft employee, has a some examples of Datagram programming and Multicast 
+programming on her page at <A HREF="http://java.sun.com/java.sun.com/people/pavani/net.html">
+http://java.sun.com/java.sun.com/people/pavani/net.html</A>
+<LI>Gamelan, of course - <A HREF="http://www.gamelan.com/">http://www.gamelan.com/</A>
+<LI>Server side CGI's with Java - <A HREF="http://www.apl.jhu.edu/cgi-instruct/hall/CGIGet ">
+http://www.apl.jhu.edu/cgi-instruct/hall/CGIGet</A> and 
+<A HREF="http://www.apl.jhu.edu/cgi-instruct/hall/CGIPost">
+http://www.apl.jhu.edu/cgi-instruct/hall/CGIPost</A>
+<LI>sun.* docmentation, generated by javadoc, can be seen at 
+<A HREF="http://www.cdt.luth.se/java/doc/sun/">http://www.cdt.luth.se/java/doc/sun/</A>.  Use this to look at
+the different sun.net.* classes.
+<LI>Java Network Security Explanation at 
+<A HREF="http:/www.innovation.ch/java/HTTPClient/security.html">
+http:/www.innovation.ch/java/HTTPClient/security.html</A>
+<LI>Proposed extensions of the Java Socket classes can be found at 
+<A HREF="http://java.sun.com/people/brown/socketOpt.html">
+http://java.sun.com/people/brown/socketOpt.html</A>
+<LI>An implementation of SSL, free for non-comercial use, is at 
+<A HREF="http://www.phaos.com/">http://www.phaos.com/</A>
+<LI>An ORB implementation for Java called HORB is at 
+<A HREF="http://ring.etl.go.jp/openlab/horb/WELCOME.HTM">http://ring.etl.go.jp/openlab/horb/WELCOME.HTM</A>
+</UL>
+
+<H3>Bibliography</H3>
+
+These are a few books which contain good discussions of 
+Java Network Programming.  ISBN's were obtained from 
+<A HREF="http://www.amazon.com">www.amazon.com</A> (errors are my own).
+<P>
+Unix Network Programming by W. Richard Stevens<BR>
+Published by PRENTICE HALL<BR>
+Publication date: 1990
+ISBN: 0139498761<BR>
+Note:  While this book does not cover Java network programming, it is considered the 
+definitive reference for BSD socket programming in general.
+<P>
+Just Java by Peter Van Der Linden<BR>
+Published by PRENTICE HALL COMPUTER BOOKS<BR>
+ISBN: 013565839X<BR>
+<P>
+Core Java by Gary Cornell , Cay S. Horstmann<BR>
+Published by PRENTICE HALL COMPUTER BOOKS<BR>
+Publication date: April 1, 1996<BR>
+ISBN: 0135657555<BR>
+<P>
+The Java Application Programming Interface (Java Series) by James
+Gosling , Frank Yellin<BR>
+Volume 1<BR>
+Published by ADDISON-WESLEY PUB CO<BR>
+ISBN: 0201634538<BR>
+<P>
+Java in a Nutshell : A Desktop Quick Reference for Java Programmers
+(Nutshell Handbook) by David Flanagan<BR>
+Published by O'REILLY &amp; ASSOC<BR>
+ISBN: 1565921836<BR>
+<P>
+Java Networking Api Superbible : The Comprehensive Reference for
+the Java Programming Language<BR>
+by Nataraj Nagaratnam , Brian Maso , Arvind Srinivasan<BR>
+Published by WAITE GROUP PR<BR>
+ISBN: 157169031X <BR>
+</BODY>
+
+</HTML>

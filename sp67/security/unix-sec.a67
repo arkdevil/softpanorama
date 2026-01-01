@@ -1,0 +1,500 @@
+Journal:    UNIX Review  April 1993 v11 n4 p42(6)
+* Full Text COPYRIGHT Miller Freeman Inc. 1993.
+-------------------------------------------------------------------------
+Title:     Easy UNIX security. (techniques, public-domain tools for
+           enhancing security on UNIX operating system platforms)
+           (Tutorial)
+Author:    Dichter, Carl
+
+
+Abstract:  Tools and techniques for enhancing UNIX operating system
+           security are discussed.  Most UNIX systems have a file
+           containing encrypted versions of user passwords but can be
+           'cracked' by using a dictionary and rules to guess passwords.
+           Shadow passwords are an effective defense; the encrypted
+           passwords are kept in a different file which can be read only
+           by the system manager.  A public-domain replacement for the
+           standard UNIX password program is available, and users should
+           be prevented from choosing bad passwords.  Machines connected
+           to the Internet face such dangers as 'worm' and 'rabbit'
+           programs spread by electronic mail.  Some sites disable the
+           'finger' program, which locates users at other sites, to
+           prevent infection, but a more effective and less intrusive
+           measure is a 'firewall' that acts as a secure gateway to the
+           outside world.  Anonymous FTP (file transfer protocol) must be
+           properly configured so that crackers cannot get at
+           confidential system files.  Managers should also ensure that
+           they do not have versions of system programs containing
+           well-known bugs crackers can exploit.
+-------------------------------------------------------------------------
+Full Text:
+
+Security should be important to everyone.  Many articles, including some
+in UNIX REVIEW (February 1988 and November 1989), illustrate The
+potential cost of a security breach may not mited to the intellectual
+property of a company's data.  Here at Motorola ASIC, for example, our
+customers have confidential information that we are required to protect.
+
+This article discusses inexpensive, reasonable, effective security
+measures that do not impede productivity.  Since security is important,
+and it is now easy to improve, why wait any longer? On sites with any
+sensitive data, all accounts need to be secure-- even those with trivial
+information.  Any account can give a potential "cracker" a foothold to
+get further into your system, your network, the rest of the world.
+
+To emphasize this point, I asked permission to audit a site of another
+Fortune 500 company.  I was given a normal user account.  It took me less
+than two hours to download, compile, and run Crack, a public-domain tool
+to guess passwords.  More than half the 200 users had easy passwords that
+Crack could guess.  Several of these users were managers who had
+personnel information in their directories.  Almost everyone had
+sensitive information, such as schedules, specifications, or code.
+
+Password security.  In most UNIX systems, the /etc/passwd file contains
+an encrypted version of the user's password.  This encrypted version
+cannot be decrypted to form the original password.  The only way to know
+whether a given string is the correct password is to encrypt the string
+and compare it with the user's encrypted password in /etc/passwd,
+/etc/shadow, or yppasswd (YP/NIS).
+
+For added security, the UNIX password system adds some extra information
+(called the "salt") to the password.  The UNIX crypt(3) function takes an
+entered password and the salt and creates an encrypted version
+(containing the original salt as the first two characters).  Also, to
+prevent someone from trying out millions of passwords, most UNIX
+implementations of crypt have a built-in delay loop.
+
+crypt's encryption scheme purposely differs from the standard Data
+Encryption Scheme (DES) so that it is harder to implement in hardware.
+This feature is intended to keep crackers from making a "computer-age
+siege engine."
+
+Crack works by using a dictionary and rules to make password guesses.  It
+tries out these guesses with its own (or UFC) crypt using all salts found
+in the password file.  Crack's built-in crypt, and the optional UFC
+crypt, are optimized for speed, and they don't have any intentional
+delays.
+
+One effective defense against this sort of attack is shadow passwords.
+In a system with shadow passwords, the encrypted passwords are not kept
+in/etc/passwd.  They are kept in /etc/shadow, which should be readable
+only by root.
+
+Although shadow passwords are standard on many new systems (including
+SVR4), your site may not be so lucky.  Fortunately, at least one
+implementation is available--appropriately called "Shadow."
+Unfortunately, it does not yet support NIS/YP.  However, some versions of
+NIS (NIS+) support password shadowing.
+
+As Larry Wall and Randal Swartz point out in Programming Peri,(1)
+cracking the password file to find bad passwords is not enough--it is
+better to prevent people from choosing bad passwords.  Programming Peri
+provides a replacement for the password program.  (See perl_passwd in the
+Tool Sources section at the end of this article.)
+
+An improved version of the Perl passwd is also available.  This improved
+version handles YP/NIS (yppasswd), and it uses the dictionaries and rules
+of Crack to determine password quality (see perl_passwd2 in the Tool
+Sources section).
+
+Some strict password programs, such as the first Peri passwd mentioned,
+replace the normal password program and operate as a wrapper around
+passwd and yppasswd.
+
+Other strict passwd programs are available (see passwd+ and npasswd in
+the Tool Sources section).  Some of these programs also support password
+aging and prevent reuse of old passwords.
+
+Better passwords do not have to be especially long.  My six-character
+password is not guessed by the Crack program, even when the Crack
+dictionaries are loaded with information about me.  However, some of the
+strict password programs do not allow short passwords, even if they are
+cryptic.
+
+Network security.  If your machine, or network, is connected directly to
+the Internet or a dialin modem, you face many dangers: mail, uucp, and
+rcp can be used to spread "worms," "rabbits," or other nasties
+("malware").  For example, a bug in the earlier BSD fingerd (finger
+daemon) was the point of infection for the famous "Internet worm." Even a
+bugfree finger helps crackers get information to crack an account or
+confidential information about a project schedule and organization (from
+.plan and .project).
+
+To protect these Internet-connected systems, administrators at some sites
+disable the finger daemon.  But this measure has costs, too..You lose the
+basic use of finger--to help users at different sites find out how to
+contact each other.  You also lose finger as a user's security tool.
+When run without arguments, finger provides information about others who
+are logged in, what their full name is, where they are logged in from,
+and so on.  Also, users can run finger on a dormant account to see
+whether it shows an overly recent last login.
+
+A more effective measure, and one that impinges less on productivity, is
+a "firewall." A firewall is a system that acts as a secure gateway to the
+outside world.  If all Internet access is done through a firewall,
+outsiders cannot finger your employees or telnet into your network, but
+inside employees do not lose this ability.  For more information, see
+Bill Cheswick's "The Design of a Secure Internet Gateway,"(2) David
+Curry's UNIX System Security: A Guide for Users and System
+Administrators,(3) and Simson Garfinkel and Gene Spafford's Practical
+UNIX Security.(4)
+
+If your system has a modem, disable incoming use if possible (by
+disabling auto-answer and making sure the port is not set up with a
+getty).  If the system must be used for incoming connections, consider
+adding a security box, such as SecureID from Security Dynamics
+(Cambridge, MA), to better authenticate users.  Authentication requires
+users to prove that they are who they claim to be.  The Security Dynamics
+system provides a credit-card-sized device for each remote user.  This
+card displays an additional password, which, when used with a personal
+identification number (PIN), grants the employee access through the box.
+After access is granted, the user goes through the normal routine: port
+selection if you have a multiplexer, and then the UNIX login/password
+mechanism.
+
+Other security dangers are present if you allow anonymous FTP, Trivial
+FTP (tftp), rlogin, and other network services.  Unless anonymous FTP is
+properly configured, a cracker can easily get/etc/passwd or other files
+that can provide information to break in.  Although tftp is intended to
+be a safer form of FTP used for booting diskless nodes, some early
+versions can be used to get/etc/passwd or other files.
+
+Proper configuration is also the key to preventing users from accessing
+your system via remote shell (rsh, riogin) or remote copy (rcp).  For
+example, the /etc/hosts.equiv file must contain only trusted hosts and
+must not be writeable by any user except root.  Additional protection can
+be done on a per-user basis with a $HOME/.rhosts file.
+
+Authentication is important in many types of communication, as we'll
+explore later.  Authentication is also an issue with rlogin, rsh, and
+rcp.  Kerberos is one way to address the problem, and it is included in
+some packages, such as OSF's Distributed Computing Environment (DCE).  A
+public-domain Kerberos (see "Tool Sources" section) is available, and you
+can get commercial support from Cygnus Support (Mountain View, CA).
+Cygnus Support has fixes and workarounds for some of these problems and
+limitations.  For more information on Kerberos, see "Authentication of
+Unknown Entities on an Unsecure Network of Untrusted Workstations.''(5)
+Don't be intimidated by the long title--the paper is only a page long.
+
+In Practical UNIX Security, Spafiord and Garfinkel point out that
+Kerberos is only for single-user systems; it has serious security
+problems otherwise.  Spafiord has also told me that it may not work in
+some heterogeneous environments.  (Also see "Who Are You?" UNIX REVIEW,
+November 1992.)
+
+Another protection from misuse of services based on TCP/IP (such as tftp,
+exec, ftp, rsh, telnet, riogin, finger) is provided in the TCP wrappers
+written by Wietse Venema.  Much more information on network security is
+contained in Practical UNIX Security(1) and Managing NFS and NISf ther
+security tools.  When it comes to security, UNIX is not all that bad,
+although it does have terrible defaults.  The default user's umask may be
+set to create files with wide-open permissions.  System directories and
+files may have wrong permissions, all hosts may be trusted, and all ports
+may have a getty (login prompt).  These bad defaults and inadvertently
+opened "holes" (by users and administrators) can make security on UNIX
+seem a herculean task.
+
+Many tools, both commercial and in the public domain, make security more
+convenient.  In this article, we're concentrating on the freeware.
+Despite the extensiveness of these packages and their low cost, they are
+surprisingly easy to install and use.
+
+Another resource is the Computer Emergency Response Team (CERT) set up by
+DARPA.  CERT has two especially useful functions: It responds to and
+distributes reports of security problems, and it helps collect and
+distribute security tools.  CERT can be reached at (412) 268-7090 or cert
+[@]cert.sei.  cmu.edu.
+
+In addition to the weaknesses of the UNIX password system, the bugs in
+some network software, and sendmail (which has been fixed on most
+systems), other types of operating-system bugs can be exploited by
+crackers.  A tool called crashme (by George Carrette) finds ways to crash
+an operating system by executing random strings of data as if they were
+programs.  This causes exceptions and traps that should be properly
+handled by the operating system-- without crashing or corrupting the
+operating system environment.  When the operating system does not
+properly handle these exceptions, a bug exists.
+
+At the least, crackers could exploit these bugs to crash your system.
+However, they can do much worse.  For example, Gordon Irlam (then of
+Adelaide University) discovered a way to get the system to grant him
+super-user status.  This method was based on his knowledge of
+operating-system bugs he had found with crashme and other methods.  Since
+Irlam is not a cracker, he reported this problem to CERq and the
+operating system vendor.
+
+Computer Oracle and Password System (COPS) is a collection of more than a
+dozen security tools that together handle many areas of UNIX security.
+The5 were developed at Purdue University, under the direction of Gene
+Spafiord.  The tools are implement.  ed in two versions: one in C, the
+other in Peri.
+
+A Readme file for COPS states that COPS performs the following checks:
+
+* File, directory, and device permissions or modes.
+
+* Poor passwords.
+
+* Content, format, and security of password and group files.
+
+* The programs and files run in/etc/rc* and cron(tab) files.
+
+* Existence of root SUID files, their writeability, and whether or not
+they are shell scripts.
+
+* A CRC check against important binaries or key files to report any
+changes therein.
+
+* Writeability of users' home directories and start-up files (.profile,
+.cshrc).
+
+* Anonymous ftp setup.
+
+* Unrestricted tftp, decode alias in sendmail, SUID uudecode problems,
+hidden shells inside inetd - * conf, or rexd running in inetd.conf.
+
+* Miscellaneous root checks, such as current directory in the search
+path, a "+" in/etc/host.equiv, unrestricted NFS mounts, and ensuring root
+is in /etc/ftpusers.
+
+* Dates of CERT advisories va.  key files.  This feature checks the dates
+that various bugs and security holes were reported by CERT against the
+actual date on the file in question.  A positive result doesn't always
+mean a bug was found, but it is a good indication that you should look at
+the advisory and file for further clues.  A negative result, obviously,
+does not mean that your software has no holes, merely that it has been
+modified in some way (perhaps only touched) since the advisory was sent
+out.
+
+To prevent security problems, make sure you are using a recent version of
+TFTP and that both FTP and TFTP are properly configured.(1)
+
+COPS uses the Kuang expert system, which takes a set of rules and tries
+to determine whether your system can be compromised (for a more complete
+list of all of the checks, look at the file release.notes or cops.report;
+for more on Kuang, have a look at kuang.man).
+
+According to its authors, Gene Kim and Gene Spafiord, Tripwire is a
+file-integrity checker, a utility that compares a designated set of files
+against information stored in a previously generated database.  Any
+differences are flagged and logged, and a user can be notified through
+mail.  When run against system files on a regular basis, any changes in
+critical system files will be spotted, and appropriate damage control
+measures can be taken immediately.  Tripwire has been potted to most UNIX
+variants (including BSD, System V, OSF/i, and Mach).
+
+Department of Defense organizations can get Network Security Monitor
+(NSM), a suite of routines that monitor and analyze network traffic, to
+determine whether an intruder is present.  NSM captures Ethernet traffic,
+identifies new connections between host machines attached to the network,
+matches 1 strings in the connection data, and permits either live or
+off-line monitoring of intruders.
+
+Secure mail.  Security also is important with electronic mail.  Two major
+issues must be addressed to ensure secure electronic mail:
+
+* The message should be seen only by its intended recipient
+(authentication of recipient and privacy of message).
+
+* The senders should be who they claim to be.  When you consider the
+important applications of e-mail, it is surprising that the second item
+is so often overlooked.  Many mail packages are appearing on the market
+and in the public domain to meet these needs.  A popular technique is
+public-key encryption.
+
+To help implement Internet Privacy-Enhanced Mail (PEM), RSA Data Security
+provides a free cryptographic toolkit called RSAREF.  This toolkit
+supports RSA encryption and key generation as defined by RSA
+Laboratories' Public-Key Cryptography Standards (PKCS), MD2 and MD5
+message digests, and Data Encryption Standard (DES) in cipher-block
+chaining mode.  One implementation based on this toolkit, RIPEM from Mark
+Riotdan, is also available for free.  This implementation operates with
+your mailer (for example, sendmail).
+
+Other security issues.  These security programs do not automatically give
+you a secure system.
+
+Three other things are needed: proper system administration, physical
+security, and user participation.  John Kinyon, Motorola's Manager of
+Network Security, provides these tips:
+
+* Know where your programs are coming from and what they are supposed to
+do.  This tracking includes shell scripts, PostScript files, spreadsheet
+macros, and other bits of executables for various applications, as well
+as binaries and operating-system updates.
+
+* Make backups before installing software.
+
+* Install the software in an execute-only mode.
+
+* Put the executable files in a file system that is mounted as read-only.
+
+* Install a tool that looks for suspicious changes in critical files.
+Public domain and commercial programs exist for this purpose, such as
+Tripwire.
+
+* Install change-password programs that ensure thai obvious passwords are
+not used.
+
+Dan O'Neill of Cadence Design Systems suggests:
+
+* Limit the number of people with root access: You can use Tom
+Christiansen's op program to distribute limited root access on specific
+machines.
+
+* Many administrators find it valuable to control administrative files
+(/etc/passwd,/etc/hosts, and others) under a configuration management
+system (RCS or SCCS).
+
+* Auto-logout helps when people forget to log off.
+
+A screen lock can be valuable because you can leave your programs running
+(even in foreground).  However, some X-window versions can also be a
+security hole: If your X-window server is remote and it dies (power
+outage, reset), your workstation may be left as an unlocked, logged-in,
+console.
+
+When a program or script needs to run as another user (or group), there
+is a right way and a wrong way to allow this.  It is wrong to allow the
+system to grant user and group ID based on the suid/sgid bits in the file
+permissions.  On most systems, this mechanism can be spoofed.  It should
+be disabled in the kernel, if possible, or disabled by an option to
+mount(l) when file systems are mounted.  The right way is to have the
+script or program call a set user or group ID mechanism.  In C, you can
+use system calls (setuid, setgid).  For Peri, a program called suidscript
+is provided to make a C wrapper for Peri programs that sets the user or
+group ID.  Some newer shells provide setuid/setgid-type calls.
+
+Careful administration can find security holes before they become
+breaches.  At one company, a system administrator found that a computer
+vendor had set the FI function key to the root password--on all 12
+terminals.
+
+Extra care can also find the most unusual program behavior.  Jerry Whelan
+of Bradley University tracked an unauthorized network incursion down to
+an unusual source: At another company, a person evaluating some
+commercial software did not realize that the software went into a "global
+network autodiscovery mode."
+
+Your other job: Security.  In addition to good system administration,
+good security requires proper account administration by users.  Users
+need to be trained about the dangers of poor security and their own
+responsibility for good security.
+
+Consider users who leave passwords next to the terminal: Until your users
+understand the importance of good security, and their responsibility for
+it, your system cannot be secure.  Users must be informed of the dangers
+of bad security and the techniques of good security.  For example, among
+the techniques used by sophisticated crackers, "social engineering" has
+evolved: the art of fooling users into giving them passwords or other
+information.  A classic scam (I did! it in 1971) was a fake login screen:
+Users type in their login and password, the program records it, and then
+logs them in.  Users don't know it, but their passwords are no longer a
+secret.
+
+With proper user training, an explicit policy on security, and regular
+use of the utilities described here, significant improvements in security
+can be attained.  .
+
+Carl Dichter is a staff engineer/scientist at Motorola's ASIC Division.
+He is coauthoring Software Engineering with Peri, due soon from Prentice
+Hall.  He can be reached at dichter[@] ureview.com
+
+References
+
+1.  Wall, Larry, and Randal Swartz.  Programming Peri.  Sebastopol, CA:
+O'Reilly & Associates, 1992.
+
+2.  Cheswick, Bill.  "The Design of a Secure Internet Gateway."
+research.att.com:/dist/Secure-Internet-Gateway.  ps.
+
+3.  Curry, David (with Brian W. Kernighan, consulting editor).  UNIX
+System Security: A Guide for Users and System Administrators.  Reading,
+MA: Addison-Wesley, 1992.
+
+4.  Garfinkel, Simson, and Gene Spafiord.  Practical UNIX Security.
+Sebastopol, CA: O'Reilly & Associates, 1991.
+
+5.  Neuman, Clifford, and Jennifer G. Steiner.  "Authentication of
+Unknown Entities on an Unsecure Network of Untrusted Workstations,"
+USENIX UNIX Security Workshop Proceedings, August 1988.
+
+6.  Stern, Hal.  Managing NFS and NIS.  Sebastopol, CA: O'Reilly &
+Associates, 1991.
+
+Recommended Reading
+
+* Cheswick, Bill.  "An Evening With Berferd: in which a Cracker is Lured,
+Endured and Studied." Available from: research.att.com:
+/dist/internet--Security/berferd.ps
+
+* Spafiord, Gene.  "The Internet Worm Program: An Analysis," ACM Computer
+Communications Review, 19(1), January 1989, pp.  17-57.  (Also issued as
+Purdue Technical Report CSD-TR-823.)
+
+* Proceedings of the USENIX Security Workshops and Symposia, USENIX
+Association, Berkeley, CA.  office[@]usenix.org, (510) 528-8649.
+
+Tool Sources
+
+Note: Anonymous FTP locations are given as "site: filename"
+
+* COPS: V1.04, available at these locations: cert.sei.cmu.edu: pub/cops,
+archive.cis.ohio-state.edu: pub/cops, or ftp.uu.net:
+pub/security/cops_lO4.tar.  Z.
+
+* Crack/UFC: Crack v. 4.If and UFC Patchlevel 1.  This is available from
+the comp.sources.  misc directory at any major Usenet archive or:
+usenet/comp.sources.misc/volume26/crack/part*Z.
+
+* Kerberos: Public domain version, support available from Cygnus Support
+at ftp.uu.net:networking/athena/kerberos *.
+
+* npasswd: (Clyde Hoover's "official" version), available at ftp.cc.
+utexas.edu: pub/npasswd/npasswd.tar.  Z.
+
+* NSM: Available to Department of Defense organizations only, from Tim
+Grance at the Air Force Cryptologic Support Center (AFCSC) at Kelly AFB,
+TX.
+
+* Passwd+: "alpha version, update 3" (beta version due soon), available
+at dartmouth.edu: pub/passwd+.tar.  Z or ftp.uu.net:
+pub/security/passwd+.tar.  Z.
+
+* perl--passwd, contained in the examples for Programming Peri,
+ftp.uu.net: published/oreilly/nutshell/perl/perl.tar.  Z.
+
+* perl_passwd2, which handles YP/NIS, is available from info.
+mcs.anl.gov:/pub/systems/papers/perl_passwd.ps.
+
+* Securelib, available from eecs.nwu.edu: pub/securelib.tar or
+ftp.uu.net: pub/security/securelib.  tar.  Z.
+
+* Shadow, available from the comp.sources.misc directory at any major
+Usenet archive (see entry for Crack).
+
+* TCP Wrappers, available from cert.sei.cmu.edu: pub/network
+_tools/tcp_wrapper.shar, ftp.win.  tue.nl: pub/security/log_tcp .shar.
+Z, or ftp.uu.net: tcp_wrappers.tar.  Z.
+
+* Tripwire, available from ftp.cs.purdue.edu: pub/spar/COAST /Tripwire.
+
+To find other tools, join the cert-tools mailing list.  Send e-mail to
+cert-tools-request[@]cert.org.
+
+Acknowledgements
+
+Thanks to all the security gurus who helped me and to Michele Vening,
+documentation engineer and security buff.
+-------------------------------------------------------------------------
+Type:      tutorial
+Topic:     Data Security
+           Operating Systems
+           Public Software
+           Tutorial
+           Network Management
+           UNIX
+           Security Software
+
+
+Record#:   13 497 724.

@@ -1,0 +1,95 @@
+!short: WINDOW
+  When the new window is created with makewnd(), the new structure
+ will be added to linked list of windows. This structure has following
+ fields :
+
+  o Frame corner coordinates. These are the maximum coordinates for
+    viewport, which may change. Corner coordinates are used later to
+    restore the screen contents, so try not to screw them up.
+  o Viewport corner coordinates. They are used for ouputting, scrolling
+    and clearing the window and to position cursor inside the window.
+    You may change them if you need, but avoid going over the limits
+    defined with frame corners. These coordinates are normally set
+    so, that frame will be saved on output.
+  o Saved cursor position and size. They will be restored, when window
+    is closed, so you can fool around with cursor any way you want.
+  o Colour used to open this window. Could be useful when you want to
+    output something to yuor window.
+  o Two pointers pointing to next and previous structure. They are the
+    only link in this world, if you open 3 windows, using pushwnd() twice
+    and then use closewnd(), all your windows will be gone forever!
+  o Current cursor position. Used by putcwnd() when emulating teletype.
+  o Cursor position before push.
+
+ Here is how it looks in WINDOW.H
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ typedef struct    {
+     int x1,y1,x2,y2;         /* frame corners */
+     int vx1,vy1,vx2,vy2;     /* viewport corners */
+     unsigned int curpos,     /* cursor pos & size */
+                 cursize;     /* before opening ... */
+     unsigned int color;      /* used to open */
+     void far *last;          /* to previous window */
+     void far *next;          /* to next window */
+     unsigned int cursor;     /* current cursor position */
+     unsigned int pushcursor; /* used by pushwnd()/popwnd() */
+     int space[1];            /* data, expands ... */
+ } WINDOW;
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+!seealso:wgfunc.ngo:makewnd()
+'---------------------------------------------------------------------------
+!short: VMENU
+  As creating a menu isn't very easy, the number of parameters in function
+ call would be enormous. Besides, most of these parameters never change
+ in one program. So, why bother, let's put most of them into structure...
+ The menu structure has following fields:
+
+  o Flags indicating what to do with menu window and texts printed in it.
+  o Pointer to 9 successive characters used to draw window frame.
+  o Colours for window, normal items, selection bar, highlited characters.
+  o Item number you want the menu bar initially to be on.
+
+ Here is how it looks in WINDOW.H
+
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ typedef struct {
+     int makenew     :1;    /* 1 for open window, 0 if exist on screen */
+     int center      :1;    /* 1 if you want items centered */
+     int leavemenu   :1;    /* 1 if you don't want menu closed on exit */
+     char far *frame;       /* frame for window */
+     int wndcolor;          /* color for window (frame&fill) */
+     char normcolor;        /* color for normal items */
+     char invcolor;         /* color for selection bar */
+     char hicolor;          /* color for hot keys */
+     int defchoice;         /* item selected by default when entering */
+     int reserved;          /* empty space on each side of item */
+ } VMENU;
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+!seealso:wgfunc.ngo:makemenu()
+'---------------------------------------------------------------------------
+!short: MEITEM
+  Describes each menu item for raw menu engine. Defined in WINDOW.H as
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ typedef struct {
+     int x,y;               /* absolute screen coordinates for cursor */
+     int xlen;              /* field length */
+     char far *text;        /* menu selection text */
+     char normcolor;        /* color for normal text */
+     char invcolor;         /* color for cursor bar */
+     char hicolor;          /* color for highlited character */
+     int textoff;           /* text offset in cursor bar */
+     int highoff;           /* offset in string for highlited character */
+ } MEITEM;
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+!seealso:wgfunc.ngo:rawmenu()
+ '---------------------------------------------------------------------------
+!short: _curntwnd
+
+
+  This is defined in WINDOW.H as "extern WINDOW far *_curntwnd", it's
+  pointing to active window structure all the time if there is any opened
+  windows. Else it's NULL pointer, meaning that we don't have any windows
+  opened yet. It may not be pointing to the window you opened last, because
+  pushwnd() and popwnd() may move it around.
+
+'

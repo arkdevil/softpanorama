@@ -1,0 +1,661 @@
+{********************************************************************}
+{*                                                                  *}
+{*                    Dimarker's Software 1992                      *}
+{*                                                                  *}
+{*            Paradox Engine 2.0 Object-Oriented Module             *}
+{*                   for use with Turbo Vision                      *}
+{*                                                                  *}
+{********************************************************************}
+
+{$F+,N+,E+,O+,X+}
+
+unit PXObj;
+
+interface
+
+uses Objects, PXEngine, Drivers;
+
+type
+
+ PPX = ^TPX;
+ TPX = object(TObject)
+  TblHandle: TableHandle;
+  {тип word, после открытия таблицы содержит номер таблицы для Engine
+   ( внутреннее использование ) }
+
+  RecHandle: RecordHandle;
+  {тип word, после открытия таблицы и открытия буфера содержит номер
+   буфера для Engine ( внутреннее использование ) }
+
+  Ok       : boolean;
+  { после успешного выполнения любой операции = True, иначе False}
+
+  Error    : integer;
+  { после успешного выполнения любой операции = 0, иначе код ошибки }
+
+  CurrKey  : word;
+  { запоминается номер ключа, по которому открывалась таблица}
+
+  Buffer   : PByteArray;
+  { непрерывная область памяти размером RecSize байт для хранения записи 
+    (включая длины строковых полей string[0])}
+
+  BShift   : PWordArray;
+  { массив из RecNFlds слов, каждое слово - смещение от начала Buffer^[0]
+    для каждого поля. PString(Buffer^[BShift^[2]])^ - обращение к содер-
+    жимому буфера записи как к строке, номер поля - 2
+ поле 1    поле 2
+     [  ][             ] поле 1 - Short (word), поле 2 - Alpha[7]
+     0 1 2 3 4 5 6 7 8 9 - в памяти
+     в этом случае BShift^[1] = 0, а BShift^[2] = 2, если дальше есть третье
+     поле, то BShift^[3] = 10 и т.д. 
+     предназначено для интерпретации записей в виде непрерывного 
+     блока памяти (Buffer) }
+
+  RecSize  : word;
+  { размер записи в байтах, для строк включается байт длины строки }
+
+  constructor Init;
+  { просто инициализатор объекта - ничего не делает }
+
+  procedure   DateDecode(Date: longint; var Da, Mo, Yr: integer);
+  { декодирование даты }
+
+  function    DateEncode(Da, Mo, Yr: integer): longint;
+  { кодирование даты }
+
+  function    ErrMsg: string;
+  { сообщение о текущей ошибке, номер ошибки берет из Error}
+
+  function    RErrMsg: string;
+  { то же самое, только русские сообщения }
+
+{ field handles }
+  function    FldBlank(FieldNo: integer): boolean;
+  { установить значение поля с номером FieldNo = Blank (не 0 !) }
+
+  function    FldHandle(FieldName: string): integer;
+  { получить номер поля в записи по его имени }
+
+  function    FldName(FieldNo: integer): NameString;
+  { получить имя поля по его номеру в записи }
+
+  function    FLdType(FieldNo: integer): NameString;
+  { получить тип поля по его номеру в записи }
+
+  function    FldWidth(FieldNo: integer): integer;
+  { получить длину поля для экранного вывода }
+
+  function    FldLen(FieldNo: integer): integer;
+  { получить физическую длину поля в байтах }
+
+  function    FldStr(FieldNo: integer): string;
+  { преобразовать значение поля в строку }
+
+{ move data from record buffer }
+  function    GetAlpha(FieldNo: integer): string;
+  { получить строку из поля }
+
+  function    GetDate(FieldNo: integer): longint;
+  { получить дату или longint из поля }
+
+  function    GetDoub(FieldNo: integer): double;
+  { получить двойное из поля }
+
+  function    GetLong(FieldNo: integer): longint;
+  { получить longint из поля типа double }
+
+  function    GetShort(FieldNo: integer): integer;
+  { получить целое из поля }
+
+  function    GetCurrKey: word;
+  { получить номер ключа, по которому открыта таблица (значение поля 
+    CurrKey) }
+
+  procedure   GetBuffer(var Buf);
+  { получить в переменную Buf содержимое записи. Размер переменной должен
+    быть равен RecSize ! }
+
+{ index maintaining }
+  procedure   KeyAdd(TName: string; Flds: string; Mode: integer);
+  { добавить индекс к закрытой таблице. Mode - Primary, Secondary,
+    IncSecondary, набор ключей - строка ( по первому и второму полю -
+    Flds:='12' ) только на закрытой таблице }
+
+  procedure   KeyAddC(TName: string; Flds: string; Mode: integer);
+  { добавить индекс к закрытой таблице. Mode - Primary, Secondary,
+    IncSecondary, набор ключей - строка КОДОВ ( по первому и второму 
+    полю - Flds:=#1#2 ) только на закрытой таблице. 
+    Используется вместо KeyAdd, если номер ключа > 9 }
+
+  procedure   KeyDrop(TName: string; IndexId: integer);
+  { удалить ключ. 0 - все, номер - соотв. вторичный (только на закрытой таблице )}
+
+  function    KeyNFlds: integer;
+  { из скольких полей состоит текущий ключ открытой таблицы }
+
+{ network operations }
+  function    NetErrUser: string;
+  procedure   NetFileLock(TName: string; LockType: integer);
+  procedure   NetFileUnlock(TName: string; LockType: integer);
+  procedure   NetRecGotoLock(LckHandle: LockHandle);
+  function    NetRecLock: LockHandle;
+  function    NetRecLocked: boolean;
+  procedure   NetRecUnLock(LckHandle: LockHandle);
+  function    NetTblChanged: boolean;
+  procedure   NetTblLock(LockType: integer);
+  procedure   NetTblRefresh;
+  procedure   NetTblUnlock(LockType: integer);
+  function    NetUserName: string;
+{ security procedures }
+  procedure   PswAdd(S: string);
+  { добавить пароль в систему }
+
+  procedure   PswDel(S: string);
+  { удалить пароль из системы }
+
+{ move data to record buffer }
+  procedure   PutAlpha(FldNo: integer; Value: string);
+  { записать строку в буфер записи }
+
+  procedure   PutBlank(FldNo: integer);
+  { записать пустое значение в буфер записи }
+
+  procedure   PutDate(FldNo: integer; Value: longint);
+  { записать longint или дату в буфер записи }
+
+  procedure   PutDoub(FldNo: integer; Value: double);
+  { записать double в буфер записи }
+
+  procedure   PutLong(FldNo: integer; Value: longint);
+  { записать longint в буфер записи ( поле double) }
+
+  procedure   PutShort(FldNo: integer; Value: integer);
+  { записать integer в буфер записи }
+
+  procedure   PX;
+  { не требуется }
+
+{ record and buffer management }
+  procedure   RecAppend;
+  { добавить запись ( на индексированной эквивалентно RecInsert ) }
+
+  procedure   RecBufClose;
+  { закрыть буфер записи. Если успешно, то уничтожается Buffer^ и BShift^ }
+
+  procedure   RecBufCopy(ToTable: TPX);
+  { копировать содержимое буфера в буфер др. таблицы}
+
+  procedure   RecBufEmpty;
+  { записать в буфер значения всех полей = Blank }
+
+  procedure   RecBufGet;
+  { взять запись с диска в Buffer^. Перед взятием должен быть вызван
+    метод RecGet ! Используется в методе GetBuffer }
+
+  procedure   RecBufOpen;
+  { открыть буфер записи, при успешном выполнении создается буфер записи
+    Buffer, массив позиций полей BShift и устанавливается RecSize }
+
+  procedure   RecDelete;
+  { удалить текущую запись }
+
+  procedure   RecFirst;
+  { встать на первую запись в базе }
+
+  procedure   RecGet;
+  { прочитать запись в буфер }
+
+  procedure   RecGoto(RecNo: longint);
+  { встать на запись }
+
+  procedure   RecInsert;
+  { вставить запись }
+
+  procedure   RecLast;
+  { встать на последюю запись в таблице }
+
+  procedure   RecNext;
+  { встать на следующую запись }
+
+  function    RecNFlds: integer;
+  { сколько полей в записи }
+
+  function    RecNum: longint;
+  { номер текущей записи }
+
+  procedure   RecPrev;
+  { встать на предыдущую запись }
+
+  procedure   RecUpdate;
+  { обновить запись }
+
+{ flushing }
+  procedure   Save;
+  { выгрузить все изменения на диск ( если таблица была открыта с
+    SaveEveryChange=False) }
+
+{ field search }
+  procedure   SrchFld(FldNo, Mode: integer);
+  { искать по значению поля. значение должно быть помещено в буфер
+    при помощи Put???() }
+
+  procedure   FirstFld(FldNo: integer);
+  { найти первую запись = искомому значению }
+
+  procedure   NextFld(FldNo: integer);
+  { найти следующее поле (только после FirstFld ) }
+
+  procedure   ClosestFld(FldNo: integer);
+  { найти ближайшее значение поля (толко если по полю есть вторичный ключ )}
+
+{ key search   }
+  procedure   SrchKey(NFlds, Mode: integer);
+  { найти запись по главному ключу ( NFlds = количество полей от первого )}
+
+  procedure   FirstKey(NFlds: integer);
+  { найти первую искомую запись }
+
+  procedure   NextKey(NFlds: integer);
+  { найти следующую искомую запись (после FirstKey ) }
+
+  procedure   ClosestKey(NFlds: integer);
+  { найти ближайшее значение }
+
+{ table manipulations }
+  procedure   TblAdd(SrcName, DestName: string);
+  { добавить записи из SrcName в DestName (таблицы должны быть закрыты) }
+
+  procedure   TblBufClose;
+  { закрыть буфер записи и таблицу (вызывает RecBufClose и TblClose )}
+
+  procedure   TblBufOpen(TName: string; IndexId: integer;
+                         SaveEveryChange: boolean);
+  { открыть таблицу и буфер записи, IndexId - по какому ключу открыть
+    таблицу ( 0-Primary, N-Secondary), SaveEveryChange - если True, то
+    любое изменение таблицы сразу сохраняется на диск }
+
+  procedure   TblClose;
+  { закрыть таблицу }
+
+  procedure   TblCopy(FromName, ToName: string);
+  { копировать таблицу ( включая индексы ) из FromName в ToName ( таблицы
+    должны быть закрыты)}
+
+  procedure   TblCreate(TName: string; NFields: integer;
+                        Fields, Types: NamesArrayPtr);
+  { создать таблицу, Fields-имена полей, Types-типы полей ( динамические
+    массивы ) ! существование таблицы с таким-же именем не проверяется }
+
+  procedure   TblDecrypt(TName: string);
+  { расшифровать закрытую таблицу ( предварительно задать пароль через
+    PswAdd() )}
+
+  procedure   TblDelete(TName: string);
+  { удалить закрытую таблицу }
+
+  procedure   TblEmpty(TName: string);
+  { удалить все записи в закрытой таблице }
+
+  procedure   TblEncrypt(TName, Password: string);
+  { зашифровать закрытую таблицу ( пароль должен быть в системе ) }
+
+  function    TblExist(TName: string): boolean;
+  { существует ли таблица }
+
+  procedure   TblMaxSize(MaxTblSize: integer);
+  { установить макс. размер таблицы перед TblCreate ( 64, 128, 256 ( МБайт))}
+
+  function    TblName: string;
+  { получить имя открытой таблицы }
+
+  function    TblNRecs: longint;
+  { сколько записей в открытой таблице }
+  procedure   TblOpen(TName: string; IndexId: integer;
+                      SaveEveryChange: boolean);
+  { открыть таблицу ( см. TblBufOpen ) }
+
+  function    TblProtected(TName: string): boolean;
+  { зашифрована ли таблица }
+
+  procedure   TblRename(FromName, ToName: string);
+  { переименовать закрытую таблицу }
+
+ОШИБКИ :
+  0 : Ошибок нет
+  1 : Устройство не готово
+  2 : Каталог не найден
+  3 : Файл занят
+  4 : Файл блокирован
+  5 : Файл не найден
+  6 : Таблица испорчена
+  7 : Индекс испорчен
+  8 : Индекс устарел
+  9 : Запись блокирована
+ 10 : Каталог занят
+ 11 : Каталог блокирован
+ 12 : Нет доступа к каталогу
+ 13 : Неверный порядок сортировки
+ 14 : Разделяемый каталог
+ 15 : Несколько файлов PARADOX.NET
+ 21 : Доступ без пароля
+ 22 : Таблица защищена от записи
+ 30 : Неверный тип данных
+ 33 : Неверный аргумент
+ 40 : Не хватает памяти для выполнения операции
+ 41 : Нет дисковой памяти для выполнения операции
+ 50 : Другой пользователь удалил запись
+ 70 : Предел количества открытых файлов
+ 72 : Предел количества открытых таблиц
+ 73 : Неверная дата
+ 74 : Неверное имя поля
+ 75 : Неверный номер поля
+ 76 : Неверный номер таблицы
+ 78 : PXEngine не инициализирован
+ 79 : Предыдущая фатальная ошибка - не могу продолжать
+ 81 : Структуры таблиц различны
+ 82 : PXEngine уже инициализирован
+ 83 : Операция не доступна на открытой таблице
+ 86 : Предел количества временных имен
+ 89 : Запись не найдена
+ 94 : Таблица проиндексирована
+ 95 : Таблица не индексирована
+ 96 : Вторичный индекс устарел
+ 97 : Совпадение ключей
+ 98 : Не могу использовать сеть
+ 99 : Неверное имя таблицы
+101 : Конец таблицы
+102 : Начало таблицы
+103 : Предел количества буферов записей
+104 : Неверный номер буфера записи
+105 : Операция на пустой таблице
+106 : Неверный код блокировки
+107 : PXEngine не инициализирован для работы в сети
+108 : Неверное имя файла
+109 : Неверная разблокировка
+110 : Неверный номер блокировки
+111 : Слишком много блокировок для таблицы
+112 : Неверная сортировка таблицы
+113 : Неверный тип сети
+114 : Неверное имя каталога
+115 : Слишком много паролей
+116 : Неверный пароль
+118 : Таблица занята
+119 : Таблица заблокирована
+120 : Таблица не найдена
+121 : Вторичный индекс не найден
+122 : Вторичный индекс испорчен
+123 : Вторичный индекс уже открыт
+124 : Диск защищен от записи
+125 : Запись слишком велика для индекса
+126 : Ошибка оборудования
+127 : Переполнение стека - отмена операции
+128 : Таблица заполнена
+129 : Не хватает места для буфера выгрузки - отмена операции
+130 : Table is SQL replica
+136 : Невозможно обновить вторичный индекс
+
+
+
+ ПОРЯДОК РАБОТЫ С ОБЪЕКТОМ PPX И ТАБЛИЦАМИ
+
+
+ основное использование
+
+ статический объект                    динамический объект
+
+var                                   var
+ D: TPX;                               D: PPX;
+
+begin                                 begin
+ PXInit;                               PXInit;
+ D.Init;                               D:=New(PPX, Init);
+ if D.TblExist('table') then           if D^.TblExist('table') then
+  D.TblNufOpen('table', 0, False);      D^.TblBufOpen('table', 0, False);
+
+ D. ......                             D^. ......
+
+ D.TblBufClose;                        D^.TblBufClose;
+ D.Done;                               Dispose(D, Done);
+ PXExit;                               PXExit;
+end.                                  end.
+
+
+добавление и удаление ключей производится до открытия таблицы
+
+ D.KeyAdd('table', '123', Primary); или
+  D.KeyAddC('table', #1#2#3, Primary);
+ D.KeyAdd('table', '4',   IncSecondary);
+ D.TblBufOpen('table', 4, False);
+ ......
+
+поиск по главному ключу                поиск по вторичному ключу
+
+ D.TblBufOpen('table', 0, False);       D.TblBufOpen('table', 0, False);
+ D.PutShort(1, SearchValue);            D.PutDate(5, SearchDate);
+ D.PutAlpha(2, SearchString);           D.FirstFld(5);
+ D.FirstKey(2);                         if D.Ok then .....
+ if D.Ok then .....
+
+после перемещения по таблице при помощи RecFirst, RecLast, RecNext, FirstKey,
+FirstFld и успешном выполнении операции для доступа к полям записи
+необходимо выполнить RecGet (содержимое записи будет прочитано в буфер
+записи) и затем всевозможные GetAlpha, GetDate и т.д.
+
+перебор по главному ключу              перебор по вторичному ключу
+
+ D.PutShort(1, SearchInteger);          D.PutDate(5, SearchDate);
+ D.PutAlpha(2, SearchString);           D.FirstFld(5);
+ D.FirstKey(2);                         while D.Ok do
+ while D.Ok do                           begin
+  begin                                   D.RecGet;
+   D.RecGet; { взять запись }             A:=D.GetAlpha(3);
+   A:=D.GetAlpha(3);                      ....
+   ....                                   D.NextFld(5);
+   D.NextKey(2);                         end;
+  end;
+
+перебор с использованием NextRec ( для главного и вторичного ключей )
+
+ D.PutShort(1, SearchWord);
+ D.FirstKey(1);
+ while D.Ok do
+  begin
+   D.RecGet;                        { взять запись }
+   if GetShort(1) = SearcWord then  { если значение поля = искомому то }
+    begin
+     A:=GetAlpha(3);
+     .....
+    end
+   else
+    D.Ok:=Flase; { установить для окончания while }
+   if D.Ok then  { если нормально то след. запись }
+    D.NextRec;
+  end;
+
+
+добавление записи
+
+ D.RecBufEmty; { при необходимости }
+ D.PutShort(1, Word);
+ D.PutAlpha(2, String);
+ D.PutDate( 5, Date);
+ D.FirstKey(2); { если таблица проиндексирована }
+ if D.Ok then
+  D.RecUpdate   { обновить, если уже есть, иначе Error=PXErr_KeyViol}
+ else
+  D.RecAppend;  { если не найдена, то добавить (или D.RecInsert) }
+
+
+! одну и ту-же таблицу можно открыть одновременно по разным ключам,
+изменения в одной такой таблице приводят к моментальным изменениям в
+других таких-же открытых таблицах.
+
+
+
+               РАБОТА С TCOLLECTION И TSORTEDCOLLECTION
+
+
+инициализация
+
+var
+ P: TCollection
+ E: PElement;
+begin
+ P.Init(3,3); { первый параметр - число элементов массива при инициализации,
+                второй - число элементов приращения при увеличении массива
+                (если = 0, то рост запрещен) }
+ E:=PElement(P.At(N));
+ .......
+ P.Done;
+end.
+
+var
+ P: PCollection;
+ E: PElement;
+
+begin
+ P:=New(PCollection, Init(3,3));
+ E:=PElement(P^.At(N));
+ .......
+ Dispose(P, Done);
+end.
+
+
+ПОЛЯ :
+
+ Count : integer текущее количество элементов в наборе ( не более 16500 )
+ Limit : текущее предельное количество элементов в массиве, если Delta = 0,
+         то после достижения Count значения Limit элементы не вставляются
+         и происходит ошибка Collection overflow
+ Delta : если > 0 то при достижении Count значения Limit массив
+         увеличивается на Delta и Limit:=Limit + Delta;
+
+МЕТОДЫ :
+
+получить указатель на элемент с номером i
+
+ PElement:=P.At(i);
+
+получить индекс элемента, если элемента нет, то i = -1
+
+ i:=P.IndexOf(PElement);
+
+удалить элемент с индексом i
+
+ P.AtDelete(i);
+
+удалить элемент
+
+ P.Delete(PElement); { = P.AtDelete(P.IndexOf(PElement)) }
+ { при отсутствии элемента вызывает "Collection Out Of Range" }
+
+уничтожить элемент
+
+ P.FreeItem(PElement); { должен уничтожать элемент в памяти }
+
+уничтожить элемент с индексом i
+
+ P.AtFree(i); { эквивалент Item := At(Index);
+                           AtDelete(Index);
+                           FreeItem(Item);   }
+
+вставить элемент в позицию i
+
+ P.AtInsert(i, PElement);
+
+вставить элемент
+
+ P.Insert(PElement); { для TCollection = P.AtInsert(P.Count, PElement) }
+                     { для TSortedCollection вставляется в позицию,
+                       определяемую методом Compare ( порядок сортировки ) }
+
+удалить все элементы
+
+ P.DeleteAll;
+
+уничтожить все элементы
+
+ P.FreeAll;
+
+при вызове деструктора Done если поле Count > 0, то
+вызывается FreeAll.
+
+
+
+ИТЕРАТОРЫ :
+
+ForEach
+
+ var P: PString;
+    C: PCollection;
+
+ procedure PrintAll;
+
+  procedure PrintOne(P: PString); far;   { ! только локальная процедура }
+   begin
+    Writeln(P^); { вывод одного элемента }
+   end;
+
+ begin
+  C^.ForEach(@PrintOne);  { вывод всех элементов }
+ end;
+
+
+FirstThat, LastThat { поиск среди элементов с начала и с конца }
+
+ procedure Search;
+  var S: PString;
+
+  function Search10(P: PString): boolean; far;
+   begin
+    Search10:=False;
+    if P^ > 'string' then
+     Search10:=True;
+   end;
+
+  begin
+   S:=C^.FirstThat(@Search10);
+   if S <> nil then
+    Writeln(S^);
+  end;
+
+
+TSortedCollection ---------------
+
+поле Duplicates: boolean;
+ управляет возможностью дублирования элементов с одинаковыми значениями
+ для сортировки
+
+найти элемент
+var
+ APos: integer;  { возвращаемая позиция для правильной вставки  }
+ T   : pointer;  { элемента в набор в случае отсутствия искомого в наборе }
+
+ if P.Search(PElement, APos) then
+  T:=P.At(APos)
+ else
+  P.AtInsert(APos, PElement);
+
+
+
+набор из чисел типа Longint
+
+ TLongCollection
+
+ FreeItem - ничего не делает. для удаления числа используется AtDelete
+
+получить число
+
+var L: longint;
+
+ L:=longint(P^.At(i));
+
+вставить число
+
+ P^.Insert(pointer(L));
+
+
+Кузьменко Дмитрий Валерьевич
+г Калуга, ул Московская, д 214, кв 27
+Все консультации можно получить по телефону (084) 222-68-91

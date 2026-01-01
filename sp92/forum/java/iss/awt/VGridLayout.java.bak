@@ -1,0 +1,137 @@
+/********************************************************************************
+ ** VHGridLayout is a layout manager which arranges components in a 
+ ** single column, and provides many options for doing so. The usage is:
+ **
+ ** vgrid = new VGridLayout(Insets insets, int interval, int notUsed);
+ ** container.setLayout(vgrid);
+ ** vgrid.setConstraints(comp1, percent); container.add(comp1);
+ ** vgrid.setConstraints(comp2, percent); container.add(comp2);
+ **                             :
+ **                             :
+ **
+ ** 'insets' is the top, bottom, left and right margins in pixels.
+ ** 'interval' is the spacing between components in pixels.
+ ** 'notUsed' is the percentage of space to be left unused from the top.
+ ** 'percent' is the percentage of space that the component will occupy.
+ **      0 means the component will occupy its preferred size.
+ **
+ ** VGridLayout combined with HGridLayout will provide a powerful way of
+ ** laying out components.
+ **
+ ********************************************************************************
+ ** Author: Chew Wei Yih, Victor (c) 1996.
+ ********************************************************************************/
+
+package iss.awt.*;
+
+import java.awt.*;
+import java.util.*;
+import java.lang.*;
+
+public class VGridLayout implements LayoutManager
+{
+    Insets insets = null;
+    int interval, notUsed;
+    Hashtable constraints = new Hashtable();
+    
+    public VGridLayout(Insets insets, int interval, int notUsed)
+    {
+        this.insets = insets;
+        this.interval = interval;
+        this.notUsed = notUsed;
+    }
+    
+    public void addLayoutComponent(String name, Component comp)
+    {
+    }
+
+    public void removeLayoutComponent(Component comp)
+    {
+    }
+
+    public Dimension preferredLayoutSize(Container target)
+    {
+        return minimumLayoutSize(target);
+    }
+
+    public Dimension minimumLayoutSize(Container target)
+    {
+        int width=0, height=0, numComp = target.countComponents();
+        int[] compHeight = new int[numComp];
+        int[] compPercent = new int[numComp];
+        double unitSize = 0.0;
+        Component comp = null;
+        Dimension dim = null;
+        Insets bounds = target.insets();
+
+        for (int i=0; i<numComp; i++)
+        {
+            comp = (Component)target.getComponent(i);
+            dim = comp.preferredSize();
+            compHeight[i] = dim.height;
+            compPercent[i] = ((Integer)constraints.get(comp)).intValue();
+
+            if (compPercent[i] != 0)
+            {
+                double tmp = (double)dim.height/(double)compPercent[i];
+                if (unitSize < tmp) unitSize = tmp;
+            }
+
+            if (width < dim.width) width = dim.width;
+        }            
+
+        for (int i=0; i<numComp; i++)
+        {
+            if (compPercent[i] == 0) height += compHeight[i];
+            else height += (int)(compPercent[i] * unitSize);
+        }
+
+        width += bounds.left + bounds.right + insets.left + insets.right;
+        height += bounds.top + insets.top + interval*(numComp-1) + insets.bottom + bounds.bottom;
+
+        dim = new Dimension(width, height);
+        return dim;
+    }
+
+    public void setConstraints(Component comp, int percent)
+    {
+        constraints.put(comp, new Integer(percent));
+    }
+
+    public void layoutContainer(Container target)
+    {
+        int numComp = target.countComponents();
+        int x, y;
+        Component[] comp = new Component[numComp];
+        int[] percent = new int[numComp];
+        int[] height = new int[numComp];
+
+        Insets tbounds = target.insets();
+        Dimension dim = target.size();
+        int twidth = dim.width - tbounds.left - tbounds.right - insets.left - insets.right;
+        int theight = dim.height;
+
+        int heightAvail = theight - tbounds.top - tbounds.bottom - insets.top - insets.bottom - (numComp-1)*interval;
+        int heightUnavail = notUsed * heightAvail / 100;
+        heightAvail -= heightUnavail;
+
+        int heightFixed = 0;
+        for (int i=0; i<numComp; i++)
+        {
+            comp[i] = target.getComponent(i);
+            percent[i] = ((Integer)constraints.get(comp[i])).intValue();
+            height[i] = comp[i].preferredSize().height;
+            if (percent[i] == 0) heightFixed += height[i];
+        }
+        heightAvail -= heightFixed;
+
+        x = tbounds.left + insets.left;
+        y = tbounds.top + insets.top + heightUnavail;
+        for (int i=0; i<numComp; i++)
+        {
+            if (percent[i] != 0) height[i] = (heightAvail * percent[i]) / 100;
+            comp[i].reshape(x, y, twidth, height[i]);
+            y += height[i] + interval;
+        }
+    }
+}

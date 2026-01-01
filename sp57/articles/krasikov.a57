@@ -1,0 +1,770 @@
+
+               Работа с XMS-памятью в реальном режиме
+
+                          Красиков И.В.
+
+
+       Подгружаемый драйвер  XMS  extended-памяти  позволяет  Вам
+ достаточно просто и удобно оперировать с extended-памятью. В от-
+ личие от EMS XMS не имеет страничной адресации,  а располагается
+ непрерывным блоком,  для доступа к  которому  Вам  следует  лишь
+ знать необходимое Вам смещение в этом блоке.  Драйвер предостав-
+ ляет существенно большие возможности, чем 87h функция прерывания
+ 15h.
+       Рассмотрим работу с extended-памятью при помощи  XMS-драй-
+ вера более детально.
+       Определение, загружен ли XMS-драйвер, произволится при по-
+ мощи прерывания 2Fh,  функции 4300h:  если при вызове прерывания
+ 2Fh при AX=4300h мы получаем AL=80h, драйвер установлен и следу-
+ ющим шагом  мы  определяем  адрес,  по которому следует вызывать
+ программу драйвера (в отличие от EMS драйвера,  где все  функции
+ работы с EMS памятью оформлены в виде функций прерывания 67h,  к
+ XMS драйверу следует обращаться через вызов CALL FAR по адресу):
+ для этого  вызывается прерывание 2Fh с AX=4301h и регистры ES:BX
+ содержат адрес программы драйвера.
+       Передача параметров  драйверу производится через регистры,
+ при этом в регистр AH помещается номер вызываемой подфункции,  и
+ после возврата  из  функции AX содержит 1 в случае успешного вы-
+ полнения и 0 в случае неуспешного (что очень приятно при исполь-
+ зовании Turbo Pascal - в нем в assembler - функции возврат буле-
+ вого значения как раз передается через  регистр  AX  и  1  соот-
+ ветствует значению TRUE,  а 0 - FALSE) - за исключением лишь вы-
+ зова подфункции 08h, а в регистре BL - код произошедшей ошибки.
+       Список основных подфункций:
+   00   Получение версии XMS
+        Вход - нет, выход AX - версия в BCD-формате,
+                          BX - номер разработки
+   01   Получение доступа к HMA (High Memory Area)
+        Вход  DX - требуемая память в байтах
+        Выход - нет (здесь и далее отсутствие выходных данных
+                     означает, как уже говорилось, возвращение
+                     кода ошибки в BL и флага выполнения в AX)
+   02   Освобождение HMA
+        Вход - нет, выход - нет.
+   08   Информация о доступной extended памяти
+        Вход - нет, выход -
+                    AX=размер наибольшего доступного блока в K
+                    DX=общему количеству extended-памяти в K
+                    BL - код ошибки
+   09   Зарезервировать блок памяти
+        Вход  DX = требуемая память в K
+        Выход DX = handle зарезервированного блока
+   0A   Освободить блок
+        Вход - DX = handle этого блока
+        Выход - нет
+   0B   Перемещение блока памяти
+        Вход DS:SI указывает на EMM-структуру,  в которой содер-
+                    жится информация о требуемом перемещении
+        Выход - нет
+   0С   Закрытие блока extended-памяти
+        Вход - DX = handle блока
+        Выход - DX:BX - 32-битовый линейный адрес блока
+   0D   Открыть блок
+        Вход - DX = handle блока
+        Выходва - нет
+   0E   Получение информации о handl'е
+        Вход - DX = интересующий handle
+        Выход - BH - количество закрытых блоков
+                BL - количество свободных handle'ов
+                DX - размер блока в K
+   0F   Изменение размера блока
+        Вход - DX - handle блока
+               BX - новый размер блока в K
+        Выход - нет
+
+       Ниже приведен исходный текст модуля XMS.TPU,  реализующего
+ все перечисленные функции.  В переменной  XMSerror  возвращается
+ значение ошибки после последней операции. Для расшифровки ошибки
+ Вы можете  вызвать  функцию  XMSerrorMSG,  возвращающую  строку,
+ описывающую ошибку.
+       Обратите внимание на то,  как  организован  вызов  функций
+ драйвера -  в процедуре CallXMS имеется строка из пяти кодов 90h
+ - нет операции - которые при инициализации модуля, если установ-
+ лен XMS драйвер, заменяются на код дальнего вызова драйвера.
+
+       Вернемся к вопросу о перемещении extended-памяти. В модуле
+ описан тип EMMstruct,  представляющий собой  запись,  в  которой
+ size- размер памяти, которую надо переместить, в байтах. Сущест-
+ венное ограничение - size должен быть четным числом !
+       soh и  soo  - handle и смещение в блоке,  соответствующего
+ этому handle'у - для исходного блока,  а dsh и dso - то  же  для
+ блока, куда должно быть перенесено содержимое памяти.
+       Если какой-либо handle равен нулю, это означает, что пере-
+ мещение идет  из/в RAM и смещение - это указатель на место в па-
+ мяти (например, так - dso:=LongInt(@Buf)).
+       Функция MoveXMS  представляет собой низкоуровневое переме-
+ щение блоков памяти, для которого требуется самому заполнить по-
+ ля EMM-структуры.  Функции  же Mem2Xms и Xms2Mem позволяют пере-
+ носить любое (не обязательно четное!) число  байт  из  памяти  в
+ extended-память и обратно (постарайтесь разобраться,  как именно
+ преодолено ограничение на четность).
+
+       Существенным дополнением к Turbo Vision является описанный
+ в модуле XSTREAM.TPU тип TXmsStream - объект от TStream,  позво-
+ ляющий, аналогично стандартному объекту TEmsStream, использующе-
+ му EMS   память,   использовать   XMS  память.  Важным  отличием
+ TXmsStream является наличие  конструктора  InitH  и  деструктора
+ NDDone. Смысл состоит в том, что деструктор NDDone не освобожда-
+ ет XMS память, а потому, передав handle в другую программу, Вы в
+ состоянии инициализировать   объект   TXmsStream   по   значению
+ handle'а - только Вы должны передать и его размер (текущий  раз-
+ мер, а не максимальное значение!).
+       Последней приведена программа, показывающая применение XMS
+ памяти - сохраняя в ней картинку с экрана.
+
+
+
+
+   {$I-,D-,L-,N-,E-,F+,O-,G-,X+,S-,R-,V-}
+
+   {**************************************************}
+   {*                                                *}
+   {*    UNIT   XMS                                  *}
+   {*          Copyright (c) 1992  KIV without Co    *}
+   {*                                                *}
+   {**************************************************}
+
+   unit XMS;
+
+   interface
+
+   var XMSerror:Byte;
+
+   type EMMstruct=record
+                     size:LongInt;  {must be even!}
+                     soh  :Word;     {source handle}
+                     soo  :LongInt;  {source offset}
+                     dsh  :Word;     {destination handle}
+                     dso  :LongInt;  {destination offset}
+                  end;
+   { if handle=0 then correspond offset is pointer to RAM }
+
+   function XMSinstalled:Boolean;
+
+   procedure GetXMSmem(var Total:Word; var Block:Word);  {in Kb}
+   function AllocXMS(Mem:Word):Word;                     {in Kb}
+   function ReallocXMS(Handle, Mem:Word):Boolean;        {in Kb}
+   function FreeXMS(Handle:Word):Boolean;
+   function MoveXMS( var M:EMMstruct ):Boolean;
+   function Mem2Xms( var Buf; Count,Handle:Word;
+                    Offset:LongInt):Boolean;
+   function Xms2Mem( Handle:Word; Offset:LongInt;
+                     var Buf; Count:Word):Boolean;
+   function LockBlock(Handle:Word; var Address:LongInt):Boolean;
+   {return 32-bit linear address of locked block}
+
+   function UnlockBlock(Handle:Word):Boolean;
+
+   function GetXMShandleInfo(Handle:Word; var LockCount:Byte;
+                             var FreeHandles:Byte;
+                             var Size:Word):Boolean;
+
+
+   function RequestHMA(Mem:Word):Boolean;  {in bytes; $FFFF for all}
+   function ReleaseHMA:Boolean;
+
+
+   function XMSerrorMSG(Error:Byte):string;
+
+   implementation
+
+   const XMSinst:Boolean=FALSE;  {For reading only !!!}
+
+   function XMSinstalled:Boolean;
+   begin
+       XMSinstalled:=XMSinst;
+   end;
+
+   procedure CallXMS; far; assembler;
+   asm
+       PUSH AX
+       DB 90h,90h,90h,90h,90h
+       POP  CX
+       PUSH DS
+       PUSH AX
+                              { set XMSerror  \                     }
+                              {               |                     }
+       MOV  AX,SEG @DATA      {               |                     }
+       MOV  DS,AX             {                > because ds may be  }
+       POP  AX                {               |                     }
+       PUSH AX                {               |    changed !        }
+       CMP CH,08h             {               |                     }
+       JE   @3                {               |                     }
+       CMP  AX,1              {               |                     }
+       JE   @1                {               |                     }
+       @3:                    {               |                     }
+       MOV  XMSERROR,BL       {               |                     }
+       JMP  @2                {               |                     }
+       @1:                    {               |                     }
+       XOR  AX,AX             {               |                     }
+       MOV  XMSERROR,AL       {               |                     }
+       @2:                    {               |                     }
+       POP  AX                {               |                     }
+       POP  DS                {               /                     }
+   end;
+
+   procedure GetXMSmem(var Total:Word; var Block:Word); assembler;
+   asm
+       MOV   AH,08h
+       CALL  CALLXMS
+       LES   DI,TOTAL
+       MOV   ES:[DI],DX
+       LES   DI,BLOCK
+       MOV   ES:[DI],AX
+   end;
+
+   function AllocXMS(Mem:Word):Word; assembler;
+   asm
+       MOV   DX,MEM
+       MOV   AH,09h
+       CALL  CALLXMS
+       CMP   AX,1
+       JNE   @1
+       MOV   AX,DX
+       JMP   @2
+       @1:
+       MOV   AX,0
+       @2:
+   end;
+
+   function FreeXMS(Handle:Word):Boolean; assembler;
+   asm
+       MOV  DX,HANDLE
+       MOV  AH,0Ah
+       CALL CALLXMS
+   end;
+
+   function MoveXMS( VAR M:EMMstruct ):Boolean; assembler;
+   asm
+       PUSH DS
+       LDS  SI,M
+       MOV  AH,0Bh
+       CALL CALLXMS
+       POP  DS
+   end;
+
+   function RequestHMA(Mem:Word):Boolean; assembler;
+   asm
+       MOV   DX,MEM
+       MOV   AH,01h
+       CALL  CALLXMS
+   end;
+
+   function ReleaseHMA:Boolean; assembler;
+   asm
+       MOV  AH,02h
+       CALL CALLXMS
+   end;
+
+   function ReallocXMS(Handle, Mem:Word):Boolean; assembler;
+   asm
+       MOV  DX,HANDLE
+       MOV  BX,MEM
+       MOV  AH,0Fh
+       CALL CALLXMS
+   end;
+
+
+
+   procedure MakeCall(p:pointer); far; assembler;
+   asm
+       MOV   AX,4300h
+       INT   2Fh
+       CMP   AL,80h
+       JNE   @EXITUS
+       MOV   XMSinst,1
+       MOV   AX,4310h
+       INT   2Fh
+       MOV   DX,ES
+       MOV   CX,BX
+       CLD
+       MOV   AX,SS:[BP+8]
+       MOV   ES,AX
+       MOV   DI,SS:[BP+6]
+       INC   DI
+       MOV   AL,9Ah
+       STOSB
+       MOV   AX,CX
+       STOSW
+       MOV   AX,DX
+       STOSW
+       @EXITUS:
+   end;
+
+   function XMSerrorMSG(Error:Byte):string;
+   begin
+       case Error of
+           $00:XMSerrorMSG:='successful';
+           $80:XMSerrorMSG:='function not implemented';
+           $81:XMSerrorMSG:='VDISK was detected';
+           $82:XMSerrorMSG:='an A20 error occurred';
+           $8E:XMSerrorMSG:='a general driver error';
+           $8F:XMSerrorMSG:='unrecoverable driver error';
+           $90:XMSerrorMSG:='HMA does not exist';
+           $91:XMSerrorMSG:='HMA is already in use';
+           $92:XMSerrorMSG:='DX is less then the /HMAMIN= parameter';
+           $93:XMSerrorMSG:='HMA is not allocated';
+           $94:XMSerrorMSG:='A20 line still enabled';
+           $A0:XMSerrorMSG:='all extended memory is allocated';
+           $A1:XMSerrorMSG:='all available extended memory handles are allocated';
+           $A2:XMSerrorMSG:='invalid handle';
+           $A3:XMSerrorMSG:='source handle is invalid';
+           $A4:XMSerrorMSG:='source offset is invalid';
+           $A5:XMSerrorMSG:='destination handle is invalid';
+           $A6:XMSerrorMSG:='destination offset is invalid';
+           $A7:XMSerrorMSG:='length is invalid';
+           $A8:XMSerrorMSG:='move has an invalid overlap';
+           $A9:XMSerrorMSG:='parity error occured';
+           $AA:XMSerrorMSG:='block is not locked';
+           $AB:XMSerrorMSG:='block is locked';
+           $AC:XMSerrorMSG:='block lock count overflowed';
+           $AD:XMSerrorMSG:='lock failed';
+           $B0:XMSerrorMSG:='only a smaller UMB is available';
+           $B1:XMSerrorMSG:='no UMB''s are available';
+           $B2:XMSerrorMSG:='UMB segment number is invalid';
+           else XMSerrorMSG:='unknown error';
+       end;
+   end;
+
+   function LockBlock(Handle:Word; var Address:LongInt):Boolean; assembler;
+   asm
+       MOV   DX,HANDLE
+       MOV   AH,0Ch
+       CALL  CALLXMS
+       LES   DI,ADDRESS
+       MOV   ES:[DI],BX
+       INC   DI
+       INC   DI
+       MOV   ES:[DI],DX
+   end;
+
+
+   function UnlockBlock(Handle:Word):Boolean; assembler;
+   asm
+       MOV   DX,HANDLE
+       MOV   AH,0Dh
+       CALL  CALLXMS
+   end;
+
+   function GetXMShandleInfo(Handle:Word; var LockCount:Byte;
+                             var FreeHandles:Byte;
+                             var Size:Word):Boolean; assembler;
+   asm
+       MOV   DX,HANDLE
+       MOV   AH,0Eh
+       CALL  CALLXMS
+       CMP   AX,1
+       JNE   @ERROR
+       LES   DI,LOCKCOUNT
+       MOV   ES:[DI],BH
+       LES   DI,FREEHANDLES
+       MOV   ES:[DI],BL
+       LES   DI,SIZE
+       MOV   ES:[DI],DX
+       PUSH DS
+       PUSH AX
+       MOV  AX,SEG @DATA
+       MOV  DS,AX
+       MOV  BL,0
+       MOV  XMSERROR,BL
+       POP  AX
+       POP  DS
+       @ERROR:
+   end;
+
+   function Mem2Xms( var Buf; Count,Handle:Word; Offset:LongInt):Boolean;
+   var E:EMMstruct;
+       w:Word;
+       ww:Boolean;
+   begin
+       with E do
+       begin
+           ww:=Odd(Count);
+           if ww then
+           begin
+               Size:=2;
+               soh:=handle;
+               soo:=Offset+Count;
+               dsh:=0;
+               dso:=LongInt(@w);
+               if not MoveXMS(E) then
+               begin
+                   Mem2Xms:=False;
+                   Exit;
+               end;
+           end;
+           if ww then Size:=Count+1 else Size:=Count;
+           soh:=0;
+           soo:=LongInt(@Buf);
+           dsh:=handle;
+           dso:=Offset;
+           if not MoveXMS(E) then
+           begin
+               Mem2Xms:=False;
+               Exit;
+           end;
+           if ww then
+           begin
+               Size:=2;
+               soh:=0;
+               soo:=LongInt(@w);
+               dsh:=handle;
+               dso:=Offset+Count;
+               if not MoveXMS(E) then
+               begin
+                   Mem2Xms:=False;
+                   Exit;
+               end;
+           end;
+       end;
+       Mem2Xms:=True;
+   end;
+
+   function Xms2Mem( Handle:Word; Offset:LongInt; var Buf; Count:Word):Boolean;
+   var E:EMMstruct;
+       w:Word;
+       ww:Boolean;
+   begin
+       with E do
+       begin
+           Size:=Count;
+           ww:=Odd(Count);
+           if ww then Dec(Size);
+           soh:=handle;
+           soo:=Offset;
+           dsh:=0;
+           dso:=LongInt(@Buf);
+           if not MoveXMS(E) then
+           begin
+               Xms2Mem:=False;
+               Exit;
+           end;
+           if ww then
+           begin
+               size:=2;
+               soh:=handle;
+               soo:=Offset+Count-1;
+               dsh:=0;
+               dso:=LongInt(@w);
+               if not MoveXMS(E) then
+               begin
+                   Xms2Mem:=False;
+                   Exit;
+               end;
+               Move(w,Ptr(Seg(Buf),Ofs(Buf)+Count-1)^,1);
+           end;
+       end;
+       Xms2Mem:=True;
+   end;
+
+
+   begin
+       MakeCall(@CallXMS);
+
+   end.     { UNIT XMS }
+
+
+
+
+   {*****************************************************}
+   {*                                                   *}
+   {*   UNIT   XSTREAM                                  *}
+   {*               Copyright (c) 1992  KIV without Co  *}
+   {*                                                   *}
+   {*****************************************************}
+
+   unit XStream;
+
+   interface
+
+   uses Objects, XMS;
+
+   type PXmsStream=^TXmsStream;
+        TXmsStream=object(TStream)
+                   handle:Word;
+                   curpos:LongInt;
+                   cursiz:LongInt;
+                   masiz :LongInt;
+                   constructor Init(MaxSize:LongInt);
+                   constructor InitH(H:Word;Size:LongInt);
+                   function   GetPos:LongInt; virtual;
+                   function   GetSize:LongInt;virtual;
+                   procedure  Read(var Buf; Count:Word); virtual;
+                   procedure  Write(var Buf; Count:Word); virtual;
+                   procedure  Seek(Pos:LongInt); virtual;
+                   procedure  Truncate; virtual;
+                   destructor Done; virtual;
+                   destructor NDDone; virtual;
+                   end;
+
+   const stXMSerror = -9;
+
+
+   implementation
+
+   constructor TXmsStream.InitH(H:Word;Size:LongInt);
+   var LockCount,FreeHandles:Byte;
+       Siz:Word;
+   begin
+       if not XMSinstalled then
+       begin
+           Error(stInitError,0);
+           Exit;
+       end;
+       if not GetXMShandleInfo(H,LockCount,FreeHandles,Siz) then
+       Error(stInitError,XMSerror) else
+       begin
+           handle:=H;
+           curpos:=0;
+           cursiz:=Size;
+           masiz:=Siz*1024;
+           Reset;
+       end;
+   end;
+
+   constructor TXmsStream.Init(MaxSize:LongInt);
+   var t,b:Word;
+   begin
+       if not XMSinstalled then
+       begin
+           Error(stInitError,0);
+           Exit;
+       end;
+       GetXMSmem(t,b);
+       if (XMSerror<>0) or (b<MaxSize div 1024+1) then
+       begin
+           Error(stInitError,XMSerror);
+           Exit;
+       end;
+       masiz:=MaxSize;
+       curpos:=0;
+       cursiz:=0;
+       handle:=AllocXMS(MaxSize div 1024+1);
+       if XMSerror<>0 then
+       begin
+           Error(stInitError,XMSerror);
+           Exit;
+       end;
+       Reset;
+   end;
+
+   function   TXMSStream.GetPos:LongInt;
+   begin
+       GetPos:=curpos;
+   end;
+
+   function   TXmsStream.GetSize:LongInt;
+   begin
+       GetSize:=cursiz;
+   end;
+
+   destructor TXMSStream.NDDone;
+   begin
+       TStream.Done;
+   end;
+
+
+   destructor TXmsStream.Done;
+   begin
+       FreeXMS(handle);
+       NDDone;
+   end;
+
+   procedure  TXmsStream.Read(var Buf; Count:Word);
+   var E:EMMstruct;
+       w:Word;
+       ww:Boolean;
+   begin
+       if Status<>stOK then Exit;
+       if (cursiz-curpos)<Count then
+       begin
+           Error(stReadError,0);
+           Exit;
+       end;
+       if not Xms2Mem(handle,curpos,Buf,Count) then
+       Error(stXMSerror,XMSerror) else
+       curpos:=curpos+Count;
+   end;
+
+   procedure  TXmsStream.Write(var Buf; Count:Word);
+   var E:EMMstruct;
+       p:pointer;
+       w:Word;
+       ww:Boolean;
+   begin
+       if Status<>stOK then Exit;
+       if curpos+Count>masiz then
+       begin
+           Error(stWriteError,0);
+           Exit;
+       end;
+       if not Mem2Xms(Buf,Count,Handle,curpos) then
+       Error(stXMSerror,XMSerror) else
+       begin
+           curpos:=curpos+Count;
+           if cursiz<curpos then cursiz:=curpos;
+       end;
+   end;
+
+   procedure  TXmsStream.Seek(Pos:LongInt);
+   begin
+       if Status=stOK then
+       if Pos<0 then Seek(0) else
+       if Pos>cursiz then curpos:=cursiz else curpos:=Pos;
+   end;
+
+   procedure  TXmsStream.Truncate;
+   begin
+       if Status=stOK then cursiz:=curpos;
+   end;
+
+
+
+   end.   { UNIT XSTREAM }
+
+
+
+   {$X+}
+
+   program UseXMS;
+
+   {*****************************************************}
+   {*                                                   *}
+   {*  Sample program for XMS unit                      *}
+   {*         Copyright (c) 1992   KIV without Co       *}
+   {*                                                   *}
+   {*****************************************************}
+
+
+   uses Graph,Crt,XMS;
+
+   procedure PressKey;
+   begin
+       while KeyPressed do ReadKey;
+       ReadKey;
+   end;
+
+   procedure CheckXMS;
+   begin
+       if XMSerror<>0 then
+       begin
+           WriteLn('XMS error - ',XMSerrorMSG(XMSerror));
+           Halt;
+       end;
+   end;
+
+   var
+       GD,GM:Integer;
+       Err  :Integer;
+       S    :Word;
+       SS   :array[0..3] of LongInt;
+       E    :EMMstruct;
+       P    :array[0..4] of string;
+       H    :Word;
+       I,J  :Word;
+       B    :pointer;
+       Tot,Blk:Word;
+
+   begin
+       RandSeed:=MemL[$0000:$046C];
+       DirectVideo:=False;
+       if not XMSinstalled then
+       begin
+           WriteLn('XMS not installed - aborting...');
+           Halt;
+       end;
+       GetXMSmem(Tot,Blk);
+       WriteLn('XMS total Kbytes - ',Tot);
+       CheckXMS;
+       WriteLn('XMS avail Kbytes - ',Blk);
+       if Blk<120 then
+       begin
+           WriteLn('This program required 120 Kb XMS - aborting...');
+           Halt;
+       end else
+       begin
+           WriteLn('Press any key...');
+           PressKey;
+       end;
+       GetXMSmem(Tot,Blk);
+       Str(Blk,p[0]);
+       p[0]:='Before exec XMS block '+p[0]+' Kb';
+       Str(MemAvail,p[1]);
+       p[1]:='Before exec Mem avail '+p[1]+' bytes';
+       GD:=EGA;
+       GM:=EGAHi;
+       InitGraph(GD,GM,'\BGI');
+       Err:=GraphResult;
+       if Err<>grOK then
+       begin
+           WriteLn('Graph error - ',GraphErrorMsg(Err));
+           Halt;
+       end;
+       for GD:=1 to 100 do
+       begin
+           SetColor(Random(16));
+           Circle(Random(640),Random(350),Random(100));
+           SetColor(Random(16));
+           Line(Random(640),Random(350),Random(640),Random(350));
+       end;
+       Str(MemAvail,p[2]);
+       p[2]:='During Graph Mem avail '+p[2]+' bytes';
+       H:=AllocXMS(120);
+       CheckXMS;
+       GetXMSmem(Tot,Blk);
+       CheckXMS;
+       Str(Blk,p[3]);
+       p[3]:='After Alloc XMS XMS block '+p[3]+' Kb';
+       GetMem(B,ImageSize(0,0,160,350));
+       with E do
+       begin
+           SS[0]:=0;
+           for i:=0 to 3 do
+           begin
+               S:=ImageSize(i*160,0,i*160+159,349);
+               if Odd(S) then Inc(S);
+               GetImage(i*160,0,i*160+159,349,B^);
+               size:=S;
+               soh:=0;
+               soo:=LongInt(B);
+               dsh:=h;
+               if i=0 then dso:=0 else
+               begin
+                   dso:=SS[i-1]+S;
+                   SS[i]:=dso;
+               end;
+               MoveXMS(E);
+               CheckXMS;
+           end;
+           Str(MemAvail,p[4]);
+           p[4]:='After GetImage Mem Avail '+p[4]+' bytes';
+           ClearDevice;
+           WriteLn('Picture saved. Press any key...');
+           PressKey;
+           for i:=0 to 3 do
+           begin
+               size:=S;
+               soh:=h;
+               if i=0 then soo:=0 else soo:=SS[i];
+               dsh:=0;
+               dso:=LongInt(B);
+               MoveXMS(E);
+               CheckXMS;
+               PutImage(i*160,0,B^,NormalPut);
+           end;
+       end;
+       FreeXMS(H);
+       FreeMem(B,ImageSize(0,0,160,350));
+       CheckXMS;
+       WriteLn('Press any key...');
+       PressKey;
+       CloseGraph;
+       for j:=0 to 4 do WriteLn(p[j]);
+       WriteLn('After all: Mem avail ',MemAvail,' bytes');
+       GetXMSmem(Tot,Blk);
+       CheckXMS;
+       WriteLn('           XMS block ',Blk,' Kb');
+   end.        {UseXMS}
+
+
+

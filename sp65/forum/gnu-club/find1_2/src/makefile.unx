@@ -1,0 +1,90 @@
+# Makefile for GNU find.
+# Copyright (C) 1987, 1990 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 1, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+SHELL = /bin/sh
+CC = gcc
+
+# DEFS might contain:
+# -DDEBUG		Print a trace tree.
+# -DUSG			System V string headers and functions; ndir.h.
+# -DDIRENT		If you have dirent.h.
+# -DSYSNDIR		Old Xenix systems (selects sys/ndir.h).
+# -DVPRINTF_MISSING	If you lack vprintf function (but have _doprnt).
+# -DSTRSPN_MISSING	If you lack strspn function.
+# -DMNTENT_MISSING	If you lack mntent.h (makes -fstype always false).
+DEFS = -DFCODES=\"$(FCODES)\" -DVPRINTF_MISSING
+
+CFLAGS = $(DEFS) -g
+LDFLAGS = -g
+LIBS = 
+
+# Directory in which to install 'find' and 'fastfind'.
+BINDIR=/usr/local/bin
+
+# Directory in which to install programs to create fast-find database.
+LIBDIR=/usr/local/lib/find
+
+# Data file for fast-find.
+FCODES=$(LIBDIR)/find.codes
+
+HEADERS = defs.h modechange.h regex.h
+SOURCES = find.c parser.c tree.c pred.c util.c error.c glob.c \
+fstype.c listfile.c filemode.c modechange.c regex.c savedir.c version.c
+OBJECTS = find.o parser.o tree.o pred.o util.o error.o glob.o \
+fstype.o listfile.o filemode.o modechange.o regex.o savedir.o version.o
+DISTFILES = COPYING README ChangeLog Makefile $(HEADERS) $(SOURCES) fastfind.c
+LIBDISTFILES = lib/Makefile lib/updatedb.sh lib/bigram.c lib/code.c
+
+all:	find fastfind lib
+.PHONY: all
+
+find:	$(OBJECTS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBS)
+
+fastfind:	fastfind.o glob.o error.o
+	$(CC) $(LDFLAGS) -o $@ fastfind.o glob.o error.o $(LIBS)
+
+lib:
+	cd lib; $(MAKE) LIBDIR=$(LIBDIR) BINDIR=$(BINDIR) FCODES=$(FCODES)
+.PHONY: lib
+
+# System V sites will need to either get a copy of GNU install from
+# the file utilities (1.3 or later), or install the files manually.
+install: all
+	install find fastfind $(BINDIR)
+	cd lib; $(MAKE) LIBDIR=$(LIBDIR) BINDIR=$(BINDIR) \
+	FCODES=$(FCODES) install
+.PHONY: install
+
+modechange.o parser.o: modechange.h
+
+find.o parser.o tree.o pred.o utils.o: defs.h 
+
+dist:
+	echo find-`sed -e '/version_string/!d' -e 's/[^0-9.]*\([0-9.]*\).*/\1/' -e q < version.c` > .fname
+	rm -rf `cat .fname`
+	mkdir `cat .fname` `cat .fname`/lib
+	ln $(DISTFILES) `cat .fname`
+	ln $(LIBDISTFILES) `cat .fname`/lib
+	tar chZf `cat .fname`.tar.Z `cat .fname`
+	rm -rf `cat .fname` .fname
+.PHONY: dist
+
+clean:
+	rm -f *.o *BAK core a.out tags find fastfind
+	cd lib; $(MAKE) clean
+.PHONY: clean

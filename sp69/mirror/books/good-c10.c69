@@ -1,0 +1,106 @@
+Newsgroups: comp.lang.c
+Subject: Good C Book           1/2
+From: david.mohorn@sourcebbs.com (David Mohorn)
+Message-ID: <14.21671.711@sourcebbs.com>
+Date: Mon, 14 Nov 94 00:07:00 -0005
+Organization: SelectiveSourceBBS Virginia Beach (804)471 6776
+
+Subject: Good C Book
+
+KD>     and (C: The Complete Reference, p. 237):
+  >       ".....
+  >                while (!feof(fp)) {
+  >                    ...
+  >                }
+  >       [end quote]
+
+  >     I can't quote the standard directly on this since the standa
+  >     does not normally show usage.  I suggest that anyone interes
+  >     simply save a file containing a few bytes, then write a shor
+  >     test program to read it using either of the constructs above
+  >     and using (f)getc() to read it one byte at a time.  Single-s
+  >     through the read with a debugger and you will see that you a
+  >     attempting to process one more character than is in the file
+  >     specifically, EOF itself.  It is a classic off-by-one error.
+
+Then you did not try what I suggested.  Please use your editor to
+save a small text file containing "abc\n".  Assuming you're working
+under DOS, a hex dump of your file will look like this:
+
+    61 62 63 0d 0a
+
+Write a short program to read the file, perhaps something like:
+
+    FILE *fp;
+    int c;
+    if ( (fp = fopen(FILENAME, "rb")) == NULL ) /* binary mode, so */
+        /* fopen error handler here */          /* there is no CR  */
+    while ( !feof(fp) ) {                       /* translation     */
+        c = fgetc(fp);
+        /* process 'c' however... */
+    }
+
+Single step through this with your debugger, watching the successive
+values of the variable 'c'.  You will find that c is successively
+assigned the values 61, 62, 63, 0d, 0a, FFFF.  At the end of the
+read, the variable 'c' contains a value (FFFF) which was not in the
+file.
+
+Here's what actually happens.  The standard specifies that the FILE
+object must contain an "end-of-file" indicator.  The feof() function
+simply returns the state of that indicator; 0 if not set, 1 if set.
+
+So the question is, when is the end-of-file indicator set?  The
+end-of-file indicator is set when an attempt is made to read *past*
+the end of the file.  Or to look at it another way, the end-of-file
+indicator is set when a read fails due to being at the end of the
+file.
+
+Please read the last paragraph very carefully.  The end-of-file
+indicator is not set when you read the last byte in the file; there
+has been no read failure.  The end-of-file indicator is set when you
+attempt a read and there are no more bytes to read. (This is very
+different from some other programming languages, such as Pascal).
+
+Hence, in the sample file and program above, the end-of-file
+indicator is not set when the last byte (0a) is read; it is not set
+until you attempt to read another byte and get a failure because
+there are no more bytes.  At that point, fgetc() returns EOF
+(conventionally -1 [FFFF]), which the program attempts to process.
+This is probably not what the programmer intended.
+
+Feof() and its cousin ferror() are classified by both the standard
+and by K&R II as error reporting functions.  You will never find
+feof() used in K&R as a way of reading a file.  The normal use of
+feof() is to distinguish between a read failure due to an error, and
+a read failure due to reaching the end of the file, thus:
+
+    while ( (c = fgetc(fp)) != EOF )
+        /* do something with 'c' */
+    if ( !feof(fp) )
+        /* not at end of file; handle read error */
+    else
+        /* at end of file, read completed successfully */
+
+Fgetc()/getc() return EOF on end-of-file or error.  Gets()/fgets()
+return NULL on end-of-file or error.   Fread() returns bytes_read !=
+bytes_requested on end-of-file or error
+
+The correct (K&R) way to read a file is to use the return value of
+the function doing the read to determine when the read is complete.
+You may then use feof() or ferror() to be sure the complete file has
+been read, if you wish.
+
+---------------------------------------------------------------------------
+** Turbo C/C++ the Complete Reference, p. 389 says:
+     ...
+> The feof() function is particularly useful when working with binary
+> files because the end-of-file marker is also a valid binary integer.
+> You must make explicit calls to feof() rather than simply testing th
+> return value of getc(), for example, to determine when the end of th
+> file has been reached.
+
+Rubbish.  This sort of total garbage is why so many are down on Schildt.
+
+(Continued to next message)
+

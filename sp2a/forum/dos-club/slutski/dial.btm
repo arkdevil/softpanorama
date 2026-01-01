@@ -1,0 +1,247 @@
+: Слуцкий Ю. Варивода И.
+:     Диалоговая оболочка DIAG работает с директориями/поддиректориями
+:       или файлами  согласно здравому смыслу
+:  Вызывать можно задавая ОТКУДА и КУДА в командной строке
+:      dial c:\sb a: 
+:   Файл d , состоящий из одного символа "d" надо поместить в 
+:     доступную директорию и поменять соответствующую строку в файле
+:                            DIAL
+:          в этом случае в результате копирования (режим 4)
+:             будет создаваться директория
+:         Если задать "f" , то будет создаваться файл
+:                                                       JVS  (tm)
+@echo off
+del c:\treeinfo.ncd>nul
+pushd
+cls
+set s=9
+set ~lll=%1
+gosub direct
+iff exist %[~ll] then ^ goto ret ^ endiff
+iff isdir %[~ll] then ^ goto ret ^ endiff
+goto err1
+:ret
+set ~dd=%[~ll]
+set ~lll=%2
+gosub direct
+set ~ww=%[~ll]
+:beg0
+gosub begscr
+:wait1
+Set ~k=
+inkey %%~k >nul
+iff %[~k]==@59  then
+:ot
+set s=9
+drawbox 1 1 2 79 0 black on black fill black
+screen 1 1
+scrput 2 2 %[~f] при нажатии "Enter" получите дерево
+input Введите имя директории ОТКУДА  %%~lll
+iff "%[~lll]"=="" then
+c:\norton\ncd
+gosub begscr
+set ~lll=%_cwd
+endiff
+drawbox 0 0 2 79 0 black on black fill black
+:ot1
+scrput 6 17 red on red ?????????????????????????????????????????????????
+scrput 23 10 black on black ??????????????????????????????????????????????????
+gosub direct
+iff exist %[~ll] then ^ goto ret1 ^ endiff
+iff isdir %[~ll] then ^ goto ret1 ^ endiff
+goto err1
+:ret1
+scrput 6 17 bright yel on black %[~ll]
+set ~dd=%[~ll]
+endiff
+iff %[~k]==@60  then
+:kud1
+set s=10
+drawbox 1 0 2 79 0 black on black fill black
+scrput 23 10 black on black ??????????????????????????????????????????????????
+screen 1 1
+scrput 2 2 %[~f] при нажатии "Enter" получите дерево
+input Введите имя директории КУДА  %%~lll
+iff "%[~lll]"=="" then
+c:\norton\ncd
+gosub begscr
+set ~lll=%_cwd
+drawbox 0 0 2 79 0 black on black fill black
+endiff
+gosub direct
+scrput 7 17 red on red ?????????????????????????????????????????????????
+scrput 7 17 bright yel on black %[~ll]
+set ~ww=%[~ll]
+endiff
+iff %[~k]==@61  then
+set s=11
+scrput 6 17 red on red ?????????????????????????????????????????????????
+scrput 7 17 red on red ?????????????????????????????????????????????????
+set ~ll=%[~dd] ^ set ~dd=%[~ww] ^ set ~ww=%[~ll]
+iff exist %[~dd] then ^ goto ret2 ^ endiff
+iff isdir %[~dd] then ^ goto ret2 ^ endiff
+set ~ll=%[~dd]
+goto err1
+:ret2
+scrput 6 17 bright yel on black %[~dd]
+scrput 7 17 bright yel on black %[~ww]
+endiff
+iff %[~k]==@62  then
+set s=12
+gosub zd
+iff %[~ww]==`ПУСТО` then ^ goto kud1 ^ endiff
+iff %[~dd]==%[~ww] then
+scrput 23 10 bright blink red on black Вы копируете директорию в себя! Это некрасиво!
+gosub zd1
+goto wait1
+endiff
+iff isdir %[~dd] then
+iff not isdir %[~ww] then ^ del c:\treeinfo.ncd>nul ^ endiff
+xcopy %[~dd] %[~ww] /s /e<c:\tools\d >nul
+gosub check
+else
+iff  not isdir %[~ww] then
+mkdir %[~ww]
+del c:\treeinfo.ncd>nul
+endiff
+copy %[~dd] %[~ww]>nul
+gosub check
+endiff
+endiff
+iff %[~k]==@63  then
+set s=13
+gosub zd
+iff not isdir %[~ww] then
+mkdir %[~ww]
+del c:\treeinfo.ncd>nul
+endiff
+pkunzip -d %[~dd]\*.zip %[~ww]\ >nul
+gosub check
+endiff
+iff %[~k]==@64 then
+set s=14
+gosub zd
+iff not isdir %[~ww] then
+mkdir %[~ww]
+del c:\treeinfo.ncd>nul
+endiff
+screen 1 1
+input ИМЯ АРХИВА: %%~ss
+iff "%[~ss]"=="" then
+set ~ddd=%@name[%[~dd]]
+else
+set ~ddd=%[~ss]
+endiff
+pkzip -p -r %[~ww]\%[~ddd] %[~dd]\*.* >nul
+gosub check
+endiff
+iff %[~k]==@65  then
+screen  1 1
+input ИМЯ АРХИВА: %%~ss
+iff "%[~ss]"=="" then
+set ~ddd=%@name[%[~dd]]
+else
+set ~ddd=%[~ss]
+endiff
+set s=15
+gosub zd
+iff %[~ww]==`ПУСТО` then ^ goto kud1 ^ endiff
+iff %[~dd]==%[~ww] then
+pkzip -p -r c:\%[~ddd].zip %[~dd]\*.* >nul
+gosub check
+zap2 %[~dd] /s /a >nul
+mkdir %[~dd]  >nul
+move c:\%[~ddd].zip %[~dd] >nul
+gosub check
+else
+pkzip -p -r %[~ww]\%[~ddd] %[~dd]\*.*>nul
+gosub check
+zap2 %[~dd] /s /a>nul
+del c:\treeinfo.ncd>nul
+endiff
+endiff
+iff %[~k]==@66 then
+set s=18
+gosub zd
+iff isdir %[~dd] then
+zap2 %[~dd] /s /a >nul
+del c:\treeinfo.ncd
+else
+del %[~dd]>nul
+endiff
+scrput 6 17 red on red ?????????????????????????????????????????????????
+set ~dd=`ПУСТО`
+scrput 6 17 bright yel on black %[~dd]
+endiff
+iff %[~k]==@67  then
+set s=19
+gosub zd
+dir %[~dd] /dh >d:\a
+drawbox 0 0 2 79 0 black on black fill black
+dircount d:\a
+del d:\a>nul
+endiff
+iff  %[~k]==@68  then
+goto quit1
+endiff
+scrput 22 10 bright blu on black ГОТОВО!!!!
+gosub zd1
+goto wait1
+:quit1
+popd
+QUIT
+:direct
+@echo off
+iff "%[~lll]"=="" then
+ set ~ll=%_cwd
+else
+ set ~ll=%[~lll]
+endiff
+return
+:zd
+@echo off
+iff %[~dd]==`ПУСТО` then ^ goto ot ^ endiff
+scrput 22 10 bright green on black Работаю...
+scrput %[s] 5 bright yel on red *
+return
+:zd1
+@echo off
+drawbox 1 0 2 79 0 black on black fill black
+scrput %[s] 5 red on red *
+return
+:err1
+@echo off
+scrput 23 10 blink bright red on black Такой директории/файла  не существует
+set ~ll=`ПУСТО`
+goto ot
+:begscr
+@echo off
+set ~f=bright white on red
+drawbox 4 3 22 78 0 %[~f] fill red
+drawbox 5 4 21 77 2 %[~f]
+scrput 4 25 bright yel on red Директории/поддиректории/файлы
+scrput 5 41 %[~f] `DIAL`
+scrput 6 10 black on red ОТКУДА
+scrput 7 10 black on red КУДА
+scrput 6 17 brigt yel on black %[~dd]
+scrput 7 17 brigt yel on black %[~ww]
+scrput 9 6 %[~f] ` 1. Смена  ОТКУДА `
+scrput 10 6 %[~f] ` 2. Смена  КУДА `
+scrput 11 6 %[~f] ` 3. Обмен ОТКУДА и КУДА `
+scrput 12 6 %[~f] ` 4. КОПИРОВАТЬ из  ОТКУДА в  КУДА`
+scrput 13 6 %[~f] ` 5. РАЗАРХИВИРОВАТЬ архив[ы] из ОТКУДА в  КУДА`
+scrput 14 6 %[~f] ` 6. АРХИВИРОВАТЬ без удаления ОТКУДА в  КУДА`
+scrput 15 6 %[~f] ` 7. АРХИВИРОВАТЬ с удалением ОТКУДА `
+scrput 16 8 %[~f] ` из  ОТКУДА в  КУДА с удалением  ОТКУДА`
+scrput 17 8 %[~f] ` если ОТКУДА и КУДА равны, то из ОТКУДА удаляется все, кроме архива`
+scrput 18 6 %[~f] ` 8. УДАЛИТЬ  ОТКУДА `
+scrput 19 6 %[~f] ` 9. ОЦЕНИТЬ обьем  ОТКУДА`
+scrput 21 6 %[~f] ` ВЫХОД в DOS по F10`
+return
+:check
+@echo off
+iff not errorlevel == 0 then
+scrput 0 0 bright blink red on black Ненормальное завершение!!! Не хватило места
+cancel
+endiff
+return

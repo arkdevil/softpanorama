@@ -1,0 +1,1334 @@
+$macro_file VFHLP ;
+{-----------------------------------------------------------------}
+{                                             Немировский В.Б.    }
+{ Верификатор help-файлов                                         }
+{ Структура макрофайла:                                           }
+{   - CHECK - макрос верификации help-файла;                      }
+{   - LISTCHP - вспомогательный макрос создания списка разделов;  }
+{   - VIEW - макрос визуализации гипертекста;                     }
+{   - IND_LIST - макрос создания индексного списка в конце        }
+{                help-файла;                                      }
+{   - HLPCMPERROR - макрос обработки ошибок;                      }
+{   - K_QSRT - макрос Е.Г.Корзуна, реализующий                    }
+{               алгоритм быстрой сортировки. Используется         }
+{               практически без изменений.                        }
+{_________________________________________________________________}
+
+$macro PRE_HLX from EDIT trans; { 04-фев-92 }
+{ 
+}
+
+  def_int(save_reg_exp_st,
+          save_ignore_case,
+          save_autosave,
+          lnum1, lnum2,
+          len,
+          curint,
+          found,
+          win_num,
+          win_num_text,          { номер окна с текстом help-файла }
+          hlp_win,
+          win_num_err,           { номер окна со списком ошибок    }
+          err_win,
+          line_num_text,         { номер строки в окне  help-файла }
+          line_num_err  := 0     { номер строки в окне   ошибок    }
+         );
+  def_str(pattern_ind,           { шаблоны индекса                 }
+          pattern_chap,          { шаблон раздела                  }
+          hf_name,
+          zero_str := '00000',
+          fn,
+          f_str,                 { стэк признаков выключения атрибутов }
+          num_line,
+          err_mess,
+          prev_str,
+          index
+         );
+
+  if (get_extension(file_name) <> 'HLP') then
+    beep;
+    make_message ('Ошибка: модификатор работает только с файлами типа .HLP');
+    goto exit;
+  end;
+
+  save_reg_exp_st  := reg_exp_stat;   { сохранить для восстановления }
+  save_ignore_case := ignore_case;
+  save_autosave    := autosave;
+  autosave     := 0;                  { запретить автосохранение     }
+  reg_exp_stat := TRUE;               { разрешить поиск регулярных выражений }
+  ignore_case  := TRUE;
+  refresh      := FALSE;
+  hlp_win      := window_id;
+
+  { определение шаблонов индекса  и раздела }
+  pattern_ind  := '@@{[A-Za-z]:}*{\[A-Za-z0-9_]+}*\*{[A-Za-z0-9_]+}*{^*[A-Za-z0-9_@*]*@%*[~@[]+}@[?+@]';
+
+end_macro; { PRE_HLX }
+
+$macro CHECK from EDIT TRANS;
+{-----------------------------------------------------------------}
+{ Производит проверку загруженного в текущее окно HLP-файла на:   }
+{   - правильность использования операторов гипертекста (мета-    }
+{     символов, зарезервированных  в  подсистеме   помощи  для    }
+{     специальных целей);                                         }
+{   - правильность разрешения ссылок;                             }
+{   - правильность расстановки атрибутов.                         }
+{                                                                 }
+{ Ошибочными считаются следующие  ситуации:                       }
+{   - неудвоенный метасимвол (оператор гипертекста), если кон-    }
+{     струкция, содержащая его, не может быть идентифицирована    }
+{     как разрешенная в гипертексте (индекс, раздел, имя  гло-    }
+{     бальной переменной и др.);                                  }
+{   - имя файла в  индексе с явно указанным  расширением, т.к.    }
+{     система гипертекста  контролирует дату  создания HLP-  и    }
+{     HLX-файлов  и  обращается  к  более  позднему (если есть    }
+{     оба);                                                       }
+{   - отсутствие файла, на который есть ссылка (при этом ищет-    }
+{     ся файл с расширением .HLP);                                }
+{   - отсутствие искомого раздела в файле;                        }
+{   - отсутствие искомой строки (связи);                          }
+{   - при указании изменения атрибута отсутствие отмены  этого    }
+{     изменения в той же строке.                                  }
+{_________________________________________________________________}
+
+  def_int(save_reg_exp_st,
+          save_ignore_case,
+          save_autosave,
+          lnum1, lnum2,
+          linkpos,
+          len,
+          curint,
+          found,
+          win_num,
+          win_num_text,          { номер окна с текстом help-файла }
+          hlp_win,
+          win_num_chap,          { номер окна со списком разделов  }
+          chap_win,
+          win_num_ind,           { номер окна со списком индексов  }
+          ind_win,
+          win_num_err,           { номер окна со списком ошибок    }
+          err_win,
+          line_num_text,         { номер строки в окне  help-файла }
+          line_num_chap := 0,    { номер строки в окне   разделов  }
+          line_num_ind  := 0,    { номер строки в окне   индексов  }
+          line_num_err  := 0     { номер строки в окне   ошибок    }
+         );
+  def_str(pattern_ind,           { шаблоны индекса                 }
+          pattern_chap,          { шаблон раздела                  }
+          hf_name,
+          zero_str := '00000',
+          fn,
+          f_str,                 { стэк признаков выключения атрибутов }
+          num_line,
+          err_mess,
+          prev_str,
+          chap,
+          index,
+          link
+         );
+
+
+  goto start;
+                  {         подпрограммы           }
+  ind_in_outfile: { поиск раздела во внешнем файле }
+
+    call get_fname;
+    return_str := get_environment('me_help');
+    RM('mesys^pathsearch /F=' + fn + '.hlp');
+    if (xpos('.', return_str, 1) <> 0) then
+      fn := return_str;
+      create_window;
+      load_file(fn);
+      make_message('поиск раздела во внешнем файле' + ' ' + fn + ':ссылка в стр ' + num_line);
+      if (error_level <> 0) then
+        RM('MEERROR');
+      else
+        call search_chapt;
+        if found_str <> index then
+          call srch_chap_error;
+        end;
+        delete_window;
+      end;
+    else
+      ++line_num_err;
+        err_mess := 'Warning ' + hf_name + ' ' +
+                    copy(zero_str, 1, 5 - length(num_line)) +
+                    num_line + ': ' + 'не найден файл ' + fn + '.hlp';
+      curint := cur_window;
+      switch_win_id(err_win);
+      Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+      switch_window(curint);
+    end;
+  ret;
+
+  link_in_curfile: { поиск раздела и связи в текущем файле }
+
+    call get_link_ind;
+    switch_win_id(chap_win);
+    Tof;
+    make_message('поиск связи в текущем файле по ссылке в стр ' + num_line);
+    if (Search_Fwd(index, 0)) then
+      Search_Fwd('{[0-9]+}', 1);
+      VAL(lnum1, Found_Str);
+      Down;
+      First_Word;
+      Search_Fwd('{[0-9]+}', 1);
+      VAL(lnum2, Found_Str);
+      switch_win_id(hlp_win);
+      Goto_Line(lnum1);
+
+      call search_link;
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + hf_name + ' ' +
+                  copy(zero_str, 1, 5 - length(num_line)) +
+                  num_line + ': ' + 'не найден раздел ' + index;
+      curint := cur_window;
+      switch_win_id(err_win);
+      Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+      switch_window(curint);
+    end;
+  ret;
+
+  ind_in_curfile: { поиск раздела  по индексу в текущем файле }
+
+    switch_win_id(chap_win);
+    tof;
+    make_message('поиск раздела в текущем файле по ссылке в стр ' + num_line);
+    if (not (search_fwd(index, 0))) then
+      ++line_num_err;
+      err_mess := 'Warning ' + hf_name + ' ' +
+                  copy(zero_str, 1, 5 - length(num_line)) +
+                  num_line + ': ' + 'не найден раздел ' + index;
+      curint := cur_window;
+      switch_win_id(err_win);
+      Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+      switch_window(curint);
+    end;
+  ret;
+
+  link_in_outfile: { поиск связи во внешнем файле }
+
+    call get_fname;
+    call get_link_ind;
+    return_str := get_environment('me_help');
+    RM('mesys^pathsearch /F=' + fn + '.hlp');
+    if (xpos('.', return_str, 1) <> 0) then
+      fn := return_str;
+      create_window;
+      load_file(fn);
+      make_message('поиск раздела во внешнем файле' + ' ' + fn + ':ссылка в стр ' + num_line);
+      if (error_level <> 0) then
+        RM('MEERROR');
+      else
+        call search_chapt;
+        if found_str <> index then
+          call srch_chap_error;
+        else
+          mark_pos;
+          lnum1 := c_line + 1;
+          next_page_break;
+          lnum2 := c_line - 1;
+          goto_mark;
+          down;
+          call search_link;
+        end;
+        delete_window;
+      end;
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + hf_name + ' ' +
+                  copy(zero_str, 1, 5 - length(num_line)) +
+                  num_line + ': ' + 'не найден файл ' + fn + '.hlp';
+      curint := cur_window;
+      switch_win_id(err_win);
+      Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+      switch_window(curint);
+    end;
+  ret;
+
+
+  get_index: { взять индекс в окне индексов   }
+
+    right;
+    index := get_word('[');
+    eol;
+    word_left;
+    num_line := get_word('|255');
+    down;
+    first_word;
+  ret;
+
+  get_fname: { выделить имя файла из индекса }
+
+    fn := Copy(index, 1, Xpos('^', index, 1) - 1);
+    index := Str_Del(index, 1, Length(fn) + 1);
+    if (get_extension(fn) <> '') then
+      ++line_num_err;
+      err_mess := 'Warning ' + hf_name + ' ' +
+                  copy(zero_str, 1, 5 - length(num_line)) +
+                  num_line + ': ' + 'индекс включает имя файла с расширением';
+      curint := cur_window;
+      switch_win_id(err_win);
+      Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+      switch_window(curint);
+      fn := truncate_extension(fn);
+    end;
+  ret;
+
+  get_link_ind: { выделить связь из индекса }
+
+    linkpos := Xpos('%', index, 1);
+    link  := caps(Copy(index, linkpos + 1, Length(index) - linkpos));
+    index := Copy(index, 1, linkpos - 1);
+  ret;
+
+  search_chapt: { поиск раздела в загруженном файле }
+
+    found := search_fwd(index, 0);
+    while found do
+      left;
+      if (cur_char <> '|12') then
+        right;
+        word_right;
+        found := search_fwd(index, 0);
+      else
+        found := FALSE;
+      end;
+    end;
+  ret;
+
+  srch_chap_error: { сообщение об отсутствии раздела }
+
+    ++line_num_err;
+    err_mess := 'Warning ' + hf_name + ' ' +
+                copy(zero_str, 1, 5 - length(num_line)) +
+                num_line + ': ' + 'не найден раздел ' +
+                index + ' в файле ' + fn;
+    curint := cur_window;
+    switch_win_id(err_win);
+    Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+    switch_window(curint);
+  ret;
+
+
+  search_link: { поиск связи в разделе }
+
+    found := search_fwd(link, lnum2 - lnum1);
+    found_str := caps(found_str);
+    while found do
+      Left;
+      If (Cur_Char <> '%') Then
+        Right;
+        if ((xpos('[', get_line, 1) < c_col)
+            and
+            (xpos(']', get_line, 1) > c_col)
+            ){.................................} then
+          word_right;
+          lnum1 := C_Line;
+          found := search_fwd(link, lnum2 - lnum1);
+          found_str := caps(found_str);
+        else
+          found := FALSE;
+        end;
+      else
+        Eol;
+        lnum1 := C_Line;
+        found := search_fwd(link, lnum2 - lnum1);
+        found_str := caps(found_str);
+      end;
+    end;
+    if found_str <> link then
+      ++line_num_err;
+      err_mess := 'Warning ' + hf_name + ' ' +
+                  copy(zero_str, 1, 5 - length(num_line)) +
+                  num_line + ': ' + 'в разделе ' + index +
+                  ' нет слов ' + link;
+      curint := cur_window;
+      switch_win_id(err_win);
+      Put_Line_To_Win(err_mess, line_num_err, cur_window, 0);
+      switch_window(curint);
+    end;
+  ret;
+
+  attrib: { обработка символа '^' }
+    mark_pos;
+    right;
+    if     cur_char = 'G'  then   call globl;
+    elsif  cur_char = 'B'  then   call bold_on;
+    elsif  cur_char = 'b'  then   call bold_off;
+    elsif  cur_char = 'R'  then   call reverse;
+    elsif  cur_char = 'K'  then   call blink_on;
+    elsif  cur_char = 'k'  then   call blink_off;
+    elsif (cur_char = '1')
+          OR
+          (cur_char = '2')
+          OR
+          (cur_char = '3') then   call color;
+    elsif  cur_char = '0'  then   call normcol;
+    elsif  cur_char <> '^' then
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'неудвоенный символ ^';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+
+  globl: { распознавание глобальной переменной для Quickstroke }
+
+    if search_fwd('{G[0-9][0-9]*"[~ ]+"}||{G"@@[~ ]+"}', 1) then
+      get_word(' ^');
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'ошибка в имени глобальной переменной';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+  bold_on:  { проверка выключения яркости }
+
+    if (search_fwd('^b', 1)) then
+      goto_mark;
+      f_str := found_str + f_str;
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'не отменен атрибут яркости';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+  bold_off:  { проверка включения яркости }
+
+    if (copy(f_str, 1, 2) = '^b') then
+      goto_mark;
+      f_str := copy(f_str, 3, length(f_str) - 2);
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'не включен атрибут яркости';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+  blink_on:  { проверка выключения выделения }
+
+    if (search_fwd('^k', 1)) then
+      goto_mark;
+      f_str := found_str + f_str;
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'не отменен атрибут выделения ^K';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+  blink_off:  { проверка включения выделения }
+
+    if (copy(f_str, 1, 2) = '^k') then
+      goto_mark;
+      f_str := copy(f_str, 3, length(f_str) - 2);
+    else
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'не включен атрибут выделения ^K';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+  reverse:  { проверка выключения реверса }
+
+    if (copy(f_str, 1, 2) = '^R') then
+      goto_mark;
+      f_str := copy(f_str, 3, length(f_str) - 2);
+    else
+      if (search_fwd('^R', 1)) then
+        goto_mark;
+        f_str := found_str + f_str;
+      else
+        ++line_num_err;
+        err_mess := 'Warning ' + File_Name + ' ' +
+                    copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                    Str(C_Line) + ': ' + 'не отменен атрибут реверса ^R';
+        Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+      end;
+    end;
+  ret;
+
+  color:  { проверка выключения цветового атрибута }
+
+    if (search_fwd('^0', 1)) then
+      goto_mark;
+      f_str := found_str + f_str;
+    else
+      goto_mark;
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'не отменен цветовой атрибут';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+  normcol:  { сообщение о возможном пропуске цветового атрибута }
+
+    if (copy(f_str, 1, 2) = '^0') then
+      goto_mark;
+      f_str := copy(f_str, 3, length(f_str) - 2);
+    else
+      goto_mark;
+      ++line_num_err;
+      err_mess := 'Warning ' + File_Name + ' ' +
+                  copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                  Str(C_Line) + ': ' + 'возможно пропущен цветовой атрибут';
+      Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+    end;
+  ret;
+
+
+start:
+
+  if (get_extension(file_name) <> 'HLP') then
+    beep;
+    make_message ('Ошибка: верификатор работает только с файлами типа .HLP');
+    goto EXIT;
+  end;
+
+  save_reg_exp_st  := reg_exp_stat;   { сохранить для восстановления }
+  save_ignore_case := ignore_case;
+  save_autosave    := autosave;
+  autosave     := 0;                  { запретить автосохранение     }
+  reg_exp_stat := TRUE;               { разрешить поиск регулярных выражений }
+  ignore_case  := TRUE;
+  refresh      := FALSE;
+  hlp_win      := window_id;
+
+  { определение шаблонов индекса  и раздела }
+  pattern_ind  := '@@{[A-Za-z]:}*{\[A-Za-z0-9_]+}*\*{[A-Za-z0-9_]+}*{^*[A-Za-z0-9_@*]*@%*[~@[]+}@[?+@]';
+  pattern_chap := '|12[A-Za-z0-9_.@*]+';
+
+  win_num := 1;                         { удалить окна с файлами MEERR.TMP }
+  while (win_num <= window_count) do
+    switch_window(win_num);
+    if (caps(truncate_path(file_name)) = 'MEERR.TMP') then
+      delete_window;
+      --win_num;
+    end; {if}
+    ++win_num;
+  end; {while}
+  switch_win_id(hlp_win);
+  win_num_text := cur_window;
+
+  Create_Window;
+  Window_Attr := $0001;
+  win_num_chap := cur_window;
+  chap_win     := window_id;
+  Create_Window;
+  Window_Attr := $0001;
+  win_num_ind := cur_window;
+  ind_win     := window_id;
+  run_macro('mesys^createwindow');
+  win_num_err  := cur_window;
+  err_win      := window_id;
+                                               { поиск разделов и индексов }
+  switch_win_id(hlp_win);                      { заполнение окон разделов, }
+  tof;                                         { индексов и ошибок         }
+  hf_name := file_name;
+  f_str := 'xxx';
+
+  while ( search_fwd('|12||^||@', 0) ) do
+    if (found_str = '|12') then                { найден признак раздела }
+
+      if (c_col = 1)              then
+        if (search_fwd(pattern_chap, 1)) then
+          make_message(' раздел в стр:' + str(c_line));
+          chap := copy(found_str, 2, length(found_str) - 1);
+          ++line_num_chap;
+          Put_Line_To_Win(Found_Str + ' ' + Str(C_Line),
+                          line_num_chap, win_num_chap, 0
+                         );
+        else
+          ++line_num_err;
+          err_mess := 'Warning ' + File_Name + ' ' +
+                      copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                      Str(C_Line) + ': ' + 'отсутствует имя раздела';
+          Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+        end ;
+      end ;
+
+    elsif (found_str = '@') then              { найден признак индекса }
+
+      mark_pos;
+      right;
+      if (cur_char <> '@') then               { не литера @            }
+        goto_mark;
+        if ( search_fwd(pattern_ind, 1)) then { удовлетворяет шаблону индекса }
+          make_message(' индекс в стр:' + str(c_line));
+          ++line_num_ind;
+          found_str := found_str + ' ' + str(c_line);
+          index := found_str;
+          if (str_char(index, 2) = '%') then    { дополнить связь именем раздела }
+            found_str := str_ins(chap, found_str, 2);
+          end;
+          Put_Line_To_Win(Found_Str, line_num_ind, win_num_ind, 0);
+          get_word('[');
+        else
+          ++line_num_err;
+          err_mess := 'Warning ' + File_Name + ' ' +
+                      copy(zero_str, 1, 5 - length(Str(C_Line))) +
+                      Str(C_Line) + ': ' + 'неудвоенный символ @';
+          Put_Line_To_Win(err_mess, line_num_err, win_num_err, 0);
+        End;
+      else
+        goto_mark;
+      end;
+
+    else   { найден признак атрибута '^' }
+
+      call attrib;
+
+    end;
+    right;
+    right;
+  end;
+
+  save_box(1, 1, 80, 1);
+  switch_window(win_num_ind);                { сортировка строк   }
+  RM('VFHLP^K_QSRT /C=1/CASE');              { в окне индексов    }
+  kill_box;
+  refresh := FALSE;
+
+  tof;                                       { и удаление         }
+  prev_str := Get_Word('[');                 { повторяющихся строк}
+  Down;
+  First_Word;
+
+  while (not (at_eof)) do
+    if (prev_str = get_word('[')) then
+      first_word;
+      del_line;
+    else
+      first_word;
+      prev_str := get_word('[');
+      down;
+      first_word;
+    end ;
+  end;
+
+  reg_exp_stat := FALSE;                           { поиск разделов    }
+  tof;                                             { и связей          }
+                                                   { по  индексам      }
+  call get_index;
+  While (Not (At_Eof)) Do
+    if   ((Xpos('^', index, 1) <> 0)
+          AND
+          (Xpos('%', index, 1) <> 0)
+         )                           then  call link_in_outfile;
+    elsif (Xpos('^', index, 1) <> 0) then  call ind_in_outfile;
+    elsif (Xpos('%', index, 1) <> 0) then  call link_in_curfile;
+    else                                   call ind_in_curfile;
+    end;
+
+    switch_win_id(ind_win);
+    call get_index;
+  end ;
+
+  save_box(1, 1, 80, 1);
+  switch_win_id(err_win);                          { сортировка по номерам }
+  len := 10 + length(hf_name);                     { строк и               }
+  RM('VFHLP^K_QSRT /C=' + str(len) + '/L=5');
+  tof;
+  kill_box;
+  refresh := FALSE;
+
+  file_name := 'meerr.tmp';                        { запись файла в окне  }
+  save_file;                                       { сообщений об ошибках }
+  if (error_level <> 0) then
+    RM('MEERROR');
+  end;
+
+  switch_win_id(chap_win);
+  delete_window;
+  switch_win_id(ind_win);
+  delete_window;
+  switch_win_id(hlp_win);
+  tof;
+  reg_exp_stat := TRUE;
+  RM('VFHLP^HLPCMPERROR');
+  refresh := TRUE;
+  Redraw;
+  reg_exp_stat := save_reg_exp_st;   { восстановление }
+  ignore_case  := save_ignore_case;
+  autosave     := save_autosave;
+EXIT:
+end_macro;
+
+
+$macro LISTCHP from ALL trans; { 27-янв-92 }
+{-----------------------------------------------------------------}
+{ Создание окна со списком разделов help-файла.                   }
+{ Возвращает номер окна в return_int.                             }
+{ Используется макросами VIEW и IND_LIST.                         }
+{_________________________________________________________________}
+
+  def_int (c_win,
+           winhlp_id,
+           winind_id,
+           l_num := 0
+          );
+  def_int (save_autosave);
+  def_str (f_name, chapt, index);
+
+  save_autosave    := autosave;       { сохранить для восстановления }
+  autosave     := 0;                  { запретить автосохранение     }
+  refresh := false;
+
+  if    (mode = EDIT)      then
+    f_name := file_name;
+  elsif (mode = DOS_SHELL) then
+    f_name := dir_entry;
+  end; {if}
+
+  c_win := window_id;
+  if (mode = DOS_SHELL) then
+  { создать скрытое окно и загрузить файл }
+    create_window;
+    window_attr := $0001;
+    winhlp_id := window_id;
+    load_file (f_name);
+    if (error_level <> 0) then
+      run_macro('meerror');
+    end; {if}
+  end; {if}
+{ создать  скрытое окно и заполнить его списком разделов }
+  create_window;
+  window_attr := $0001;
+  winind_id   := window_id;
+  switch_window (cur_window - 1);
+  tof;
+  first_word;
+  chapt := get_line;
+  while (not (at_eof)) do
+    ++l_num;
+    put_line_to_win(copy(chapt, 2, svl(chapt) - 1), l_num, cur_window + 1, 0);
+    next_page_break;
+    if (not (at_eof)) then
+      up;
+      chapt := get_line;
+    end; {if}
+  end; {while}
+
+  if (mode = DOS_SHELL) then
+    switch_win_id (winhlp_id);
+    delete_window;
+  end; {if}
+  switch_win_id (c_win);
+
+  refresh  := true;
+  autosave := save_autosave;     { восстановление }
+  return_int := winind_id;
+  exit:
+end_macro; { LISTCHP }
+
+$macro VIEW from DOS_SHELL trans; { 24-янв-92 }
+{-----------------------------------------------------------------}
+{ Визуализация гипертекста.                                       }
+{ Создает бокс со списком разделов выделенного в DOS_SHELL файла  }
+{ с расширением .HLP, позволяет просмотреть выбранный из бокса    }
+{ раздел help-файла.                                              }
+{_________________________________________________________________}
+
+  def_int (win_id,
+           c_win,
+           winind_id
+          );
+  def_int(save_autosave);
+  def_str (f_name, index);
+
+  save_autosave    := autosave;       { сохранить для восстановления }
+  autosave     := 0;                  { запретить автосохранение     }
+
+  c_win := window_id;
+{ выбрать файл                 }
+  f_name := dir_entry;
+{ проанализировать расширение  }
+  if (caps(get_extension (f_name)) <> 'HLP') then
+    beep;
+    make_message ('макрос работает только с файлами типа .HLP');
+    goto exit;
+  end; {if}
+{ создать скрытое окно и заполнить его списком разделов }
+  run_macro('vfhlp^listchp');
+  refresh := false;
+  winind_id := return_int;
+  switch_win_id(winind_id);
+  win_id  := cur_window;
+  switch_win_id(c_win);
+{ обратиься к data_in и вывести list box }
+  return_int := 1;
+  while (return_int <> 0) do
+    set_global_str('nvb_iparm_1','/TP=15/WIN=' + str(win_id) + '/MW=10');
+    run_macro('userin^data_in /#=1/PRE=nvb_/T=список разделов файла ' +
+              truncate_path(f_name) + '/DBM=0');
+    new_screen;
+    if (return_int = 1) then
+    { принять из list box строку и передать ее в mehelp }
+      switch_win_id (winind_id);
+      index := get_word(' ');
+      run_macro('mehelp^mehelp /F=' + f_name + '/LK=' + index);
+    end; {if}
+  end; {while}
+
+  switch_win_id (winind_id);
+  delete_window;
+  switch_win_id (c_win);
+
+  refresh := true;
+  redraw;
+  autosave := save_autosave;     { восстановление }
+exit:
+end_macro; { view }
+
+
+$macro IND_LIST from EDIT trans; { 28-янв-92 }
+{-----------------------------------------------------------------}
+{ Создает раздел INDEX со списком индексов в конце help-файла.    }
+{_________________________________________________________________}
+
+  def_int (win_id,
+           win_num,
+           c_win,
+           winind_id
+          );
+  def_int(save_autosave, save_insert_mode);
+
+{ проанализировать расширение  }
+  if (caps(get_extension (file_name)) <> 'HLP') then
+    beep;
+    make_message ('макрос работает только с файлами типа .HLP');
+    goto exit;
+  end; {if}
+  save_autosave    := autosave;       { сохранить для восстановления }
+  save_insert_mode := insert_mode;
+  autosave    := 0;                  { запретить автосохранение     }
+  insert_mode := true;
+
+  c_win := window_id;
+
+{ создать скрытое окно со списком разделов }
+  run_macro('vfhlp^listchp');
+  refresh := false;
+  winind_id := return_int;
+{ преобразовать разделы в индексы }
+  switch_win_id(winind_id);
+  win_num := cur_window;
+  tof;
+  while (not (at_eof)) do
+    first_word;
+    text('@');
+    word_right;
+    back_space;
+    text('[');
+    eol;
+    text(']');
+    down;
+  end; {while}
+{ отметить блок списка индексов }
+  tof;
+  block_begin;
+  eof;
+  block_end;
+{ перейти в окно с help-файлом и установить маркер на конец файла }
+  switch_win_id(c_win);
+  eof;
+  first_word;
+  down;
+{ вставить заголовок раздела и пустую строку }
+  put_line('|12' + 'INDEX список индексов');
+  down;
+  put_line('     ');
+  down;
+{ скопировать блок из окна со списком индексов }
+  window_copy(win_num);
+  block_off;
+{ записать файл }
+  save_file;
+{ уничтожить окно со списком }
+  switch_win_id(winind_id);
+  delete_window;
+  switch_win_id(c_win);
+
+  refresh := true;
+  redraw;
+  autosave := save_autosave;     { восстановление }
+  insert_mode := save_insert_mode;
+exit:
+end_macro; { IND_LIST }
+
+$macro HLPCMPERROR TRANS;
+{-----------------------------------------------------------------}
+{ Макрос обработки ошибок.                                        }
+{                                                                 }
+{     Работает  в  режиме  поиска  следующей ошибки. Он должен    }
+{     быть назначен  на клавишу  <CtrlE> в  пункте Key mapping    }
+{     меню INSTALLATION AND SETUP. Макрос анализирует расшире-    }
+{     ние файла,  загруженного в  окно. Если  загружен не HLP-    }
+{     файл,  то  происходит  обращение  к стандартному макросу    }
+{     LANGUAGE^CMPERROR. Альтернативой предложенной возможнос-    }
+{     ти является назначение  макроса обработки ошибок  на ка-    }
+{     кую-то другую клавишу. В этом случае макрос нужно слегка    }
+{     модифицировать, оставив в нем только часть,  ответствен-    }
+{     ную за обработку ошибок для HLP-файлов.                     }
+{_________________________________________________________________}
+  def_str(fn);
+  def_int(lnum, win_num, hlp_win, err_win);
+
+  refresh := false;
+  fn := file_name;
+  if (caps(get_extension(file_name)) <> 'HLP') then
+    RM('LANGUAGE^CMPERROR');
+  else
+    hlp_win := window_id;
+    err_win := 0;
+    win_num := 1;
+    while (win_num <= window_count) do
+      switch_window(win_num);
+      if (caps(truncate_path(file_name)) = 'MEERR.TMP') then
+        err_win := window_id;
+      end; {if}
+      ++win_num;
+    end; {while}
+    switch_win_id(hlp_win);
+    if (err_win <> 0) then
+      switch_win_id(err_win);
+      if (search_fwd('{warning}||{error}', 0)) then
+        search_fwd('{[0-9]+}', 1);
+        val(lnum, found_str);
+        make_message(get_line);
+        eol;
+        switch_win_id(hlp_win);
+        goto_line(lnum);
+        first_word;
+      else
+        make_message('нет ошибок в файле ' + fn);
+        switch_win_id(hlp_win);
+      end ;
+    else
+      beep;
+      make_message ('нет окна с файлом MEERR.TMP');
+    end; { if }
+  end ;
+  refresh := true;
+  redraw;
+end_macro;
+
+
+$Macro K_QSRT TRANS ;
+{ ----- Алгоритм "Быстрой Сортировки" - по Б.МЕЙР К.БОДУЭН т.2 стр.167  ----- }
+{ -----   21.02.90 10:32  Корзун Е.Г.  v.m. 27.02.90 13:00 ------------------ }
+
+   Def_Str(Message);
+   Def_Int(Start_Line, End_Line, CH_LINE, CUR_LINE, SORT);
+   Def_Int( c_start, keylen, BL1, BL2, Caps_On, Descending,
+            BC1, BC2, Old_Block_Stat, O_MARKING );
+   Def_Int(O_SAVE,O_RFRSH,O_IM ,O_UNDO);
+   Def_Int(N);                         { Количество элементов                 }
+
+   Def_Int(Porog);                     { Значение "порога"                    }
+   Porog := 15;
+   Def_Int(IGL)  ;                     { Результат DIVIDE                     }
+   Def_Int(IKEY) ;                     { Значение сравнения в COMPARE         }
+
+   Def_Int(I,J ) ;                     { Текущие значения границ  массива     }
+   Def_Int(IS,JS);                     { Текущие значения границ - в стэк     }
+   Def_Int(CI,CJ);                     { Значения индексов для COMPARE        }
+   Def_Int(Nstek);                     { Глубина стэка                        }
+
+   Def_Int(Midle,MI,MJ);               { DIVIDE : "середина",левый,правый     }
+   Def_Str(KI,KJ);                     { COMPARE: ключи сравниваемых эл-ов    }
+                                       { CHANGE: собственно строки            }
+   Def_Str(SI [2048], SJ [2048] , CSJ [2048]);
+   Def_Int(K,L);
+
+ START:
+                                       { Подготовительные действия            }
+   O_IM := Insert_Mode;                { На самом деле не нужно               }
+   O_UNDO := UNDO_STAT;
+   UNDO_STAT := 0;                     { Отключаем ведение статистики UNDO    }
+   O_SAVE := AUTOSAVE;
+   AUTOSAVE := 0;                      { Отключаем автоматическое сохранение  }
+   O_RFRSH := REFRESH;
+   PUSH_UNDO;                          { Отметка в буфере UNDO - начало     * }
+   REFRESH := FALSE;
+   working;
+   Descending := xpos( '/D', MParm_Str, 1 ) <> 0;
+   Caps_On := Xpos( '/CASE', MParm_Str, 1 ) <> 0;
+   c_start := parse_int( '/C=', MParm_Str );
+   keylen  := parse_int( '/L=', MParm_Str );
+   if c_start = 0 then                 { Колонка начала ключа                 }
+      c_start := 1;
+   end;
+   if (keylen <= 0) OR (Keylen > 254) then       { Длина ключа - не более  254}
+      keylen := 254;
+   end;
+
+   SORT := 0;
+   CUR_LINE := C_LINE;                 { Номер текущей строки-когда нет блока!}
+
+   Old_Block_Stat := 0;
+   If (Block_Stat <> 0) Then
+      Old_Block_Stat := Block_Stat;    { Запомним кто он такой                }
+      O_MARKING := MARKING ;
+      BL1 := block_line1;
+      BL2 := block_line2;
+      BC1 := block_col1;
+      BC2 := block_col2;
+      block_off;                       { Выключим его, чтобы не отсвечивал    }
+   End;                                { -- If ..                             }
+
+   if xpos( '/B', MParm_Str, 1 ) <> 0 then       { Заказан блок               }
+      if Old_Block_Stat <> 1 THEN
+         BEEP;
+         RUN_MACRO('USERIN^VERIFY /C=3/L=5'
+            + '/T=Нет строчного блока.Сортируем Becь файл ?');
+         If (Return_Int) then          { Cказали сортировать все              }
+            GOTO NO_BLK;
+         end;
+         Message := 'Сортировка отменена';
+         Goto_Line(CUR_LINE);          { Вернемся где были                    }
+         goto exit;
+      end;
+      Start_Line := BL1;               { Это при сортировке строчного блока   }
+      End_Line   := BL2;
+      GOTO MAIN;
+   end;
+ NO_BLK:
+   Old_Block_Stat := 0;                { Всякие блоки теряют смысл            }
+   Start_Line := 1;
+   EOF;
+   End_Line := C_LINE;
+
+ MAIN:
+   EOF;
+   CH_Line := C_LINE;                  { Для проверки все ли O.KEY с заказом  }
+   If (End_line > CH_Line) Then        { Недоразумение - поправим             }
+      End_line := CH_Line;
+   End;                                { -- If ..                             }
+   I := Start_Line;
+   J := End_Line  ;
+   N := (J - I) + 1;
+   If (N < 2) Then                     { Недоразумение - делать нечего        }
+      GoTo End_ALL;
+   End;                                { -- If ..                             }
+   Nstek := 0;
+   SORT := TRUE;                       { И в действительности сортируем       }
+   Make_Message('K_QSRT 27.02.90 12:59 - MAIN =' + STR(N) + ' ' );
+                                       { Основной цикл - деление с главным .. }
+   While ((J - I) > Porog) OR (Nstek > 0 )Do
+      Call DIVIDE { (I , J ) } ;
+      If (IGL - I) < (J - IGL) Then    { Еслм слева меньше, то переходим влево}
+         IS := IGL + 1;
+         JS := J;
+         J  := IGL - 1;
+      Else                             { Иначе - вправо                       }
+         IS := I;
+         JS := IGL - 1;
+         I  := IGL + 1;
+      End;
+
+      If (JS - IS) > Porog Then        { Отложенный кусок больше порга-спрячем}
+         Nstek := Nstek + 2;           { Глубина одного шага - 2              }
+         WRITE( '    Стэк=' + STR(NSTEK/2) + '     ',17,1,0,EOF_COLOR);
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek   ),IS);
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek -1),JS);
+      End;
+
+      If ((J - I) < Porog) AND (Nstek > 0) Then  { Пора вынимать из стека     }
+         I := Global_Int('K_SRT_STEK' + STR(Nstek   ) );
+         J := Global_Int('K_SRT_STEK' + STR(Nstek -1) );
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek   ),0);
+         Set_Global_Int('K_SRT_STEK' + STR(Nstek -1),0);
+         Nstek := Nstek - 2;
+      End;                             { -- If ..                             }
+   End;                                { -- Do .. While                       }
+                                       { -- Конец MAIN                        }
+  { ------------------------------------------------------------------------- }
+   Make_Message('K_QSRT-ENDSORT =' + STR(N) + ' ' + Mparm_Str);
+   Call ENDSORT;                       { "Досортировка" массива               }
+  { ----- Подпрограммы   ---------------------------------------------------- }
+  GoTo END_ALL;
+
+                                       { ------------------------------------ }
+ DIVIDE:
+  {   - DIVIDE(I,J)  - нахождение "главного" элемента в подмассиве I : J ,    }
+  {                     результат: индекс IGL главного элемента,              }
+  {                     частично отсортрованный подмассив I : J ;             }
+                                       { ------------------------------------ }
+   IGL := I;
+   If (J <= I) Then                    { Делать уже нечего                    }
+      Ret;
+   End;                                { -- If ..                             }
+                                       { Инициализация "среднего"             }
+   Midle := (I + J) / 2;
+   CI := J;
+   CJ := Midle;
+   Call COMPARE    { (CI , CJ ) } ;
+   If (IKEY < 0 ) Then                 { Cреднмй > Правого - меняем местами   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- If ..                             }
+
+   CJ := I;
+   Call COMPARE    { (CI , CJ ) } ;
+   If (IKEY < 0 ) Then                 { Левый   > Правого - меняем местами   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- If ..                             }
+
+   CI := I;
+   CJ := Midle;
+   Call COMPARE    { (CI , CJ ) } ;
+   If (IKEY < 0 ) Then                 { Средний > Левого  - меняем местами   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- If ..                             }
+
+                                       { ------------------------------------ }
+                                       { Теперь Слева - средний по значению 3 }
+                                       { а      Справа- MAX     по значению 3 }
+                                       { ------------------------------------ }
+   MI := I;
+   MJ := J + 1;                        { За границу не выйдем,т.к. начинаем   }
+                                       { все действия с MJ - 1 и MI + 1       }
+   CJ := I;
+   Call COMPARF    { (CI , CJ ) } ;
+
+   While (MI < MJ) Do                  { Перестановки вокруг "среднего"       }
+
+      IKEY := 1 ;
+      CI := MI;
+      While IKEY Do                    { Поиск слева >= "среднего"            }
+         ++CI;
+         Call COMPARL    { (CI , CJ ) } ;
+      End;                             { -- While слева <  "среднего"         }
+      MI := CI;                        { Вот этот - нарушитель ! (слева)      }
+                                       { У него ключ >=  "среднего"           }
+      IKEY := 1 ;
+      CI := MJ;
+      While IKEY Do                    { Поиск справа <= "среднего"           }
+         --CI;
+         Call COMPARG    { (CI , CJ ) } ;
+      End;                             { -- While справа > "среднего"         }
+      MJ := CI;                        { Вот этот - нарушитель ! (справа)     }
+
+                                       { Приводим в соотвествие-переставляем  }
+      CJ := MI;                        { В CI Уже MJ - номер правого злодея   }
+      Call CHANGE  { (CI , CJ ) } ;
+   End;                                { -- Do .. While . MJ < MI             }
+
+   Call CHANGE  { (CI , CJ ) } ;       { Т.К. переусердствовали -> назад      }
+                                       { Возвращаемый индекс "середины"       }
+   IGL := MJ;                          { индекс "середины" должен быть MIN    }
+
+   CJ := I;                            { т.к. в CI осталось MJ                }
+   Call CHANGE  { (CI , CJ ) } ;       { Осталось вставить на место среднего  }
+   Ret;                                { -- of DIVIDE                         }
+                                       { ------------------------------------ }
+ COMPARE:
+  {   - COMPARE(CI,CJ) - сравнение ключей элементов CI и CJ ,                 }
+  {                     результат: IKEY : - 1 при K(CI) < K(CJ)               }
+  {                                     :   0 при K(CI) = K(CJ)               }
+  {                                     : + 1 при K(CI) > K(CJ) ;             }
+                                       { ------------------------------------ }
+   PUT_LINE_NUM(CJ);
+   PUT_COL_NUM(CI);
+   Goto_Line(CI);
+   KI := COPY(GET_LINE,c_start,keylen);
+   Goto_Line(CJ);
+   KJ := COPY(GET_LINE,c_start,keylen);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+      KJ := CAPS(KJ);
+   End;                                { -- If ..                             }
+   IKEY := KI > KJ;
+   If (NOT(IKEY)) Then
+      If (KI < KJ) Then
+         IKEY := -1;
+      End;                             { -- If ..                             }
+   End;                                { -- If ..                             }
+   If Descending  Then
+      IKEY := - IKEY;
+   End;                                { -- If ..                             }
+   Ret;                                { -- of COMPARE                        }
+                                       { ------------------------------------ }
+ COMPARF:
+  {   - COMPARF(CJ) - запомнить в CJ ключ, а в CSJ - собственно строку    }
+                                       { ------------------------------------ }
+   PUT_LINE_NUM(CJ);
+   Goto_Line(CJ);
+   CSJ := GET_LINE;
+   KJ := COPY(GET_LINE,c_start,keylen);
+   If (Caps_On) Then
+      KJ := CAPS(KJ);
+   End;                                { -- If ..                             }
+   Ret;                                { -- of COMPARF                        }
+ COMPARS:                              { Сравнение текущего с буфером         }
+  {                     результат: IKEY : - 1 при K(CI) < K(CJ)               }
+  {                                     :   0 при K(CI) = K(CJ)               }
+  {                                     : + 1 при K(CI) > K(CJ) ;             }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   KI := COPY(GET_LINE,c_start,keylen);
+   PUT_COL_NUM(CI);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+   End;                                { -- If ..                             }
+   IKEY := KI > KJ;
+   If (NOT(IKEY)) Then
+      If (KI < KJ) Then
+         IKEY := -1;
+      End;                             { -- If ..                             }
+   End;                                { -- If ..                             }
+   If Descending  Then
+      IKEY := - IKEY;
+   End;                                { -- If ..                             }
+   Ret;                                { -- of COMPARS                        }
+                                       { ------------------------------------ }
+ COMPARG:                              { Сравнение текущего с буфером  на >   }
+  {                     результат: IKEY :   TRUE  при K(CI) >  K(CJ)          }
+  {                                     :   FALSE при K(CI) <= K(CJ)          }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;                     { Запомним это значение                }
+   KI := COPY(GET_LINE,c_start,keylen);
+   PUT_COL_NUM(CI);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+   End;                                { -- If .. нет разницы загл./строчные  }
+   If Descending  Then
+      IKEY := KI < KJ;
+   Else
+      IKEY := KI > KJ;
+   End;                                { -- If ..  наоборот                   }
+   Ret;                                { -- of COMPARG                        }
+                                       { ------------------------------------ }
+ COMPARL:                              { Сравнение текущего с буфером  на <   }
+  {                     результат: IKEY :   TRUE  при K(CI) <  K(CJ)          }
+  {                                     :   FALSE при K(CI) >= K(CJ)          }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;                     { Запомним это значение                }
+   KI := COPY(GET_LINE,c_start,keylen);
+   PUT_COL_NUM(CI);
+   If (Caps_On) Then
+      KI := CAPS(KI);
+   End;                                { -- If .. нет разницы загл./строчные  }
+   If Descending  Then
+      IKEY := KI > KJ;
+   Else
+      IKEY := KI < KJ;
+   End;                                { -- If ..  наоборот                   }
+   Ret;                                { -- of COMPARL                        }
+                                       { ------------------------------------ }
+ CHANGF:
+  {   - CHANGE(CI,CJ)  - поменять местами элементы CI и CJ - запомненное      }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;
+   PUT_LINE(CSJ);
+   Goto_Line(CJ);
+   PUT_LINE(SI);
+   Ret;                                { -- of CHANGF                         }
+                                       { ------------------------------------ }
+ CHANGE:
+  {   - CHANGE(CI,CJ)  - поменять местами элементы CI и CJ ;                  }
+                                       { ------------------------------------ }
+   Goto_Line(CI);
+   SI := GET_LINE;
+   Goto_Line(CJ);
+   SJ := GET_LINE;
+   PUT_LINE(SI);
+   Goto_Line(CI);
+   PUT_LINE(SJ);
+   Ret;                                { -- of CHANGE                         }
+                                       { ------------------------------------ }
+ ENDSORT:
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  {                    метод - "включением"                                   }
+                                       { ------------------------------------ }
+   K := 1;
+   While (K < N ) Do
+      CJ := Start_Line + K ;           { Включаемая запись                    }
+      CI := CJ - 1;                    { Начало отсортированного куска снизу  }
+      Call COMPARF    { ( CJ ) } ;
+      Call COMPARG    { (CJ , CJ - 1 ) } ;
+      While (CI >= Start_Line) Do
+         If IKEY Then                  { здесь Включаемый  <  Левого   ?      }
+                                       { С этим уже можно менять              }
+            Call CHANGF     { (CJ , CJ - 1 ) } ;
+            CJ := CI;
+            --CI;
+            Call COMPARG    { (CJ , CJ - 1 ) } ;
+         Else
+            CI := 0;                   { Признак выхода из цикла              }
+         End;                          { -- If .Правый  <  Левого . Else .. }
+      End;                             { -- Do .. While L > 0 AND K.L > K.L+1 }
+      ++K;
+   End;                                { -- Do .. While K < N                 }
+   Ret;                                { -- of ENDSORT                        }
+                                       { ------------------------------------ }
+  {   - ENDSORT      - окончательная "подсортировка" результирующего массива; }
+  END_ALL:
+  { ----- Подпрограммы   - конец -------------------------------------------- }
+
+   EOF;
+   I := C_LINE ;
+   J := CH_Line;
+   If (J <> I) Then
+      BEEP;
+      Message := 'Ошибка K_QSRT - было строк: '+ STR(J)
+                  + '=до сортировки, ' + STR(I) + '= после';
+   Else
+      Message := 'K_QSRT - Сортировка закнчена. ' + STR(N) + ' строк';
+   End;                                { -- If ..                             }
+   TOF;                                { В начало файла                       }
+ EXIT:
+   if Old_Block_Stat <> 0 THEN         { Был блок                             }
+      goto_line(BL1);
+      If (Old_Block_Stat = 1) Then
+         Block_Begin;
+         goto_line(BL2);
+      Else                             { Поточный или колонный                }
+         goto_col(BC1);
+         If (Old_Block_Stat =2) Then   { Колонный                             }
+            Col_Block_Begin;
+         Else
+            Str_Block_Begin;
+         End;                          { -- If .. Else ..                     }
+         goto_line(BL2);
+         goto_col(BC2 + 1);
+      End;                             { -- If .. Восстановления типа блока   }
+      If (O_MARKING >= 0) Then         { Был закрыт  -нет - все равно         }
+         block_end;
+         Goto_Line(CUR_LINE);
+      End;
+   End;
+   If (SORT) Then
+      Goto_Line(Start_Line);
+   End;                                { -- If .. сортировка была             }
+   POP_UNDO;                           { Отметка в буфере UNDO - конец      * }
+   UNDO_STAT := O_UNDO;
+   AUTOSAVE := O_SAVE;
+   Insert_Mode := O_IM ;
+   O_SAVE := AUTOSAVE;
+   REFRESH := O_RFRSH ;
+   If (SVL(Message) > 0) Then
+      Make_Message(Message);
+   End;
+ End_macro;                            { -- K_QSRT -                          }

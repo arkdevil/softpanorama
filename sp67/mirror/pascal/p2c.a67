@@ -1,0 +1,333 @@
+From: Alexei Kishkin <Alexei_Kishkin@p20.f2.n5012.z2.fidonet.org>
+Newsgroups: relcom.comp.lang.pascal
+Subject: Вопрос по переносимости программ.См письмо
+Message-ID: <2e832439@p0.f3.n5011.z2.gate.phantom.ru>
+Date: Wed, 28 Sep 1994 08:23:00 +0300
+Organization: Phantom of Infinity Soft Labs (Gid:fidonet.org)
+
+On (23 Sep 94) Vladislav Zlobin wrote to roman@izhmark.udmurtia.su...
+ VZ>             Дoбpый дeнь|вeчep|нoчь|yтpo, yвaжaeмый Roman!
+ VZ> 16 сентября 1994, Пятница, roman@izhmark.udmurtia.su writes :
+ rus> Что касается перевода в С, неплохо это делает обычный p2c,
+ VZ>         Хм. А что он будет делать со вложенными процедурами|функциями? :)
+ VZ>                 Let the CARRIER be with You!
+ VZ>                 SCoon
+
+ Извините, что влез в Вашу дискуссию, но вот результат работы p2c
+из Linux.
+Исходная программа
+ procedure alfa;
+   var
+     c:word;
+   procedure beta;
+   var
+     d:word;
+   begin (* beta *)
+     d:=c;
+   end; (* beta *)
+ begin  (* alfa  *)
+   c:=5;
+   beta;
+ end;   (* alfa *)
+begin
+ alfa;
+end.
+Результат:
+/* Output from p2c, the Pascal-to-C translator */
+/* From input file "a.p" */
+
+
+#include <p2c/p2c.h>
+
+
+/* Local variables for alfa_: */
+struct LOC_alfa_ {
+  unsigned short c;
+} ;
+
+Local Void beta(LINK)
+struct LOC_alfa_ *LINK;
+{
+  unsigned short d;
+
+  d = LINK->c;
+}
+
+
+Static Void alfa_()
+{
+  struct LOC_alfa_ V;
+
+  V.c = 5;
+  beta(&V);
+}
+
+
+main(argc, argv)
+int argc;
+Char *argv[];
+{
+  PASCAL_MAIN(argc, argv);
+  alfa_();
+  exit(EXIT_SUCCESS);
+}
+/* End. */
+
+Так, что вот смотрите...
+                            Алексей. 09/28/94 .
+
+--- PPoint 1.86
+ * Origin: A Professional Point System (2:5012/2.20)
+
+From: roman@izhmark.udmurtia.su (Roman Dimov)
+Newsgroups: relcom.comp.lang.pascal
+Subject: Re: Вопрос по переносимости программ.См письмо
+Date: 29 Sep 1994 09:41:27 GMT
+Organization: Communication Company MARK-ITT
+Message-ID: <36e247$8n7@hq.izhmark.udmurtia.su>
+
+Vladislav Zlobin (Vladislav_Zlobin@p0.f3.n5011.z2.fidonet.org) wrote:
+:             Дoбpый дeнь|вeчep|нoчь|yтpo, yвaжaeмый Roman!
+
+: 16 сентября 1994, Пятница, roman@izhmark.udmurtia.su writes :
+
+:  rus> Что касается перевода в С, неплохо это делает обычный p2c,
+
+:         Хм. А что он будет делать со вложенными процедурами|функциями? :)
+
+А как это ? Вот так ?
+
+#cat test.pas
+procedure p1;
+function f1:byte;
+begin
+writeln('f1');
+f1:=1;
+end;
+begin
+writeln('p1 ',f1);
+end;
+begin
+p1
+end.
+#p2c test.pas
+f1, p1, program
+Translation completed.
+#cat test.c
+/* Output from p2c, the Pascal-to-C translator */
+/* From input file "test.pas" */
+
+
+#include <p2c/p2c.h>
+
+
+Local uchar f1()
+{
+  printf("f1\n");
+  return 1;
+}
+
+
+Static Void p1()
+{
+  printf("p1 %12d\n", f1());
+}
+
+
+main(argc, argv)
+int argc;
+Char *argv[];
+{
+  PASCAL_MAIN(argc, argv);
+  p1();
+  exit(EXIT_SUCCESS);
+}
+
+
+
+/* End. */
+#cc test.c -lp2c -o test
+#test
+f1
+p1            1
+#
+
+
+From: Nikolay Voronkin <kospu@topaz.yaroslavl.su>
+Newsgroups: relcom.comp.lang.pascal
+Subject: Re: О переносимости программ с помощью p2c
+Date: Mon, 03 Oct 94 14:10:42 +0400
+Organization: 'Joint-Stock Company Rybinsk Motors'
+Message-ID: <AAYYzZk4p6@topaz.yaroslavl.su>
+
+Привет всем !
+   29/09/94 Roman Dimov wrote:
+Lines: 49
+
+>   Vladislav Zlobin (Vladislav_Zlobin@p0.f3.n5011.z2.fidonet.org) wrote:
+>   :             Дoбpый дeнь|вeчep|нoчь|yтpo, yвaжaeмый Roman!
+>
+>   : 16 сентября 1994, Пятница, roman@izhmark.udmurtia.su writes :
+>
+>   :  rus> Что касается перевода в С, неплохо это делает обычный p2c,
+>
+>   :         Хм. А что он будет делать со вложенными процедурами|функциями? :)
+>
+>   А как это ? Вот так ?
+
+Далее шел не совсем удачный пример программы со вложенными процедурами.
+В примере отсутсвовало обращение к параметрам или переменным процедуры
+верхнего уровня.Интересно, что сделает p2c со следующей программой:
+{----- test.pas -----}
+procedure P1(const S:string);
+var
+   L : byte absolute S;
+   k : word;
+procedure P2(j:byte);
+begin
+   inc(k);
+   if j<=L then begin
+      write(S[j]);
+      inc(j);
+      P2(j);
+      end
+   else
+      writeln;
+end;
+var
+   j : byte;
+begin
+   k:=0;
+   for j:=1 to L do
+      P2(j);
+   writeln('K=',k);
+end;
+
+begin
+   writeln;
+   P1('Test');
+end.
+{---- eof ----}
+
+          С уважением                    Шакиpов Сеpгей Радиевич 
+                                   5    (0855)24-34-10 (7:30-16:30)
+                                         Kospu@Topaz.Yaroslavl.su
+
+
+
+From: roman@izhmark.udmurtia.su (Roman Dimov)
+Newsgroups: relcom.comp.lang.pascal
+Subject: Re: О переносимости программ с помощью p2c
+Date: 4 Oct 1994 09:16:12 GMT
+Organization: Communication Company MARK-ITT
+Message-ID: <36r6gs$amj@hq.izhmark.udmurtia.su>
+
+Nikolay Voronkin (kospu@topaz.yaroslavl.su) wrote:
+
+> Далее шел не совсем удачный пример программы со вложенными процедурами.
+> В примере отсутсвовало обращение к параметрам или переменным процедуры
+> верхнего уровня.Интересно, что сделает p2c со следующей программой:
+> {----- test.pas -----}
+
+Я там немного подправил. Не совсем адекватно понимаются absolute,
+вернее понимаются, но надо ручками static убирать :)
+
+program test1;
+procedure P1(S:string);
+var
+   k : word;
+	procedure P2(j:byte);
+	begin
+	  inc(k);
+	   if j<=ord(s[0]) then begin
+	      write(S[j]);
+	      inc(j);
+	      P2(j);
+	      end
+	   else
+      writeln;
+	end;
+var
+   j : byte;
+begin
+   k:=0;
+   for j:=1 to ord(s[0]) do
+      P2(j);
+   writeln('K=',k);
+end;
+
+begin
+   writeln;
+   P1('Test');
+end.
+
+#p2c test1.pas
+
+/* Output from p2c, the Pascal-to-C translator */
+/* From input file "test1.pas" */
+
+
+#include <p2c/p2c.h>
+
+
+/* Local variables for P1: */
+struct LOC_P1 {
+  Char S[256];
+  unsigned short k;
+} ;
+
+Local Void P2(j, LINK)
+uchar j;
+struct LOC_P1 *LINK;
+{
+  LINK->k++;
+  if (j > strlen(LINK->S)) {
+    putchar('\n');
+    return;
+  }
+  putchar(LINK->S[j - 1]);
+  j++;
+  P2(j, LINK);
+}
+
+
+Static Void P1(S_)
+Char *S_;
+{
+  struct LOC_P1 V;
+  uchar j, FORLIM;
+
+  strcpy(V.S, S_);
+  V.k = 0;
+  FORLIM = strlen(V.S);
+  for (j = 1; j <= FORLIM; j++)
+    P2(j, &V);
+  printf("K=%12u\n", V.k);
+}
+
+
+main(argc, argv)
+int argc;
+Char *argv[];
+{
+  PASCAL_MAIN(argc, argv);
+  putchar('\n');
+  P1("Test");
+  exit(EXIT_SUCCESS);
+}
+
+
+/* End. */
+#cc test1.c -lp2c -o test1
+#test1
+
+Test
+est
+st
+t
+K=          14
+
+#
+
+
+

@@ -1,0 +1,51 @@
+*
+* qsearch: fast substring matching in forward and backward direction
+* 9-Oct-1992, Guido Gronek
+*
+
+Recently I needed a fast substring search algorithm, scanning the
+text string from right to left. The result is an ANSI-C implementation
+of a function called qsearch(), searching for the leftmost or rightmost
+occurrance of a pattern string in a text string.
+
+The algorithm used is 'quick search' by D. M. Sunday, which is a
+simple but fast practical method. It's supposed to be even faster
+than the well known Boyer-Moore algorithm, see Sunday's original
+paper CACM V33 N8, page 132 (for several improvements of the basic
+method as well). The reversed text scanning I have realized by a
+rather simple variation of the original algorithm.
+
+The fastness of 'quick search' bases on the generation of a shift table
+(called 'table delta 1' by Sunday) from the pattern string first. This
+permits to perform the actual searching process with a minimal number of
+comparisons. There are two separate functions realising these two steps,
+namely mktd1() and qsearch(). The shift table has to be declared by the
+caller and is passed to mktd1() and to qsearch() as well. The allows a
+simultaneous searching for several patterns.
+Typically one should generate the shift table once for a given pattern
+string and then use it to search for the pattern in a number of text
+strings. 
+
+Another realisation of 'quick search' has been posted to comp.sources.misc
+(v14i074) by gwyn@smoke.brl.mil (Doug Gwyn) to code the usual strstr()
+library function. My implementation differs from Gwyn's approach as
+follows:
+1. Before initialising the shift table, the length of the pattern string
+   is calculated first, see mktd1(). This avoids stepping through the
+   whole shift table (having 256 elements) twice, as done by the Gwyn
+   code. Because initialising the shift table is always rather costly,
+   a quick search based version of the standard strstr() seems useless.
+2. A pre-calculation of text string length is done by qsearch() before
+   the actual matching process begins. The method given by Gwyn avoids
+   this pre-calculation by recognizing that text characters being compared
+   with corresponding pattern characters need not be checked against
+   '\0' too. This results in a better best case and mid case behaviour.
+   But: pathological combinations of text and pattern strings may produce
+   extreme overhead. I tried
+            text   : abcdxxxxxxxxxx
+            pattern: yzxxxxx
+   to find text characters being tested against '\0' 57 times with a
+   text length of only 14 !
+   That's why I arranged things this way: if for some reason the length 
+   of the text string is known, you can pass it to qsearch() via
+   parameter 'tlen', else simply pass 0.

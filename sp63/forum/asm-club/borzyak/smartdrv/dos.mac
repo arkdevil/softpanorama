@@ -1,0 +1,700 @@
+terminate Macro         ; CS must contain seg. addr. PSP,
+      int 20h           ; used to finish .COM files. Only for compartibility
+      EndM              ; with MS-DOS < 2.0 (look END_PROCESS)
+
+abs_disk_read Macro disk,buffer,num_sector,first_sector
+      mov al,disk             ;disk - number of the disk drive
+      mov bx,offset buffer    ;buffer - offset of the disk buffer
+      mov cx,num_sector       ;DS must contain segment of the disk buffer
+      mov dx,first_sector     ;num_sector - number of sectors to read
+      int 25h                 ;int 25h returns:
+      popf                    ;  CF=0 successful reading
+      EndM                    ;  CF=1 error reading
+      
+abs_disk_write Macro disk,buffer,num_sector,first_sector
+      mov al,disk
+      mov bx,offset buffer
+      mov cx,num_sector
+      mov dx,first_sector
+      int 26h                 ;int 26h returns:
+      popf                    ;  CF=0 successful writing      
+      EndM                    ;  CF=1 error writing
+
+stay_resident Macro last_byte ;last_byte - offset of the firs byte, foolowing
+      mov dx,offset last_byte ;           to the last byte of the program code
+      inc dx                  ; CS must contain code segment
+      int 27h
+      EndM
+      
+terminate_program Macro       ; CS must contain segment of the PSP
+      xor ah,ah               ;you must close all files before terminate
+      int 21h                 ;your program
+      EndM
+
+read_kbd_and_echo Macro ;returns AL - input simbol,
+      mov ah,01h        ;echo to the display
+      int 21h
+      EndM
+      
+display_char Macro character  ;character - character to display
+      mov dl,character
+      mov ah,02h
+      int 21h
+      EndM
+      
+aux_input Macro   ;additional input
+      mov ah,03h  ;returns AL - input simbol from add. devise
+      int 21h     ; AUX,COM1,COM2,COM3,COM4
+      EndM
+      
+aux_output Macro character    ;additional output
+      mov dl,character        ;character - character to output
+      mov ah,04h
+      int 21h
+      EndM
+
+print_char Macro character    ;character - character to print
+      mov dl,character
+      mov ah,05h
+      int 21h
+      EndM
+      
+dir_console_io Macro switch   ;direct input/output from console
+      mov dl,switch           ;switch=FFh input from standard device,
+      mov ah,06h              ;       AL contains input character, CF=0
+      int 21h                 ;else   simbol from DL sends to the
+      EndM                    ;       standard output device
+            
+dir_console_input Macro ; AL contains input simbol from the keyboard
+      mov ah,07h        ; without echo to the display      
+      int 21h           ; without control CONTROL+C
+      EndM
+
+read_kbd Macro          ; AL contains input simbol from keyboard
+      mov ah,08h        ; without echo to the display
+      int 21h           ; with control CONTROL+C
+      EndM
+
+display_s Macro string          ;string - offset of the string to display
+      mov dx,offset string    ; DS must contain segment of the string
+      mov ah,09h              ; '$' - end of the string
+      int 21h
+      EndM
+
+get_string Macro limit,string ;input from the keyboard using buffer
+      mov dx,offset string    ;limit - max. number simbols in the buffer
+      mov string,limit        ;string - offset of the keyboard buffer
+      mov ah,0ah              ; DS must contain segment of the buffer
+      int 21h                 ; ENTER - end of the input
+      EndM
+
+check_kbd_status Macro
+      mov ah,0bh
+      int 21h
+      EndM
+
+flush_and_read_kbd Macro switch
+      mov al,switch
+      mov al,0ch
+      int 21h
+      EndM
+
+reset_disk Macro
+      mov ah,0dh
+      int 21h
+      EndM
+
+select_disk Macro disk
+      mov dl,disk[-64]
+      mov ah,0eh
+      int 21h
+      EndM
+
+open  Macro fcb
+      mov dx,offset fcb
+      mov ah,0fh
+      int 21h
+      EndM
+
+close Macro fcb
+      mov dx,offset fcb
+      mov ah,10h
+      int 21h
+      EndM
+
+search_first Macro fcb
+      mov dx,offset fcb
+      mov ah,11h
+      int 21h
+      EndM
+
+search_next Macro fcb
+      mov dx,offset fcb
+      mov ah,12h
+      int 21h
+      EndM
+
+delete Macro fcb
+      mov dx,offset fcb
+      mov ah,13h
+      int 21h
+      EndM
+
+read_seq Macro fcb
+      mov dx,offset fcb
+      mov ah,14h
+      int 21h
+      EndM
+                                                
+write_seq Macro fcb
+      mov dx,offset fcb
+      mov ah,15h
+      int 21h
+      EndM
+
+create Macro fcb
+      mov dx,offset fcb
+      mov ah,16h
+      int 21h
+      EndM
+
+rename Macro fcb
+      mov dx,offset fcb
+      mov ah,17h
+      int 21h
+      EndM
+
+current_disk Macro
+      mov ah,19h
+      int 21h
+      EndM
+
+set_dta Macro buffer
+      mov dx,offset buffer
+      mov ah,1ah
+      int 21h
+      EndM
+
+def_drive_data Macro
+      push ds
+      mov ah,1bh
+      int 21h
+      mov al,byte ptr[bx]
+      pop ds
+      EndM
+
+drive_data Macro drive
+      push ds
+      mov dl,drive
+      mov ah,1ch
+      int 21h
+      mov al,byte ptr[bx]
+      pop ds
+      EndM
+
+read_ran Macro fcb
+      mov dx, offset fcb
+      mov ah,21h
+      int 21h
+      EndM
+
+write_ran Macro fcb
+      mov dx, offset fcb
+      mov ah,22h
+      int 21h
+      EndM
+
+file_size Macro fcb
+      mov dx, offset fcb
+      mov ah,23h
+      int 21h
+      EndM
+
+set_relative_record Macro fcb
+      mov dx, offset fcb
+      mov ah,24h
+      int 21h
+      EndM
+
+set_vector Macro interrupt,handler_start
+      mov al,interrupt
+      mov dx, offset handler_start
+      mov ah,25h
+      int 21h
+      EndM
+
+create_psp Macro seg_addr
+      mov dx, seg_addr
+      mov ah,26h
+      int 21h
+      EndM
+
+ran_block_read Macro fcb,count,rec_size
+      mov dx, offset fcb
+      mov cx,count
+      mov word ptr fcb[14],rec_size
+      mov ah,27h
+      int 21h
+      EndM
+
+ran_block_write Macro fcb,count,rec_size
+      mov dx, offset fcb
+      mov cx,count
+      mov word ptr fcb[14],rec_size
+      mov ah,28h
+      int 21h
+      EndM
+
+parse Macro string,fcb
+      mov si,offset string
+      mov di, offset fcb
+      push es
+      push ds
+      pop es
+      mov al,0fh
+      mov ah,29h
+      int 21h
+      pop es
+      EndM
+
+get_date Macro
+      mov ah,2ah
+      int 21h
+      EndM
+
+set_date Macro year,month,day
+      mov cx,year
+      mov dh,month
+      mov dl,day
+      mov ah,2bh
+      int 21h
+      EndM
+
+get_time Macro
+      mov ah,2ch
+      int 21h
+      EndM
+
+set_time Macro hour,minutes,seconds,hundredths
+      mov ch,hour
+      mov cl,minutes
+      mov dh,seconds
+      mov dl,hundredths
+      mov ah,2dh
+      int 21h
+      EndM
+
+verify Macro switch
+      mov al,switch
+      mov ah,2eh
+      int 21h
+      EndM
+
+get_dta Macro
+      mov ah,2fh
+      int 21h
+      EndM
+
+get_version Macro
+      mov ah,30h
+      int 21h
+      EndM
+
+keep_process Macro return_code,last_byte
+      mov al,return_code
+      mov dx,offset last_byte
+      mov cl,4
+      shr dx,cl
+      inc dx
+      mov ah,31h
+      int 21h
+      EndM
+
+ctrl_c_ck Macro action,state
+      mov al,action
+      mov dl,state
+      mov ah,33h
+      int 21h
+      EndM
+
+get_vector Macro interrupt
+      mov al,interrupt
+      mov ah,35h
+      int 21h
+      EndM
+
+get_disk_space Macro drive
+      mov dl,drive
+      mov ah,36h
+      int 21h
+      EndM
+
+get_country Macro country,buffer
+      local gc_01
+      mov dx,offset buffer
+      mov ax,country
+      cmp ax,0ffh
+      jl gc_01
+      mov al,0ffh
+      mov bx,country
+gc_01: mov ah,38h      
+      int 21h
+      EndM
+
+set_country Macro country
+      local sc_01
+      mov dx,0ffffh
+      mov ax,country
+      cmp ax,0ffh
+      jl sc_01
+      mov bx,country
+      mov al,0ffh
+sc_01: mov ah,38h      
+      int 21h
+      EndM
+
+make_dir Macro path
+      mov dx,offset path
+      mov ah,39h
+      int 21h
+      EndM
+
+rem_dir Macro path
+      mov dx,offset path
+      mov ah,3ah
+      int 21h
+      EndM
+
+change_dir Macro path
+      mov dx,offset path
+      mov ah,3bh
+      int 21h
+      EndM
+
+create_handle Macro path,attrib
+      mov dx,offset path
+      mov cx,attrib
+      mov ah,3ch
+      int 21h
+      EndM
+
+open_handle Macro path,access
+      mov dx,offset path
+      mov al,access
+      mov ah,3dh
+      int 21h
+      EndM
+
+close_handle Macro handle
+      mov bx,handle
+      mov ah,3eh
+      int 21h
+      EndM
+
+read_handle Macro handle,buffer,bytes
+      mov bx,handle
+      mov dx,offset buffer
+      mov cx,bytes
+      mov ah,3fh
+      int 21h
+      EndM
+
+write_handle  Macro handle,buffer,bytes
+      mov bx,handle
+      mov dx,offset buffer
+      mov cx,bytes
+      mov ah,40h
+      int 21h
+      EndM
+
+delete_entry Macro path
+      mov dx,offset path
+      mov ah,41h
+      int 21h
+      EndM
+
+move_ptr Macro handle,high,low,method
+      mov bx,handle
+      mov cx,high
+      mov dx,low
+      mov al,method
+      mov ah,42h
+      int 21h
+      EndM
+
+change_attrib Macro path,action,attrib
+      mov dx,offset path
+      mov al,action
+      mov cx,attrib
+      mov ah,43h
+      int 21h
+      EndM
+
+ioctl_data Macro code,handle
+      mov bx,handle
+      mov al,code
+      mov ah,44h
+      int 21h
+      EndM
+
+ioctl_char Macro code,handle,buffer
+      mov bx,handle
+      mov dx,offset buffer
+      mov al,code
+      mov ah,44h
+      int 21h
+      EndM
+
+io_status Macro code,drive,buffer
+      mov bl,drive
+      mov dx,offset buffer
+      mov al,code
+      mov ah,44h
+      int 21h
+      EndM
+
+ioctl_status Macro code,handle
+      mov bx,handle
+      mov al,code
+      mov ah,44h
+      int 21h
+      EndM
+
+ioctl_change Macro drive
+      mov bl,drive
+      mov al,08h
+      mov ah,44h
+      int 21h
+      EndM
+
+ioctl_rblock Macro drive
+      mov bl,drive
+      mov al,09h
+      mov ah,44h
+      int 21h
+      EndM
+
+ioctl_rhandle Macro handle
+      mov bl,handle
+      mov al,0ah
+      mov ah,44h
+      int 21h
+      EndM
+
+ioctl_retry Macro retries,wait
+      mov dx,retries
+      mov cx,wait
+      mov al,0bh
+      mov ah,44h
+      int 21h
+      EndM
+
+xdup  Macro handle
+      mov bx,handle
+      mov ah,45h
+      int 21h
+      EndM
+
+xdup2 Macro handle1,handle2
+      mov bx,handle1
+      mov cx,handle2
+      mov ah,46h
+      int 21h
+      EndM
+
+get_dir Macro drive,buffer
+      mov dl,drive
+      mov si,offset buffer
+      mov ah,47h
+      int 21h
+      EndM
+
+allocate_memory Macro bytes
+      mov bx,bytes
+      mov cl,4
+      shr bx,cl
+      inc bx
+      mov ah,48h
+      int 21h
+      EndM
+
+free_memory Macro seg_addr
+      mov ax,seg_addr
+      mov es,ax
+      mov ah,49h
+      int 21h
+      EndM
+
+set_block Macro last_byte
+      mov bx,offset last_byte
+      mov cl,4
+      shr bx,cl
+      add bx,17
+      mov ah,4fh
+      int 21h
+      mov ax,bx
+      shl ax,cl
+      dec ax
+      mov sp,ax
+      mov bp,sp
+      EndM
+
+exec  Macro path,command,parms
+      mov dx,offset path
+      mov bx,offset parms
+      mov word ptr parms[02h],offset command
+      mov word ptr parms[04h],cs
+      mov word ptr parms[06h],5ch
+      mov word ptr parms[08h],es
+      mov word ptr parms[0ah],6ch
+      mov word ptr parms[0ch],es
+      mov al,0
+      mov ah,4bh
+      int 21h
+      EndM
+
+exec_ovl Macro path,parms,seg_addr
+      mov dx,offset path
+      mov bx,offset parms
+      mov parms,seg_addr
+      mov parms[02h],seg_addr
+      mov al,3
+      mov ah,4bh
+      int 21h
+      EndM
+
+end_process Macro return_code
+      mov al,return_code
+      mov ah,4ch
+      int 21h
+      EndM
+
+ret_code Macro 
+      mov ah,4dh
+      int 21h
+      EndM
+
+find_next_file Macro 
+      mov ah,4fh
+      int 21h
+      EndM
+
+get_verify Macro 
+      mov ah,54h
+      int 21h
+      EndM
+
+rename_file Macro old_path,new_path
+      mov dx,offset old_path
+      push ds
+      pop es
+      mov di,offset new_path
+      mov ah,56h
+      int 21h
+      EndM
+
+get_set_date_time Macro handle,action,time,date
+      mov bx,handle
+      mov al,action
+      mov cx,word ptr time
+      mov dx,word ptr date
+      mov ah,57h
+      int 21h
+      EndM
+
+alloc_strat Macro code,strategy
+      mov bx,strategy
+      mov al,code
+      mov ah,58h
+      int 21h
+      EndM
+
+get_error Macro 
+      mov ah,59h
+      int 21h
+      EndM
+
+create_temp Macro path,attrib
+      mov cx,attrib
+      mov dx,offset path
+      mov ah,5ah
+      int 21h
+      EndM
+
+create_new Macro path,attrib
+      mov cx,attrib
+      mov dx,offset path
+      mov ah,5bh
+      int 21h
+      EndM
+
+lock_handle  Macro handle,start,bytes
+      mov bx,handle
+      mov cx,word ptr start
+      mov dx,word ptr start+2
+      mov si,word ptr bytes
+      mov di,word ptr bytes+2
+      mov al,0
+      mov ah,5ch
+      int 21h
+      EndM
+
+unlock Macro handle,start,bytes
+      mov bx,handle
+      mov cx,word ptr start
+      mov dx,word ptr start+2
+      mov si,word ptr bytes
+      mov di,word ptr bytes+2
+      mov al,1
+      mov ah,5ch
+      int 21h
+      EndM
+
+get_machine_name Macro buffer
+      mov dx,offset buffer
+      mov al,0
+      mov ah,5eh
+      int 21h
+      EndM
+
+printer_setup Macro index,lgth,string
+      mov bx,index
+      mov cx,lgth
+      mov dx,offset string
+      mov al,2
+      mov ah,5eh
+      int 21h
+      EndM
+
+get_list Macro index,local,remote
+      mov bx,index
+      mov si,offset local
+      mov di,offset remote
+      mov al,2
+      mov ah,5fh
+      int 21h
+      EndM
+
+redir Macro device,value,sourcedestination
+      mov bl,device
+      mov cx,value
+      mov si,offset source
+      mov es,seg destination
+      mov di,offset destination
+      mov al,3
+      mov ah,5fh
+      int 21h
+      EndM
+
+cancel_redir Macro local
+      mov si,offset local
+      mov al,4
+      mov ah,5fh
+      int 21h
+      EndM
+
+get_psp Macro
+      mov ah,62h
+      int 21h
+      EndM
+

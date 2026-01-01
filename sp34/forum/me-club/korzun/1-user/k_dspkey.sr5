@@ -1,0 +1,66 @@
+ { -------------------------------------------------------------------------  }
+$Macro K_DSPKEY From ALL  ;            { Код + имя макро 10.03.91-15:33       }
+   Def_Str(s,so,tstr);
+   Def_Int(i,j,k , i_mode);
+
+   Make_Message('K_DSPKEY v.m 10.03.91-15:33 - нажмите нужную клавишу');
+   While Not(Check_Key) Do
+   End;
+
+   i := Key1;
+   j := Key2;
+   Run_Macro('SETUP^MAKEKEY /K1=' + Str(i)       { for 5.0p                   }
+                        + '/K2=' + Str(j)
+                                        );       { Запрос KEYCODE             }
+   k := Inq_Key(i,j,MODE,so);          { --""-- Имени макро / типа его        }
+   If Not(k) Then                      { Попробуем ALL - MODE                 }
+      k := Inq_Key(i,j,MODE,so);       { --""-- Имени макро / типа его        }
+   End;
+   s := Return_Str + '|177' + so;
+   If k = 1  Then                      { Каково состояние этого макро ?       }
+      If (Xpos('^',so,1) > 0) Then     { Выделили имя макро-входа             }
+         so :=   Parse_Str('^', so ) ;
+      End;
+      If (Xpos(' ',so,1) > 0) Then     { Убрать параметры                     }
+         so :=   Str_Del(so, Xpos(' ',so,1), 255);
+      End;
+      If (Xpos('/',so,1) > 0) Then     { Убрать параметры                     }
+         so :=   Str_Del(so, Xpos('/',so,1), 255);
+      End;
+      k := Inq_Macro(so);
+      so := '';
+      If (k = -1) Then
+         so := so + 'не загружен';
+      Else
+         If (k AND $80) Then
+            so := so + 'TRANS ';
+         End;
+         If (k AND $40) Then
+            so := so + 'HIDDEN ';
+         End;
+         If (k AND $20) Then
+            so := so + 'DUMP ';
+         End;
+         If (k AND $10) Then
+            so := so + 'TRANS2 ';
+         End;
+         If (k AND $04) Then
+            so := so + 'PERM ';
+         End;
+         If (k AND $02) Then
+            so := so + 'NOSWAP ';
+         End;
+         If NOT(k AND $01) Then
+            so := so + 'не запускался';
+         End;
+      End;                             { -- If  не загружен Else ..           }
+      so := '|247' + so;
+   ELSIF (k = 2) THEN                  { Keystroke назначение                 }
+      s := Return_Str + '|177 <KEY>=' ;
+   ELSIF (k > 255) THEN                { Command_to_Key назначение            }
+      s := Return_Str + '|177 <CMD>=' + Str(k) + '|177 ';
+   End;
+   Make_Message('K_DSPKEY: (' + Str(i)
+                        + ',' + Str(j)
+                        + ')|177' + s + so  );
+ End_Macro;                            { -- K_DSPKEY                          }

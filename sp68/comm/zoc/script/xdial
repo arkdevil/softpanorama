@@ -1,0 +1,195 @@
+	#	The XDIAL function of ZOC is implemented as a script. 
+	#	The Number and BBS-name is given in lastline and are
+	#	fetched from there. 
+	#	You may modify this script for your own needs.
+
+	#	Before you modify this script to call a singe bbs, 
+	#	check if the 'Autologin' feature of the phone book 
+	#	does not solve your problem already. For a script
+	#	calling a single bbs check the SAMPLES directory
+	#	(SAMPLES\7_CALBBS)
+
+	#	Let's go ...
+
+	#   Fetch parameters and number
+	#
+	seta parmline "%lastline%"	;# test
+	seta number "%parmline%"  |TEL= ; rtrim number
+	seta bbs	"%parmline%"  |BOX= ; rtrim bbs
+	seta log	"%parmline%"  |LOG= ; rtrim log
+	seta init	 "%parmline%" |INIT=; rtrim init
+	seta waitstr "%parmline%" |WAIT=
+
+	exact	1
+
+	#	Fetch INIT=xx from the phonebook and eventually send it
+	compa	"%init%" WITH ""
+	ifnequ	send "%init%"
+	ifnequ	wait "OK"
+	ifequ 	send "^M"
+	delay
+
+	#	Fetch WAIT=xx from the phonebook or set default value
+	compn	"%waitstr%" WITH ""
+	ifequ	setn waittime 30 
+	ifnequ	setn waittime %waitstr%
+
+
+	#   Reset counter
+	setn counter 1
+	seta msg ""
+	cls
+	delay
+
+
+	#   MAIN LOOP
+	#
+
+:loop0
+	#   wait for something for 90 sec. max
+	timeout 90
+
+	#	Show status
+	seta    status "Call"
+	seta    last ""
+	call    SayStatus
+
+	#	Dial and see what happens
+	dial "%number%^i%bbs%"
+
+:loop1
+	waitline
+	ifnbrk seta last "%lastline%"
+	ifbrk  seta last "TIMEOUT"
+	write  "                           "
+	call    SayStatus
+
+	exact	1
+	compa	"%last%" WITH ""
+	ifequ	goto loop1	
+
+	exact	0
+
+	#	Login for CONNECT, CARRIER or PROTOCOL: LAP-M
+	compa	"%last%" WITH CONNECT
+	ifequ	goto login	
+
+	compa	"%last%" WITH CARRIER
+	ifequ	goto login	
+
+	compa   "%last%" WITH "PROTOCOL: LAP-M"
+	ifequ   goto login      
+
+
+	#	Try next time for BUSY, NO CARRIER
+	compa	"%last%" WITH BUSY
+	ifequ	goto SomeMore	
+
+	compa	"%last%" WITH "NO CARRIER"
+	ifequ	goto SomeMore	
+
+
+	# 	Ignore Zyxels saying 'RINGING'
+	compa	"%last%" WITH RINGING
+	ifequ	goto loop1	
+
+
+	# 	Ignore modems saying 'RING'
+	compa	"%last%" WITH RING
+	ifequ	goto loop1	
+
+
+	#   For anything else hangup ...
+	seta    status "Hangup"
+	call    SayStatus
+	hangup
+
+:SomeMore
+	#	... wait and see if we ...
+	seta    status "Wait %waittime% Sec."
+	call    SayStatus
+	delay 	%waittime%
+
+	#	... want to try again?
+	inc 	counter
+	compn	%counter% %with% 99
+	iflow	goto loop0
+	ifequ	goto loop0
+
+	#   No success after 99 tries
+	seta    status "No success"
+	call    SayStatus
+	writeln "^J^J^M"
+	goto	finish
+
+
+
+	##################
+	#	LOGIN        #
+	##################
+
+:login
+	beep 3
+	writeln "^M^J^J^MConnection established!!"
+
+
+	# 	Fetch and exec startcmd from phonebook
+	seta  cmd "%parmline%" |CMD=
+	%cmd%
+
+	#	Init Wn/Sn loop
+	setn n 1
+
+	exact 1
+
+	#	Send S0 unconditionally
+	seta  s "%parmline%" |S0=
+	compa "%s%" with ""
+	ifnequ send "%s%"
+
+	#	Set name for logging
+	compa "%log%" with ""
+	ifnequ logname "%log%"
+	ifnequ logging 1
+
+
+	#	Wait for all Wn from PHONEBOOK and reply Sn
+:logloop
+	seta  w "%parmline%" |W%n%=
+	seta  s "%parmline%" |S%n%=
+	compa "%w%" with ""
+	ifequ goto finish
+
+	rtrim w
+	rtrim s
+
+	wait "%w%"
+	ifbrk writeln "Error: Did not receive '%w%'!!"
+	ifbrk goto finish
+
+	delay
+	send "%s%"
+
+	inc n
+	goto logloop
+
+
+
+	##################
+	#	THE END      #
+	##################
+:finish
+	exit
+
+
+####################################################
+# SUBROUTINES
+####################################################
+:SayStatus
+	writeln "^[[H^[[1mXDIAL (Abort with Alt '-')^[[m"
+	writeln 
+	writeln "BOX    : %bbs%"
+	writeln "TRY    : %counter% "
+	writeln "STATUS : %status%                "
+	writeln "MODEM  : %last%                  "
+	return

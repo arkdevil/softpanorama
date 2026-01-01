@@ -1,0 +1,61 @@
+;;***************************************************************
+;; Программа делает простые вещи:
+;;    ожидает нажатия на клавишу и выводит в цикле латинский
+;;    алфавит, начиная с символа 'a' и заканчивая символом,
+;;    введеным с клавиатуры. Если был введен недопустимый символ,
+;;    программа выдает предупреждение. Выход из программы
+;;    осуществляется при нажатии на Esc.
+
+code SEGMENT
+ASSUME cs:code, ds:code
+ORG 100h
+
+start:
+.SHORT
+   $WHILE(ah NE 1)
+      mov ah,0
+      int 16h
+      push ax
+      $IF(al GE 'A' $AND al LE 'Z')
+         mov bl,'A'
+         call disp_alpha
+      $ELSE
+         $IF(al GE 'a' $AND al LE 'z')
+            mov bl,'a'
+            call disp_alpha
+         $ELSE
+            $IF(ah E 1)
+               mov dx,OFFSET escape
+            $ELSE
+               mov dx,OFFSET invalid
+            $ENDIF
+         $ENDIF
+      $ENDIF
+      mov ah,9
+      int 21h
+      pop ax
+   $ENDWHILE
+   int 20h
+
+disp_alpha PROC NEAR
+   xor ah,ah
+   xor bh,bh
+   $FOR(bx LE ax)
+      mov ah,2
+      mov dl,bl
+      int 21h
+      mov dl,' '
+      int 21h
+      inc bl
+   $ENDFOR
+   mov dx,OFFSET cr
+   ret
+disp_alpha ENDP
+  
+escape    DB 'Нажата Esc - выход из программы...',10,13,'$'
+invalid   DB 'Допустимы только латинские символы от `a`(`A`) до `z`(`Z`)',7
+cr        DB 10,13,'$'
+
+code ENDS
+END start
+

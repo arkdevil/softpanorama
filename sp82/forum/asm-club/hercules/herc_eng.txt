@@ -1,0 +1,252 @@
+                               
+            Documentation for the Hercules-routines
+                               
+                Copyright 1994 by Jannes Faber
+                               
+         Hercules.inc      ASM     December 18th 1994
+                 Microsoft Macro Assembler 6.0
+
+           Translated into English: April 29th 1995
+
+Hercules.inc
+Hecules.inc  contains a number of routines to use the  Hercules
+screen.  None of the routines call any interrupt (DOS /  BIOS),
+so it's very easy to use them in TSR's, and are very fast. This
+documentation   explains  the  usage  of   every   routine   in
+Hercules.inc.
+
+Video-address
+These   routines   are  very  suitable  to  display   debugging
+information  on  screen, without corrupting your  application's
+(or  in case of a TSR, the underlying application's) screen.  A
+second monitor is needed: a Hercules one. The routines have the
+Hercules  video  area (0B000h) hard coded in them  and  do  not
+attempt to find out the address themselfs. You can change  this
+address  yourself  though by altering the  first  line  in  the
+program into:
+    VideoSeg   EQU   0B800h ; VGA
+
+Warnings
+* All line and column numbers are all 0-based ! So use lines
+  0 to 24 and columns 0 to 79 !
+* The include file is ment for COM-files at the moment, but
+  I'm sure you can change that !
+* Your program has to have the .386 statement at the top; it
+  uses 386 instructions (you can of course change that too!)
+* None of the routines checks the arguments you give it, use
+  with care !
+
+De routines
+Below  is first a brief desciption of the routines, after  that
+comes a full one.
+
+Setting parameters used by other routines
+* HsetBack      Sets the character and colorattribute of
+                the background
+* HsetStart     Sets the linenumber where Hscroll should
+                start scrolling
+* Hlocate       Sets the 'cursor' position
+
+Changing the screen:
+* Hcls          Clears the entire Hercules screen using
+                the default background values (HsetBack)
+* Hcll          Clears a line using the default background
+                values (HsetBack)
+* Hscroll       Scrolls the screen, starting with the
+                line set by HsetStart, 1 line up
+* Hstr0         Puts a string (NULL-terminated) on the
+                screen at the given position
+* Hstr$         Puts a string ($-terminated) on the screen at
+                the given position
+* Hchar         Puts one byte on the screen at the given
+                position
+* Hprint0       Puts a string (NULL-terminated) on the
+                screen at the current 'cursorposition'
+* Hprint$       Puts a string ($-terminated) on the screen
+                at the current 'cursorposition'
+
+Using numbers:
+*   Hval        Converts the number in EDX, DX of DL into
+                a hexadecimal string
+
+Internally used routines, don't call them yourself:
+*   Hstr        Used by Hstr0 and Hstr$
+*   Hprint      Used by Hprint0 and Hprint$
+
+
+HsetBack
+Descr.:         Sets the background parameters (character & attribute)
+                used by Hcls, Hcll en Hscroll.
+Default:        character: NULL, color-attribute: 7
+Input:          AL   Background character
+                AH   Color-attribute
+Output:         None
+Registers:      All preserved
+Notice:         None
+
+HsetStart
+Descr.:         Sets the line where Hscroll should start scrolling.
+                This line will be overwritten by the contents of the
+                next line.
+Default:        0 (first line!)
+Input:          BH   Line number
+Output:         None
+Registers:      All preserved
+Notice:         Using this routine you can protect the upper part of
+                the screen from scrolling away. Also: Hprint0 and
+                Hprint$ will be unable to print here (Hstr0 and Hstr$
+                still can !).
+
+Hlocate
+Descr.:         Sets the virtual cursorposition used by Hprint0 and
+                Hprint$.
+Default:        (0, 0) (upper-left corner)
+Input:          BL   X-coordinate
+                BH   Y-coordinate
+Output:         None
+Registers:      All preserved
+Notice:         The cursor mentioned here is not the real hardware
+                cursor, that one will not be moved ! If the given
+                position is before the starting position (see
+                Hsetstart), it will be set at  that starting
+                position.
+
+
+Hcls
+Descr.:         Clears the complete Hercules screen.
+Default:        NA
+Input:          None
+Output:         None
+Registers:      All preserved
+Notice:         The complete screen will be erased, including lines
+                before the starting position (HsetStart) and is
+                filled with the current background settings
+                (HsetBack).
+
+
+Hcll
+Descr.:         Clears a complete line.
+Default:        NA
+Input:          BH  line number to delete (0-based!)
+Output:         None
+Registers:      All preserved
+Notice:         You can also delete lines before the starting
+                position (HsetStart) with this routine. The line will
+                be filled  using the current background setting
+                (HsetBack).
+
+
+Hscroll
+Descr.:         Scrolls the screen 1 line up
+Default:        NA
+Input:          None
+Output:         None
+Registers:      All preserved
+Notice:         Scrolling starts at the current starting position set
+                by HsetStart. The last line (24) will be deleted
+                using Hcll.
+
+Hstr0
+Descr.:         Put a string on the screen
+Default:        NA
+Input:          DS:SI Starting address of the string
+                AH    Color attribute to be used
+                BL    X-coordinate
+                BH    Y-coordinate
+Output:         None
+Registers:      All preserved except: SI, AX, BX
+Notice:         The string must be terminated by a NULL. You are
+                allowed to print strings before the current starting
+                position (HsetStart). This routine simply calls the
+                internal Hstr.
+
+
+Hstr$
+Descr.:         Puts a string on the screen
+Default:        NA
+Input:          DS:SI Starting address of the string
+                AH    Color attribute to be used
+                BL    X-coordinate
+                BH    Y-coordinate
+Output:         None
+Registers:      All preserved except: SI, AX, BX
+Notice:         The string must be terminated by a $. You are allowed
+                to print strings before the current starting position
+                (HsetStart). This routine simply calls the internal
+                Hstr.
+
+
+Hchar
+Descr.:         Put one byte on the screen
+Default:        NA
+Input:          AL   Character
+                AH  Color attribute
+                BL  X-coordinate
+                BH  Y-coordinate
+Output:         None
+Registers:      All preserved except: BX
+Notice:         None
+
+
+Hprint0
+Descr.:         Put a string on the  screen, at the current 'cursor
+                position'
+Default:        NA
+Input:          DS:SI    Starting address of the string
+                AH  Color attribute
+Output:         None
+Registers:      All preserved except: AX
+Notice:         The string must be terminated by a NULL. This routine
+                simply calls the internal Hprint. This routine does
+                recognize ASCII-code 13 (CR) and automatically
+                scrolls the screen when needed. The cursorposition is
+                updated.
+
+
+Hprint$
+Descr.:         Put a string on the  screen, at the current 'cursor
+                position'
+Default:        NA
+Input:          DS:SI Starting address of the string
+                AH    Color attribute
+Output:         None
+Registers:      All preserved except: AX
+Notice:         The string must be terminated by a $. This routine
+                simply calls the internal Hprint. This routine does
+                recognize ASCII-code 13 (CR) and automatically
+                scrolls the screen when needed. The cursorposition is
+                updated.
+
+
+Hval
+Descr.:         Convert the number in EDX, DX or DL into a
+                hexadecimal string
+Default:        NA
+Input:          EDX/DX/DL Number
+                CX      Number of nibbles to convert (1 to 8)
+Output:         SI       Address of the output string
+Registers:      All preserved except: CX, SI
+Notice:         The string produced is terminated by a NULL. You can
+                almost immediately call Hstr0 or print0 after calling
+                this one to put the number on the screen.The number
+                of nibbles does not need to be axactly one byte, word
+                or double-word. This routine places 'h' behind the
+                hexadecimal number.
+
+
+Hstr
+Descr.:         Don't use yourself, for internal use only
+Default:        NA
+Input:          NA
+Output:         NA
+Registers:      NA
+Notice:         Is called by Hstr0 and Hstr$.
+
+
+Hprint
+Descr.:         Don't use yourself, for internal use only
+Default:        NA
+Input:          NA
+Output:         NA
+Registers:      NA
+Notice:         Is called by Hprint0 and Hprint$.

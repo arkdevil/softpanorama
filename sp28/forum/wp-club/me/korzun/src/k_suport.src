@@ -1,0 +1,600 @@
+$macro_File K_SUPORT;                  { Процедуры "личной" поддержки К.Е.Г.  }
+ {-------------------------- -------------------------------------------------}
+$macro K_Suport ;                      { Вызов меню команд ПОДДЕРЖКИ          }
+   Def_Int(S_FIRST);
+        S_FIRST := Global_Int('K_S_F');
+        If (S_FIRST <= 0) OR (S_FIRST > 10) Then
+           S_FIRST := 2;
+        End;                           { -- If .. }
+        Make_Message('');
+        if (Global_Int('K_X_PLACE') = 0 ) then
+            Set_Global_Int('K_X_PLACE',WHEREX);
+            If (WHEREY = 0) then       { Бывает после CONDENSE SEARCH  ?      }
+               DOWN; UP;               { Попытаемся восстановить WHEREY       }
+            end;
+            Set_Global_Int('K_Y_PLACE',WHEREY);
+        end;
+
+        Set_Global_Str('TX_1','/H=FIXEDMENU/S=2/M=k_t_glbl ');
+        Set_Global_Str('XTX_1','Global');
+        Set_Global_Str('TX_2','/H=FIXEDMENU/S=2/M=K_LWind ');
+        Set_Global_Str('XTX_2','Oкнам');
+        Set_Global_Str('TX_3','/H=FIXEDMENU/S=2/M=K_INFED ');
+        Set_Global_Str('XTX_3','B-блоку');
+        Set_Global_Str('TX_4','/H=FIXEDMENU/S=2/M=K_CHKMAC ');
+        Set_Global_Str('XTX_4','Macro');
+        Set_Global_Str('TX_5','/H=FIXEDMENU/S=0/M=K_S_RPL^K_S_GET ');
+        Set_Global_Str('XTX_5','  █ Set Буф');
+        Set_Global_Str('TX_6','/H=FIXEDMENU/S=0/M=K_S_RPL^K_S_PUT ');
+        Set_Global_Str('XTX_6','Put буфер █');
+        Set_Global_Str('TX_7','/H=FIXEDMENU/S=2/M=K_SUPPORT^K_DELTAB ');
+        Set_Global_Str('XTX_7','Tab удалить ');
+
+        Run_Macro('USERIN^TOPMENU /GCLR=1/M=XTX_/G=TX_/#=7/S=' + STR(S_FIRST)
+        + '/X=1/Y=4/B=0/BC=0'
+        + '/L=Информация по: █ K_SUPORT v.m. 28.03.90 15:56 ');
+
+        Set_Global_Int('K_X_PLACE',0);
+        Set_Global_Int('K_Y_PLACE',0);
+        If (Return_Int > 0) Then
+           Set_Global_Int('K_S_F',Return_Int);
+        End;                           { -- If .. }
+ end_macro;                            { of K_Suport                          }
+ {-------------------------- -------------------------------------------------}
+$Macro K_DELTAB ;                      { Удалить табуляции 28.03.90 14:51     }
+
+
+   DEF_STR(S_Tab, Search );
+   DEF_INT(i, Tab_Spaces, O_Rfrsh, O_RES);
+   Mark_Pos;
+   Push_Undo;
+   O_Rfrsh := Refresh ;
+   Refresh := false;
+   O_RES := Reg_Exp_Stat;
+   Reg_Exp_Stat := true;
+   Working;
+
+   Tab_Spaces := 3;
+   S_Tab := '';
+   i := 0;
+   While (i < Tab_Spaces) Do
+      ++ i;
+      S_Tab := S_Tab + ' ';
+   End;
+   Search := '%{?*}{{' + S_Tab + '}||{|9}}' ;
+   Make_Message('Замена TAB-s на пробелы');
+   While (Search_Fwd(Search,0) ) Do
+      Replace('#0' + S_tab);
+      EOL;
+   End;
+
+   Pop_Undo;
+   GoTo_Mark;
+   Reg_Exp_Stat := O_RES;
+   Refresh := O_Rfrsh;
+   Redraw;
+   Return_Int := 7;                    { Для установки номера в меню SUPPORT  }
+ End_macro;                            { -- K_DELTAB -                        }
+ {-------------------------- -------------------------------------------------}
+$macro k_t_glbl TRANS ;                { Список GLOBAL VARS  29/01/90 10:17   }
+   DEF_STR(Strl,Strn,Strf,Strfo,S_srt);
+   DEF_INT(ii,is,jx,iw,jw,ir,i0,im,w_ident,i_srt,N_wind);
+   def_int(o_rfrsh);                   { {R*}                                 }
+   o_rfrsh := refresh ;                { {R*}                                 }
+   REFRESH := 0;                       { Заблокировать вывод на экран         }
+   WORKING;                            { повесить мигалку на экран            }
+   im := INSERT_MODE;                  { Запомнили режим вставки              }
+   INSERT_MODE := TRUE;
+   S_srt := Parse_Str('/S=',MParm_Str);
+   IF (S_srt <> '') THEN               { Заказано без сортировки              }
+      S_srt := ' Без сортировки ';
+   END;
+   Make_Message(' "K_T_GLBL - Список всех GLOBAL-s' + S_srt);
+   ir := 28 ;                          { Колонка начала/продолж. GLOBAL_STR   }
+   jw := Screen_Width - 3;             { Колонка конца видимости GLOBAL_STR   }
+   jx := 0;
+   N_wind := 0;
+   Mark_Pos;
+ {----------------------- ФОРМИРОВАНИЕ окна для  вывода ----------------------}
+   Strf  := CAPS('!LST_GLB');          { ИМЯ файла для окна со списком        }
+   Strfo := Truncate_Path(FILE_NAME);
+   W_ident := WINDOW_ID;               { Запомнить идентификатор текущего окна}
+
+   jx := 0;
+   While (jx < Window_Count) DO        { Поиск окна со "старым" списком       }
+      jx := jx + 1;
+      Switch_Window(jx);
+      IF (CAPS(TRUNCATE_PATH(FILE_NAME)) = Strf ) THEN
+         N_wind := jx;                 { Запомнили - было истребление         }
+         Delete_Window;                { Истребляем всех с таким именем       }
+      END;
+   END;
+   CREATE_WINDOW;                      { Перейти в окно ВЫВОДА                }
+
+ {-------------------------- Перебор всех GLOBAL VAR-s ----------------------}
+   jx := 0;                            { Счетчик длина МАХ. имени             }
+   i0 := 1;                            { На самом деле - все равно что        }
+   Is := 0;
+   ii := 0;
+
+   Strn := First_Global( i0 );
+   WHILE (SVL(Strn) > 0 ) DO
+      Put_Line( Strn );                { Вывод имени                          }
+      DOWN;
+      Strn := Next_Global( i0 );
+   END;
+
+ {-------------------------- Cортировка имен GLOBAL VAR-s --------------------}
+   if (SVL(S_SRT) = 0) then
+      Run_macro('TEXT^TEXTSORT /L=21');
+      WORKING;
+      Make_Message(' "■K_T_GLBL - Список GLOBAL-подготовка меню' );
+   end;
+   REFRESH := 0;                       { Заблокировать вывод на экран         }
+
+   GOTO_COL(ir);
+   SET_INDENT_LEVEL;                   { Уровень отступа при CR/ENTER         }
+
+ {-------------------------- Выковыривание значений GLOBAL VAR-s -------------}
+   TOF;                                { В начало файла                       }
+   Strn := Remove_Space( Get_Line );
+   WHILE (SVL(Strn) > 0 ) DO
+      CALL WRITE_CONTENTS;             { Записать результат в окно            }
+      Strn := Remove_Space( Get_Line );
+   END;
+
+ {-------------------------- Вывод имен и значений     ----------------------}
+   GOTO NEXT;
+ WRITE_CONTENTS:
+         GOTO_COL(21);
+         STRL := GLOBAL_STR( Strn);
+         iw := SVL(Strl);
+         ++ii ;                        { Счет ВСЕГО                           }
+         If (iw = 0 ) then             { Это -GLOBAL_INT                      }
+            TEXT( ' I=' + COPY('   ',1,3 - LENGTH(STR(GLOBAL_INT(Strn)) ) )
+               + STR(GLOBAL_INT(Strn)) );
+         else
+            ++is ;                     { Счет STRING                          }
+            TEXT( ' S    ||' + Strl );
+            GOTO_COL(jw);              { Конец "поля видимости"               }
+            While (NOT(AT_EOL)) Do     { Разбивка строк на видимые куски      }
+               CR;                     { Разорвать , встав на INDENT_LEVEL    }
+               GOTO_COL(jw);           { Конец "поля видимости"               }
+               TEXT('  |254');         { Признак продолжения GLOBAL_STR       }
+            end;
+         end;
+         DOWN;
+         RET;
+ NEXT:
+ {--------------- конец ---- Подпрограммы печати GLOBAL - значений -----------}
+
+   TOF;
+   Strl := ' СПИСОК GLOBAL_VAR ' + S_srt;
+   Put_Line( Strl );
+   EOL;                                { В Конец строки                       }
+   RUN_MACRO('K_EDIT_4^K_SHFTF2');     { Вставляем текущую дату и время       }
+   Down;
+   Put_Line( ' ------------------- ' );
+   Down;
+   EOF;
+   Down;
+   Put_Line( ' --- конец списка -- ' );
+   Down;
+   Strl := ' Вcего =' + Str(ii) +
+           ' в т.ч. STRING=' + Str(is) + S_srt;
+   Put_Line( ' ------------------- ' );
+   Put_Line( Strl );
+                                       { Дали имя - Strf на диске G:          }
+   FILE_NAME := GET_PATH(COMSPEC) + STRF;
+   SAVE_FILE ;                         { Не проверяем результата записи       }
+   UP;  DEL_LINE; DEL_LINE;            { Для меню заголовок                   }
+   TOF; DEL_LINE; DEL_LINE;            { и хвост не нужны                     }
+   FILE_CHANGED := False;              { Обман - говорим что нет изменений    }
+
+ {-------------------------- Вывод имен и значений на экран -------------------}
+   Make_Message('Список GLOBAL-выход ESC или ENTER ' + Strl );
+   Run_Macro('USERIN^DVMENU /B=1/K=1'
+            + '/X=1/Y=3'
+            + '/T=СПИСОК GLOBAL_VAR в ' + FILE_NAME + Strl
+            + '/C=0/D=0/O=0/H=VARMENU/W=81'
+            + '/WW=81/SK=1/NR=1/WIN=' + STR(CUR_WINDOW)
+            + '/#=1/I=%');
+                                       { Return_Int := 0;                     }
+ {----------------- Уничтожение окна, возврат в точку вызова -----------------}
+   Delete_Window;                      { Для снятия последствий DVMENU        }
+
+   Make_Message('Список GLOBAL_VAR-s в ' + GET_PATH(COMSPEC) + Strf  + Strl );
+   IF (N_wind <> 0) THEN               { А было окно со спец.именем- списком  }
+      Create_Window;                   { Его надо восстановить (но лишь одно) }
+      FILE_NAME := GET_PATH(COMSPEC) + Strf;
+      LOAD_FILE( FILE_NAME );          { Обновим его текущим результатом      }
+      FILE_NAME := STRF;               { Готовы записать в текущий каталог    }
+      FILE_CHANGED := False;           { Обман - говорим что нет изменений    }
+      WINDOW_ATTR := 1;                { И "спрячем " его                     }
+   END;
+   IF (Strfo <> Strf) THEN             { Запустили нас не из "хитрого" окнам  }
+      jx := Switch_Win_Id(W_Ident);    { Bepнуться в исходное окно            }
+      Goto_Mark;
+   END;
+
+ END:
+   Return_Int := 1;
+   INSERT_MODE := im;                  { Восстановили режим вставки           }
+   REFRESH := o_rfrsh;                 { {R*} Восстановить выдачу на экран    }
+   REDRAW;
+ end_macro;
+
+ {-------------------------- -------------------------------------------------}
+
+$macro K_LWind  TRANS ;                { Выдача списка окон 29/01/90 10:42    }
+   def_STR(W,W_FILE_NAME,SPACE );
+   DEF_INT(jx,C_wind);
+   def_int(i,i0);
+   def_int(o_rfrsh);                   { {R*}                                 }
+   o_rfrsh := refresh ;                { {R*}                                 }
+   REFRESH := 0;
+   SPACE := '                                          ';
+
+   C_wind := CUR_WINDOW;               { Запомнить номер текущего окна        }
+   jx := 0;
+   While (jx < Window_Count) DO
+      ++jx ;
+      Switch_Window(jx);
+      W := SPACE;
+      If (Read_Only) then
+         W := COPY(W,1,0) + 'R'            + SPACE ;
+      end;
+      If (File_Changed) then
+         W := COPY(W,1,0) + 'M'            + SPACE ;
+      end;
+      If (Doc_Mode       ) then
+         W := COPY(W,1,2) + 'Д'           + SPACE ;
+      end;
+      If (Wrap_Stat      ) then
+         W := COPY(W,1,3) + 'W'            + SPACE ;
+      end;
+      If (Format_Stat    ) then
+         W := COPY(W,1,4) + 'F'            + SPACE ;
+      end;
+      W := COPY(W,1,6) + COPY(' AS',Indent_Style+1,1)
+         + '=' + STR(Indent_Level)
+                                           + SPACE ;
+      W := COPY(W,1,12) + GET_PATH(FILE_NAME)        + SPACE ;
+      W := COPY(W,1,41) + TRUNCATE_PATH(FILE_NAME)   + SPACE ;
+      If (Screen_Num     ) then
+         W := COPY(W,1,54)  + COPY('   ',1,3 - LENGTH(STR(SCREEN_NUM)))
+           + STR(SCREEN_NUM) + SPACE ;
+      end;
+      W := COPY(W,1,60)  + COPY('   ',1,3 - LENGTH(STR(WINDOW_ID )))
+         + STR(WINDOW_ID ) + SPACE ;
+      If (Link_Stat ) then
+         W := COPY(W,1,66)
+            + COPY('АБВГДЕЖЗИКЛМН',LINK_STAT,1) + SPACE ;
+      end;
+      i0 := WINDOW_ATTR;
+      i  := i0 SHR 1;                  { Убрали левый бит поля                }
+      If (i0 <> (i SHL 1)) then        { В левом бите был не 0                }
+         W := COPY(W,1,70) + 'Hd'        + SPACE ;
+      end;
+      If (WINDOW_ATTR > 1) then
+         W := COPY(W,1,73) + STR(WINDOW_ATTR) + SPACE ;
+      end;
+      If (C_wind = jx    ) then
+         W := COPY(W,1,75) + '|251'        + SPACE ;
+      end;
+      W := COPY(W,1,77) ;
+      SET_GLOBAL_STR('K_TMP_STR_' + STR(jx),W);
+   END;
+
+   Switch_Window(C_wind);              { Вернуться в исходное окно            }
+   REFRESH := 1;
+   i := i0;
+   W := '';
+   If (Truncate_Spaces) then
+      W := ' Без пробелов';
+   Else
+      W := ' Пробелы';
+   end;
+   Make_Message(
+           'U_ID=' + USER_ID
+           + ' DIR=' + DIR_PATH
+           + ' EMS=' + STR(EMS_STAT)
+           + ' SAVE=' + STR(AUTOSAVE)
+           + ' MOUSE=' + STR(MOUSE)
+           + ' U_S=' + STR(Undo_Stat)
+           + ' U_M=' + STR(Max_Undo)
+           + W
+           + ' Oкон:' + STR(WINDOW_COUNT) );
+   Run_Macro('USERIN^DVMENU /B=1/K=1/P=K_TMP_STR_'
+            + '/X=1/Y=3'
+            + '/T= параметры :ФАЙЛ                                   '
+            + ':экран: идент.:LINK :ATTR '
+            + '/C=0/D=0/O=0/H=VARMENU/W=81'
+            + '/WW=81/SK=1/NR=1/SN=' + STR(CUR_WINDOW)
+            + '/#=' + STR(WINDOW_COUNT)
+            + '/I=%');
+
+   jx := 1;
+   While ( LENGTH(GLOBAL_STR('K_TMP_STR_'+ STR(jx) )) > 0 ) DO
+      SET_GLOBAL_STR('K_TMP_STR_' + STR(jx),'');
+      jx := jx + 1;
+   END;
+   If (Return_Int <> 0) then
+      jx := VAL(i , COPY(Return_Str,60,4)) ;     { Взяли идентификатор        }
+      jx := Switch_Win_Id(i);          { Перейти в выбранное окно             }
+      Make_Message('Переключение в ID=' + STR(i));
+      Window_Attr := ( Window_Attr SHR 1) SHL 1; { Снять "спрятанность"       }
+      REDRAW;
+   else
+      Make_Message('');
+   end;
+   refresh := o_rfrsh;                 { {R*} Восстановить выдачу на экран    }
+   NEW_SCREEN;
+   Return_Int := 2;
+ end_macro;
+
+ {-------------------------- -------------------------------------------------}
+$MACRO RET_K    TRANS ;                { Итоги по МЕНЮ  26/01/90 17:28        }
+                                       { В Global 'K_MNU' - имя МАКРО + TEKCT }
+                                       { В Global 'K_STR' - имена :/N=имя/N= .}
+                                       { Затем печать IIRET_0-8 и IISTR_0-8   }
+  {* **********************************************************************  *
+  {*}    Set_Global_Str('K_STR','/N=************/N=TX_2/N=XTX_2/');          *
+  {*}    Set_Global_Str('K_MNU',' TOPMENU');                                 *
+  {*}    RUN_MACRO('K_SUPORT^RET_K');                                        *
+   * **********************************************************************  *}
+      DEF_INT (I1,I2,iM,i);
+      DEF_STR (S1,S2);
+
+   IM := 12;
+   IF GLOBAL_INT('K_MESSTR') = 0 THEN  { Номер строки для BOX-a не задан ?    }
+      I2 := 11;
+   ELSE
+      I2 := GLOBAL_INT('K_MESSTR');
+      SET_GLOBAL_INT('K_MESSTR', 0 ) ;
+   END;
+   put_box(3,I2 ,75,I2+IM+2, 7, 5 ,' ИТОГИ МАКРО='+ GLOBAL_STR('K_MNU') ,1);
+   BEEP;
+   WRITE(' R_INT ='+str(return_int)+
+         ' || R_STR ='+    return_STR +
+         ' ||parm ='+ MParm_Str
+         ,5,I2+1,0,W_S_COLOR);
+   I1 := 1;
+                                       { Печать заказанных Global_Str         }
+   IF XPOS('/N=',Global_Str('K_STR'),1 ) > 0 THEN
+      S1 := Parse_Str('/N=',Global_Str('K_STR'));
+      WHILE (SVL(S1) > 0) DO
+         ++I1;
+         WRITE(str(I1)+
+               '|| имя ='+ S1
+                        ,5,I2+I1,BACK_COLOR,MENU_COLOR);
+         if (GLOBAL_INT(S1) > 0 ) then
+            WRITE(' i='+ STR(GLOBAL_INT(S1))
+                           ,24,I2+I1,BLUE,WHITE);
+         else
+            WRITE('|| ='+ GLOBAL_STR(S1)
+                           ,25,I2+I1,BLUE,WHITE);
+         end;
+         I := XPOS('/N=',GLOBAL_STR('K_STR'),1 );
+         Set_Global_Str('K_STR',STR_DEL(Global_Str('K_STR'),i,3) );
+         S1 := Parse_Str('/N=',Global_Str('K_STR'));
+      END;
+   END;
+                                       { Печать IIRET_x IISTR_x               }
+   I := 0;
+   WHILE ((I1 < IM) ) DO
+      I1 := I1 +1;
+      S2 := Remove_Space(STR(I));
+      I := I + 1;
+      WRITE(S2 +
+            '||'+ STR(Global_int('IINT_' + S2) )
+                     ,5,I2+I1,BACK_COLOR,MENU_COLOR);
+      WRITE('|| ='+ GLOBAL_STR('ISTR_' + S2)
+                     ,25,I2+I1,BLUE,WHITE);
+   END;
+   Set_Global_Str('K_MNU','++++++++++');
+
+                                       { Дадим на него немножко посмотреть    }
+   I1 := 20000;
+   WHILE I1 > 0 DO;
+      IF (I2 > 100) THEN
+         WRITE('       ',44,1,STAT_COLOR,MENU_COLOR);
+         I2 := 0;
+      END;
+      I2 := I2 + 1;
+      WRITE(STR(I1),45,1,STAT_COLOR,MENU_COLOR);
+      I1 := I1 - 1;
+      IF CHECK_KEY <> 0 THEN           { А не хотят ли нас уйти пораньше ?    }
+         I1 := -1;                     { Для выхода из цикла                  }
+      END;
+   END;
+   KILL_BOX;                           { Убрать окошечко                      }
+   NEW_SCREEN;                         { Перевысветить весь экран             }
+   END_MACRO;                          { end K_SUPORT^RET_K - итоги по меню   }
+ {-------------------------- -------------------------------------------------}
+$MACRO K_INFED FROM EDIT TRANS;        { Информация по BOX/блоку и окну       }
+   DEF_STR(S);
+   DEF_Int(k_x,k_y,i);
+   S := GET_LINE ;
+   k_x := Global_Int('K_X_PLACE');
+   k_y := Global_Int('K_Y_PLACE');
+   i := 5;
+   if (k_y < 19 ) then                 { выясняем место для BOX               }
+      i := 19;
+   end;
+   WHILE (BOX_COUNT > 0) DO            { Убрать все старые BOX -ы             }
+      KILL_BOX;
+   END;
+   MAKE_MESSAGE('K_INFED: длина строки='+STR(LENGTH(S))+' AT_EOL='+ STR(AT_EOL)
+       + ' CUR_CHAR="'+CUR_CHAR+'",ASCII='+ STR(ASCII(CUR_CHAR))
+       + ',HEX='
+       + COPY('0123456789ABCDEF' , (ASCII(CUR_CHAR)  /  16) + 1 ,1)
+       + COPY('0123456789ABCDEF' , (ASCII(CUR_CHAR) MOD 16) + 1 ,1)
+       + ' INDENT_LEVEL=' + STR(INDENT_LEVEL));
+
+   S := ' ';
+   If (TMP_FILE) Then
+      S := '|247';
+   End;                                { -- If .. }
+   PUT_BOX(2, i ,80, i +5,BROWN,WHITE,' по БЛОК-у ;окнo='
+           + STR(CUR_WINDOW) + ' Окон:'+STR(WINDOW_COUNT)
+           + ' =' + S + Truncate_Path(TMP_FILE_NAME)
+           + ' SAVE=' + STR(Autosave)
+           + ' U_S=' + STR(Undo_Stat)
+           + ' U_M=' + STR(Max_Undo) ,0);
+   WRITE('BLOCK_STAT='+STR(BLOCK_STAT)    ,4, i +1,BACK_COLOR,TEXT_COLOR);
+   WRITE('BLOCK_COL1='+STR(BLOCK_COL1)    ,4, i +2,BACK_COLOR,TEXT_COLOR);
+   WRITE('BLOCK_COL2='+STR(BLOCK_COL2)   , 4, i +3,BACK_COLOR,TEXT_COLOR);
+   WRITE('WINDOW_ATTR='+STR(WINDOW_ATTR)  ,4, i +4,BACK_COLOR,STAT_COLOR);
+   WRITE('MARKING   ='+STR(MARKING   )   ,22, i +1,BACK_COLOR,TEXT_COLOR);
+   WRITE('BLOCK_LINE1='+STR(BLOCK_LINE1) ,22, i +2,BACK_COLOR,TEXT_COLOR);
+   WRITE('BLOCK_LINE2='+STR(BLOCK_LINE2) ,22, i +3,BACK_COLOR,TEXT_COLOR);
+   WRITE('LINK_STAT='+STR(LINK_STAT)     ,22, i +4,MENU_COLOR,STAT_COLOR);
+   WRITE(' WHEREX='+STR(k_X)             ,39, i +1,BACK_COLOR,TEXT_COLOR);
+   WRITE(' WIN_X1='+STR(WIN_X1)          ,39, i +2,BACK_COLOR,TEXT_COLOR);
+   WRITE(' WIN_X2='+STR(WIN_X2)          ,39, i +3,BACK_COLOR,TEXT_COLOR);
+   WRITE(' EOF__M='+STR(EOF_IN_MEM)      ,39, i +4,MENU_COLOR,STAT_COLOR);
+   WRITE('WHEREY='+STR(k_Y)              ,52, i +1,BACK_COLOR,TEXT_COLOR);
+   WRITE('WIN_Y1='+STR(WIN_Y1)           ,52, i +2,BACK_COLOR,TEXT_COLOR);
+   WRITE('WIN_Y2='+STR(WIN_Y2)           ,52, i +3,BACK_COLOR,TEXT_COLOR);
+   WRITE('BUF_I#='+STR(BUFFER_ID)        ,52, i +4,BACK_COLOR,TEXT_COLOR);
+   WRITE('C_ROW ='+STR(C_ROW )           ,64, i +1,BACK_COLOR,TEXT_COLOR);
+   WRITE(' AT_EOF='+STR(AT_EOF)          ,64, i +2,MENU_COLOR,STAT_COLOR);
+   WRITE('WINDOW_ID='+STR(WINDOW_ID)     ,64, i +3,MENU_COLOR,STAT_COLOR);
+   WRITE('SCREEN_NUM='+STR(SCREEN_NUM)   ,64, i +4,MENU_COLOR,STAT_COLOR);
+   GOTOXY(k_X,k_Y);
+   READ_KEY ;
+   Kill_box;
+   Return_Int := 3;
+ END_MACRO;                            { of --- K_INFED    -----------        }
+
+ {-------------------------- -------------------------------------------------}
+$MACRO K_CHKMAC FROM EDIT TRANS;       { Информация по МАКРО                  }
+   SET_GLOBAL_STR('k_ident','K_CHKMAC');{Имя макрокоманды - идентификация     }
+   SET_GLOBAL_STR('K_MESSAGE','');
+   DEF_STR(SF,EXT,SINT);
+   DEF_INT(I,J,K);
+   SF := GLOBAL_STR('K_MACRO');
+   if (SVL(SF) = 0) then
+      SF := 'C';
+   end;
+   SINT := ' ';
+   MAKE_MESSAGE('K_CHKMAC: ');
+   WHILE (BOX_COUNT > 0) DO            { Убрать все старые BOX -ы             }
+      KILL_BOX;
+   END;
+   IF STRING_IN(SF,'K_CHKMAC: Введите имя головного МАКРО',8,2,2,'Ж ') = 0 THEN
+      GOTO END_MACRO;
+   END;
+   SF := CAPS(REMOVE_SPACE(SF));       { Без пробелов на верхнем регистре     }
+   PUT_BOX(1,13-1,80,25,BROWN,WHITE,' Информация по MACRO:  '+SF,0);
+   WRITE('='+STR(INQ_MACRO(SF)),60,13-1,BROWN,WHITE);
+   EXT := FIRST_MACRO;
+   K := 0;                             { Количество MACRO                     }
+   I := 0;                             { Номер столбца                        }
+   J := 0;                             { Номер строки BOX                     }
+   WHILE(EXT <> '') AND (SINT = ' ') DO;
+      K := K + 1;                      { Cчет всего MACRO                     }
+      IF (CHECK_KEY) THEN
+         SINT := 'K';
+      END;
+      IF ((POS(SF,EXT) > 0)
+          OR  (SVL(SF) = 0) ) THEN     { Имя подходит под образец             }
+         WRITE('- '+  EXT + ' ' ,
+                   3+I,13+J,BACK_COLOR,TEXT_COLOR);
+         WRITE( COPY('   ',1,3-LENGTH(STR(INQ_MACRO( EXT))))
+                   + STR(INQ_MACRO( EXT)) ,
+                   17+I,13+J,TEXT_COLOR,BACK_COLOR);
+         I := I + 20;
+         IF (I > 66) THEN
+            I := 0;
+            J := J + 1;
+            IF (J + 13 > 24 ) THEN
+               BEEP;
+               IF STRING_IN(SF,'K_CHKMAC: Продолжить (ESC-нет)    ',8,2,2,'Ж ')
+                   = 0 THEN
+                  SINT := 'K';
+               ELSE
+                  KILL_BOX;
+                  PUT_BOX(1,13-1,80,25,BROWN,WHITE,
+                  ' Информация по MACRO:  '+SF,0);
+                  J := 0;
+                  I := 0;
+               END;
+            END;
+         END;
+      END;
+      EXT := NEXT_MACRO;
+   END;                                { Перебора Macro                       }
+
+   SET_GLOBAL_STR('K_MESSAGE','K_CHKMAC : обработано='+ STR(K) +' MACRO ');
+   IF (SINT <> ' ') THEN
+      BEEP;
+      SET_GLOBAL_STR('K_MESSAGE','K_CHKMAC : прервано на='+ STR(K) +' MACRO ');
+   END;
+
+   READ_KEY ;
+   Kill_box;
+ END_MACRO:
+   MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+   SET_GLOBAL_STR('K_MACRO',SF);
+   Return_Int := 4;
+ END_MACRO;                            { of --- K_CHKMAC  -----------         }
+
+ {-------------------------- -------------------------------------------------}
+ { -------------------------------------------------------------------------- }
+$MACRO K_AltB  TRANS TO <AltB>;        { Перевод блока в прямоугольный/обратно}
+   DEF_INT(I1,I2,C1,C2);
+   C1 := BLOCK_STAT;
+   IF (BLOCK_STAT = 0) THEN
+      BEEP;
+      SET_GLOBAL_STR('K_MESSAGE','K_AltB: Блок не выделен');
+      GOTO END_MACRO;
+   END;
+   IF  (BLOCK_STAT = 3) THEN
+      BEEP;
+      SET_GLOBAL_STR('K_MESSAGE','K_AltB: Блок - поточный');
+      GOTO END_MACRO;
+   END;
+   RUN_MACRO('K_EDIT_4^K_BLKSEE');     { Проверка "видимости" блока           }
+   IF  (LENGTH(GLOBAL_STR('K_MESSAGE')) <> 0) THEN
+      BEEP;
+      GOTO END_MACRO;
+   END;
+
+   REFRESH := 0;
+   PUSH_UNDO;
+   MARK_POS;
+   I1 := BLOCK_LINE1;
+   I2 := BLOCK_LINE2;
+   BLOCK_OFF;
+   GOTO_LINE(I1);
+   IF C1 = 1 THEN                      { Блок - строчный                      }
+      COL_BLOCK_BEGIN;
+      C2 := 0;
+      WHILE (I1 <= I2) DO              { Поиск самой  длинной строки          }
+         IF (C2 < LENGTH(GET_LINE)) THEN
+            C2 := LENGTH(GET_LINE);
+            EOL;
+         END;
+         DOWN;
+         I1 := I1 + 1;
+      END;
+      UP;
+      SET_GLOBAL_STR('K_MESSAGE','K_AltB: Блок переведен в прямоугольный');
+   ELSE                                { END of строчный блок                 }
+      BLOCK_BEGIN;
+      GOTO_LINE(I2);
+      SET_GLOBAL_STR('K_MESSAGE','K_AltB: Блок переведен в строчный');
+   END;
+ END_BLOCK:
+   BLOCK_END;
+   GOTO_MARK;
+   POP_UNDO;
+ END_MACRO:
+   REFRESH := 1;
+   NEW_SCREEN;
+   MAKE_MESSAGE(GLOBAL_STR('K_MESSAGE'));
+ END_MACRO;                            { of ----- K_AltB /       ----------   }
+ {-------------------------- -------------------------------------------------}
+ {-------------------------- -------------------------------------------------}

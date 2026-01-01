@@ -1,0 +1,113 @@
+From: tatosian@plough.enet.dec.com (Dave Tatosian)
+Newsgroups: comp.sys.ibm.pc.hardware.chips
+Subject: Re: Rumor of Triton prob
+Date: 6 Jun 1995 07:56:05 GMT
+Organization: DEC/Alpha Server Engineering
+
+In article <8AAB453.06A40071E9.uuout@almac.co.uk>,
+   richard.cowl@almac.co.uk (RICHARD COWL) wrote:
+[snip]
+>I have just put together a Pentium 100 system based on a Triton 'Zappa' 
+>Motherboard with 8mb of 70ns Dram(parity) memory. I would like to know 
+>how to optimise my Bios Dram settings. They are set at the moment as 
+>follows:
+>      DRAM RAS# Precharge Time : 4
+>      DRAM R/W Leadoff Timing  : 8/6
+>      DRAM RAS To Cas Delay    : 3
+>      Dram Read Burst Timing   : x2222
+>      DRAM Write Burst Timing  : x3333
+>
+>Also some help on what these numbers actually mean would be helpful. My 
+>system is working fine at the moment, but I think that I might be able 
+>to improve speed by adjusting the above (Bios default) settings.
+
+Basic DRAM operation for cache-line fill:
+
+Assert Row Address
+Assert RAS 
+Switch Address from Row to Column
+Assert CAS (1st Quadword of data is read)
+Deassert CAS
+Switch Address to Next Column Address 
+Assert CAS (2nd Quadword of data is read)
+Deassert CAS
+Switch Address to Next Column Address
+Assert CAS (3rd Quadword of data is read)
+Deassert CAS
+Switch Address to Next Column Address
+Assert CAS (4th Quadword of data is read)
+Deassert RAS
+Deassert CAS
+Wait for RAS Precharge Time before starting next cycle.
+
+There are all kinds of inter-relationships between Row/Column Address,
+RAS, CAS, and data that have to be respected.
+
+
+DRAM RAS# Precharge Time : 4
+RAS precharge is the amount of time that the DRAM requires between memory 
+operations to recycle data in the sense amp gates back into the row of the 
+charge array that the data was read from. Reading the DRAM cells actually 
+depletes the charge that was stored there, so to "maintain" that data, it has 
+to be "re-written" back into the same cells. If you violate this parameter you 
+can easily lose data. The 66ns that is alloted for this function (with the 
+setting of "4") is fairly tight - a 70ns DRAM requires at least 50ns. Going to 
+3 ticks would bring you down to 48ns @60MHZ, so I don't expect you can reduce 
+this any further.
+
+DRAM R/W Leadoff Timing  : 8/6
+This defines the beginning actions of the memory cycle, the time that the row 
+address is supplied to the DRAMs. Factored from that also likely defines the 
+time that RAS is initially asserted (like one or two ticks after the address 
+is stable),  and possibly the transition from row to column address. You might 
+be able to shave a tick off of this - especially if your bios allows setting 
+this to 7/6 (I've seen P100's with 70ns SIMMs running at 7-3-3-3 without 
+croaking)...
+
+DRAM RAS To Cas Delay    : 3
+The delay from the assertion of RAS (likely defined as a function of the 
+Leadoff timing above) to the assertion of CAS. Again, somewhere in between, 
+the address had to have switched from the "row" address to the "column" 
+address, which could be defined as a function of this parameter, or even the 
+previous parameter. While a 70ns DRAM requires this parameter to be at least 
+20ns - which you could achieve with a setting of "2" (33ns) - there are other 
+DRAM timing parameters that have to be accounted for as well that this setting 
+might take care of. I'd leave this one be...
+
+Dram Read Burst Timing   : x2222
+This is the delay between "Fast Page Mode" read cycles - in which CAS has to 
+be deassserted, the column address must be updated to the next address in the 
+memory "page", and then CAS is asserted again. A 2-tick FPM cycle is very 
+tight at 60mhz - that's ~33ns - and a "normal" 70ns FPM DRAM has a page mode 
+read cycle time of 40ns. I've only seen the "x2222" used on EDO DRAM based 
+memories, which can do an FPM read cycle time of 30ns. (you didn't mention if 
+your SIMMs are EDO DRAM or "normal" FPM DRAM).
+
+fwiw: It's interesting that there's 4 "2"'s - as a memory access on a typical 
+Pentium PC performs 3 FPM cycles (the initial access is just a normal read);
+all of my systems - including 486's - show these parameters as "x222" or 
+"x333"...
+
+DRAM Write Burst Timing  : x3333
+Same as read burst timing - with the exception that in addition to the CAS 
+toggle and address updates for each FPM cycle, there is also the write data to 
+the DRAMs needing to update for each FPM cycle. There is a "write data to CAS 
+hold-time" parameter that must be met to perform reliable FPM writes. It's 
+likely that you won't be able to reduce this parameter below the "x3333" that 
+you've set it for (perhaps the bios doesn't even offer a faster setting for 
+this). Again, a "normal" 70ns FPM DRAM can do a FPM write cycle of 40ns, while 
+a 70ns EDO DRAM can hit 30ns...
+
+In summary, you might be able to shave a tick off of the Leadoff timing, but I 
+believe the rest of the settings are close to the edge as is...
+
+Hope this helps,
+
+/dave
+
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<> Dave Tatosian           tatosian@plough.enet.dec.com <>
+<> Digital Equipment Corp.    Alpha Server Engineering  <>
+<>           "Read this and nobody gets hurt"           <>
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+

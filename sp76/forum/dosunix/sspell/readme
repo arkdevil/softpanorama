@@ -1,0 +1,264 @@
+             sspell - similar to Unix spell                       
+                        version 1.4                               
+                                                                  
+ Author: Maurice Castro                                           
+ Release Date:  4 Jul 1992                                        
+ Bug Reports: maurice@bruce.cs.monash.edu.au                      
+                                                                  
+ This code has been placed by the Author into the Public Domain.  
+ The code is NOT covered by any warranty, the user of the code is 
+ solely responsible for determining the fitness of the program    
+ for their purpose. No liability is accepted by the author for    
+ the direct or indirect losses incurred through the use of this   
+ program.                                                         
+                                                                  
+ Segments of this code may be used for any purpose that the user  
+ deems appropriate. It would be polite to acknowledge the source  
+ of the code. If you modify the code and redistribute it please   
+ include a message indicating your changes and how users may      
+ contact you for support.                                         
+                                                                  
+ The author reserves the right to issue the official version of   
+ this program. If you have useful suggestions or changes for the  
+ code, please forward them to the author so that they might be    
+ incorporated into the official version                           
+                                                                  
+ Please forward bug reports to the author via Internet.           
+
+* Introduction
+
+The program SSPELL was written by the author to provide a Unix like
+spell checker on a PC. There are several utilities of this type already
+available, however, most lacked at least one of the following:
+
+	1. Public Domain
+	2. Source Code
+	3. Simple, editable word list structure
+	4. Configurable prefix and suffix list.
+	5. To use minimal memory
+	6. To have an unlimited word list length
+	7. Reasonable speed
+	8. Portable
+
+The SSPELL program provides all these features. The program currently
+compiles under Turbo C++ (Borland) for MS-DOS, DJGCC for MS-DOS, GCC
+for Decstations and cc for Unix (OSx for Pyramid, SunOS for Sun 3/50, 
+Ultrix for Decstation 2100). Minor modification will be required to 
+compile under other Unix variants. 
+
+* Features
+
+The SSPELL program uses a sorted plain ASCII word list for its dictionary.
+This makes adding new words to the list easy. Simply add the words and
+re-sort the list. 
+
+To gain speed, without loading the complete list into memory, a cache 
+of words recently recovered from the word list is maintained, the disk
+is only searched if the word is not found in the cache.
+
+A suffix/prefix list is used to allow a smaller dictionary to be used.
+
+A stop file is provided to permit the exclusion of words. This is typically
+used to exclude words that have been incorrectly identified as correct
+by applying a rule in the rule list. The stop list is a plain ASCII 
+word list.
+
+* Operation
+
+Edit the config.h file to set up the required default locations and 
+compile the code. Place the dictionary in the file specified in the 
+config.h and make sure that the index file is writable. SSPELL should 
+now be ready for use.
+
+The SEPARATOR variable should be set to the subdirectory separator for
+your system (Unix '/', MS-DOS '\'). The path to the index, dictionary 
+and rule file is determined by concatenating DICT_PATH with the 
+separator and the individual file names.
+
+Performance gains may be had by altering the parameters found in the 
+config.h file. Increasing CACHESIZE increases the memory usage of the
+program, but decreases disk search time. IDXSIZ and HASHWID control
+the size of the index to the disk file. HASHWID determines the maximum
+number of characters compared to determine if an item occurs in a given
+slot. IDXSIZ determines the number of slots. 
+
+A typical IBM-PC implementation could be written as:
+
+	#define DICT_PATH "c:\\utility\\dict"
+	#define CFGNAME "sspell.cfg"
+	#define DICTIONARY "main.dct"
+	#define INDEX "main.idx"
+	#define STOP "main.stp"
+	#define RULE "rule.lst"
+	#define CACHESIZE 1000
+	#define ROOTNAME "sspell"
+	#define SORT "c:\\dos\\sort"
+	#define SEPARATOR "\\"
+	
+	#define MAXSTR 128
+	#define SEPSTR " \n\r\t!@#$%^&*(),.<>~`\":;|/\\{}[]"
+
+	/* HASHWID must always be 2 or greater */
+	#define HASHWID 8
+	#define IDXSIZ 1000
+
+* Environment Variable
+
+A single Environment Variable named SSPELL is consulted by SSPELL.
+If the environment variable is not set then the `hardwired' default 
+(ie. the value found in  the `config.h' file) will be used.
+The Environment variable specifies a path which is concatenated with a 
+separator and a file name to locate the configuration, dictionary, index 
+and rule files.
+
+* Configuration file
+
+If a configuration file (typically named "sspell.cfg") is present in the 
+default directory or the directory specified by the SSPELL environment 
+variable, the options contained in the file will override the defaults.
+These configuration file options can be overridden by command line
+options.  Example configuration files are shown below:
+
+	# configuration file for SSPELL under MSDOS
+	DICT_PATH "c:\\utility\\dict"
+	DICTIONARY "main.dct"
+	INDEX "main.idx"
+	RULE "rule.lst"
+	STOP "main.stp"
+	SORT "c:\\dos\\sort"
+
+	# configuration file for SSPELL under Unix
+	DICT_PATH "/usr/dict"
+	DICTIONARY "main.dct"
+	INDEX "main.idx"
+	STOP "main.stp"
+	RULE "rule.lst"
+	SORT "sort -fu"
+
+* Command Line
+
+SSPELL has the following command line options:
+
+	sspell [-u] [-v] [-x] [-c config] [-D dict] [-I index] [-R rule] 
+	       [-C cachesize] [-S stop] [file] ...
+
+-c	`config' is the pathname of a configuration file.
+
+-u 	Unsorted. The list of words produced is not sorted and contains
+	duplicates.
+
+-v	all words not actually in the word list are printed and plausible
+	derivations from the word list are indicated
+
+-x 	all plausible stems are output
+
+-D	`dict' is the pathname of an alternate dictionary
+
+-I	`index' is the pathname of an alternate index. This should be
+	used if using a personalised dictionary or if the index file is 
+	unwriteable.
+
+-R	`rule' is the pathname of an alternate rule list
+
+-S	`stop' is the pathname of an alternate stop file
+
+-C	`cachesize' is the size of the cache of words found in the 
+	dictionary.
+
+SSPELL will take input from a list of files on the command line or from
+stdin if no files are supplied.
+
+The dictionary must be in sorted order with the capital letters folded onto
+the small letters. (Using Unix sort: sort -fu). The case of words in the 
+dictionary is significant. Any letter appearing as a capital in the 
+dictionary must appear as a capital in the text to be regarded as spelled
+correctly.
+
+The format of the rule list is fixed. `#' in the first column indicates a 
+comment. All other lines are of the form:
+
+      pre|post <prefix/suffix> <required> <forbidden> <delete> 
+
+Any field not used must be filled with a `-'. The following examples
+illustrate the features of the rules.
+
+	pre un - - -
+	post ive - e -
+	post ive e - e
+	post ied y ay,ey,iy,oy,uy y
+
+The prefix rules are simple, their are no required or forbidden sequences
+and nothing to delete. Prefixes must not be more complex.
+
+The suffix rules are more complex. These rule specify the ending to be
+added to the root after the deletion of the delete field, provided that
+the word has a required ending, provided that the combination is not 
+forbidden. 
+
+Example rule:
+	post ive - e -
+The word 'transitive' is found in the document, the suffix 'ive' is
+removed and there is no deleted suffix to replace.  The new word
+'transit' does not end in the forbidden suffix 'e' and there is
+no required ending so a search is made in the dictionary for 'transit'.
+The word 'deceive' is found in the document, the suffix 'ive' is
+removed to produce 'dece'.  This ends in the forbidden sequence 'e'
+so a search is not made.
+
+Example rule:
+	post ied y ay,ey,iy,oy,uy y
+The word 'carried' is found in the document, the suffix 'ied' is replaced 
+by the deleted suffix 'y' of the root word to produce 'carry'.
+Since 'carry' now ends in the required sequence 'y' and does not end in the 
+forbidden sequences 'ay','ey','iy', 'oy' or 'uy', a search is made for it in 
+the dictionary.
+
+Example rule:
+	post ed ay,ey,iy,oy,uy - -
+The word 'delayed' is found in the document, the suffix 'ed' is
+removed, and there is no deleted suffix to replace.  Since the word
+'delay' ends in one of the required endings and does not end in
+a forbidden ending (there are none) a search is made in the
+dictionary.
+
+* Overview of Internal Operation
+
+SSPELL creates an index file which speeds access to the main dictionary,
+the index is a simple list of the first part of words evenly spaced through 
+the dictionary, the number of significant letters and the number of slots
+are set using hash defines in the config.h file.
+
+The index file is only created if: No index file exists or the dictionary
+has been modified since the index was created. The Dictionary is checked
+for correct ordering during the creation of the index file. 
+
+Words are checked for correct spelling by initially checking the cache. The
+cache is a move to front list, so more recently used words are at the 
+front of the cache. The cache size is bounded by a limit set in the config.h
+file. If the word is not found in the cache then an exact match is checked
+for in the file. If no exact match is found then a derivation is checked
+for in the cache and subsequently in the file. If a word in the dictionary
+matches either a derivation or the original then the dictionary word is 
+inserted at the head of the cache list.
+
+Hyphenation and number identification have been left out of the above
+description. The output of the search process is put in a file, the
+file is then sorted using the local operating system sorting utility.
+The result is then listed on standard out such that duplicated lines 
+appear only once.
+
+* Acknowledgments 
+
+My thanks to people who have contributed to this program:
+
+Michael Oldfield (mao@physics.su.OZ.AU) for a number of bug fixes
+Mike O'Carroll (lmoc@elec-eng.leeds.ac.uk) for suggestions and bug fixes
+Russell Lang for assistance in clarifying documentation and finding bug
+
+* Conclusion
+
+I hope that this program proves useful. Comments and suggestions welcomed;
+I can be contacted via E-Mail at maurice@bruce.cs.monash.edu.au
+
+		Maurice Castro
+

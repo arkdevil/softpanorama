@@ -1,0 +1,1732 @@
+$Macro_FILE CLARION ;                  { K_CLA_ED 16.12.91-13:38 К.Е.Г.       }
+ {*************************************  коррект: 18.12.91-22:25  ************}
+                                       { K_E_G-EDIT MACRO                     }
+                                       {                                      }
+                                       { Name: CLA_IND                        }
+                                       {                                      }
+ {Description:  Performs smart Indent for the CLARION -> CLA   language.      }
+                                       { Is Called by the macro CR.           }
+                                       {                                      }
+ {   Based on    (C) CopyRight 1988 by American Cybernetics, Inc.             }
+ {****************************************************************************}
+
+$Macro CLA_IND;                        { SMART-отступы по ключевым словам     }
+   Def_Str(c_str);                     { Память для проверяемого слова        }
+   Def_Int(t_col,                      { Колонка первого слова в строке       }
+           t_cole);                    { Исходная колонка курсора             }
+
+   Push_Undo;                          { Отметка в буфере UNDO - начало     * }
+   Refresh := FALSE;
+   t_cole := C_Col;                    { Запомнить текущую колонку            }
+                                       { Надо проигнорировать колонку 1       }
+   Goto_Col(1);                        { На всякий случай - в первую,затем  * }
+   If Pos(Cur_Char,' |9|255')=0 Then   { Метку надо проигнорировать           }
+      Word_Right;
+   End;
+   If Not(At_Eol) Then
+      Forward_Till_Not(' |9|255');     { Встать на первое слово в строке      }
+   End;
+   t_col := C_Col;                     { Запомнить это место                  }
+
+   If (Insert_Mode) > 0 AND            { При Insert_Mode= вставка и           }
+      (t_cole < t_col) Then            { Если ENTER был нажат из колонки      }
+      t_col := t_cole;                 { до первого слова,то отступ отсчи-    }
+      Goto_Col(t_col);                 { тываем от места ENTER,а не от        }
+   End;                                { первого слова в строке               }
+                                       {                                      }
+   If At_Eol = FALSE Then              { Если строка не пустая :              }
+      Set_Indent_Level;                { то устанвили уровень отступа         }
+   End;                                {                                      }
+   t_col := C_Col;                     { Запомнили его в переменной           }
+
+                                       { Взять первое слово в строке и        }
+                                       { удалить все излишние пробелы         }
+   c_str := '\' + Remove_Space(Get_Word('|255|9 ;,''({') ) + '\';
+   Goto_Col(t_cole);                   { Вернуть курсор туда,где он был       }
+   Cr;                                 { Выполнить ENTER                      }
+   If (Insert_Mode = FALSE) Then       { Вынуждены идти на обман,т.к.       * }
+      Goto_Col(Indent_Level);          { CR не встает на Indent_Level здесь * }
+   End;                                { как должно - поэтому сами !!       * }
+                                       { .........-----........               }
+                                       { Если слово , запомненное в c_str     }
+                                       { содержится в списке ключевых       * }
+                                       { слов языка , сделать отступ          }
+   If (Length(c_str) > 2 ) Then        { Слово выбрано (в т.ч. точка)         }
+      If (Xpos(Caps(c_str),
+           '\MAP\MODULE\CODE\AREA\OVERLAY\'
+         + 'ROUTINE\PROCEDURE\FUNCTION\CODE\'
+         + 'EXECUTE\LOOP\'
+         + 'IF\ELSE\ELSIF\'
+         + 'CASE\OF\OROF\',1) > 0 ) AND
+        ((t_col < t_cole) OR Not(Insert_Mode)) Then
+         Indent;                       { Сдвиг(отступ) вправо                 }
+      End;                             { на том же отступе,что и "тело".      }
+   End;
+
+   Pop_Undo;                           { Отметка в буфере UNDO - конец      * }
+   Refresh := TRUE;
+ MAC_EXIT:
+ End_Macro;
+
+ 
+$Macro CLATEMP;                        { TEMPLATE-вставка "шаблонов" в текст  }
+ {*********************************************** 17.12.91-15:32 ************
+                                       { K_E_G-EDIT MACRO                     }
+                                       {                                      }
+                                       { Name: CLATEMP                        }
+                                       {                                      }
+  Description:  Немедленная вставка CLA-конструкции ,если курсор в конце строки
+   и предшествующий символ является символом- указателем
+     ИЛИ
+   если курсор установлен на пробел, то меню выбора конструкции и вставка  ее
+                (C) CopyRight 1990 by корзун Е.Г.
+ ****************************************************************************}
+ {   Based on    (C) CopyRight 1988 by American Cybernetics, Inc.             }
+
+   Def_Int(temp_r_e_s,temp_rfrsh,temp_insert , temp_col, temp_line
+        , uc ,end_col ,jx ,ix , x_id ,repeat
+        , last_space_need ,need_caps ,num_top , only_macro := 0 );
+   Def_Str(xstr , x, xcomnt , indent_need [40] , caps_need [40] , type [10]
+         ,txt_only);
+   Def_Char(tmp_char);
+
+	need_caps := FALSE;
+   last_space_need := FALSE;           { Не надо вписывать пробел в хвост     }
+	temp_insert := Insert_Mode;
+   temp_rfrsh  := Refresh;
+   temp_r_e_s := Reg_Exp_Stat ;
+	If (Global_Int('K_X_Place') = 0) Then
+      RM('K_CH_C^K_SAVCUR');           { Запомнить место курсора              }
+      RM('K_CH_C^K_DSPCUR');           { Показать  место курсора              }
+   End;
+   Refresh := FALSE;                   { Прекратить вывод на экран            }
+
+   Push_Undo;
+   temp_col := C_Col;                  { Колонка курсора                      }
+   temp_line := C_Line;                { Строка  курсора                      }
+
+
+                                       { Альтернатива:символ-указатель/пробел }
+   If (C_Col = 1) Then
+      Make_Message('Колонка 1 - для метки ' );
+      only_macro := temp_col ;
+      txt_only := 'Колонка 1 - для метки ';
+      GoTo STRT_MENU;                  { Переход к меню вызова                }
+   End;
+
+   If At_Eol Then                      { Проверяем символ-указатель           }
+                                       { Взять символ "перед" курсором        }
+      tmp_char := Caps(Copy(Get_line,C_COL-1,1));
+                                       { Если сдуру на русском регистре       }
+      uc := Pos(tmp_char,'КЗАСШУЦГЕДЧЫШТЛЩФ');
+      If Not(uc) Then
+         uc := Pos(tmp_char,'кзасшуцгедчыштлщф');
+      End;
+      If (uc) Then
+         tmp_char := Copy('RPFCIEWUTLXSINOKA!' ,uc,1);
+      End;
+      If (Pos(tmp_char,'RPFCIEWUTLXSINOKA!') > 0) Then      { Указатель !      }
+
+         If Not(Pos(Copy(Get_line , C_Col-2 ,1),' |255|9' + Word_Delimits))
+             AND (C_Col > 2) Then
+                                       { Проверка,является ли указатель       }
+                                       { первым в текущем слове - нет - КУКУ  }
+                                       { Check for a non word character       }
+
+                                       { including tabs AND virtual space     }
+            Make_Message('Not alone symbol ' );
+            only_macro := temp_col ;
+            txt_only := 'Not alone symbol ';
+            GoTo STRT_MENU;
+         End;
+         Goto_Col (temp_col-1);
+         Del_Char;                     { Удалили исходный символ - указатель  }
+         Return_Int := 0;              { Признак - выбрана "базовая" TEMPLATE }
+                                       { Выравнивание на "стандартный" отступ }
+         Insert_Mode := FALSE;         { Чтобы не разорвать предыдущий операт.}
+         Indent;
+         Undent;
+         If C_Col < (temp_col-1) Then  { Нужно встать на следующий TABSTOP    }
+            Indent;
+            temp_col := C_Col + 1;     { И запомнить этот факт                }
+         End;
+         GoTo DO_TEMPLATE;             { Можно исполнять                      }
+      End;
+   End;
+
+                                       { А под курсором пробел ?              }
+   If Pos(Cur_Char,' |255|9') = 0 Then { - Нет , но после Word_Delimits       }
+                                       { Разрешим вставку ( знаки и т.д.)     }
+      If (Pos(Copy(Get_Line,C_Col-1,1) ,' |255|9' + Word_Delimits) > 0 ) Then
+                                       { Надо будет сдвинуться влево          }
+         last_space_need := TRUE;      { Надо будет вписать и пробел в хвост  }
+      Else
+         Make_Message('NOT last symbol и не пробел ');
+         only_macro := temp_col ;
+         txt_only := 'NOT last symbol и не пробел ';
+         GoTo STRT_MENU;
+      End;
+   End;
+
+ STRT_MENU:
+                                       { Подготовка меню конструкций          }
+   indent_need := '';                  { Сюда заносим номера столбцов меню    }
+                                       { ,выбор которых требует выравнивания  }
+   caps_need   := '';                  { Сюда заносим номера столбцов меню,   }
+                                       { выбор которых требует верхн. регистра}
+   num_top := 1;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' ВЫЗОВ'
+            + '\-- для ' + Truncate_Path(File_Name)  + '  --■'
+            + '\1 - Cla-EDIT - редактирование'
+            + '\2 - Clarion - меню'
+            + '\3 - CRUN - запуск '
+            + '\4 - CPRO'
+            + '\5 - INCLUDE-вставка в файл - пока нет'
+            ) ;
+                                       { Здесь не надо выравнивать            }
+                                       { Перевод в верхний регистр            }
+   If (only_macro) Then
+      Beep ;
+      Make_Message('Разрешен только запуск MACRO=' + txt_only);
+      GoTo DSP_MNU;
+   End;
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' базовые'
+            + '\R-pRogram '
+            + '\P-Procedure'
+            + '\F-Function '
+            + '\C-Case '
+            + '\I-If-else'
+            + '\E-if-Elsif-Else'
+            + '\W-loop While'
+            + '\U-loop Until'
+            + '\T-loop i=1 To'
+            + '\L-loop 1 Times (Begin-End)'
+            + '\X-eXecute'
+            + '\S-Set'
+            + '\N-ScreeN'
+            + '\O-repOrt'
+            + '\K-file Key'
+            + '\A-tAble'
+            + '\!-MAKE COMMENT');
+   indent_need := indent_need + Char(num_top);   { Здесь надо выравнивать     }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' Знаки'
+            + '\ = '
+            + '\ + '
+            + '\ - '
+            + '\ * '
+            + '\^ '
+            + '\ / '
+            + '\ % '
+            + '\ Not '
+            + '\ And '
+            + '\ Or  '
+            + '\ Xor '
+            + '\ >= '
+            + '\ <= '
+            + '\ <> '
+            + '\ = '
+            + '\ & '
+            + '\'''
+            + '\( '
+            + '\) '
+            ) ;
+                                       { Здесь не надо выравнивать            }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+              ' DCL '
+            + '\ Byte'
+            + '\ shorT'
+            + '\ Long'
+            + '\ String()'
+            + '\ Real()'
+            + '\ Decimal(15,0) '
+            + '\ Group'
+            + '\,Pre()'
+            + '\,Over()'
+            + '\,dIm()'
+            + '\ siZe()'
+            + '\ eQuate()'
+            + '\ Include('' '');'
+            + '\ Title('' '');'
+            + '\ Subtitle('' '');'
+            + '\ eJect('' '');'
+            + '\ Omit('' '');'
+            + '\ sOurce '
+            + '\ List '
+               );
+   indent_need := indent_need + Char(num_top);   { Здесь надо выравнивать     }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' Picture '
+            + '\''@n_5'''
+            + '\''@n_5B'''
+            + '\''@d_5'''
+            + '\''@d_5B'''
+            + '\''@t_1'''
+            + '\''@s_6'''
+             );
+                                       { Здесь не надо выравнивать            }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' Фун'
+            + '\aBs() '
+            + '\inranGe( , ,) '
+            + '\Int() '
+            + '\LogE() '
+            + '\log10() '
+            + '\Random() '
+            + '\rOund() '
+            + '\sQrt() '
+            + '\--Тр.Фун ---■'
+            + '\Sin() '
+            + '\Cos() '
+            + '\Tan() '
+            + '\asIn() '
+            + '\acOs() '
+            + '\atAn() '
+            + '\--SYSTEM ---■'
+            + '\Error() '
+            + '\errorCode() '
+            + '\Runcode( , )  '
+            ) ;
+                                       { Здесь не надо выравнивать            }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' STR'
+            + '\aLl() '
+            + '\Center( , ) '
+            + '\cHr() '
+            + '\cLip() '
+            + '\Format(,@) '
+            + '\Deformat(,@) '
+            + '\instring(''1'',,1) '
+            + '\lefT() '
+            + '\rigHt() '
+            + '\lEn() '
+            + '\loWer() '
+            + '\Upper() '
+            + '\Numeric() '
+            + '\Sub(,1,1) '
+            + '\Val() '
+            + '\--bit---■'
+            + '\Band(,) '
+            + '\bOr(,) '
+            + '\bXor(,) '
+            + '\bshIft(,) '
+            ) ;
+                                       { Здесь не надо выравнивать            }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' Дата'
+            + '\Today() '
+            + '\Settoday();'
+            + '\Clock() '
+            + '\seTclock();'
+            + '\dAte(,,) '
+            + '\daY( ) '
+            + '\Month( ) '
+            + '\Year( ) '
+            + '\aGe( ,Today()) '
+            ) ;
+                                       { Здесь не надо выравнивать            }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' MIX'
+            + '\Beep;'
+            + '\bEep(50,100);'
+            + '\In( Port,);'
+            + '\Out( Port,);'
+            + '\Memory( ) '
+            + '\maXimum( ,1)'
+            + '\omiTted( 1)'
+            + '\Peek( , );'
+            + '\poKe( , );'
+            ) ;
+   indent_need := indent_need + Char(num_top);   { Здесь надо выравнивать     }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' FILE1'
+            + '\Open( );'
+            + '\streAm( );'
+            + '\flUsh( );'
+            + '\cLose( );'
+            + '\Next( );'
+            + '\preVious( );'
+            + '\Delete( );'
+            + '\Get( , );'
+            + '\Add( );'
+            + '\appeNd( );'
+            + '\pUt( );'
+            + '\Get( , );'
+            + '\skIp( , );'
+            + '\reCover( );'
+            + '\Sort( , );'
+            + '\Free( );'
+            + '\-function-■'
+            + '\Records( ) '
+            + '\Pointer( ) '
+            + '\Eof( ) '
+            + '\Bof( ) '
+            + '\duplicaTe( ) '
+            ) ;
+   indent_need := indent_need + Char(num_top);   { Здесь надо выравнивать     }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+   ++ num_top ;
+   Set_Global_Str('!K_CLA_CONST_' + Str(num_top),
+               ' FILE2'
+            + '\creAte( );'
+            + '\Empty( );'
+            + '\Copy( , );'
+            + '\Rename( , );'
+            + '\remoVe( );'
+            + '\Build( );'
+            + '\pacK( );'
+            + '\Setpath( );'
+            + '\-function-■'
+            + '\Path( ) '
+            + '\Name( ) '
+            + '\Bytes( ) '
+            ) ;
+   indent_need := indent_need + Char(num_top);   { Здесь надо выравнивать     }
+   caps_need := caps_need  + Char(num_top);      { Перевод в верхний регистр  }
+ DSP_MNU:
+   Set_Global_Int('K_Return_Int',0);
+   Run_Macro('K_TXMNU /OPEN=1/#=' + Str(num_top)
+            + '/L=K_CLA_ED 24.01.92-19:39|177'
+            + 'Выберите Конструкцию для CLA - K_CLA_ED '
+            + '/G=!K_CLA_CONST_/Y=3/X=1/GCLR=1/H=K_LNG_TM.HLP^*');
+
+   jx := Global_Int('K_Return_Int') ;  { Номер пункта в столбце               }
+
+   If (jx < 1 ) Then                   { Не выбрали из меню                   }
+      Goto_Col(temp_col);
+      GoTo ABORT_POP;
+   End;
+
+   If Return_Int = 1 Then              { 1 - Вызов доп. макросов              }
+      xstr := Return_Str ;             {                                      }
+      GoTo MACRO_CALL ;
+   End;
+   ++ temp_col;                        { Для совместимости с символом-указат. }
+
+   If (Return_Int <= 2 ) Then          { столбец 2 - "стандартные" TEMPLATE   }
+      tmp_char := Copy( Return_Str, 1 , 1);
+      indent_need := ' ДА ';
+   Else
+      If Return_Int < (num_top + 1 ) Then        { 1-num_top вставить имя     }
+         tmp_char := '\';
+         xstr := Return_Str ;
+         If Xpos(Char(Return_Int),indent_need, 1) *        { "Выравнивание"   }
+            Xpos(';',xstr, 1 ) Then    { Если ; есть в строке                 }
+            indent_need := ' ДА ';
+         End;
+         If Xpos(Char(Return_Int),caps_need, 1) Then       { В заглавные      }
+            need_caps := TRUE;         { Перевод в верхний регистр            }
+         End;
+      End;
+   End;
+
+   If indent_need = ' ДА ' Then        { "Выравнивание"                       }
+      Insert_Mode := FALSE;            { Чтобы не разорвать предыдущий операт.}
+      Indent;
+      Undent;                          { Выравнивание на "стандартный" отступ }
+      If C_Col <> (temp_col-1) Then    { Сейчас стоим не на TABSTOP-е         }
+         Insert_Mode := TRUE;
+         Goto_Col(temp_col);           { Вернулись на место                   }
+         Indent;                       { Нужно встать на следующий TABSTOP    }
+      End;
+   End;
+   temp_col := C_Col+1;                { Для совместимости с символом-указат. }
+
+ DO_TEMPLATE:
+   Run_Macro('K_EDIT_4^K_SHFTF2 /RET') ;         { Текущая дата-в Return_Str  }
+   indent_need := '';
+   end_col := Right_Margin;            { Для данного текста правая граница    }
+   If (end_col > 80) Then
+      end_col := 79 ;
+   End;
+   xcomnt := '';
+   uc := TRUE;                         { Установка верхнего регистра          }
+   Insert_Mode := TRUE;
+
+   If (tmp_char = '\') Then            { Функция из списка                    }
+      GoTo MAKE_INS;
+   End;
+   If (tmp_char = 'R') Then
+      GoTo MAKEMAIN;
+   End;
+
+   If (tmp_char = 'C') Then
+      GoTo MAKECASE;
+   End;
+
+   If (tmp_char = 'X') Then
+      GoTo MAKEEXEC;
+   End;
+
+   If (tmp_char = 'L') Then
+      GoTo MAKEBEGIN;
+   End;
+
+   If (tmp_char = 'I') Then
+      type := '';
+      GoTo MAKEIF;
+   End;
+
+   If (tmp_char = 'E') Then
+      type := 'e';
+      GoTo MAKEIF;
+   End;
+
+   If (tmp_char = 'W') Then
+      type := 'While';
+      GoTo MAKEWHILE;
+   End;
+
+   If (tmp_char = 'U') Then
+      type := 'Until';
+      GoTo MAKEWHILE;
+   End;
+
+   If (tmp_char = 'T') Then
+      GoTo MAKE_TO;
+   End;
+
+   If (tmp_char = 'O') Then            { repOrt                               }
+      Call MAKE_NEW;                   { Перейти на новую строку              }
+      xstr := 'NAME  |9|9|9Report|13      |9|9|9End';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = 'N') Then            { screeN                               }
+      Call MAKE_NEW;                   { Перейти на новую строку              }
+      xstr := 'NAME  |9|9|9Screen|13       |9|9|9End';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = 'P') Then            { Procedure                            }
+      Call MAKE_NEW;                   { Перейти на новую строку              }
+      xstr := 'NAME|9|9Procedure(parm) |13parm|9|9|9Short|13|9|9CODE';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = 'F') Then            { Function                             }
+      Call MAKE_NEW;                   { Перейти на новую строку              }
+      xstr := 'NAME|9|9Function(parm) |13parm|9|9Short|13|9|9CODE';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = 'S') Then
+      xstr := 'SET() ';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = 'K') Then            { FILE - KEY                           }
+      Call MAKE_NEW;                   { Перейти на новую строку              }
+      xstr := 'NAME|9|9File,Pre(),Create,Reclaim|13Key|9Key(),Nocase,Opt,Dup'
+					 +	'|13Record|9|9Record|13|9|9End|13|9End|13';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = 'A') Then            { Table                                }
+      Call MAKE_NEW;                   { Перейти на новую строку              }
+      xstr := 'NAME|9|9Table,Pre()|13|9End|13';
+      GoTo MAKE_INS;
+   End;
+
+   If (tmp_char = '!') Then
+      GoTo MAKE_COMMENT;
+   End;
+                                       { Пришли сюда,хотя и не могли          }
+   Goto_Col(temp_col);
+   Pop_Undo;
+   Undo;
+
+   Make_Message('R:P:F:C:I:E:W:U:T:L:X:S:I:N:O:K:A:! - legal TEMLATE symbols '
+               + '|246' + tmp_char);
+   Beep;
+   GoTo ABORT_MAC;
+
+ MAKEMAIN:
+   Eol;
+   Cr;
+   Goto_Col(1);
+   xstr := Caps(Truncate_Path(Truncate_Extension(FILE_NAME))) + '|9|9PROGRAM';
+   Call XTEXTN;
+   Cr;
+   xstr := '        INCLUDE(''STD_KEYS.CLA'') ';
+   Call XTEXTN;
+   Cr;
+   xstr := '        INCLUDE(''CTL_KEYS.CLA'') ';
+   Call XTEXTN;
+   Cr;
+   xstr := '        INCLUDE(''ALT_KEYS.CLA'') ';
+   Call XTEXTN;
+   Cr;
+   xstr := '        INCLUDE(''SHF_KEYS.CLA'') ';
+   Call XTEXTN;
+   Cr;
+   xstr := '                                  ';
+   Call XTEXTN;
+   Cr;
+   xstr := 'REJECT_KEY    EQUATE(CTRL_ESC)     ';
+   Call XTEXTN;
+   Cr;
+   xstr := 'ACCEPT_KEY    EQUATE(CTRL_ENTER)   ';
+   Call XTEXTN;
+   Cr;
+   xstr := 'TRUE          EQUATE(1)';
+   Call XTEXTN;
+   Cr;
+   xstr := 'FALSE         EQUATE(0)';
+   Call XTEXTN;
+   Cr;
+   xstr := '             ';
+   Call XTEXTN;
+   Cr;
+   xstr := '         MAP';
+   Call XTEXTN;
+   Cr;
+   xstr := '            PROC(G_OPENFILES)       ';
+   Call XTEXTN;
+   Cr;
+   xstr := '         MODULE('''
+                     + Caps(Truncate_Path(Truncate_Extension(FILE_NAME)))
+                     + '1' + ''')';
+
+   Call XTEXTN;
+   Cr;
+   xstr := '         End      ';
+   Call XTEXTN;
+   Cr;
+   xstr := '      End      ';
+   Call XTEXTN;
+   Cr;
+   xstr := '      CODE      ';
+   Call XTEXTN;
+   Cr;
+   xstr := '      RETURN     ';
+   Call XTEXTN;
+   Cr;
+   Goto_Col(temp_col - 1);
+   xstr := '|9! -- ---- - End ' + Return_Str + ' of '
+         + Caps(Truncate_Path(Truncate_Extension(FILE_NAME)))  + ' ';
+   Call XTEXTN;
+   Goto_Line(temp_line + 2);
+   Goto_Col(Indent_Level);
+   GoTo END_OF_MAC;
+
+ MAKEBEGIN:
+   Goto_Col(temp_col-1);
+   xstr := 'Loop 1 Times';
+   Call XTEXT;
+   Cr;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'End';
+   xcomnt := '! ' + Return_Str + ' of Loop 1 ';
+   Call XTEXT;
+   Goto_Line(temp_line + 1);
+   Goto_Col(temp_col);
+   Indent;
+   Goto_Col(temp_col + 2);
+   temp_insert := TRUE;                { Режим вставки после TEMPLATE         }
+   GoTo END_OF_MAC;
+
+ MAKECASE:
+   Goto_Col(temp_col-1);
+   xstr := 'CASE () ';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'OF (1)';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'OROF (1)';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'Else';
+   xcomnt := '!' + ' of -- CASE ';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'End';
+   xcomnt := '! ' + Return_Str + ' of -- CASE ';
+   Call XTEXT;
+   Goto_Line(temp_line);
+   Goto_Col(temp_col + 3);
+   GoTo FND_BRK;                       { Пошли искать скобку                  }
+
+ MAKEEXEC:
+   Goto_Col(temp_col-1);
+   xstr := 'EXECUTE () ';
+   Call XTEXT;
+   Cr;
+	repeat := 0 ;
+	While (repeat < 3) Do               { Делаем три строки                    }
+		++repeat;
+   	Goto_Col(temp_col);
+   	Left;
+   	xstr := '|9! - ' + Str(repeat);
+   	xcomnt := '!' + '* -- EXECUTE ' + Str(repeat);
+   	Call XTEXT;
+   	Cr;
+	End;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'End';
+   xcomnt := '! ' + Return_Str + ' of EXECUTE ';
+   Call XTEXT;
+   Goto_Line(temp_line);
+   Goto_Col(temp_col + 3);
+   GoTo FND_BRK;                       { Пошли искать скобку                  }
+
+ MAKEIF:
+   Goto_Col(temp_col-1);
+   xstr := 'If () Then ';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   If (type = 'e') Then
+      xstr := 'ElsIf (1) Then';
+      Call XTEXT;
+      Cr;
+      Goto_Col(temp_col);
+      Left;
+   End;
+   xstr := 'Else';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'End';
+   xcomnt := '! ' + Return_Str + ' of If--Else ';
+	If (type = 'e') Then
+   	xcomnt := '! ' + Return_Str + ' of If--ElsIf';
+	End;                                { -- If .. 24.01.92-19:46 --           }
+   Call XTEXT;
+   Goto_Line(temp_line);
+   Goto_Col(temp_col + 3);
+   GoTo FND_BRK;                       { Пошли искать скобку                  }
+
+ MAKEWHILE:
+   Goto_Col(temp_col-1);
+   xstr := 'Loop ' + type + '()';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'End';
+   xcomnt := '! ' + Return_Str + ' of ' + type;
+   Call XTEXT;
+   Goto_Line(temp_line);
+   Goto_Col(temp_col + 9);
+   GoTo FND_BRK;                       { Пошли искать скобку                  }
+
+ MAKE_TO:
+   Goto_Col(temp_col-1);
+   xstr := 'Loop I=1 To () By 1 ';
+   Call XTEXT;
+   Cr;
+   Goto_Col(temp_col);
+   Left;
+   xstr := 'End';
+   xcomnt := '! ' + Return_Str + ' of Loop To ';
+   Call XTEXT;
+   Goto_Line(temp_line);
+   Goto_Col(temp_col);
+   GoTo FND_BRK;                       { Пошли искать скобку                  }
+
+ MAKE_COMMENT:                         { Вставить текст из xstr               }
+   Eol;
+   Cr;
+   Goto_Col(1);
+   Text('|9!* ************************************************************************');
+   Eol;
+   Cr;
+   Goto_Col(1);
+   Text('|9!*  ' + Return_Str
+      + '                                                        *');
+   Eol;
+   Cr;
+   Goto_Col(1);
+   Text('|9!*                                                                        *');
+   Cr;
+   Goto_Col(1);
+   Text('|9!* ********************************************************************** *');
+   Up; Up;
+   Goto_Col(4);
+   temp_insert := FALSE;               { Режим вставки после TEMPLATE         }
+   GoTo END_OF_MAC;
+
+ MAKE_INS:                             { Вставить текст из xstr               }
+   Goto_Col(temp_col-1);
+                                       { Перевод в "заглавные" английских слов}
+   ix := Svl(xstr);
+   jx := 0;
+   uc := TRUE;                         { Начало слова                         }
+   While (jx < ix) AND (Str_Char(xstr,jx+1) = ' ' ) Do
+      ++jx;                            { Пропустить пробелы                   }
+   End;
+   While (jx < ix ) Do
+      ++jx ;
+      tmp_char := Caps(Str_Char(xstr,jx)) ;
+      If (Ascii(tmp_char) <= 122 )  AND
+         (Ascii(tmp_char) >= 65 ) Then { Это буква английского алфавита       }
+         If NOT(uc) Then               { Не начало слова и не заглавные       }
+            tmp_char := Lower(tmp_char);
+         End;
+         xstr := Str_Ins(tmp_char, Str_Del(xstr,jx ,1), jx);
+      End;
+      uc := need_caps ;                { Выбор-заглавные или "capitalize"     }
+      If (tmp_char = '_' ) Then
+         uc := TRUE;                   { Начало "подслова"                    }
+      Else
+         If Xpos(tmp_char,Word_Delimits,1) Then  {Конец слова - выход из цикла}
+            jx := ix;
+         End;
+      End;
+   End;
+
+   Call XTEXT;
+   Goto_Col(1);                        { Для экрана в 79 колонок              }
+   Goto_Col(temp_col);
+   uc := FALSE;
+
+                                       { Ищем место для курсора               }
+   If Xpos('(', xstr, 1) Then          { Во вставке была скобка               }
+ FND_BRK:                              { Сбоку пришли найти скобку            }
+      Reg_Exp_Stat := TRUE;
+                                       { Ищем скобку или операнд              }
+      uc := Search_Fwd('{@(''}||{@( }||{  @,}||{@(}',1);
+      jx := Length(Found_Str);         { Длина того,что нашли                 }
+      While (jx > 0 ) Do               { Встать на начало находки             }
+         --jx;
+         Right;
+      End;
+   End;
+   If (uc) Then                        { Нашли - значит режим вставки         }
+      temp_insert := TRUE;             { Режим вставки после TEMPLATE         }
+   Else
+      Goto_Col(temp_col + Svl(xstr)) ; { Нет - в конец строки и не менять INS }
+   End;
+   GoTo END_OF_MAC;
+
+
+ {- ************************* PROCEDURE - CALL **********************       * }
+ MAKE_NEW:                             { Переход на новую строку              }
+   Eol;
+   Cr;
+   GoTo_Col(1);
+   temp_col := 1;
+   Ret;
+
+ {- ************************* XTEXT       CALL **********************       * }
+ XTEXTN:                               { Писать с первой колонки              }
+   GoTo_Col(1);
+
+ XTEXT:                                { Писать с позиции курсора             }
+                                       { Замена всех пробелов на один в хвосте}
+   ix := Svl(xstr);
+   While (ix > 0) AND
+      (Pos(Str_Char(xstr,ix),' |9|255') > 0) Do
+      xstr := Str_Del( xstr,ix,1);
+      ix := Svl(xstr);
+      last_space_need := TRUE;         { Надо будет вписать и пробел в хвост  }
+   End;
+   If (last_space_need) Then
+      xstr := xstr + ' ';
+   End;
+   x := xstr ;
+   jx := Svl(x);
+   While (jx > 0) Do
+      ix := Xpos('|13',x,1);           { Ищем возврат каретки в строке        }
+      If (ix = 0) Then
+         ix := jx + 1;
+      End;
+      xstr := Copy(x,1,ix-1);
+      x := Copy(x, ix + 1,255);        { Удалить использованный кусок         }
+      Text( xstr );
+      If (Svl(xcomnt) > 0) Then
+         If (C_Col <= 50) Then
+            Goto_Col (50);
+            Text( xcomnt);             { Вставить комментарий                 }
+            xcomnt := '';
+            If C_Col <= (end_col-2) Then
+               Goto_Col (end_col-2);
+            End;
+         End;                          { -- If .. есть куда вставить          }
+      End;                             { -- If .. присутствует комментарий    }
+      jx := Svl(x);                    { Длина остатка                        }
+      If (jx) Then
+         Cr;
+         Goto_Col (1);
+      End;
+   End;
+   Ret;
+
+      {- *****************************************************************
+      *   Вызов макро - обработки                                        *
+      * **************************************************************** -}
+ MACRO_CALL:
+   x_id := Window_Id;                  { Запомнить ID "родного" окна          }
+   xcomnt := File_Name ;               { И имя файла в нем                    }
+   --jx ;                              { т.к. первый пункт - имя файла        }
+
+   If (jx = 1) Then                    { Вызов редактора CLA для файла        }
+                                       { Создание ERR-file для передачи места }
+      xstr := 'E 0 @' + Str(C_line) + '/' + Str(C_Col) + ':     '
+               + '═|16 из ME(K_CLA_ED.SRC by Корзун·Е.Г.)=' + File_Name
+               + '·····················································' ;
+      xstr := Copy(xstr,1,78);         { CLARION ERR:формат-78 байт в строке  }
+      x := Truncate_Extension(File_Name)         { Пишем в DIR файла !!       }
+            + '.ERR';
+      Switch_Window(Window_Count);
+      Create_Window;                   { Создать рабочее окно                 }
+      Put_Line (xstr);
+      Down;
+      Put_Line (xstr);
+      Down;
+      File_Name := x ;
+      Save_File;                       { Записать ERR-файл для места курсора  }
+      Delete_Window;                   { Удалить рабочее окно                 }
+      Switch_Win_Id(x_id) ;            { Вернуться в  "родное" окно           }
+      Run_Macro('K_EDIT_4^K_BAT /run='
+            + 'cla CEDT <FILE>.<EXT> <FILE>.<EXT> CLA.EDT /E /N'
+            );
+      If File_Exists(x) Then           { Удалим  ERR-файл для места курсора   }
+         Del_File(x);
+      End;
+   ElsIf (jx = 2) Then                 { Вызов полного CLARION                }
+      Run_Macro('K_EDIT_4^K_BAT /run='
+            + 'cla CLARION '
+            );
+   ElsIf (jx = 3) OR (jx = 4) Then     { Вызов CRUN / CPRO  для файла         }
+                                       { Найти MEMBER / PROGRAM               }
+      Tof;                             { В начало файла                       }
+      Goto_Col(1);
+      x := 'NO_FILE';
+      Ignore_Case := TRUE;
+      Reg_Exp_Stat := TRUE;
+    FIND_M_P:
+      If (Search_Fwd('[|9|255 ]{MEMBER}||{PROGRAM}$||[|9|255 (||!]',0)) Then
+                                       { Нашли кого-то                        }
+         xstr := Caps(Found_Str) ;
+ {- *****************************************************************
+ *  Пусть сидит в комментарии - разрешаем
+         If (Search_Bwd('[||!'']',1)) Then       { Не комментарий / строка ?  }
+            Down;
+            Goto_Col(1);
+            Goto FIND_M_P;             { Продолжить поиск                     }
+         End;
+ * **************************************************************** -}
+         If Xpos('P',xstr,1) > 0 Then  { Program                              }
+            Goto_Col(1);
+            x := Get_Word (Word_Delimits) ;      { Выделили метку  Program    }
+            If NOT(Svl(x)) Then        { Хотя этого и не может быть           }
+               Goto Abort_M_P;
+            End;
+         Else                          { MEMBER                               }
+          FIND_M_M:
+            If (Search_Fwd('[|!'']',1)) Then     { ищем кавычку               }
+               If (Copy(Found_Str,1,1) <> '''' ) Then      { а это не она     }
+                  Down;
+                  Goto_Col(1);
+                  Goto FIND_M_M;       { Продолжить поиск кавычки             }
+               End;
+               Word_Right;             { Пропустить кавычку                   }
+               x := Get_Word (Word_Delimits) ;   { Взяли имя MEMBER           }
+               If (Svl(x) = 0) Then    { Хотя этого и не может быть           }
+                  Goto Abort_M_P;
+               End;
+            Else                       { Не нашли кавычку MEMBER              }
+               Goto Abort_M_P;
+            End;
+         End;
+      Else                             { Не нашли MEMBER / Program            }
+         Goto Abort_M_P;
+      End;
+                                       { в X - имя головного модуля           }
+      xstr := Get_Path(File_Name);     { Путь к файлу CLA                     }
+      If (Copy(xstr,Svl(xstr),1) <> '\') AND
+          (Svl(xstr) > 0) Then
+          xstr := xstr + '\' ;
+      End;
+      x := Caps(Truncate_Extension(x)) ;
+      If (Truncate_Path(x) = x) Then
+         x := Caps(xstr + x );
+      End;
+      Goto RUN_M;
+
+  Abort_M_P:                           { Не нашли текста с именем             }
+      Make_Message('Не найдено имя головного (MEMBER/PROGRAM) для '
+               + Truncate_Path(File_Name));
+      beep;
+      Goto END_OF_RUN;
+  RUN_M:
+      xstr := x + '.PRO' ;
+      If NOT(File_Exists(xstr)) Then   { Не нашли файла с именем              }
+         Make_Message('Не найден ' + xstr + ' для ' + File_Name);
+         beep;
+         Goto END_OF_RUN;
+      End;
+      If (jx = 4) Then                 { Вызов CPRO  для файла                }
+         Run_Macro('K_EDIT_4^K_BAT /run='
+               + 'cla CPRO ' + x
+               );
+      Else                             { Вызов CRUN  для файла                }
+         Run_Macro('K_EDIT_4^K_BAT /run='
+               + 'cla CRUN ' + x
+               );
+      End;
+   End;
+   If (xcomnt <> File_Name) OR
+      (x_id  <> Window_Id) Then        { После возврата выбран другой файл    }
+      Make_Message('MAC-Return в ='+File_Name+ ',был=' + xcomnt);
+      beep;
+      GoTo ABORT_MAC;                  { Не восстанавливать место курсора     }
+   End;
+ END_OF_RUN:
+   GoTo_Col(1);
+   GoTo_Line(temp_line);               { Вернуть курсор на место              }
+   GoTo_Col(temp_col);
+ END_OF_MAC:
+   Refresh := 1;
+   Redraw;
+   If (WhereY + 2) >= Win_Y2 Then
+      Run_Macro('AUGMENTA^MOVE_UP /N=2');
+   End;
+   If (WhereY - 2) <= Win_Y1 Then
+      Run_Macro('AUGMENTA^MOVE_DOWN /N=2');
+   End;
+ ABORT_POP:
+   Pop_Undo;
+ ABORT_MAC:
+   Set_Global_Int('K_X_Place',0);
+   Insert_Mode := temp_insert;
+   Refresh := temp_rfrsh;
+   Reg_Exp_Stat := temp_r_e_s ;
+   Redraw;
+
+
+ End_Macro;
+ 
+ {*****************************************************************************}
+                                       { K_E_G-EDIT MACRO                     }
+                                       { Name: CLAMTCH                        }
+ {   Based on    (C) CopyRight 1988 by American Cybernetics, Inc.             }
+                                       { ModIfied by Kevin Jackson            }
+ {   ModIfied by Korzun E.G. 19.12.91-22:09 for CLARION  (C) CopyRight 1991   }
+ {****************************************************************************}
+
+$Macro CLAMTCH TRANS;                  { Поиск "скобок"- начало/конец         }
+
+   Def_Str( str1,                      { Primary   - First Match string       }
+            estr1[500],                { Secondary - End   Match string       }
+            br_str[500],               { Образ прекращения поиска             }
+            ig_str[500],               { Образ продолжения поиска без смены   }
+            t_str,
+            s_str,
+            fstr ,
+            b_fstr ,                   { Буфер разделения анализа             }
+            k_str);
+
+   Def_Int( direction,                 { 1 = search forward, 0 = backward     }
+            b_count,                   { Match count.  0 = match found        }
+            a_count,                   { All match count                      }
+            n_count,                   { Max nest count                       }
+            s_res,                     { Search results                       }
+            s_eq,                      { Требование строго равенства str1     }
+            e_eq,                      { Требование строго равенства estr1    }
+            k_rght,
+            b_col,
+            k_jx,
+            jx ,
+            break ,
+            k_warn,
+            second_time );
+
+
+   second_time := FALSE;
+   Refresh := FALSE;                   { Turn screen Refresh off              }
+   str1     := '';
+   estr1    := '';
+   br_str   := '';
+   ig_str   := '';
+   t_str    := '';
+   s_str    := '';
+   fstr     := '';
+   b_fstr   := '';
+   k_str    := '';
+
+   direction      := 0;
+   b_count        := 0;
+   a_count        := 0;
+   n_count        := 0;
+   s_res          := 0;
+   s_eq           := 0;
+   e_eq           := 0;
+   k_rght         := 0;
+   b_col          := 0;
+   k_jx           := 0;
+   jx             := 0;
+   break          := 0;
+   k_warn         := 0;
+   second_time    := 0;
+
+   Mark_Pos;
+   Push_Undo;
+   br_str := 'PROCEDURE FUNCTION';
+   ig_str := '';
+
+ FIND_MATCH_STR:
+
+   If (Cur_Char = '[') Then            { Setup match for '['                  }
+      t_str := ']';
+      str1 := ' [ ';
+      estr1 := ' ] ';
+      direction := 1;
+      Right;
+      s_str := '[@[@]''!@||]';
+      GoTo START_MATCH;
+   End;
+
+   If (Cur_Char = ']') Then            { Setup match for ']'                  }
+      t_str := ']';
+      str1 := ' ] ';
+      estr1 := ' [ ';
+      direction := 0;
+      s_str := '[@[@]''!@||]';
+      GoTo START_MATCH;
+   End;
+
+
+   If (Cur_Char = '(') Then            { Setup match for '('                  }
+      t_str := '(';
+      str1 := ' ( ';
+      estr1 := ' ) ';
+      direction := 1;
+      Right;
+      s_str := '[()''!@||]';
+      GoTo START_MATCH;
+   End;
+
+   If (Cur_Char = ')') Then            { Setup match for ')'                  }
+      t_str := ')';
+      str1 := ' ) ';
+      estr1 := ' ( ';
+      direction := 0;
+      s_str := '[()''!@||]';
+      t_str := str1;
+      GoTo START_MATCH;
+   End;
+
+   If (Cur_Char = '.') Then            { Setup match for '.'                  }
+      direction := 0;
+      t_str := '.';
+      GoTo AFTER_WORD;                 { Обойти анализ слов                   }
+   End;
+
+                                       { На пробеле - след. слово             }
+   If At_Eol Then                      { В конце строки в начало              }
+      First_Word;
+   End;
+   If (Xpos(Cur_Char,' |9|255',1) > 0) OR
+      (C_Col = 1) Then
+      Word_Right;
+   End;
+
+   If (Xpos(Copy(Get_Line,C_Col-1,1), Word_Delimits ,1) = 0) Then
+      Word_Left;                       { В середине слова - влево на слово    }
+   End;
+
+   If (Xpos(Cur_Char,' |9|255',1) > 0) OR        { Метка не нужна совсем      }
+      (C_Col = 1) Then
+      Word_Right;
+   End;
+
+   t_str := Caps( Get_Word(',;||(!''."[]= |9|255') );      { Get current word }
+
+ AFTER_WORD:                           { Слово для анализа выделено           }
+   If (Xpos('FUNC' ,t_str  ,1)=1) OR
+      (Xpos('PROCE' ,t_str  ,1)=1) Then
+      s_str := '[''!||]'               { Кавычка , коммент,перенос            }
+            + '||{[|9|255 ]'           { Разделитель начала слова             }
+               + '{PROCEDURE}'
+               + '||{FUNCTION}'
+               + '||{OMIT}'            { Только вниз                          }
+            + '$||[|9|255 ;(!||]}'     { Разделитель конца слова              }
+            ;
+      str1 := '|254';                  { Просто подставка                     }
+      estr1 := ' PROCEDURE FUNCTION ';
+      direction := 1;
+
+      GoTo START_MATCH;
+   End;
+
+   If (t_str = 'RETURN') Then
+      s_str := '[''!||]'               { Кавычка , коммент,перенос            }
+            + '||{[|9|255 ]'           { Разделитель начала слова             }
+               + '{PROCEDURE}'
+               + '||{FUNCTION}'
+               + '||{PROGRAM}'
+            + '$||[|9|255 ;(!||]}'     { Разделитель конца слова              }
+            ;
+      str1 := '|254';                  { Просто подставка                     }
+      estr1 := ' PROCEDURE FUNCTION PROGRAM ';
+      direction := 0;                  { Поиск вверх                          }
+
+      GoTo START_MATCH;
+   End;
+
+   If (t_str = 'ROUTINE') Then
+      s_str := '[''!||]'               { Кавычка , коммент,перенос            }
+            + '||{[|9|255 ]'           { Разделитель начала слова             }
+               + '{PROCEDURE}'
+               + '||{FUNCTION}'
+               + '||{ROUTINE}'
+               + '||{PROGRAM}'
+               + '||{CODE}'
+               + '||{OMIT}'            { Только вниз                          }
+            + '$||[|9|255 ;(!||]}'     { Разделитель конца слова              }
+            ;
+      str1 := '|254';                  { Просто подставка - нет вложенности   }
+      estr1 := ' ROUTINE PROCEDURE FUNCTION ';
+      br_str := ' CODE PROGRAM ';
+      direction := 1;                  { Поиск вниз                           }
+
+      GoTo START_MATCH;
+   End;
+
+   If (t_str = 'EXIT') Then
+      s_str := '[''!||]'               { Кавычка , коммент,перенос            }
+            + '||{[|9|255 ]'           { Разделитель начала слова             }
+               + '{PROCEDURE}'
+               + '||{FUNCTION}'
+               + '||{ROUTINE}'
+               + '||{CODE}'
+            + '$||[|9|255 ;(!||]}'     { Разделитель конца слова              }
+            ;
+      str1 := '|254';                  { Просто подставка - нет вложенности   }
+      estr1 := ' ROUTINE ';
+      br_str := ' PROCEDURE FUNCTION CODE ';
+      direction := 0;                  { Поиск вверх                          }
+
+      GoTo START_MATCH;
+   End;
+
+   If (t_str = 'BREAK') OR (t_str = 'CYCLE')  Then
+      s_str := '[''!||]'               { Кавычка , коммент,перенос            }
+            + '||{[|9|255 ]'           { Разделитель начала слова             }
+               + '{PROCEDURE}'
+               + '||{LOOP}'
+               + '||{FUNCTION}'
+               + '||{ROUTINE}'
+               + '||{CODE}'
+            + '$||[|9|255 ;(!||]}'     { Разделитель конца слова              }
+            ;
+      str1 := '|254';                  { Просто подставка - нет вложенности   }
+      estr1 := ' LOOP ';               { Ищем первое вхождение                }
+      br_str := ' ROUTINE PROCEDURE FUNCTION CODE ';
+      direction := 0;                  { Поиск вверх                          }
+
+      GoTo START_MATCH;
+   End;
+
+   If (t_str = 'LOOP') OR (t_str = 'WHILE')
+      OR (t_str = 'UNTIL') OR (t_str = 'TIMES')
+      OR (t_str = 'CASE') OR (t_str = 'OF')  OR (t_str = 'OROF')
+      OR (t_str = 'EXECUTE')
+      OR (t_str = 'IF') OR (t_str = 'ELSE')
+         OR (t_str = 'ELSIF') OR (t_str = 'THEN') Then
+      str1   := ' LOOP CASE EXECUTE IF ';
+      br_str := ' MAP MODULE OVERLAY AREA '
+              + 'PROCEDURE FUNCTION CODE ROUTINE '
+              + 'GROUP TABLE FILE '
+              + 'REPORT ';
+      e_eq := 1;                       { Требуем совпадения "слова" и "образа"}
+      estr1 := ' END ';
+      direction := 1;
+      GoTo START_MATCHO;
+   End;
+
+   If (t_str = 'GROUP') OR (t_str = 'RECORD') OR (t_str = 'MAP')
+      OR (t_str = 'MODULE')
+   {   OR (t_str = 'AREA')
+      OR (t_str = 'OVERLAY')
+   }
+      OR (t_str = 'FILE') OR (t_str = 'TABLE')
+      OR (t_str = 'SCREEN') OR (t_str = 'REPORT')
+      OR (t_str = 'REPEAT') OR (t_str = 'MENU')
+      OR (t_str = 'HEADER') OR (t_str = 'FOOTER') OR (t_str = 'DETAIL')
+      Then
+      str1   := ' MAP MODULE OVERLAY AREA '
+              + 'GROUP TABLE FILE RECORD SCREEN REPEAT MENU '
+              + 'REPORT RECORD DETAIL HEADER FOOTER ';
+      br_str := ' LOOP CASE EXECUTE IF CODE '
+              + 'PROCEDURE FUNCTION ROUTINE ';
+      e_eq := 1;                       { Требуем совпадения "слова" и "образа"}
+      estr1 := ' END ';
+      direction := 1;
+      GoTo START_MATCHD;
+   End;
+
+   If (t_str = 'END') OR (t_str = '.') Then      { Поиск "назад"              }
+      s_eq := 1;                       { Требуем совпадения "слова" и "образа"}
+      str1 := ' END ';
+      estr1  := ' LOOP CASE PROC EXECUTE IF '
+              + 'MAP MODULE OVERLAY AREA '
+              + 'GROUP TABLE FILE RECORD SCREEN REPEAT MENU '
+              + 'REPORT DETAIL HEADER FOOTER ';
+      br_str := ' PROCEDURE FUNCTION CODE ROUTINE ';
+      direction := 0;
+      If (Cur_Char <> '.') Then
+         Word_Left;
+      End;
+      Left;
+      GoTo START_MATCHA;
+   End;
+
+   If NOT( second_time ) Then
+      second_time := TRUE;
+      Goto_Col(1);
+      First_Word;
+      If (C_Col = 1) Then              { Пропустить метку                     }
+         Word_Right;
+      End;
+      fstr := t_str;
+      GoTo FIND_MATCH_STR;
+   End;
+
+   Make_Message('NOTHING to Match 2=' + t_str + ' 1=' + fstr);
+   Goto_Mark;
+   GoTo MACRO_EXIT;
+
+ START_MATCHO:                         { Для "операторов" IF - CASE  ...      }
+   s_str := '[''.!||]'                 { Кавычка ,точка , коммент,перенос     }
+           + '||{END}'                 { Искать отдельно                      }
+           + '||{IF}'
+           + '||{LOOP}'
+           + '||{CASE}'
+           + '||{EXECUTE}'
+           + '||{[|9|255 .;]'          { Разделитель начала слова             }
+              + '{PROCEDURE}'
+              + '||{OMIT}'
+              + '||{FUNCTION}'
+              + '||{ROUTINE}'
+              + '||{CODE}'
+           + '$||[|9|255 ,;(!||]}'    { Разделитель конца слова              }
+           ;
+
+   GoTo START_MATCH;
+
+ START_MATCHD:                         { Для "описаний" REPORT - GROUP ...    }
+   s_str := '[''.!||]'                 { Кавычка ,точка , коммент,перенос     }
+           + '||{END}'
+           + '||{[|9|255 .]'           { Разделитель начала слова             }
+              + '{PRO?+E}'             { PROCEDURE                            }
+              + '||{FU?+N}'            { FUNCTION                             }
+              + '||{CODE}'
+              + '||{MAP}'
+              + '||{OVERLAY}'
+              + '||{AREA}'
+              + '||{MODULE}'
+              + '||{FILE}'
+              + '||{TABLE}'
+              + '||{RE????}'           { REPORT - REPEAT - RECORD             }
+              + '||{GROUP}'
+              + '||{OMIT}'
+              + '||{SCREEN}'
+              + '||{MENU}'
+              + '||{HEADER}'
+              + '||{FOOTTER}'
+              + '||{DETAIL}'
+           + '$||[|9|255 ,;(!||]}'    { Разделитель конца слова              }
+           ;
+   GoTo START_MATCH;
+
+ START_MATCHA:                         { Для END - незнамо что, т.е. все      }
+   s_str := '[''.!||]'                 { Кавычка ,точка , коммент,перенос     }
+           + '||{END}'
+           + '||{IF}'
+           + '||{C??E}'                { CODE - CASE                          }
+           + '||{EX?+E}'               { EXECUTE                              }
+           + '||{LOOP}'
+           + '||{[|9|255 .;]'          { Разделитель начала слова             }
+              + '{ROU?+E}'             { ROUTINE                              }
+              + '||{PRO?+E}'           { PROCEDURE                            }
+              + '||{FU?+N}'            { FUNCTION                             }
+              + '||{MOD?+}'            { MODULE                               }
+              + '||{MAP}'
+              + '||{FILE}'
+              + '||{TABLE}'
+              + '||{GROUP}'
+              + '||{SCREEN}'
+              + '||{MENU}'
+              + '||{RE????}'           { REPORT - REPEAT - RECORD             }
+              + '||{HEADER}'
+              + '||{FO?+R}'            { FOOTER                               }
+              + '||{DETAIL}'
+           + '$||[|9|255 ,;(!||]}'    { Разделитель конца слова              }
+           ;
+   GoTo START_MATCH;
+
+ START_MATCH:
+   k_warn := 0;
+   Pop_Mark;
+   Reg_Exp_Stat := TRUE;
+   Ignore_Case := TRUE;
+   b_count := 1;
+   s_res := 1;
+   If ( t_str <> str1) AND (Svl(t_str) > 1)
+      AND (Xpos('END',Caps(t_str),1) = 0) Then
+      t_str := t_str + ' в ' + str1 ;
+   End;
+   Make_Message('Matching ' + t_str + ',поиск ' + estr1 );
+   Write(' Hit <ESC> to Stop.',12, Win_Y1,0,Message_Color);
+   If (direction = 0) Then
+   Write(' Вверх OMIT не ловится',
+         Length(' Hit <ESC> to Stop.')+12+1, Win_Y1,0,Error_Color);
+   End;
+   Working;
+
+ MATCH_LOOP:                           { Main loop                            }
+   If s_res = 0 Then                   { При неудачном поиске - выход         }
+      GoTo ERROR_EXIT;
+   End;
+
+   If b_count = 0 Then                 { If match count is 0 Then success     }
+      GoTo FOUND_EXIT;
+   End;
+                                       { If the <ESC> key is pressed while    }
+                                       { matching Then abort the search       }
+   If Check_Key Then
+      If Key1 = 27 Then
+         Make_Message('Match Aborted.');
+         GoTo MACRO_EXIT;
+      End;
+   End;
+
+   Put_Line_Num(C_Line);               { Для "дружелюбности"                  }
+	Put_Col_Num(C_Col);
+   Refresh := 0;
+   If direction = 1 Then               { Perform search based on direction    }
+      Goto_Col(C_Col + Svl(k_str) );   { Сдвиг на длину найденного образа     }
+      s_res := Search_Fwd(s_str,0);
+   Else
+      Left;
+      s_res := Search_Bwd(s_str,0);
+   End;
+   b_col := C_Col ;                    { Это колонка, где нашли образ         }
+{
+refresh := 1;
+new_screen;
+If s_res = 0 Then                      { If search failed Then exit           }
+   beep;
+End;
+Make_Message('"' + Found_Str + '" при='+ Copy(s_str,1,10) + '|249|249'
++'░Nest=' + Str(b_count) + '░M=' + Str(n_count)+ '░A=' + Str(a_count)
++'░Col=' + Str(b_col)
+);
+read_key;
+ }
+   If s_res = 0 Then                   { If search failed Then exit           }
+      GoTo ERROR_EXIT;
+   End;
+
+   fstr := Caps(Found_Str);
+   k_str := '';                        { Пока пусто - не делать сдвигов       }
+   k_rght := 0;
+   b_fstr := Get_Line ;                { Анализируемая строка с образом       }
+   b_col := C_Col ;                    { Это колонка, где нашли образ         }
+
+                                       { Комментарий вверх , OMIT вниз        }
+   If (Direction = 0) Then             { При поиске вверх надо опасаться ! и |}
+                                       { Вырежем комментарий из анализа       }
+      b_fstr := Copy(b_fstr,1,b_col);  { Хвост уже не интересен               }
+      k_rght := 1;                     { Начало анализа                       }
+
+    RET_RY:                            { Проверка комментария                 }
+                                       { А есть ли эдесь о чем говорить       }
+                                       { Определяем место первого подозрения  }
+      jx := Xpos('!',b_fstr,k_rght);
+      k_jx := Xpos('||',b_fstr,k_rght);
+                                       { Надо найти мин. значение из не нулей }
+      If (jx > 0)  AND
+         (k_jx > 0) Then
+         If (k_jx > jx) Then
+            k_jx := jx ;
+         End;
+      Elsif(jx > 0) Then
+         k_jx := jx ;
+      End;
+      If (k_jx) Then                   { Подозрение на комментарий            }
+         jx := Xpos('''',b_fstr,k_rght);         {Место вредоносного апострофа}
+         If (jx = 0 )  OR              { а кавычек нет                        }
+            (k_jx < jx) Then           { или они в комментарии                }
+            Goto_Col(k_rght);          { Отсда искать начало комментария      }
+            s_res := Search_Fwd('[||!]',1);      { В пределах текущей строки  }
+            k_rght := 0;               { Сдвиг не нужен                       }
+            Goto MATCH_LOOP;           { Продолжить поиск                     }
+         End;
+                                       { Алгоритм-занулить строку в кавычках  }
+         k_rght := jx + 1;             { "Забили" открывающую кавычку         }
+         s_res := 0;                   { На первый раз                        }
+         While (s_res = 0) Do
+            s_res := 1;                { Для выхода из цикла                  }
+            jx := Xpos('''',b_fstr, k_rght);     { Ищем закрывающую кавычку   }
+            If (jx = 0) Then
+               Beep;
+               Make_Message('Нет закрывающего апострофа');
+               Goto_Col(k_rght);
+               Goto MACRO_EXIT;
+            End;
+            If (Str_Char(b_fstr,jx+1) = '''') Then         { Апостроф в строке}
+               k_rght := jx + 2;       { "Забили" внутреннюю кавычку          }
+               s_res := 0;             { Продолжить поиск закрывающей кавычки }
+            End;
+         End;                          { Поиска закрывающей кавычки           }
+         k_rght := jx + 1 ;            { "Забили" строку + закрывающую кавычку}
+         GoTo RET_RY;                  { Продолжить проверку комментария      }
+      End;
+      k_rght := 0;                     { Ликвидируем последствия              }
+      b_fstr := Get_Line ;             { Анализируемая строка с образом       }
+   Else                                { Поиск вниз - проверим OMIT           }
+      if Xpos('OMIT',fstr,1) Then
+         jx := C_Line;                 { Строка,где нашли OMIT                }
+         Right;
+         s_res := Search_Fwd('[ |9|255]*([ |9|255]*''',1); { ищем открытие    }
+         If (s_res) Then               { Вышли на начало ОГРАНИЧЕНИЯ          }
+            k_rght := C_Col + Length(Found_Str);
+            Goto_Col(k_rght);          { Встали на начало образа ОГРАНИЧЕНИЯ  }
+            s_res :=                   { ищем закрывающую скобку              }
+               Search_Fwd('{''[ |9|255]*)}[;!|| |9|255]||$',1);
+            If (s_res) Then            { Встали на конец образа ОГРАНИЧЕНИЯ   }
+               k_str := Copy(b_fstr,k_rght,C_Col - k_rght);{ Взяли образ      }
+               If Svl(k_str) = 0 Then  { Образ пустой                         }
+                  k_rght := C_Col + Length(Found_Str);
+                  Goto_Col(k_rght);    { Встали на конец "пустого" OMITа      }
+                  k_rght := 0;
+                  Goto MATCH_LOOP;     { Продолжить поиск после OMIT          }
+               End;
+               k_rght := Xpos('''''',k_str,1);
+               While (k_rght) Do       { Замена двух апострофов на один       }
+                  k_str := Str_Del(k_str,k_rght,1);
+                  k_rght := Xpos('''''',k_str,k_rght+1);
+               End;
+         NEW_OMIT:
+               Down;
+               Goto_Col(1);
+               Reg_Exp_Stat := 0;      { Для ограничения ловим литерал        }
+               Ignore_Case := 0;       { С учетом разницы регистров           }
+               s_res := Search_Fwd(k_str,0);     { ищем закрытие              }
+               Reg_Exp_Stat := TRUE;
+               Ignore_Case := TRUE;
+               If (s_res) Then
+                  Left;
+                  If Search_Bwd('[~ |9|255]',1) Then       { Перед  ним ?     }
+                     Goto NEW_OMIT;    { Попробуем еще раз                    }
+                  End;
+                  Down;                { Встать в конец найденной строки      }
+                  k_str := '';
+                  k_rght := 0;
+                  Goto MATCH_LOOP;     { Продолжить поиск после OMIT          }
+               End;
+               Beep;
+               Make_Message('Не найдено "закрытие" OMIT='+ k_str);
+               Goto_Line(jx);
+               GoTo_Col(b_col);        { Восстановить место                   }
+               Goto MACRO_EXIT;
+            End;
+         End;
+         Beep;
+         Make_Message(' "Неправильный" OMIT=');
+         Goto_Line(jx);
+         GoTo_Col(b_col);     { Восстановить место                   }
+         Goto MACRO_EXIT;
+      End;
+   End;
+
+                                       { Найден комментарий - обойти его      }
+   If (Xpos(fstr , '!||',1) > 0 )  Then
+      If (Direction = 1) Then          { Поиск вперед                         }
+         Eol;                          { Пропустить до конца строки           }
+      Else                             { Поиск  назад                         }
+         Left;                         { Просто сдвинуться влево              }
+      End;
+      Goto MATCH_LOOP;                 { Продолжить                           }
+   End;
+
+   k_str := fstr;                      { Запомнить длину образа для сдвига    }
+
+                                       { Это попытка  решить проблему типа :  }
+                                       { a=2.if() then a=1.case ()            }
+   If (Xpos('!' + fstr + '!',
+             '!IF'
+           + '!LOOP'
+           + '!CASE'
+           + '!EXECUTE'
+           + '!END'
+           + '!CODE!'
+      ,1) <> 0) Then                   { Эти ловятся всегда отдельно          }
+      If (b_col = 1) Then              { Не могут быть меткой                 }
+         Goto MATCH_LOOP;              { Продолжить, т,к. не настоящий        }
+      End;
+      jx := Svl(fstr);                 { Длина образа                         }
+                                       { Но перед ним должен быть разделитель }
+      If (Xpos(Str_Char(b_fstr,b_col-1),'. |255|9;',1) = 0) Then
+         Goto MATCH_LOOP;              { Продолжить, т,к. не настоящий        }
+      End;
+      If ((b_col+jx) <= Svl(b_fstr))   { И после него должен быть разделитель }
+         AND (Xpos(Str_Char(b_fstr,b_col+jx),'.('' ||!|255|9;',1) = 0) Then
+         Goto MATCH_LOOP;              { Продолжить, т,к. не настоящий        }
+      End;
+   End;
+
+   If (fstr = '.') Then                { или точка в числе, или END           }
+		If (Svl(b_fstr) > b_col ) AND
+         (XPos(Str_Char(b_fstr,b_col+1)
+              ,'0123456789#<',1)) Then { Это - число или @p                   }
+         GoTo MATCH_LOOP;              { Продолжаем разговор                  }
+      End;
+      fstr := 'END';                   { На самом деле это END                }
+   End;
+
+
+   While (fstr = '''') Do              { Найдена кавычка - искать парную      }
+      If direction = 1 Then            { Вперед                               }
+         jx := 1;
+         Right;
+         s_res := Search_Fwd('''',1);  { В той-же строке ! только CLARION !   }
+      Else
+         jx := -1;
+         Left;
+         s_res := Search_Bwd('''',1);
+      End;
+      If s_res = 0 Then
+         k_rght := 1;
+         Beep;
+         Make_Message('Нет парного апострофа');
+         GoTo MACRO_EXIT;
+      End;
+		If (Svl(b_fstr) < C_Col+jx ) OR
+         (Str_Char(b_fstr,C_Col+jx) <> '''') Then{ O.key - закрывающая        }
+         GoTo MATCH_LOOP;
+      End;
+                                       { Пропустить "внутреннюю" и продолжить }
+      If direction = 1 Then            { Вперед                               }
+         Right;
+      Else
+         Left;
+      End;
+
+   End;
+
+   If (Length(fstr) > 2) Then          { Не скобки и не комментарий           }
+      k_rght := 0;
+      If Xpos(Copy(fstr,1,1),'|9 .;:()',1)  Then { If the first char is       }
+         fstr := Copy(fstr,2,20);      { a space or a ; Then eliminate it     }
+         ++ k_rght;
+      End;
+      If Xpos(Copy(fstr,Svl(fstr),1),'|9|255 ,;()',1) Then
+                                       { If it ended in a space,  or ; Then   }
+         fstr := Copy(fstr,1,Svl(fstr) - 1);     { удалить этот символ        }
+      End;
+                                       { Выделим в fstr первое слово          }
+      k_jx := Xpos(' ',fstr,1);
+      If (k_jx) Then                   { Удалим все,начиная с пробела         }
+         fstr := Str_Del(fstr, k_jx , 255);
+      End;
+      k_jx := Xpos('|9',fstr,1);
+      If (k_jx) Then                   { Удалим все,начиная с Tab_Stop        }
+         fstr := Str_Del(fstr, k_jx , 255);
+      End;
+   End;
+                                       { Слово для анализа выделено           }
+   fstr := ' ' + fstr + ' ';           { Окружаем его пробелами для точности  }
+   If Xpos(fstr,br_str,1) Then         { Эта конструкция прерывает работу     }
+      break := 1;                      { Признак - прервано конструкцией      }
+                                       { т.к. продолжение бессмысленно        }
+      GoTo ERROR_EXIT;
+   End;
+
+   If Xpos(fstr,str1,1) Then           { Проверим среди "родственников" ++    }
+      ++b_count;                       { Inc the match count                  }
+      ++a_count;                       { All_Find count                       }
+      If (b_count > n_count) Then
+         ++n_count;                    { Max_NEST count                       }
+      End;
+      GoTo MATCH_LOOP;
+   End;
+
+   If Xpos(fstr,estr1,1) Then          { Проверим среди ограничителей = --    }
+      --b_count;                       { Then decrement the match count       }
+      GoTo MATCH_LOOP;
+   End;
+                                       { Эта конструкция нейтральна сейчас    }
+   GoTo MATCH_LOOP;                    { Продолжаем разговор                  }
+                                       { ? что-то нашли,но никуда не вошло ?  }
+ ERROR_EXIT:                           { Go here for unsucessfull match       }
+   beep;
+   If (b_count > 0) Then               { Счет вложенности не нулевой          }
+      str1 := '░Nest=' + Str(b_count)
+            + '░M=' + Str(n_count)+ '░' ;
+   Else
+      str1 := '';
+   End;
+   If (break) Then                     { Было прервано                        }
+      Beep;
+      Make_Message('Прервано (' + k_str + ')'+ str1 + ' для ' + t_str
+                  );
+   Else
+      Make_Message(str1 +'По=(' + k_str + ')' + ' Не найдено для ' + t_str
+                     + ' поиск ' + estr1
+                  );
+   End ;
+   If Xpos('|254',t_str,1) Then        { Признак - PROCEDURE                  }
+      Make_Message('Последняя процедура/функция модуля');
+      Eof;                             { и идти в конец файла                 }
+   End;
+   GoTo MACRO_EXIT;
+
+ FOUND_EXIT:                           { Go here for successfull match        }
+   If (n_count > 0) Then               { Счет вложенности не нулевой          }
+      str1 := '░Max=' + Str(n_count) + '░All=' + Str(a_count);
+   Else
+      str1 := '';
+   End;
+   Make_Message('Match Found for ' + t_str  + str1);
+ MACRO_EXIT:
+   If (k_rght) OR (Xpos(Str_Char(fstr,2),' |9|255',1) > 0 ) Then
+      Right;
+   End;                                { -- If .. нужен был сдвиг             }
+   Pop_Undo;
+   Refresh := TRUE;
+   Redraw;
+
+   If (str1 = '|253') Then             { Не используется, а выкинуть жалко    }
+      Write(' Больше процедур нет ',10, Win_Y1,0,Message_Color);
+      Read_Key;
+      Redraw;
+      Pass_Key(Key1,Key2);
+   End;
+ End_Macro;                            { CLAMTCH  - CLA_Match                 }

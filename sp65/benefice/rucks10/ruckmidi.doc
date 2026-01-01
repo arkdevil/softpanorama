@@ -1,0 +1,2468 @@
+
+
+
+
+
+
+     RUCKUS-MIDI Copyright (C)1993 Cornel Huth
+     Documentation Copyright (C)1993 Cornel Huth
+     All Rights Reserved.
+
+     Version 1.0d.
+     18-Oct-93/C.
+
+     For ordering information, license agreement, and product support
+     information, see Appendix Z.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     Introduction
+
+     RUCKUS-MIDI is one part of the RUCKUS sound toolkit for DOS programmers.
+     Its forte is its ability to play MIDI data in three different formats.
+     Standard MIDI file format, type-0 and type-1 with selectable programs of
+     the General MIDI Sound Set, the MT-32, or one of the programmer's choosing.
+     Also supported is the CMF type (Creative Music File format, similar to
+     Standard MIDI) and ROL-converted MIDI type (ROL is the file type used by
+     the AdLib MSC). The other part of the RUCKUS sound toolkit is RUCKUS-DAC.
+     Its forte is its ability to play and record digital data in three formats:
+     VOC, WAVE, and Amiga Module. See RUCKUS-DAC for more.
+
+     RUCKUS-MIDI currently supports the AdLib MSC and compatibles. This includes
+     all Sound Blasters and its clones, as well. RUCKUS-MIDI is implemented to
+     be device-independent. As new sound hardware (with supporting
+     documentation) becomes available to this programmer, it will be added. The
+     code you write to play MIDI music using RUCKUS will play on any new device
+     added later without any code changes to your program. You just supply the
+     new device ID (see InitMidi for more). RUCKUS-DAC already supports several
+     sound devices in a device-independent manner.
+
+     The RUCKUS toolkit supports most DOS compilers as is. This documentation
+     describes using RUCKUS with C DOS compilers. Also available is a BASIC-
+     specific version (BASIC7/QB45/VBDOS/etc.) of this documentation. Other
+     implementations should be able to get the necessary details using this
+     documentation. Note that these toolkits will not work with the current or
+     past Turbo Pascal compilers. This is due to Turbo Pascal's proprietary
+     linkage methods.
+
+     To provide compiler-independence, RUCKUS (and all of my latest toolkits)
+     implements a simple calling scheme: a single far pointer is passed to
+     RUCKUS. The data structure that is pointed to varies depending on RUCKUS
+     function. There are 11 structure types ("packs") currently. The first two
+     data members of each pack are identical in all packs. These are Func and
+     Stat. The remaining members, if any, vary depending on requirements. For
+     instance, the LoadMidi routine uses, in addition to Func and Stat, four
+     additional members: FilenamePtr, StartPos, LoadSize, and LoadPtr. The steps
+     needed to load a MIDI data file to memory would be as follows:
+
+
+          1. Allocate pack. Packs are reusable and can be allocated any way you
+          want. Here we make a static allocation for simplicity.
+
+          struct LoadMidiPack LMP;
+
+          2. Assign member values:
+      
+          gets(filename);
+          LMP.Func = LoadMidi;
+          LMP.FilenamePtr = filename;
+          LMP.StartPos = 0L;                    
+          LMP.LoadSize = 0L;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          3. Call RUCKUS:
+
+          rez = RUCKMIDI(&LMP);
+
+          4. On return from the call:
+
+          if (rez == 0) 
+             // LMP.LoadPtr -> address of MIDI data in memory
+
+     After the load you can immediately call the PlayMidi routine using the
+     lmp.LoadPtr returned from the Load call. You don't need to use the RUCKUS
+     LoadMidi routine; you can perform your own MIDI data file loads to memory.
+     However, RUCKUS can load up to 32 separate MIDI data files at one time and
+     performs all the necessary memory allocations and deallocations
+     automatically. See LoadMidi for more.
+
+     As you can see, using RUCKUS is easy. If you'd rather use a traditional 
+     calling convention, wrap the RUCKUS routines in a C function and call it as
+     you normally would, e.g., rez = LoadDacFile(filename,LP) where LoadDacFile
+     contains the actual code (as shown above).
+
+     Now that I have your interest, let me tell you why I've provided this
+     toolkit for you. Shareware. That's right. Shareware. What I've done is
+     provide you with a means to evaluate this product completely, with no
+     upfront obligations. If you can't make use of this product, no problem.
+     Think of this as the ultimate return policy. You can actually take the
+     goods home, try it out, break it in. Then, if after a period of no more
+     than 21 days, you feel that this product is well worth the price I'm
+     asking, by all means, you should go ahead and fill out the order form and
+     send it in. If you do not register, then of course, it means the product is
+     not something you can use. If you can't use it, I don't want your money.
+     But if it's something you will use, it's only fair that you register. The
+     PROFESSIONAL registered versions does not have any built-in advertising
+     screens. The PERSONAL DEVELOPER registered version does display a sign-on
+     banner once. See Appendix Z. for ordering options and other related
+     information specific to this product.
+
+     The documentation that follows describes each of the function routines as
+     to use, pack type used, and sample code in C. Also available is a BASIC
+     version of this toolkit, differing only in example programs and
+     documentation. For additional source examples see the included X files on
+     disk.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     RUCKUS-MIDI Functions.
+
+      0. SysInfoMidi ...........................................  5
+      1. InitMidi ..............................................  6
+      2. ExitMidi ..............................................  7
+      3. AtExitMidi ............................................  8
+      4. LoadMidi ..............................................  9
+      5. PlayMidi .............................................. 10
+         6 and 7 are not used
+      8. EndMidi ............................................... 11
+      9. PauseMidi ............................................. 12
+     10. DeallocMidi ........................................... 13
+     11. FastFwdMidi ........................................... 14
+     12. OutMsgMidi ............................................ 15
+         13 to 19 are not used 
+     20. SetAllMidi ............................................ 16
+     21. SetVolumeMidi ......................................... 17
+     22. SetToneMidi ........................................... 18
+     23. SetPatchMidi .......................................... 19
+     24. SetChMaskMidi ......................................... 20
+         25 to 29 are not used
+     30. SetAllFMSBP ........................................... 21
+
+         Appendix A. Tips and Tricks ........................... 22
+         Appendix B. Pack Structure ............................ 23
+         Appendix C. Compiler, Linker and Call Use ............. 26
+         Appendix D. RUCKUS-MIDI Data Area ..................... 27
+         Appendix E. Key#, Frequencies and Channel Messages .... 28
+         Appendix F. General MIDI Sound Set .................... 30
+         Appendix G. MT-32 Sound Set ........................... 32
+         Appendix H. Patch Map Format .......................... 34
+         Appendix Z. Ordering Information, License Agreement
+                     and Product Support........................ 36
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     SysInfoMidi         Func: 0        Pack: SysInfoMidiPack
+
+
+     Determine which RUCKUS-supported devices are available on the current
+     machine. Information returned on detected devices includes base I/O port
+     and channel information (a mask indicating available channels). 
+
+     SysInfoMidi may be called only if no RUCKUS-MIDI device is active. If you
+     an active device (via InitMidi), perform an ExitMidi before calling this
+     function.
+
+     Device ID      RUCKUS-MIDI supports the following:
+
+          0         AdLib melodic, MIDI channels 0 to 8.
+
+          1         AdLib percussive, MIDI channels 0 to 5, and 9.
+                    The drum channel (9) is programmer-selectable and 
+                    it maps to the 5 additional percussive voices.
+
+          2*        Dual-3812 percussive, MIDI channels 0 to 11, and 9.
+                    Selectable stereo channels, 6 per side, or 12 mono.
+                    The drum channel (9) is programmer-selectable and
+                    it maps to the 5 additional percussive voices.
+
+          3*        OPL3 percussive, MIDI channels 0 to 8, 10 to 12, and 9.
+                    Each channel selectable to play left, right, or both.
+                    The drum channel (9) is programmer-selectable and
+                    it maps to the 5 additional percussive voices.
+
+          4*        OPL3 percussive, MIDI channels 0 to 8, and 9.
+                    Each channel selectable to play left, right, or both.
+                    The drum channel (9) is programmer-selectable and
+                    it maps to the 5 additional percussive voices.
+                    4-operator timbre data for channels 0 to 5, and 
+                    2-operator timbre data for channels 6 to 8.
+
+          5*        UltraSound (GUS), MIDI channels 0 to 15, and 9.
+                    The drum channel (9) is programmer-selectable.
+
+     * Devices 2 to 5 to be supported in future releases. Specs are preliminary.
+
+     Sample Use:
+
+     struct SysInfoMidiPack SIMP;
+
+     SIMP.Func = SysInfoMidi;
+     rez = RUCKMIDI(&SIMP);
+     if (rez == 0)
+        // SIMP.Device0 is 1 if AdLib melodic mode available
+        // if above then SIMP.D0port is 388h
+        //               SIMP.D0mask is 1FFh
+        // SIMP.Device1 is 1 if AdLib percussive mode available
+        // if above then SIMP.D1port is 388h
+        //               SIMP.D1mask is 23Fh
+
+                                                                               5
+
+
+
+
+
+
+
+
+
+
+     InitMidi            Func: 1        Pack: mInitMidiPack
+
+
+     Initialize the RUCKUS-MIDI system to the following:
+
+     DeviceID  - any of the supported devices found by SysInfoMidi.
+     IOport    - the base I/O port as reported by SysInfoMidi.
+     PercCh    - the channel to use for percussion mapping.
+     ChMask    - the 16-bit mask as reported by SysInfoMidi.
+     Flags     - additional options.
+
+     No RUCKUS-MIDI routines can be called prior InitMidi except SysInfoMidi and
+     SetAllFMSBP.
+
+     On return from a successful initialization, two segmented far pointers are
+     returned: InfoPtr and MidiExitPtr. 
+
+     InfoPtr is used to locate the RUCKUS-MIDI data area for use with compilers
+     that do not handle external variable references (such as QuickBASIC). Other
+     compilers (such as C7) can reference RUCKUS-MIDI data directly by using the
+     MIDIDATA external structure reference (see Appendix D.).
+
+     MidiExitPtr is used for those development systems that do not have direct
+     support for the ANSI _atexit procedure. MidiExitPtr is a function pointer
+     (far pointer -> MidiExit) of the routine that should be called before
+     termination of any program that uses RUCKUS-MIDI. Most development systems
+     do provide for _atexit since it provides for orderly program shutdown in
+     the case of abnormal termination. For those that don't, you must include
+     the stub object module NOATEXIT.OBJ. 
+
+     Sample Use:
+
+     struct InitMidiPack IMP;
+
+     IMP.Func = InitMidi;
+     IMP.DeviceID = 1;
+     IMP.IOport = 0x388;  // or use SIMP.D1port
+     IMP.PercCh = 9;
+     IMP.ChMask = 0x023F; // or use SIMP.D1mask 
+                          // 0x23F=0000 00P0 0011 1111 binary (P=perc channel)
+     IMP.Flags = 0;       // see Appendix D. for bitmap of flags
+     rez = RUCKMIDI(&IMP);
+     if (stat == 0)
+        // okay
+
+
+
+
+
+
+
+
+
+
+
+                                                                               6
+
+
+
+
+
+
+
+
+
+
+     ExitMidi            Func: 2        Pack: XitMidiPack
+
+
+     After having initialized a device via InitMidi, you must call ExitMidi
+     before initializing a new device or before your program ends. ExitMidi
+     performs three tasks. It frees any memory directly allocated by RUCKUS-MIDI
+     (such as within LoadMidi), it shuts down the device last initialized, and
+     it restores any hooked interrupts.
+
+     This function should be called before ending your program. If your
+     development system supports the ANSI _atexit, it will be called
+     automatically (see AtExitMidi below). 
+
+     Sample Use:
+
+     struct XitMidiPack XMP;
+
+     // program has run its course, before exiting to DOS perform cleanup
+
+     XMP.Func = ExitMidi;
+     rez = RUCKMIDI(&XMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                               7
+
+
+
+
+
+
+
+
+
+
+     AtExitMidi          Func: 3        Pack: XitMidiPack
+
+
+     AtExitMidi is used to register the MidiExit routine to be called as a
+     normal procedure in the ending of your program. It will be called by the
+     compiler's startup code after your program _main() has ended. This is
+     important since it ensures that all resources allocated by RUCKUS-MIDI are
+     freed and that the sound device is properly shut down.
+
+     AtExitMidi should be called immediately after initializing your first
+     device. It need not (and should not) be called again during the program. In
+     other words, you can InitMidi/ExitMidi as many times during a program's
+     execution as you want, but you should only call AtExitMidi after the first
+     InitMidi. See AtExitDac for additional important information.
+
+     It is possible for _atexit to fail to register ExitMidi. This would be the
+     result of too many registrations requests having been made to _atexit.
+     Since _atexit typically can handle 32 registrations, it is unlikely to fail
+     (fail=become full). If it does fail, it should _not_ be considered a fatal
+     error, however, be aware that the automatic ExitMidi call will not take
+     place.
+
+     Sample Use:
+
+     struct InitMidiPack IMP;
+     struct XitMidiPack XMP;
+     int CalledBefore=0;
+
+     IMP.Func = InitMidi;
+     IMP.DeviceID = 1;
+     IMP.IOport = 0x0388;
+     IMP.PercCh = 9;
+     IMP.ChMask = 0x023F;
+     IMP.Flags = 0;
+     rez = RUCKMIDI(&IMP);
+     if (rez == 0)
+
+        // check to make sure that this is the first AtExitMidi call
+
+        if (CalledBefore == 0)
+           XMP.Func = AtExitMidi;
+           rez = RUCKMIDI(&XMP);
+
+           if (rez == 0)
+              CalledBefore = -1;
+           else
+              printf("_atexit unable to register ExitMidi");
+
+
+
+
+
+
+
+
+                                                                               8
+
+
+
+
+
+
+
+
+
+
+     LoadMidi            Func: 4        Pack: LoadMidiPack
+
+
+     Use to load MIDI data into DOS memory. While you may use your own memory
+     allocation and DOS file routines to load MIDI data, LoadMidi automates this
+     task.
+
+     LoadMidi makes memory allocations directly from the operating system pool*.
+     This means that before using LoadMidi DOS must have enough available memory
+     to into which to load the file. 
+
+          Note: In Borland C compilers, memory allocations made via DOS INT21/48
+          cannot be used when any _malloc() call is made. Doing so corrupts the
+          _malloc() chain. This is strictly a Borland problem. To overcome this
+          limitation, you must use the memory module patch, MIDMEMBC.OBJ.
+
+     LoadMidi manages up to 32 files in memory at one time, given sufficient
+     RAM. LoadMidi can also seek into a given file at any position and start
+     loading from that position for any number of bytes. This lets you
+     concatenate several MIDI data files into one and load any or all of the
+     internal MIDI data streams into memory. In addition, you can load the
+     entire file into memory and, by using pre-calculated memory offsets, start
+     MidiPlay at any of the MIDI data streams. 
+
+     LoadMidi performs no format checking. Format checking is done by MidiPlay.
+
+     Once a file has been loaded by LoadMidi, you can release the memory used by
+     the file by using DeallocMidi. See that routine for more.
+
+     Sample Use:
+
+     struct LoadMidiPack LMP;  // for multiple concurrent loads 
+                               // use LMP[NumOfLoads]...
+
+     LMP.Func = LoadMidi;
+     LMP.FilenamePtr = filename;
+     LMP.StartPos = 0L;    // start load at first byte of file
+     LMP.LoadSize = 0L;    // when=0 entire file is loaded into memory
+     rez = RUCKMIDI(&LMP);
+     if (rez == 0)
+        // LMP.LoadPtr is address of load and used by MidiPlay
+        // Note: _FP_OFF(LMP.LoadPtr) is always returned=0
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                               9
+
+
+
+
+
+
+
+
+
+
+     PlayMidi            Func: 5        Pack: PlaybackMidiPack
+
+
+     Once MIDI data is in memory, you can begin play. Play is done as a
+     background task allowing other operations, such as screen updating or file
+     loading, to continue. Once you begin play, it plays itself. You need only
+     check the end of play status to determine when a MIDI stream has completed
+     play. All other aspects of MIDI play is handled by RUCKUS-MIDI.
+
+     A routine also available in RUCKUS-MIDI is OutMsgMidi. You can use
+     OutMsgMidi to issue MIDI channel messages directly. 
+
+     File format type is checked by PlayMidi. To determine file format before
+     actual play see FastFwdMidi. Note that ROL-converted MIDI files (via
+     ROL2MIDI.EXE) and CMF files can only be played (correctly) when using the
+     OPL-2 or -3 chip (on AdLib-compatibles such as SB, PAS, SB Pro, etc.). ROL-
+     cnv MIDI files do not contain program change messages, and CMF files have a 
+     self-contained program patch map. 
+
+     Sample Use:
+
+     struct PlaybackMidiPack PBMP;  // LMP and DMP assumed defined
+
+     PBMP.Func = PlayMidi;
+     PBMP.Mode = 1;         // this must be 1 for background play
+                            // foreground mode is not supported 
+     PBMP.LoadPtr = LMP.LoadPtr // LoadPtr from LoadMidi
+     rez = RUCKMIDI(&PBMP);
+     if (rez == 0)
+        
+        // the MIDI data is being played in the background
+        // at this point you can do anything you want
+        // for this example we just wait for the end status to become true
+        // see Appendix D. for information on the RUCKUS-MIDI data area
+
+        do
+            ;
+        while (MIDIDATA.End == 0);
+
+        XMP.Func = EndMidi;     // EndMidi should be called whenever
+        rez = RUCKMIDI(&XMP);   // a MIDI tune is has ended
+
+        // if no further use for this MIDI data, release the memory it uses
+        // see DeallocMidi for more information
+
+        DMP.Func = DeallocMidi;
+        DMP.HandSeg = _FP_SEG(LMP.LoadPtr);
+        DMP.TypeFlag = 0;
+        rez = RUCKMIDI(&DMP);
+
+
+
+
+
+
+                                                                              10
+
+
+
+
+
+
+
+
+
+
+     EndMidi             Func: 8        Pack: XitMidiPack
+
+
+     Use to stop play of the initialized device. EndMidi is similar in function
+     to ExitMidi except that it does not release any memory. It does not
+     completely shut down the initialized device but it does restore hooked
+     interrupts.
+
+     EndMidi can be thought of as a stop button, whereas ExitMidi is more like
+     the on/off switch.
+
+     Sample Use:
+
+     struct XitMidiPack XMP;
+
+     // MIDI tune has play and is over, perform EndMidi to restore hooked
+     // interrupts and silence device
+
+     XMP.Func = EndMidi;
+     rez = RUCKMIDI(&XMP);
+
+     // now continue with program such as load next tune, play, etc.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              11
+
+
+
+
+
+
+
+
+
+
+     PauseMidi           Func: 9        Pack: PauseMidiPack
+
+
+     Use to pause or unpause currently playing MIDI data. There is no effect if
+     no data is currently playing.
+
+     Sample Use:
+
+     struct PauseMidiPack PMP;
+
+     // pause or unpause depending on state of DoPause flag
+
+     PMP.Func = PauseMidi;
+     PMP.Pause = 1;
+     rez = RUCKMIDI(&PMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              12
+
+
+
+
+
+
+
+
+
+
+     DeallocMidi         Func: 10       Pack: DeallocMidiPack
+
+
+     Use to release memory used by LoadMidi. Once a file has been loaded via
+     LoadMidi, the memory used by that load is not available for other loads
+     until you release it using DeallocMidi. 
+
+     If you will only be needing one MIDI data stream in memory at a time you
+     can load as many files as you want using only the memory needed by the
+     largest file loaded (i.e., reuse the memory). For example, let's say that
+     you have 40 separate MIDI data files that you will be playing. A simple
+     method to load these is to free up 64K (single MIDI file max for RUCKUS-
+     MIDI), LoadMidi a MIDI file, play it through, DeallocMidi the memory it
+     used, LoadMidi the next MIDI file, play it through, DeallocMidi, and so on.
+     This technique can also be used to LoadMidi into one concatenated file.
+     This requires that you pre-calculate at what offset each MIDI data stream
+     starts and its size. 
+
+     DeallocMidi is called automatically by ExitMidi.
+
+     Sample Use:
+
+     struct DeallocMidiPack DMP;
+
+     DMP.Func = DeallocMidi;
+     DMP.HandSeg = _FP_SEG(LMP.LoadPtr);  // as set by LoadMidi
+     DMP.TypeFlag = 0;                    // must be = 0
+     rez = RUCKMIDI(&DMP);
+     if (rez == 9)
+        printf("Invalid LMP.LoadPtr, Not a fatal error");
+        // means that LMP.LoadPtrSeg is not valid
+        // perhaps it's already been deallocated by ExitMidi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              13
+
+
+
+
+
+
+
+
+
+
+     FastFwdMidi         Func: 11       Pack: FastFwdMidiPack
+
+
+     A standard MIDI file is a series of MIDI messages that are sequenced by
+     based on timings within the file. Each MIDI message is preceded by a tick
+     count that informs MIDI-RUCKUS when to output each particular message.
+
+     FastFwdMidi instructs RUCKUS-MIDI to disregard all timing information up to
+     the specified tick count. It also mutes the output so no sound is produced.
+     The actual fast forward does not take place until the PlayMidi function is
+     called. After using FastFwdMidi, you must call FastFwdMidi again with
+     FFMP.TickCount=0L to turn off fast-forward mode.
+
+     One use of FastFwdMidi is determine the running time of a MIDI file.
+
+     Sample Use:
+
+     struct FastFwdMidiPack FFMP;
+
+     FFMP.Func = FastFwdMidi;   // Given the MIDI data is already in memory...
+     FFMP.TickCount = 0xFFFFFFFF; // set to fast-fwd all the way through
+     rez = RUCKMIDI(&FFMP);
+     if (rez == 0) {
+        PBMP.Func = PlayMidi;     // play but in fast fwd mode
+        PBMP.Mode = 1;
+        PBMP.LoadPtr = LMP.LoadPtr;
+        rez = RUCKMIDI(&PBMP);
+        if (rez == 0) {
+
+           do
+               ;
+           while (MIDIDATA.End == 0);   // wait until done
+           
+           // TotalTicks& is the tick count at the end the last MIDI message
+           // --also need Ticks/quarternote and microseconds/quarternote
+
+           TotalTicks = MIDIDATA.TickCount;
+           TicksQnote = MIDIDATA.TicksQnote;
+           uSecsQnote = MIDIDATA.uSecsQnote;
+
+           TimeInSecs = ((uSecsQnote/10)*(TotalTicks/TicksQnote))/100000;
+
+           FFMP.Func = FastFwdMidi;
+           FFMP.TickCount = 0L;         // set FastFwdMidi off
+           rez = RUCKMIDI(&FFMP);
+
+     To fast forward in small increments while the MIDI data is playing, first
+     get the current TickCount, add to it the number of ticks to skip, and use
+     that as the FFMP.TickCount. If FFMP.TickCount > TotalTicks then do not
+     perform the fast forward since it would be past the end of data.
+
+
+
+
+
+                                                                              14
+
+
+
+
+
+
+
+
+
+
+     OutMsgMidi          Func: 12       Pack: OutMsgMidiPack
+
+
+     OutMsgMidi lets you send MIDI channel messages directly to the channel
+     message parser without needing to use PlayMidi. Whereas PlayMidi deals with
+     all aspects of playing a MIDI stream, such as interrupt setup, timing
+     control and other events required to process the MIDI data, OutMsgMidi
+     provides access to only the channel message parser of RUCKUS-MIDI.
+
+     MIDI channel messages (composed of channel voice and mode messages) are
+     those that control the actual sound output. The current MIDI 1.0
+     specification specifies eight message groups, each identified by a status
+     byte and followed by one or two data bytes. See Appendix E. for more
+     information on MIDI channel messages, key numbers and frequencies.
+
+     Obvious use of OutMsgMidi is for sound effects. Notes can be sounded,
+     volumes adjusted, programs (instruments) selected and fine-tuned, and sound
+     can be turned off.
+
+     When outputting to a channel be aware that NoteOn messages will not sound
+     if the channel is already in a NoteOn. I.e., each NoteOn should have a
+     corresponding NoteOff (or NoteOn with velocity=0).
+
+     Sample Use:
+
+     struct OutMsgMidiPack OMMP;
+
+     OMMP.Func = OutMsgMidi;
+     OMMP.Mstatus = 0x80;     // channel 0, NoteOn
+     OMMP.Mdata = 0x7F3C      // sound middle-C (3Fh=60d) at max vol (7Fh=127d)
+     rez = RUCKMIDI(&OMMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              15
+
+
+
+
+
+
+
+
+
+
+     SetAllMidi          Func: 20       Pack: SetMidiPack
+
+
+     While MIDI editing is best done on the MIDI data file itself with a
+     sequencer/editor, RUCKUS-MIDI provides relative volume and tone adjustment
+     to the MIDI data stream. Also, you may select the MIDI program/patch map to
+     use. The channel mask as set in InitMidi may also be adjusted. You may also
+     call each of these routines separately (see following SetMidi routines).
+     For information on setting the patch map, set SetPatchMidi.
+
+     The relative volume and tone adjustments let you boost or cut the playback
+     levels of any or all of the MIDI channels (0-15). For example, if the MIDI
+     data file has a trumpet playing to low on channel 4, you can boost channel
+     4's relative volume so that the trumpet plays louder. Volume adjustment
+     takes effect immediately.
+
+     Tone adjustment allows you to adjust the notes being sounded in any or all
+     of the channels. For example, if you want to have the notes sound on
+     channel 5 play an octave lower, you adjust channel 5's relative tone by -
+     12. Two octaves lower adjust by -24; an octave higher, adjust by +12; so
+     on. Tone adjustment takes effect on the next sounded note.
+
+     For adjusting relative levels you must designate which channels to operate
+     on. SMP.Channel is a bit-mapped mask used to identify which channels. Each
+     MIDI channel (0-15) has a corresponding bit in SMP.Channel. Channel 0 has
+     SMP.Channel bit 0 as its mask; channel 1, bit 1; so on. For example, for
+     this call to affect only channel 0, set SMP.Channel = 1. For only MIDI
+     channel 1, use 2. For both channels 0 and 1, use 3.
+
+     Sample Use:
+
+     struct SetMidiPack SMP;
+
+     SMP.Func = SetAllMidi;
+     SMP.Channel = 0x21;       // adjust channels 0 and 5 only
+     SMP.Channel = 13;         // increase those channels' volumes by 13
+     SMP.Tone = 0;             // no adjustments for tone
+     SMP.ChMask = IMP.ChMask;  // use same channels as at InitMidi
+     SMP.PatchMapID = 1;       // use internal MT-32 program map
+     SMP.PatchMapPtr = NULL;   // since using internal map this should be=0
+                               // (see SetPatchMidi for more on PatchMapID)
+     rez = RUCKMIDI(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              16
+
+
+
+
+
+
+
+
+
+
+     SetVolumeMidi       Func: 21       Pack: SetMidiPack
+
+
+     The relative volume adjustment lets you boost or cut the playback volume
+     level of any or all of the MIDI channels (0-15). For example, if the MIDI
+     data file has a trumpet playing to low on channel 4, you can boost channel
+     4's relative volume so that the trumpet plays louder. Volume adjustment
+     takes effect immediately. Any relative increase in volume level will not
+     exceed the maximum level allowed, i.e., if the trumpet is already playing
+     at its maximum volume, any positive relative adjustment will have no
+     effect.
+
+     For adjusting relative volume you must designate which channels to operate
+     on. SMP.Channel is a bit-mapped mask used to identify which channels. Each
+     MIDI channel (0-15) has a corresponding bit in SMP.Channel. See SetAllMidi
+     on how to do this.
+
+     Level adjustment range is -128 to 127.
+
+     Sample Use:
+
+     struct SetMidiPack SMP;
+
+     SMP.Func = SetVolumeMidi;
+     SMP.Channel = 0x31;      // adjust channels 0, 4 and 5 only
+     SMP.Volume = 127;        // play those channels always at max volume
+     rez = RUCKMIDI(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              17
+
+
+
+
+
+
+
+
+
+
+     SetToneMidi         Func: 22       Pack: SetMidiPack
+
+
+     Tone adjustment allows you to adjust notes being sounded in any or all of
+     the channels. For example, if you want to have the notes sound on channel 5
+     play an octave lower, adjust channel 5's relative tone by -12. Two octaves
+     lower adjust by -24; an octave higher, adjust by +12; so on. Tone
+     adjustment takes effect on the next sounded note. For more on note numbers
+     and their relationship to notes and octaves, see Appendix E. 
+
+     For adjusting relative tone you must designate which channels to operate
+     on. SMP.Channel is a bit-mapped mask used to identify which channels. Each
+     MIDI channel (0-15) has a corresponding bit in SMP.Channel. See SetAllMidi
+     on how to do this.
+
+     Level adjustment range is -128 to 127.
+
+     Sample Use:
+
+     struct SetMidiPack SMP;
+
+     SMP.Func = SetToneMidi;
+     SMP.Channel = 1;         'adjust channel 0 only
+     SMP.Tone = -12;          'play notes on that channel one octave lower    
+     rez = RUCKMIDI(&SMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              18
+
+
+
+
+
+
+
+
+
+
+     SetPatchMidi        Func: 23       Pack: SetMidiPack
+
+
+     MIDI specifies instruments by number (0-127). These instruments are often
+     called programs, or patches. The one big incompatibility among MIDI data
+     files is correspondence of instrument number to instrument sound. Up to
+     just a few years ago, there was no standard, so that files made by one
+     sequencer often sounded totally wrong when played on another. Ideally,
+     there would be only one program map that all MIDI used, but that would be
+     to restrictive to musicians. Because of this lack of standard, the
+     International MIDI Association (IMA) created what is know as the General
+     MIDI Sound Set. This is a standardized set of programs that map instrument
+     numbers to known instrument sounds. It also standardizes the percussion
+     map. 
+
+     The percussion map is similar to the main sound set but is used to sound a
+     wide range of percussive instruments (the main sound set is nearly all
+     melodic instruments). The percussion map takes note numbers that are output
+     on a certain channel (channel 9 by standard (0-based)) and maps that note
+     number to a particular percussive sound. For example, note 60 when played
+     on any channel but the percussion channel plays a middle-C on whatever the
+     current instrument program is for that channel. However, when note number
+     60 is played on the percussion channel, it maps to the Hi Bongo. Note
+     number 35 maps to the bass drum. See Appendix F. for the General MIDI Sound
+     Set description.
+
+     In addition to the General MIDI (GM) set, RUCKUS-MIDI also maps to the MT-
+     32 sound set. Many MIDI files have been sequenced to the MT-32 set (see
+     Appendix G. for the MT-32 sound set). In the future, you'll find more and
+     more files sequenced to General MIDI. Microsoft Windows Multimedia
+     specifies General MIDI as its sound set. RUCKUS-MIDI uses the GM map by
+     default.
+
+     For those MIDI files that do not comply with either GM or MT-32, RUCKUS-
+     MIDI allows for custom patch maps to be used. See Appendix H. for custom
+     patch map specifications and implementation notes. Be aware, however, that
+     custom patch maps (those created by you) are device dependent. This means
+     that you need a separate custom patch map for each device you intend to
+     support. The internal RUCKUS-MIDI patch maps will always be device-
+     independent, in that all current and future devices supported by RUCKUS-
+     MIDI will have a GM and an MT-32 map available.
+
+     Sample Use:
+
+     struct SetMidiPack SMP;
+
+     SMP.Func = SetPatchMidi;
+     SMP.PatchMapID = 1;       // 1=MT-32 (0=GM and -1 means use custom map)
+     SMP.PatchMapPtr = NULL;
+     rez = RUCKMIDI(&SMP);
+
+
+
+
+
+                                                                              19
+
+
+
+
+
+
+
+
+
+
+     SetChMaskMidi       Func: 24       Pack: SetMidiPack
+
+
+     SetChMaskMidi adjusts the same channel mask as that specified for InitMidi.
+
+     There are 16 MIDI channels, numbered 0 to 15 in RUCKUS-MIDI (sometimes seen
+     numbered 1-16). Each channel can be used to play a particular program, or
+     instrument (sometimes called a voice). For example, say a MIDI file playing
+     "Street Fight" is sequenced for piano and guitar. Each instrument could be
+     played at the same time providing that there is a channel available for
+     each. Since there are only 2 instruments and 16 MIDI channels, that's no
+     problem. Further, let's say that, later, you don't want to hear the piano
+     voice. By using SetChMaskMidi, you can selectively turn off the piano
+     channel (channel 0, or whichever channel it's on). 
+
+     SetChMaskMidi also has another important use. It can be used to turn off
+     channels that are not supported by the currently selected device. For
+     example, the AdLib MSC in percussive mode (RUCKUS-MIDI deviceID 1) does not
+     support channels 6 to 8, and 10 to 15. These channels are not supported
+     because there are not sufficient voices available on that device. These
+     channels (6-8, 10-15) should be masked out so that they are not processed.
+
+     In addition to turning off channels that cannot be supported due to lack of
+     voices, it may also be necessary to turn off MIDI channels due to the way
+     the MIDI file has been sequenced. In particular, Microsoft Windows
+     Multimedia Specification dictates that MIDI files be sequenced redundantly.
+     Channels 0 to 9 are for so-called extended synthesizers, and channels 12 to
+     15 are for so-called base-level synthesizers. In either case, the highest
+     channel (9 and 15, respectively) is used for the percussive channel. The
+     specification also states that the most important channels be the lower-
+     numbered (respective their synthesizer level). In RUCKUS-MIDI, such
+     redundant MIDI files should always be played as if an extended synthesizer
+     is active (channels 0 to 9) and the base-level redundant channels (12 to
+     15, as well as channels 10 and 11) should be masked out.
+
+     SMP.ChMask is a bitmapped mask, 1 bit for each channel. See SetAllMidi for
+     an example in how to determine the value to use for SMP.ChMask.
+
+     Sample Use:
+
+     struct SetMidiPack SMP;
+
+     SMP.Func = SetChMaskMidi;
+     SMP.ChMask = 3;           // turn off all channels except 0 and 1
+     rez = RUCKMIDI(&SMP);
+
+
+
+
+
+
+
+
+
+
+                                                                              20
+
+
+
+
+
+
+
+
+
+
+     SetAllFMSBP         Func:30        Pack: SetFMProPack
+
+
+     Though RUCKUS-MIDI is intended and is designed to be device independent,
+     there will be need for access to device-dependant features. The Sound
+     Blaster Pro, for example, has an on-board mixer facility that controls FM
+     chip volume. By default, the SB Pro is set to half-volume, much too low for
+     typical use. By using SetAllFMSBP you can set the FM volume to maximum and
+     let the actual sound volume be controlled via the MIDI data itself.
+
+     In addition to the basic volume settings, you can also adjust the steering.
+     Steering turns off either the left, right, or both channels. On late-model
+     SB Pro cards, the independent left and right FM channel volumes can be used
+     for better effect (smoother panning). Early-model SB Pros may not have the
+     independent left/right volume adjustments and so steering is used to shift
+     (all) sound left or right. The steering can also be set to mute the FM
+     output. You may find that muting the SB Pro before InitMidi and before
+     EndMidi results in a smoother sound and song transition.
+
+     There is no Sound Blaster Pro detection routine available in RUCKUS-MIDI
+     since the only device currently supported is the basic FM chip, originally
+     used by the AdLib MSC (which is what the Sound Blaster and other
+     compatibles use). Any device supporting the AdLib at I/O port 388h is
+     detected. When OPL-3 (a super-set of the AdLib chip used by the SB Pro and
+     others) support is added, additional detection routines for it will be
+     included. Using SetAllFMSBP with no SB Pro installed should not present any
+     problems, however, for absolute determination of an SB Pro device, use the
+     detection routines in RUCKUS-DAC.
+
+     The SB Pro base address I/O port is currently selectable at either 220h
+     (the SB Pro default) or at 240h. Use RUCKUS-DAC for absolute determination.
+     The master volume adjusts the Pro's master volume (also adjustable in
+     RUCKUS-DAC). To low byte of SFMPP.MastVol sets the left channel's volume.
+     The high byte sets the right channel's. Range for each is 1 to 15, odd
+     values only. To set the right channel, multiply the volume by 256, e.g.,
+     SFMPP.MastVol = (256 * RtChVol) + LfChVol. To not change the master volume,
+     set to -1. SFMPP.FMvol has the same range and is set the same way. It
+     cannot be skipped. Steering, described above, can also be skipped by
+     setting SFMPP.Steer to -1. It's practical use is to mute output during
+     InitMidi and during an abrupt EndMidi (abrupt EndMidi meaning ending a
+     MidiPlay before the actual end of data and notes may still be sounding).
+
+     Sample Use:
+
+     struct SetFMProPack SFMPP;
+
+     SFMPP.Func = SetAllFMSBP;
+     SFMPP.IOport = 0x220;     // base port of SB Pro (220h or 240h)
+     SFMPP.MasterVol = 0x0F0F; // low byte=left,high=right,-1=no change
+     SFMPP.Steer = 0;          // 0=none,1=left,2=right,3=mute,-1=no change
+     SFMPP.FMvol = 0x0F0F;     // low byte=left,high=right (cannot skip)
+     rez = RUCKMIDI(&SFMPP);
+
+
+
+                                                                              21
+
+
+
+
+
+
+
+
+
+
+     Appendix A. Tips and Tricks.
+
+
+     1. Noise Abatement.
+
+     If a Sound Blaster Pro is known to be available and is used as the MIDI
+     device, noise can be minimized by setting the FM volume to 0, or by muting
+     the FM steering. It can also be used when abruptly ending a MIDI playback
+     before actual end of data. If no SB Pro is available, setting all MIDI
+     relative volumes to -128 should reduce any spurious noise.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              22
+
+
+
+
+
+
+
+
+
+
+     Appendix B. RUCKUS-MIDI Pack Structure.
+
+     #pragma pack(1)
+
+     int far pascal RUCKMIDI(void far *datapack);
+
+     #define SysInfoMidi     0
+     #define InitMidi        1
+     #define ExitMidi        2
+     #define AtExitMidi      3
+     #define LoadMidi        4
+     #define PlayMidi        5
+
+     #define EndMidi         8
+     #define PauseMidi       9
+     #define DeallocMidi     10
+     #define FastFwdMidi     11
+     #define OutMsgMidi      12
+
+     #define SetAllMidi      20
+     #define SetVolumeMidi   21
+     #define SetToneMidi     22
+     #define SetPatchMidi    23
+     #define SetChMaskMidi   24
+
+     #define SetAllFMSBP     30
+
+     /* current highest function is 30 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              23
+
+
+
+
+
+
+
+
+
+
+     struct DeallocMidiPack { /* DMP */
+      unsigned Func;
+      int Stat;
+      unsigned HandSeg;      /* RUCKUS allocates DOS memory */
+      unsigned TypeFlag;     /* 0=DOS para */
+     }; /* 8 */
+
+     struct FastFwdMidiPack { /* FFMP */
+      unsigned Func;
+      int Stat;
+      long TickCount;
+     }; /* 8 */
+
+     struct GetDataMidiPack { /* GDMP */
+      unsigned Func;
+      int Stat;
+      unsigned long BytePos; /* current byte relative base ptr */
+     }; /* 8 */
+
+     struct InitMidiPack {   /* IMP */
+      unsigned Func;
+      int Stat;
+      unsigned DeviceID;     /* 0=OPL-2 melodic,1=OPL-2 percussive */
+      unsigned IOport;
+      unsigned PercCh;       /* percussive channel (0-based) */
+      unsigned ChMask;       /* bitmapped */
+      unsigned Flags;        /* see Appendix D. */
+      void far *InfoPtr;     /* ret:far ptr to RUCKMIDI info */
+      void far *MidiExitPtr; /* ret:far ptr to ExitMidi routine */
+     }; /* 22 */
+
+     struct LoadMidiPack {   /* LMP */
+      unsigned Func;
+      int Stat;
+      void far *FilenamePtr;/* far ptr to filenameZ to load */
+      unsigned long StartPos; /* offset into file to start load at */
+      unsigned long LoadSize; /* number of bytes to load (or 0 for autosize) */
+      void far *LoadPtr;    /* ret:DOS seg:offset (offset always 0) */
+     }; /* 20 */
+
+     struct OutMsgMidiPack { /* OMMP */
+      unsigned Func;
+      int Stat;
+      unsigned Mstatus;      /* status byte (8n, 9n, ... En) */
+      unsigned Mdata;
+     }; /* 8 */
+
+     struct PlaybackMidiPack { /* PBMP */
+      unsigned Func;
+      int Stat;
+      unsigned Mode;         /* mode (0=interrupt FG,1=BG) */
+      void far *LoadPtr;   /* seg:off to start of data to play */
+     }; /* 10 */
+
+
+                                                                              24
+
+
+
+
+
+
+
+
+
+
+
+     struct PauseMidiPack {  /* PMP */
+      unsigned Func;
+      int Stat;
+      unsigned Pause;        /* 0=unpause else pause */
+     }; /* 6 */
+
+     struct SetPack {        /* SP */
+      unsigned Func;
+      int Stat;              /* (if volume=0 SB speaker off'ed else on'ed) */
+      unsigned Volume;       /* volume (left ch=MSB,right=LSB) (0-127,0-127) */
+      unsigned IntRate;      /* playback interrupt rate (5000-23000) */
+      unsigned Priority;     /* priority level (0-2, default=1) */
+     }; /* 10 */
+
+     struct SetFMProPack {   /* SFMPP */
+      unsigned Func;
+      int Stat;
+      unsigned IOport;       /* base I/O port (0x220, 0x240) */
+      int MasterVol;         /* 0xF0F=max(low byte=right,hi=left,-1=nochange)*/
+      int Steer;             /* 0=none,1=left,2=right,3=mute,-1=no change */
+      unsigned FMvol;        /* as MasterVol but cannot skip (i.e.cannot=-1)*/
+     }; /* 12 */
+
+     struct SetMidiPack {     /* SMP */
+      unsigned Func;
+      int Stat;
+      unsigned Channel;      /* channel to set (bit mask of channels 0-15) */
+      int Volume;            /* volume adjust */
+      int Tone;              /* tone adjust */
+      unsigned ChMask;       /* if bit=0 then that channel ignored */
+      int PatchMapID;        /* patch map ID */
+      void far *PatchMapPtr; /* farptr to alt patch/ret:addr of PatchMapID*/
+     }; /* 18 */
+
+     struct SysInfoMidiPack { /* SIMP */
+      unsigned Func;
+      int Stat;
+      unsigned Device0;    /* =1 if OPL-2 melodic mode available */
+      unsigned D0port;     /* 0x388 */
+      unsigned D0mask;     /* available channel mask for SMP.ChMask */
+      unsigned Device1;    /* =1 if OPL-2 percussive mode available */
+      unsigned D1port;
+      unsigned D1mask;
+     }; /* 16 */
+
+     struct XitMidiPack {    /* XMP */
+      unsigned Func;
+      int Stat;
+     }; /* 4 */
+
+
+
+
+
+                                                                              25
+
+
+
+
+
+
+
+
+
+
+     Appendix C. Compiler, Linker and Call Use.
+
+     Consult your development system's documentation on the use of external
+     library files. For call use, see the example X*.c files.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              26
+
+
+
+
+
+
+
+
+
+
+     Appendix D. RUCKUS-MIDI Data Area.
+
+     To access the MIDI data area in your code:
+
+          extern struct MidiDataArea pascal MIDIDATA;
+          :
+          printf("MIDIDATA DeviceID is %u", MIDIDATA.DeviceID);
+
+
+     /* MIDI data area structure */
+
+     #pragma pack(1)   /* ALL Ruckus data structures MUST be byte-aligned */
+
+     struct MidiDataArea {
+      unsigned DeviceID;     /*+0    ;0=AdLib melodic, 1=AdLib percussive... */
+      unsigned Flags;        /* 2    ;bit0=1 use background processing */
+                             /*      ;bit1=1 disable program change event */
+                             /*      ;bit2-7 reserved (low byte used to send */
+                             /*      ;while high byte used to return info) */
+                             /*      ;bit8-13 reserved */
+                             /*      ;bit14=1 then CTMF file playing */
+                             /*      ;bit15=1 then AdLib ROL-convert */
+      unsigned PercChannel;  /* 4    ;<> 0 percussion channel mapped to here */
+      unsigned End;          /* 6    ;=1 end of MIDI (not playing) */
+      unsigned MemDOS;       /* 8    ;DOS RAM available */
+      unsigned MemUsed;      /* 10   ;K used by last load */
+      unsigned TypeMIDI;     /* 12   ;MIDI type (0 or 1) */
+      unsigned NoTracks;     /* 14   ;number of tracks */
+      unsigned TicksQnote;   /* 16   ;ticks/quarter-note */
+
+      unsigned long uSecsQnote;/* 18   ;micro-secs/quarter-note */
+      unsigned long TickCount; /* 22   ;current tick count */
+
+      void far *MusicPtr;  /* 26   ;farptr to current MIDI data byte */
+      unsigned CurrTrk;      /* 30   ;current MIDI track */
+      char TimeSig[4];       /* 32   ;nm,dn,MIDI clocks/beat,32nd notes/beat */
+      char ChPrograms[16];   /* 36   ;channel programs */
+      char ChVolumes[16];    /* 52   ;channel volume level (0-127) */
+      char ChNotes[16];      /* 68   ;channel note values (0-127) */
+
+      unsigned ChRelVolumes[16];/* 84   ;-128 to +127 range (0=no change) */
+      unsigned ChRelNotes[16];  /* 116  ;-128 to +127 range (0=no change) */
+     };
+
+     #pragma pack()
+
+
+
+
+
+
+
+
+
+
+                                                                              27
+
+
+
+
+
+
+
+
+
+
+     Appendix E. MIDI Key Numbers, Frequencies and Channel Messages.
+
+
+      Octave  1      2       3       4       5       6      7      8
+      Note                    (frequency in Hertz)
+       C   16.352  32.704  65.40  130.81  261.63  523.26  1046.5 2093
+       C#  17.324  34.648  69.29  138.59  277.18  554.36  1108.7 2217
+       D   18.354  36.708  73.41  146.83  293.66  587.32  1174.6 2349
+       D#  19.445  38.890  77.78  155.56  311.12  622.24  1244.4 2489
+       E   20.601  41.202  82.40  164.80  329.61  659.23  1318.4 2637
+       F   21.826  43.652  87.30  174.60  349.21  698.43  1396.8 2794
+       F#  23.124  46.248  92.49  184.99  369.98  739.96  1479.9 2960
+       G   24.499  48.998  97.99  195.99  391.98  783.96  1567.9 3136
+       G#  25.956  51.912 103.82  207.64  415.29  830.59  1661.1 3322
+       A   27.500  55.000 110.00  220.00  440.00  880.00  1760.0 3520
+       A#  29.135  58.270 116.54  233.08  466.16  932.32  1864.6 3729
+       B   30.867  61.734 123.46  246.93  493.87  987.74  1975.4 3951
+
+     Note C1 (16Hz) is MIDI key number 12, C2 (32Hz) is 24...C5 (261Hz) is 60,
+     middle-C on the piano keyboard. Valid key number range is 12 to 107 (96 key
+     numbers total). This is peculiar to the OPL-2 chip. MIDI key number range
+     is 0 to 127. Key numbers issued > 107 are set to 107 and numbers < 12 are
+     set to 12 when using the OPL-2 or -3.
+
+     For accessing steps between notes, you can use the PitchBend MIDI channel
+     message (OutMsgMidi status byte En, Pitch Wheel Change). Each 512-point
+     adjustment to pitchbend results in a 1-step change, giving a pitchbend
+     range of +/- 16 steps per half-tone (pitchbend range is 0 to 16383 with
+     8192 equal to no change).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              28
+
+
+
+
+
+
+
+
+
+
+
+     MIDI channels messages are what OutMsgMidi transmits to the MIDI parser.
+     For complete specifications on MIDI channel messages, MIDI system messages,
+     and the other details of the inner-workings of MIDI, contact the
+     International MIDI Association (IMA) and ask for the MIDI 1.0
+     Specification. Several volumes are available for sale ranging from detailed
+     specs to the standard MIDI file format. The IMA's mailing address is:
+
+          IMA - the International MIDI Association
+          5316 W 57 ST
+          LOS ANGELES CA 90056
+          USA
+
+     The MIDI channel messages are:
+
+     Message Name           Mstat/Mdata Comment
+     -----------------------------------------------------------------
+     Note Off                 8n kn v   kn=key number (0-127)
+                                        v =velocity (0-127) (volume)
+     Note On                  9n kn v   kn=key number (0-127)
+                                        v =velocity (1-127,0=note off)
+     Polyphonic After-Touch   An kn v   kn=key number (0-127)
+                                        v =velocity (0-127)
+     Control Change           Bn cn x   cn=controller (0-121, 0-79h)
+                                        x =value (0-127)
+                                        (Control Change not implemented)
+     Channel Mode:
+        All Notes Off         Bn 7B 0   7B=channel n sound off
+                                        (Other modes not implemented)
+     Program Change           Cn p      p =program (0-127)
+     Channel After-Touch      Dn v      v =velocity (0-127)
+     Pitch Wheel Change       En lb hb  lb=low byte (0-127)*
+                                        hb=high byte (0-127)
+
+     *All non-status bytes must have the high-order bit of each byte unset. For
+     Pitch Wheel Change (En lb hb) where there is to be no change, lb/hb is to
+     be set to 00/40h (4000h=8192, center pitch). The low byte's MSB should not
+     be set, meaning that, for example, 4080 to 40FF are not valid pitch bends.
+     If 4080h is used RUCKUS-MIDI unsets the MSB of lb so that 4000h is used.
+
+     All status bytes have the high-order bit set. The n nybble of each status
+     byte (e.g., 8n) designates the channel number, 0 to F (0 to 15d). Most MIDI
+     channel messages takes two data bytes, though some take only one. The order
+     shown above is the order that should be used. For example, to send the
+     channel message NoteOn/key# 32/max volume via OutMsgMidi for channel 3, set
+     Mstatus to 93h and set Mdata to &H7F20 (low/high bytes=20/7Fh).
+
+     The specification is rather complex. RUCKUS-MIDI builds upon those aspects
+     of the specification that are useful in playing back MIDI data. Much of the
+     MIDI specification deals with real-time performance and recording use,
+     neither of which is RUCKUS-MIDI's intended purpose.
+
+
+
+
+                                                                              29
+
+
+
+
+
+
+
+
+
+
+     Appendix F. General MIDI Sound Set - Level 1.
+
+     Sound Set Program Number and Name.
+
+     Prog#  Instrument        Prog#  Instrument       Prog#  Instrument
+     ---------------------------------------------------------------------
+      0 ACOUSTIC GRAND PIANO   43 CONTRABASS           86 LEAD 7 fifths
+      1 BRITE ACOUSTIC PIANO   44 TREMELO STRINGS      87 LEAD 8 bass+lead
+      2 ELECTRIC GRAND PIANO   45 PIZZICATO STRINGS    88 PAD 1 new age
+      3 HONKEYTONK             46 ORCHESTRAL HARP      89 PAD 2 warm
+      4 ELECTRIC PIANO 1       47 TIMPANI              90 PAD 3 polysynth
+      5 ELECTRIC PIANO 2       48 STRING ENSEMBLE 1    91 PAD 4 choir
+      6 HARPSICHORD            49 STRING ENSEMBLE 2    92 PAD 5 bowed
+      7 CLAVI                  50 SYNTHSTRINGS 1       93 PAD 6 metallic
+      8 CELESTA                51 SYNTHSTRINGS 2       94 PAD 7 halo
+      9 GLOCKENSPIEL           52 CHOIR AAHS           95 PAD 8 sweep
+     10 MUSICBOX               53 VOICE OOHS           96 FX1 rain
+     11 VIBRAPHONE             54 SYNTH VOICE          97 FX2 soundtrack
+     12 MARIMBA                55 ORCHESTRA HIT        98 FX3 crystal
+     13 XYLOPHONE              56 TRUMPET              99 FX4 atmosphere
+     14 TUBULAR BELLS          57 TROMBONE            100 FX5 brightness
+     15 DULCIMER               58 TUBA                101 FX6 goblins
+     16 DRAWBAR ORGAN          59 MUTED TRUMPET       102 FX7 echoes
+     17 PERCUSSIVE ORGAN       60 FRENCH HORN         103 FX8 sci-fi
+     18 ROCK ORGAN             61 BRASS SECTION       104 SITAR
+     19 CHURCH ORGAN           62 SYNTHBRASS 1        105 BANJO
+     20 REED ORGAN             63 SYNTHBRASS 2        106 SHAMISEN
+     21 ACCORDION              64 SOPRANO SAX         107 KOTO
+     22 HARMONICA              65 ALTO SAX            108 KALIMBA
+     23 TANGO ACCORDIAN        66 TENOR SAX           109 BAG PIPE
+     24 ACOUSTIC GUITAR nyln   67 BARITONE SAX        110 FIDDLE
+     25 ACOUSTIC GUITAR stl    68 OBOE                111 SHANAI
+     26 ELECTRIC GUITAR jazz   69 ENGLISH HORN        112 TINKLE BELL
+     27 ELECTRIC GUITAR cln    70 BASSOON             113 AGOGO
+     28 ELECTRIC GUITAR mute   71 CLARINET            114 STEEL DRUMS
+     29 OVERDRIVEN GUITAR      72 PICCOLO             115 WOOD BLOCK
+     30 DISTORTION GUITAR      73 FLUTE               116 TAIKO DRUM
+     31 GUITAR HARMONICS       74 RECORDER            117 MELODIC TOM
+     32 ACOUSTIC BASS          75 PAN FLUTE           118 SYNTH DRUM
+     33 ELECTRIC BASS finger   76 BLOWN BOTTLE        119 REVERSE CYMBAL
+     34 ELECTRIC BASS pick     77 SHAKUHACHI          120 GUITAR FRET NOISE
+     35 FRETLESS BASS          78 WHISTLE             121 BREATH NOISE
+     36 SLAP BASS 1            79 OCARINA             122 LOSTINSPACE
+     37 SLAP BASS 2            80 LEAD 1 square       123 BIRD TWEET
+     38 SYNTH BASS 1           81 LEAD 2 sawtooth     124 TELEPHONE RING
+     39 SYNTH BASS 2           82 LEAD 3 calliope     125 HELICOPTER
+     40 VIOLIN                 83 LEAD 4 chiff        126 APPLAUSE
+     41 VIOLA                  84 LEAD 5 charang      127 GUNSHOT
+     42 CELLO                  85 LEAD 6 voice
+
+
+
+
+
+
+                                                                              30
+
+
+
+
+
+
+
+
+
+
+
+     General MIDI - Level 1 Sound Set Groupings by Program Number.
+
+     Prog#   Instrument Group     Prog#  Ins Grp      Prog#  Ins Grp
+     ---------------------------------------------------------------------
+      0-7  Piano                  40-47 Strings       80-87  Synth Lead
+      8-15 Chromatic Percussion   48-55 Ensemble      88-95  Synth Pad
+     16-23 Organ                  56-63 Brass         96-103 Synth Effects
+     24-31 Guitar                 64-71 Reed         104-111 Ethnic
+     32-39 Bass                   72-79 Pipe         112-119 Percussive
+                                                     120-127 Sound Effects
+
+
+     General MIDI - Level 1 Percussion Map (Channel 9).
+
+     Key#  Drum Sound       Key#  Drum Sound        Key#  Drum Sound
+     --------------------------------------------------------------------
+      35 Acoustic Bass Drum  51 Ride Cymbal 1        67 High Agogo
+      36 Bass Drum 1         52 Chinese Cymbal       68 Low Agogo
+      37 Side Stick          53 Ride Bell            69 Cabasa
+      38 Acoustic Snare      54 Tambourine           70 Maracas
+      39 Hand Clap           55 Splash Cymbal        71 Short Whistle
+      40 Electric Snare      56 Cowbell              72 Long Whistle
+      41 Low Floor Tom       57 Crash Cymbal 2       73 Short Guiro
+      42 Closed Hi-Hat       58 Vibraslap            74 Long Guiro
+      43 High Floor Tom      59 Ride Cymbal 2        75 Claves
+      44 Pedal Hi-Hat        60 Hi Bongo             76 Hi Wood Block
+      45 Low Tom             61 Low Bongo            77 Low Wood Block
+      46 Open Hi-Hat         62 Mute Hi Conga        78 Mute Cuica
+      47 Low-Mid Tom         63 Open Hi Conga        79 Open Cuica
+      48 Hi-Mid Tom          64 Low Conga            80 Mute Triangle
+      49 Crash Cymbal 1      65 High Timbal          81 Open Triangle
+      50 High Tom            66 Low Timbal
+
+
+     For timbre data used by RUCKUS-MIDI for programs 0-127 see the GMPATCH.*
+     file. Also see that file for percussive voice mappings (for example, how
+     percussive channel 9 key# 46, Open Hi-Hat, maps to AdLib percussive
+     voice 10, the Hi-Hat). These files are device-dependent and there is one
+     for each RUCKUS-MIDI supported device. Included only in registered versions
+     of the RUCKUS toolkit.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              31
+
+
+
+
+
+
+
+
+
+
+     Appendix G. MT-32 MIDI Sound Set.
+
+
+     Sound Set Program Number and Name.
+
+     Prog#  Instrument        Prog#  Instrument       Prog#  Instrument
+     ------------------------------------------------------------------
+       0 AcouPno1              43 EchoPan              86 Bassoon
+       1 AcouPno2              44 DocSolo              87 Harmonca
+       2 AcouPno3              45 SchlDaze             88 Trumpet1
+       3 ElecPno1              46 BellSing             89 Trumpet2
+       4 ElecPno2              47 SqWave               90 Trombon1
+       5 ElecPno3              48 StrSect1             91 Trombon2
+       6 ElecPno4              49 StrSect2             92 FrHorn1
+       7 HonkTonk              50 StrSect3             93 FrHorn2
+       8 ElecOrg1              51 Pizzicto             94 Tuba
+       9 ElecOrg2              52 Violin1              95 BrsSect1
+      10 ElecOrg3              53 Violin2              96 BrsSect2
+      11 ElecOrg4              54 Cello1               97 Vibes1
+      12 PipeOrg1              55 Cello2               98 Vibes2
+      13 PipeOrg2              56 ContraBs             99 SynMallt
+      14 PipeOrg3              57 Harp1               100 WindBell
+      15 Accordn               58 Harp2               101 Glock
+      16 Harpsi1               59 Guitar1             102 TubeBell
+      17 Harpsi2               60 Guitar2             103 XyloPhon
+      18 Harpsi3               61 ElecGtr1            104 Marimba
+      19 Clavi1                62 ElecGtr2            105 Koto
+      20 Clavi2                63 Sitar               106 Sho
+      21 Clavi3                64 AcouBs1             107 Shakuhch
+      22 Celesta1              65 AcouBs2             108 Whistle1
+      23 Celesta2              66 ElecBs1             109 Whistle2
+      24 SynBrss1              67 ElecBs2             110 BottlBlo
+      25 SynBrss2              68 SlapBs1             111 BreathPp
+      26 SynBrss3              69 SlapBs2             112 Timpani
+      27 SynBrss4              70 Fretls1             113 MelodTom
+      28 SynBass1              71 Fretls2             114 DeepSnar
+      29 SynBass2              72 Flute1              115 Oberheim
+      30 SynBass3              73 Flute2              116 Noise
+      31 SynBass4              74 Piccolo1            117 Taiko
+      32 Fantasy               75 Piccolo2            118 TaikoRim
+      33 HarmoPan              76 Recorder            119 RevCymb
+      34 Chorale               77 PanPipes            120 JawHarp
+      35 Glasses               78 Sax1                121 Triangle
+      36 SoundTrk              79 Sax2                122 OrcheHit
+      37 Atmosphr              80 Sax3                123 BassDrm
+      38 WarmBell              81 Sax4                124 BirdTwt
+      39 FunnyVox              82 Clarint1            125 Banjo
+      40 EchoBell              83 Clarint2            126 MoogSyn
+      41 IceRain               84 Oboe                127 JunglTun
+      42 Oboe2001              85 EngHorn
+
+
+
+
+
+                                                                              32
+
+
+
+
+
+
+
+
+
+
+
+     MT-32 Sound Set Groupings by Program Number.
+
+     Prog#   Instrument Group     Prog#  Ins Grp      Prog#  Ins Grp
+     ----------------------------------------------------------------------
+     Not specified.
+
+
+     MT-32 Percussion Map (Channel 9).
+
+     Key#  Drum Sound       Key#  Drum Sound        Key#  Drum Sound
+     ----------------------------------------------------------------------
+      35 Acoustic Bass       51 Ride Cymbal 1        67 High Agogo
+      36 Acoustic Bass       52*Chinese Cymbal       68 Low Agogo
+      37 Rim Shot            53*Ride Bell            69 Cabasa
+      38 Acoustic Snare      54 Tambourine           70 Maracas
+      39 Hand Clap           55*Splash Cymbal        71 Short Whistle
+      40 Electric Snare      56 Cowbell              72 Long Whistle
+      41 Acoustic Low Tom    57*Crash Cymbal 2       73 Short Guiro
+      42 Closed High Hat     58*Vibraslap            74*Long Guiro
+      43 Acoustic Low Tom    59*Ride Cymbal 2        75 Claves
+      44 Open High Hat 2     60 Hi Bongo             76*Hi Wood Block
+      45 Acoustic Mid Tom    61 Low Bongo            77*Low Wood Block
+      46 Open High Hat 1     62 Mute Hi Conga        78*Mute Cuica
+      47 Acoustic Mid Tom    63 Open Hi Conga        79*Open Cuica
+      48 Acoustic High Tom   64 Low Conga            80*Mute Triangle
+      49 Crash Cymbal        65 High Timbal          81*Open Triangle
+      50 Acoustic High Tom   66 Low Timbal
+
+
+     For timbre data used by RUCKUS-MIDI for programs 0-127 see the MTPATCH.*
+     file. Also see that file for percussive voice mappings (for example, how
+     percussive channel 9 key# 46, Open Hi-Hat, maps to AdLib percussive
+     voice 10, the Hi-Hat). These files are device-dependent and there is one
+     for each RUCKUS-MIDI supported device. Included only in registered versions
+     of the RUCKUS toolkit.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              33
+
+
+
+
+
+
+
+
+
+
+     Appendix H. RUCKUS-MIDI Patch Map Format.
+
+
+     Format of the patch maps used internally by RUCKUS-MIDI for the 2-operator
+     OPL chip is composed of 2 sections. The header and the timbre data. The
+     header is the first 48 bytes of the data.
+
+     HEADER:
+       Patch name: 20 bytes
+       Patch size: 1 word, set to 48
+         reserved: 14 bytes
+     TIMBRE DATA for each program (0-127):
+       Instrument name: 20 bytes (may be 0- or space-filled)
+       Instrument data: 28 bytes
+
+       Instrument data format is:
+
+     Op0:ksl,multi,fb,ar,sl,eg,dr,rr,tl,amvib,vib,ksr,c
+     Op1:ksl,multi,--,ar,sl,eg,dr,rr,tl,amvib,vib,ksr,-
+         mws,cws (modulator wave shape, carrier wave shape)
+
+     For example:
+
+     PATCHES_MT  db 'PATCHES_MT32',0,0,0,0
+     dw 48
+     db 14 DUP(0)
+
+     db 'ACOUPIANO1',0,0,0,0,0,0,0,0,0,0                   ;(0)
+     db 01h,01h,03h,0Fh,05h,00h,01h,00h,0Fh,00h,00h,00h,01h
+     db 00h,00h,01h,00h,0Dh,07h,00h,03h,0Ch,04h,00h,00h,00h
+     db 00h,00h
+     ;the other patches would follow, to the 127th
+     ;total patch size would be 48+(128*48)=6192 bytes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              34
+
+
+
+
+
+
+
+
+
+
+
+     Internally, RUCKUS-MIDI maintains separate locations for the programs and
+     the percussive map. However, for custom patch maps, the following format
+     must be used:
+
+     Custom Patch Format:
+
+     First 48-byte section is the percussive map for key numbers 35 to 82. Key
+     number 82 should map to value 255. For example:
+
+
+       ;0  1  2  3  4  5  6  7  8  9 (values in decimal, 48 bytes)
+     db                06,06,08,07,08 ;35-39
+     db 07,08,10,08,10,08,10,08,08,09 ;40-49
+     db 08,09,09,09,10,09,09,09,08,09 ;50-59
+     db 08,08,08,08,08,07,07,07,07,08 ;60-69
+     db 10,10,10,10,10,08,08,08,08,08 ;70-79
+     db 10,10,255                     ;80-81
+
+     ;In the above map, key# 35 maps to OPL-2 voice 6, the bass drum. Key# 79
+     ;maps to voice 8, the tom-tom.
+
+     ;This is immediately followed by the program patches as above:
+
+     PATCHES_MT  db 'PATCHES_MT32',0,0,0,0
+     dw 48
+     db 14 DUP(0)
+
+     db 'ACOUPIANO1',0,0,0,0,0,0,0,0,0,0                   ;(0)
+     db 01h,01h,03h,0Fh,05h,00h,01h,00h,0Fh,00h,00h,00h,01h
+     db 00h,00h,01h,00h,0Dh,07h,00h,03h,0Ch,04h,00h,00h,00h
+     db 00h,00h
+     ;the other patches would follow, to the 127th
+     ;total patch size would be 48+48+(128*48)=6240 bytes
+
+     To create custom patch maps for the OPL-2 chip, the shareware package
+     SBKTimbre can be used. To convert the output of this program for use with
+     RUCKUS-MIDI, use the supplied IBK2OPL2.EXE program. The 48-byte percussive
+     map must be constructed by hand. 
+
+     Note that other devices (when supported) will have different formats. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              35
+
+
+
+
+
+
+
+
+
+
+     Appendix Z. Ordering Information, License Agreement and Product Support.
+
+     To order you must you the order form included with the distribution files.
+     Its filename is !ORDER.FRM. Orders made without this form may be delayed.
+
+     There are two RUCKUS packages available. The PERSONAL DEVELOPER version is
+     for the hobby-programmer while the PROFESSIONAL version is for the
+     professional programmer.
+
+     The PERSONAL DEVELOPER version is for persons that are not creating
+     programs for distribution to others. With the PERSONAL DEVELOPER license
+     you may not distribute any programs you create with RUCKUS. In addition, a
+     sign-on banner is issued once, displaying the RUCKUS copyright and license
+     restriction.
+
+     The PROFESSIONAL version has no distribution restrictions on end-user
+     programs you create with RUCKUS. The PROFESSIONAL license provides you with
+     the right to create all the end-user programs royalty-free. You also have
+     direct access to the latest version of RUCKUS free-of-charge by way of my
+     support BBS and the RUCKUS Developer's Conference there. No sign-on banner
+     is issued.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                              36
+
+
+
+
+
+
+
+
+
+
+     License Agreement
+
+     Before using this software you must agree to the following:
+
+     1. You are not allowed to operate more than one (1) copy of this software
+     package at one time per license. This means that if you have 10 programmers 
+     that COULD possibly use the RUCKUS library at the same time, you must also  
+     have ten (10) RUCKUS licenses. 
+
+     2. You are not allowed to distribute non-executable code containing RUCKUS 
+     code. This means that you are not allowed to redistribute RUCKUS code as    
+     another .LIB, for example. Also, if RUCKUS code is to be contained in a    
+     Dynamic Link Library (DLL) then it must be part of a stand-alone product. 
+     This means that you cannot provide a .DLL containing RUCKUS code if that    
+     .DLL is to be used as a programming library for other programmers. If you   
+     wish to distribute non-executable code containing RUCKUS code you must    
+     obtain written permission from the author.
+
+     3. This license grants you the right to use the RUCKUS library code on a   
+     royalty-free basis, except when the license is the PERSONAL DEVELOPER, in
+     which case you may not distribute any program in which RUCKUS has been
+     used.
+
+     4. RUCKUS is owned by the author, Cornel Huth, and is protected by United  
+     States copyright laws and international treaty provisions. You are not    
+     allowed to make copies of this software except for archival purposes.
+
+     5. You may not rent or lease RUCKUS. You may not transfer this license
+     without the written permission of the author. If this software is an update
+     or upgrade, you may not sell or give away previous versions.
+
+     6. You may not reverse engineer, decompile, or disassemble this software.
+
+     7. There are no expressed or implied warranties with this software.
+
+     8. All liabilities in the use of this software rest with the user.
+
+     9. U.S. Government Restricted Rights. This software is provided with    
+     restricted rights. Use, duplication, or disclosure by the Government is    
+     subject to restrictions as set forth in subparagraph (c)(1)(ii) of the    
+     Rights in Technical Data and Computer Software clause at 52.227-7013.    
+     Manufacturer is Cornel Huth/6402 Ingram Rd/San Antonio, TX 78238.
+
+     This agreement is governed by the laws of the state of Texas.
+
+
+
+
+
+
+
+
+
+
+
+                                                                              37
+
+
+
+
+
+
+
+
+
+
+     Product Support
+
+      BBS support telephone: 1(210)684-8065. V.32bis (1200-14.4k bps)
+      Hours: Monday through Friday, 5pm to 9am next morning
+             Weekend hours are 1pm to 9am next morning.
+             All times USA Central [-0600/-0500]
+
+     E-mail:
+
+     Internet: chuth@lonestar.utsa.edu -or-
+               cornel.huth@LChance.sat.tx.us -or-
+               cornel.huth@p8.f800.n387.z1.fidonet.org
+      Fidonet: 1:387/800.8
+
+     PROFESSIONAL version licensees have _free_ access to all future RUCKUS
+     updates AND upgrades via the RUCKUS Developer's Conference on The Fortieth
+     Floor BBS (1(210)684-8065). PERSONAL DEVELOPER licensees have restricted
+     access to in-version maintenance updates at no charge.
+
+     End of the RUCKUS-MIDI DOCUMENT. See also the RUCKUS-DAC DOCUMENT.

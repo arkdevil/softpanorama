@@ -1,0 +1,91 @@
+--
+-- MacroBat: меню операций с архивами
+-- Copyright (c) 1992 L.G.Bunich, Russia, Moscow
+--
+  H=File(NC h)
+  Cls;  Cursor Off;  N = 1
+  Box 13,61 single at 6,12 white on blue;  L = Cline()
+  Color cyan+
+  put %L,24 " В ы б е р и т е   ф у н к ц и ю: "
+  put +2,16 "A"  "...."
+  put +1    "C"  "...."
+  put +1    "D"  "...."
+  put +1    "E"  "...."
+  put +1    "L"  "...."
+  put +1    "R"  "...."
+  put +1    "S"  "...."
+  put +1    "T"  "...."
+  put +1    "U"  "...."
+Start:
+  put %L,1
+  Clr1 = "white on blue";  Clr2 = "%Clr1"
+  Clr3 = "%Clr1";  Clr4 = "%Clr1"; Clr5 = "%Clr1"
+  Clr6 = "%Clr1";  Clr7 = "%Clr1"; Clr8 = "%Clr1"; Clr9 = "%Clr1"
+  Clr%N = "blue on white"
+  put +2,21 %Clr1 " упаковка (ARJ) помеченных файлов "
+  put +1    %Clr2 " поиск в текущем оглавлении упакованных программ "
+  put +1    %Clr3 " распаковка текущего файла в отдельное оглавление "
+  put +1    %Clr4 " создание самозагружающегося EXE-архива (SFX) "
+  put +1    %Clr5 " упаковка текущего файла (PKLITE) "
+  put +1    %Clr6 " переупаковка текущего архива (REARJ) "
+  put +1    %Clr7 " разделение текущего архива на части (REPACK) "
+  put +1    %Clr8 " тестирование текущего архива "
+  put +1    %Clr9 " распаковка программ, упакованных LZEXE "
+  C = Getch(/U/N/)
+
+  if "%C" = "ESC"  Cls white on black
+    goto Finish;  endif
+  if "%C" = "#80"  N = (%N # 9) + 1;            -- клавиша "вниз"
+    goto Start;  endif
+  if "%C" = "#72"  N = ((%N + 7) # 9) + 1;      -- клавиша "вверх"
+    goto Start;  endif
+  Коды = "ACDELRSTU"
+  if "%C" = "ENTER"  C = Sub(%N,1,"%Коды");  endif
+  if Not "%StrPos("%C","%Коды")" = 0
+    Cls white on black
+    if "%C" = "A"
+      Cursor 6,7
+      W=GetStr("Введите имя архива (ENTER: %H):")
+      if "%W" = ""  W= "%H";  endif
+      ncext arj A -e -s -!!@ %W @!@
+    endif
+    if "%C" = "C"
+      chk4lite -c *.*        
+      chk4comp *.* /p /c /n
+    endif
+    if "%C" = "D"
+      %comspec /c uad.bat %H
+    endif
+    if "%C" = "E"
+      %comspec /c sfx.bat %H
+    endif
+    if "%C" = "L"
+      pklite -b %H
+    endif
+    if "%C" = "R"
+      rearj /s %H
+    endif
+    if "%C" = "S"
+      Cursor 6,7
+      W=GetStr("Укажите размер подархива (тысяч байтов, пустой ответ - выход): ")
+      if "%W" = "" goto Finish;  endif
+      repack -s%W%000 %H
+    endif
+    if "%C" = "T"
+      E=Ext(%H);  W=Sub(1,2,"%E")
+      if "%E" = "ARJ"  arj t %H -i1;  endif
+      if "%W" = "A0"   arj t %H -i1;  endif
+      if "%E" = "ZIP"  pkunzip -t %H; endif
+      if "%E" = "PAK"  pak T %H;      endif
+      if "%E" = "LZH"  lha t %H;      endif
+      if "%E" = "ICE"  lha t %H;      endif
+    endif
+    if "%C" = "U"
+      Unlzexe %H
+    endif
+    goto Finish
+  endif
+  goto Start
+
+Finish:
+  Cursor 6,7

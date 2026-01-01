@@ -1,0 +1,249 @@
+Filename....: FDTN-002.FD: FrontDoor & RA Technical Update Note #002
+Dated.......: 22-February-1994
+
+ATTENTION: Please print this out before going any further!
+
+Subject.....: Using the OS/2 version 2.1 GA Release
+              with FrontDoor v2.02 and above.
+              and RemoteAccess v2.00 or above.
+              
+Copyright...: 1992-1993, the author.
+
+Author......: john a.h. barton - 2:257/168@fidonet
+
+Contributors: Joakim Hernberg - 2:270/34
+              rene carlsen - 2:230/910
+              mark howard - 1:260/1
+              Bob Beilstein - 1:260/369
+              Ruud De.Bruin - 2:281/603
+              andrew milner - 2:270/18
+              joaquim homrighausen - 2:270/17 
+              Tomas Bremin - 2:270/7
+              Henk Heidema - 2:270/17.304
+              Barry Blackford - 3:774/605           
+
+Abstract....:
+
+The purpose of this document is to provide one method of implementation with
+regards to the use of OS/2 version 2.1 GA with FrontDoor v2.02 or above.
+The intent is to provide a sample configuration with the options and
+settings with regards to achieving the best settings for communications and
+operating OS/2.
+
+Several caveats:
+
+1) The settings and techniques used in this document do not represent
+   the ONLY way to do this, and perhaps do not even represent the optimal
+   configuration, and the information in this document is subject to change,
+   based upon updated information, error corrections, increased or updated
+   modem capability, or FD and OS/2 updates.
+
+2) The settings used are based upon OS/2 2.1 GA Release, and some options
+   may not be available on your systems yet. Where possible, I have noted
+   which settings may differ, however it is placed upon the reader to
+   examine and report the viability of the suggested techniques with regards
+   to the particular options in use.
+
+3) For optimal modem settings for V32bis modems refer to FDTN-001.Z05
+
+4) The contributors to this file make no warranties, neither expressed
+   nor implied. The aim behind the procedures described below is to
+   encourage experimentation within a wide range of PC configurations.
+   In no way can any of the creators of this file be held liable for any
+   losses in time, matter, service, expected profit, or patience!
+   It is *only* guaranteed to take up disk space :-)
+
+Programs and fixes needed to get the system up and running:
+
+  1) OS/2 2.1 GA release
+
+* There are two APARS available to reduce the 100% processor time used when 
+running FD in a DOSBOX, however the APARS are not 100% error free and the
+CSD update is promised to fix all problems including the 100% CPU useage.
+
+  2) SIO version 1.02 (or later)
+
+* Later versions of SIO also have VX00.SYS as fossil. Some activate VX00.SYS
+in the DOS SETTINGS/DOS_DEVICE by entering there drive:\path\VX00.SYS or
+simply loading via the config.sys
+
+  3) VFD Virtual Fossil driver 0.54B or later (by Joakim Hernberg)
+
+* denotes changed settings from previous FDTN
+
+The important settings below are _dependant_ of the presence of the above
+files and fixes on your system.
+
+There is absolutely no need to use any other FOSSIL driver as VFD handles
+the FOSSIL calls. The <drive> parameter should be substituted by the drive
+letter that the files are on and <directory> with your actual filepath
+to the file. The example is for using COM2 only at present.
+
+config.sys amendments and additions:
+
+-----------------------------------------------------
+
+You will need to enlarge the enviroment that is set by default, suggested
+setting as used here is:
+
+* SHELL=J:\OS2\MDOS\COMMAND.COM J:\OS2\MDOS /E:2000 /P
+
+-----------------------------------------------------
+
+MAXWAIT=2 (or 1 for 386-25 or faster processors)
+
+------------------------------------------------------
+
+If I understand correctly, this line controls the maximum time
+(1 to 255 secs) that a process can be put on hold before OS/2 ups it's
+priority. This ensures that no process can hog the system.
+
+------------------------------------------------------
+priority=dynamic
+autofail=yes (needed for unattended mode, and command below :-)
+pauseonerror=no (This stops the popup box halting the BBS on error)
+threads=256  (This is increased from 96 BUT if lots of utilities or other 
+      (programs used may be increased to 4095 costs 10K per 1000 Threads)
+
+------------------------------------------------------
+MEMMAN setting in config.sys.
+  I am recommending that if the system has more than 6 Meg of Ram used as:
+MEMMAN=SWAP,PROTECT
+  if less than 6 Meg of Ram be used as:
+MEMMAN=SWAP,MOVE
+------------------------------------------------------
+
+PRIORITY_DISK_IO=NO
+
+This setting determines if the foreground should be given a higher priority to
+access the disk than the background tasks. I have no idea what effect this
+setting will have on a bbs running in the background, especially if the bbs has
+been given Foreground server priority. I think this setting should be tested
+in different real life situations, before we say anything either way. With
+Option NO file xfers and BBS down/Uploading improved by some 50 cps and no
+crc errors detected EXCEPT with SEAlink on mail.file xfers.
+
+------------------------------------------------------
+
+Using VFD as the Fossil in the config.sys:
+
+* device=<drive>\<directory>\sio.sys (COM2:38400,2F8,IRQ3,,F)
+ (The above line is an example of COM 2 using a 16550 locked at 38400)
+device=<drive>\<directory>\vsio.sys
+device=<drive>\<directory>\VFD.sys
+
+* nb MODE command not needed as SIO handles this fine.
+
+----------------------------------------------------------------------
+
+runfd.bat (mailer/bbs batch file options):
+@Echo Off
+set fd=h:\fd
+
+* <drive>:\<directory>\VFDU l2,ls
+
+fd:
+if errorlevel 299 goto unpack
+exit
+
+----------------------------------------------------
+*
+rene has suggested using in your mailer.bat (or whatever it is called) settings
+SET DELDIR=
+I am not using this setting here due to the ominous warnings from IBM and 
+cannot guarantee its function, apart from this setup ALL the options shown are
+EXACTLY as are setup and working here with excellent results (sofar :-) If you 
+use the SET DELDIR= you must use FDOPT=NOFCB or /NOFCB in FD versions greater
+than 2.10 however this does slow the processing down somewhat.
+
+------------------------------------------------------
+
+OS/2 settings => SESSION OPTIONS: (All others are DEFAULT)
+                 Example below is using COM Port 2 Only!
+
+ Session Options                     VFD
+
+  COM_FOSSIL                         ON
+  IDLE_SENSITIVITY                   75
+  IDLE_SECONDS                       0
+  DOS_BACKGROUND_EXECUTION           ON
+  DOS_FILES                          60
+  HW_ROM_TO_RAM                      OFF
+  HW_TIMER                           OFF
+  SIO_Allow_Access_COM1              OFF
+  SIO_Allow_Access_COM2              ON
+  SIO_Allow_Access_COM3              OFF
+  SIO_Allow_Access_COM4              OFF
+  SIO_Virtualize_16550A              ON (this setting EMULATES 16550 in s/ware
+                                     however if it slows the program down too
+                                     much set to OFF)
+  SIO_Virtualize_COM_Ports           ON
+* SIO_Virtual_RTS_is_HS              ON
+
+
+I am reliably informed that the list of options for SIO (v1.26C) has grown. 
+Leave everything on default. Only set COM1, COM2, COM3 and COM4 to on for 
+the actual port you are using for that particular DOS_SESSION. Also set 
+HW_ROM_TO_RAM on ON and the same wih DOS_HIGH. The rest of the settings are 
+default except for reducing EMS and XMS memory to 1024KB.
+
+How to setup the Icon in PM to actually get FrontDoor working in OS/2
+======================================================================
+
+At the OS/2 PM screen following this step by step guide will enable you to 
+have FrontDoor run as a seperate icon, references to LH means Left Hand or
+button number 1. RH means Right Hand or either button 2 or button 3 on 
+a 3 button mouse (Please note this is after amending config.sys etc detailed
+above and rebooting system to fire up OS/2):
+
+ 1) Open OS/2 System Icon by LH double clicking with the pointer over the icon.
+ 2) Pointer on Command Prompts and LH Double Click 
+
+ 3) With Pointer on Full Screen DOS press
+    a) Press LEFT CTRL key on keyboard and hold
+    b) Press RH Button on mouse and hold
+    c) Move Icon outside the box to the PM area of choice
+    d) Release RH button on mouse
+    e) Release LEFT CTRL key on keyboard.
+
+  4) Move pointer to newly created icon and Press RH button
+  5) Move pointer to right facing arrow on option option 
+  6) Press LH button on mouse
+  7) Pointer to Settings option
+  8) Press LH button on mouse
+  9) In path and filename put where exactly your batch file is
+     ie c:\fd\fd.bat
+ 10) Pointer to Session Options
+ 11) Press LH button on mouse
+ 12) Pointer on DOS WINDOW 
+ 13) Press LH button on mouse
+ 14) Pointer on Close window on exit
+ 15) Press LH button on mouse
+ 16) Pointer on DOS SETTINGS
+ 17) Press LH button on mouse   
+ 18) Pointer on Default box
+ 19) Press LH button on mouse.
+ 20) Go through all the options above and amend them as shown
+ 21) When completed - Pointer on Save
+ 22) Press LH Button on mouse
+ 23) Pointer on General
+ 24) Press LH button on mouse
+ 25) Via the keyboard amend the title to whatever you desrire it to be
+     ie FrontDoor Mailer
+ 26) Pointer to small box on TOP LEFT HAND of settings box
+ 27) Double press LH button quickly on mouse.
+ 28) The session will have ended and your amended icon is ready.
+ 29) Pointer to the new FrontDoor Icon 
+ 30) Double press LH button quickly on mouse.
+ 31) ENJOY! :-)
+
+Trademarks..: FrontDoor is a trademark of Advanced Engineering sarl.
+              RemoteAccess is a trademark of Continental Software.
+              OS/2 is a trademark of International Business Machines
+              IBM is a trademark of International Business Machines
+              VFD is a trademark of Joakim Hernberg
+              All other trademarks and registered trademarks are
+              proprietary to their respective owners.
+
+EOF.........: FDTN-002.FD 22nd February, 1994
+

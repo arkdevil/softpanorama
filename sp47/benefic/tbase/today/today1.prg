@@ -1,0 +1,173 @@
+:freewin 2,3,4,5,6,7,8,9,0
+:COM '                   Янваpь  1992
+:text
+  Мес=jan
+  День=today1
+:start
+ setup
+ load Мес
+ window 2
+ load День
+ window 1
+' setup
+' Январь
+:point Мес,5,5,1
+'                  load Мес
+                  window 2
+                  load День
+                  go 1
+                  find '▒01
+:point Мес,6,5,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒02
+:point Мес,7,5,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒03
+:point Мес,8,5,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒04
+:point Мес,9, 5,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒05
+:point Мес,3, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒06
+:point Мес,4, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒07
+:point Мес,5, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒08
+:point Мес,6, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒09
+:point Мес,7, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒10
+:point Мес,8, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒11
+:point Мес,9, 8,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒12
+:point Мес,3,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒13
+:point Мес,4,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒14
+:point Мес,5,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒15
+:point Мес,6,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒16
+:point Мес,7,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒17
+:point Мес,8,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒18
+:point Мес,9,11,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒19
+:point Мес,3,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒20
+:point Мес,4,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒21
+:point Мес,5,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒22
+:point Мес,6,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒23
+:point Мес,7,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒24
+:point Мес,8,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒25
+:point Мес,9,14,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒26
+:point Мес,3,17,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒27
+:point Мес,4,17,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒28
+:point Мес,5,17,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒29
+:point Мес,6,17,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒30
+:point Мес,7,17,1
+                  window 2
+                  load День
+                  go 1
+                  find '▒31
+:POINT Мес,11,1,7
+     USE today2
+:POINT Мес,11,19,7
+     USE today12

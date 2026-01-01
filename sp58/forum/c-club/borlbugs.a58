@@ -1,0 +1,1062 @@
+
+
+
+	Name:		Turbo-C++ bug list (bug-list-version 1.01.8)
+
+	Products:	Borland Turbo-C++ 1.00
+			Borland Turbo-C++ 1.01
+			Borland Borland-C++ 2.00
+
+	Author:		Marshall P. Cline
+			ECE department
+			Clarkson University
+			Potsdam, NY  13676
+
+	Voice:		315-268-3868
+	Secretary:	315-268-6511
+	FAX:		315-268-7600
+
+	Internet:	cline@sun.soe.clarkson.edu
+	Alternate:	bh0w@clutx.clarkson.edu
+	Bitnet:		BH0W@CLUTX
+	UUnet:		uunet!clutx.clarkson.edu!bh0w
+
+	Copyright:	The Author releases this to the Public Domain
+
+	NO WARRANTY:	This list is distributed with NO WARRANTY WHATSOEVER.
+			It is NOT guaranteed that this information is free
+			from error; parts of this were donated by others, etc.
+
+	Availability:	This is freely available via anonymous ftp
+			from: sun.soe.clarkson.edu [128.153.12.3]
+			in the file: ~ftp/pub/Turbo-C++/bug-report
+
+	Without FTP:	You can also get it by sending electronic mail:
+				To: archive-server@sun.soe.clarkson.edu
+				Subject: send pub/Turbo-C++/bug-report
+			This will help those who don't have ftp.
+
+	Revisions:	BugList-Date	BugList-Version
+			11 Jun 90	1.00.1
+			09 Aug 90	1.00.2
+			14 Aug 90	1.00.3
+			29 Aug 90	1.00.4
+			20 Sep 90	1.00.5
+			14 Nov 90	1.01.1 (some TC++ v.1.01 info added)
+			21 Nov 90	1.01.2 (some responses from Borland)
+			26 Nov 90	1.01.3
+			30 Nov 90	1.01.4
+			17 Dec 90	1.01.5
+			31 Dec 90	1.01.6 (the last of the 1990 versions!)
+			05 Mar 91	1.01.7 (beginning of the 2.0 comments)
+			09 Apr 91	1.01.8
+
+Copyright:
+  This file is PUBLIC DOMAIN (including the contained code fragments).
+  That means no one (including myself) can restrict its use/distribution.
+  In particular, you can't copyright it.  No one can.  Not even me.
+
+Contributions:
+  If you have a TC++ bug to report, please email to the above addresses.
+  But please try to find/send a work-around to the problem/bug.
+  Also please explicitly state that your comments/code are public domain.
+
+The ``Borland says'' comments are from:
+  borland/long.messages #27, from lbenner, 9387 chars, Fri Nov  9 18:58:20 1990
+  TITLE: Borland's Comments to Emartinson's Bug List
+  Borland has added comments to the items listed in this file
+  originally posted as #25 from emartinson.
+  Lori Borland
+
+Coordination:
+  Starting with bug-report version 1.01.7, I've changed the format some.
+  New bugs now appear at the top of the list.  This will make it easier for
+  `old' readers to get a quick update.
+  Also, `missed features' and other `non-serious' problems are moved to the
+  bottom of the list.
+
+
+######### ######### ######### ######### ######### ######### ######### #########
+######### #########  Bug report version 1.01.8 starts here  ######### #########
+######### ######### ######### ######### ######### ######### ######### #########
+
+Bug-report: 1.01.8
+Severity:   Not a bug, but something to be careful of...
+Workaround: Several given
+Versions:   2.0 and before
+Thanks to:  Jamshid Afshar <jamshid@emx.utexas.edu>
+Also to:    Sidney Markowitz <sidney@borland.com>
+
+`abort()' calls `_exit(3)', which does NOT close files.  This behavior is
+allowed by ANSI C, but the results can be rather surprising.  Ex: compile
+the following VROOM program with ``bcc -ml -Yo main.cpp ovl.cpp'':
+
+	// main.cpp
+	#include <dos.h>
+	void f();
+	int main() { _OvrInitExt(0,0); f(); return 0;}
+
+	// ovl.cpp
+	#include <stdlib.h>
+	#include <iostream.h>
+	void f() { cerr << "f() called\n"; abort(); }
+
+Since `abort()' is called from inside an overlay, a 16K XMS file handle is
+left allocated after yor get your DOS prompt back.  The *behavior* is like
+a memory leak, so it is probably undesirable (though still `legal' in the
+ANSI-C sense).
+
+Workarounds:
+* Call exit(3) instead of abort() so the cleanup routines are called and
+  VROOMM's handles are released.
+* Write your own `myabort()' which calls exit(3) instead of _exit(3).
+* Modify the defn of `abort()' to call exit(3) instead of _exit(3).  [the
+  defn of abort() is in c0.asm].
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: 1.01.8
+Severity:   Default class-object params don't mix with precompiled headers
+Workaround: Several provided below
+Versions:   2.00
+Thanks to:  Tony Hodgson / ahodgson@hstbme.mit.edu
+
+	//File Bar.h:
+		class Foo { public:  Foo() { } };
+		class Bar { public:  Bar(Foo f = Foo()) { } };
+	//File main.cpp:
+		#include <iostream.h>
+		#include "Bar.h"
+		main()
+		{
+		  Bar b;
+		  cout << "Done.\n";
+		}
+
+* If one builds this program with precompiled headers ON, it runs fine.
+* If you then touch main.cpp and recompile, the .obj and .exe files have
+  a different size and the program crashes your system when you run it.
+* This happens in the IDE under any memory model and regardless of the 
+  state of the DEBUG INFO IN OBJ option.
+* If the Bar ctor is changed to ``Bar::Bar(int b=1)'', all works fine.
+* The bug doesn't show up on top-level functions; ex:  void f(Foo f = Foo());
+
+Workarounds:
+(1) Turn precompilation off  :-(
+(2) Construct a static *object* of class `Foo()', and use that *object* as
+    an initializer.
+
+
+######### ######### ######### ######### ######### ######### ######### #########
+#########      Bug report version 1.01.7 and earlier starts here      #########
+######### ######### ######### ######### ######### ######### ######### #########
+
+Bug-report: 1.01.7
+Severity:   istream::getline(char* buff, int maxlen, char delim) keeps the '\n'
+Workaround: Provided below
+Versions:   1.00 and 1.01
+Fixed in:   Fixed in 2.0
+Thanks to:  Michael Schwartz/U.Denver/New College/mschwartz@diana.cair.du.edu
+
+Typical scenario:
+	char buffer[100];
+	cin.getline(buffer, 100);
+
+istream::getline(char* buffer, int maxlen, char delim='\n') copies the delim
+(usually '\n') into the buffer.  This is non-standard.  Early drafts of the
+upcoming ANSI-C++ standard show that conforming implementations must extract
+the '\n' from the istream, but *not* insert it into the buffer.
+
+A workaround would be to redefine getline(char*,int,char) so it calls
+get(char*,int,char), then calls ignore() to eat the delim char.  Ex:
+	class istream .... {
+	  //...
+	  istream& get(char* buff, int lim, char delim='\n')
+	     { get(buff, lim, delim); ignore(); }
+	  //...
+	};
+This is technically incorrect due to the fact that a conforming implementation
+will leave the `delim' char in the stream if it appears when *exactly* `lim'
+chars have already been read.  A more complicated version could handle this by
+checking ``istream::gcount()''.  The above also has the problem of when `lim'
+is reached by `get()' in that it eats the `lim+1' char in `ignore()'.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: 1.01.7
+Severity:   The `placement new' operator is missing from <new.h>
+Workaround: Provided below
+Versions:   <new.h> was introduced in 2.0
+            If you have a 1.xx compiler, use my <new.h> replacement below
+
+There is no `placement new' in <new.h>.  This is one of the main reasons to
+include <new.h>, so it its omission is unfortunate.
+
+To fix it, add the following line to <new.h>:
+
+	void _FAR* operator new(unsigned, void _FAR* place) { return place; }
+
+The `unsigned' should be `size_t' in a portable <new.h>, but Borland chose
+to use `unsigned' rather than to #include another header to get `size_t'.
+
+For pre-2.0 users, the rest of <new.h> is given in another bug-report below.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: 1.01.7
+Severity:   Memory limitation error in the `README'
+Workaround: Get more memory :-)
+Versions:   2.0
+
+The `README' says:
+>	Pg. 158  In the first paragraph it says you need at least 576k of
+>	         extended memory. The correct amount is 320k.
+
+But an actual test of `bccx test.cpp' on my 1MB machine reveals:
+>	Error:  384 KB of extended memory is available, but 450 KB is required.
+
+
+######### ######### ######### ######### ######### ######### ######### #########
+#########      Bug report version 1.01.6 and earlier starts here      #########
+######### ######### ######### ######### ######### ######### ######### #########
+
+Severity:   Missing header file
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+Fixed in:   Fixed in 2.0
+
+There is no <new.h>.  I constructed the following work-alike.  It should go
+into your standard include directory (where <iostream.h> is, for example):
+	// new.h
+	// Author: Dr. Marshall Cline/ECE Dept/Clarkson Univ/Potsdam,NY 13676
+	// Email: cline@sun.soe.clarkson.edu
+	// Phone: Voice: 315-268-6511; Fax: 315-268-7600
+	// Copyright: The Author releases this to the Public Domain, 9-July-90.
+	// Date: 9-July-1990
+	// Please include these acknowledgements when distributing this file
+	#ifndef __NEW_H
+	#define __NEW_H
+	#ifndef _SIZE_T
+	#define _SIZE_T
+	typedef unsigned size_t;
+	#endif
+	void*  operator new(size_t size, void* ptr);
+	// _new_handler is a ptr to a parameterless function returning void
+	extern void (*_new_handler)();
+	void (*set_new_handler(void (*replacement_handler)()))();
+	#endif __NEW_H
+
+Borland says:
+   NEW.H is NOT defined by AT&T 2.0 C++ specs.  The contents
+   were in C++ specs 1.2 and is making a comeback in the 
+   upcoming ANSI C++ spec. We do have the underlying code, ie 
+   _new_handler support, but it is not documented. It would be 
+   nicer to use a typedef for the void function pointer, for the 
+   above work-around.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: modified in 1.01.8
+Severity:   Serious bug in iostreams
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+Fixed in:   2.0
+
+Bug in istream: an extremely common C++ main input loop is something like:
+		while (cin >> chunk) chunk.do_something();
+This works under the condition that istream::operator void* returns 0 (false)
+after the input stream reads past EOF (or encounters an error).  TC++'s
+iostream.h is consistent with its documentation [programmer's guide p.183] in
+stating that this operator returns 0 only when istream::fail() is true (when
+failbit, badbit or hardfail are set), but unfortunately `fail' doesn't get
+set after you've read past EOF.  The correct operation is to return 0 (false)
+on the read after you've run into EOF as well [Lippman p.384], which CAN BE
+accomplished by the _bad bit being set when seeking past end-of-file [Lippman
+p.402].  This can be fixed by changing "ios::operator void*()" in <iostream.h>
+as follows:
+	inline _Cdecl ios::operator void* ()
+	{ return (state & (eofbit|failbit|badbit|hardfail)) ? 0 : this; }
+NB: the `official' (if there is such a thing in these pre-ANSI-C++ days)
+behavior of istream::operator>> isn't clear.  I've discussed this matter with
+both Borland, as Rob Murray, who is in charge of certain C++ libraries inside
+AT&T, and no one is yet sure what is really ``supposed'' to happen.  The
+above patch (checking the eofbit) appears to work correctly, but it may be
+that a more comprehensive solution is eventually in order.  In any event, most
+people's code doesn't run around checking individual bits inside an ios, so
+the above is probably `safe'.
+
+Borland says:
+   Although this code happens to work in AT&T's CFRONT
+   implementation of C++, there is no documentation stating how 
+   this code should operate. To test for EOF we recommend 
+   breaking the statement down ie ifstream joe;
+	while (!joe.eof())
+	{
+	  joe >> ch;
+	} 
+
+UPDATE!  The ANSI-C++ streams spec will insist that the ``while(cin>>chunk)''
+idiom works.  Borland C++ 2.0 gets it right.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: 1.00.1
+Severity:   Serious bug in code generator
+Workaround: Provided below
+Versions:   Only in TC++ 1.00
+Fixed-in:   1.01
+
+There is an error in TCC that isn't in TC (they generate different code).
+[Borland is as surprised that they'd behave differently as I was; I'd imagine
+the internals are identical, and this assumption has be confirmed by Borland].
+When a virtual fn is called from a non-virtual inline member, the virtualness
+of the call vanishes.  Compile the following with `tcc -vi':
+        #include <iostream.h>
+        class B {
+        public:
+          virtual void virt();
+          void nonvirt() { cout << "B::nonvirt() calling "; virt(); }
+        };
+        class D : public B {
+        public:
+          void virt();
+        };
+        main()
+        {
+          D d;
+          (&d)->nonvirt();  // B::nonvirt() should call D::virt()
+          d.nonvirt();      // ditto
+        }
+        void B::virt() { cout << "B::virt()\n"; }
+        void D::virt() { cout << "D::virt()\n"; }
+Unfortunately both of these call B::nonvirt().
+Ie:Both d.nonvirt() & (&d)->nonvirt() translate to "call near ptr @B@virt$qv".
+Obviously these should be virtual function calls.  This is a serious error, as
+calling a virtual from a non-virtual is fairly common.  Note: if B::virt() is
+a pure virtual (another legal operation, but perhaps not as common), the call
+to "@B@virt$qv" generates a linker error (there is no B::virt()!).  If
+B::nonvirt() is a regular (non-inline) function (either by moving it out of
+the class, or by `-v' or `-vi-'), TCC generates the correct code.  Strangely
+enough, TC appears to *always* generate the correct code.
+
+Borland says:
+	TRUE, and fixed as of version 1.01.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Serious illegal naming of header file
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01, and in BC++ 2.0
+
+The 1.2 streams package (called <stream.h>) is nice, however AT&T treats the
+inclusion of <stream.h> as an alias to <iostream.h>.  Therefore you should
+rename it from <stream.h> to <oldstream.h>, and let <stream.h> simply be:
+		#include <iostream.h>
+It is notable that a number of posters on comp.lang.c++ have been confused by
+including <stream.h> thinking they were getting <iostream.h>...
+
+Borland says:
+   TRUE, but this is a 2.0 implementation and have included
+   oldstreams as an added feature.
+
+My response:
+   Including `old' streams was nice, since it will give users a chance to
+   compile old code.  Thank you.  However the header file name <stream.h> is
+   reserved, and should not be used as a method to include 1.2 streams:
+	``The stream.h include directive continues to be supported.
+	  It is treated as an alias for the iostream.h header file.''
+				[Lippman, `C++ Primier,' A/W, 1989, p.372]
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   <This one may not be a bug at all; read the disclaimer>
+Workaround: Provided below
+Versions:   ??
+Disclaimer: I haven't reproduced this bug, and Borland wasn't able to either
+Thanks to:  Zerksis Umrigar/umrigar@bingvaxu.cc.binghamton.edu/SUNYBinghamtonNY
+
+TC++ signals a compiler error when the LAST default parameter for a constructor
+is initialized by a constructor for some other class.  A workaround is to add
+an extra dummy default parameter of some predefined type like int.  Ex: if A
+and B are classes, then:
+
+This will be an error:		A::A(B b = B(...));
+But this is ok:			A::A(B b = B(...), int dummy=0);
+
+Borland says:
+   Could not reproduce.
+
+Response:
+   Please let me know if anyone else can reproduce this.  If it was a fluke in
+   the particular program (or a wild pointer that trashed the code), I would
+   like to remove this entry from the list PRONTO.  Thanks.  M.Cline.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Serious bug in code generator
+Workaround: None provided
+Versions:   Occurs in TC++ 1.00; Borland says it's fixed in 1.01
+Thanks to:  Jamshid Afshar/jamshid@ccwf.cc.utexas.edu
+
+When an object is created as a side effect of an expression, and the expression
+is short-circuited, the destructor for the object seems to get called anyway.
+Ex: compile this with `tcc -vi-':
+	extern "C" int rand();
+	#include <iostream.h>
+	class X {
+	  int xyz;
+	  int pqr;
+	public:
+	  X   create_copy_of_X() { return *this; }	//Return *BY VALUE*
+	      X();
+	      X(const X&);
+	  int whatever();
+	      ~X();
+	};
+	void f();
+	void g();
+	main()
+	{
+	  X x;
+	  if (rand()==0 && x.create_copy_of_X().whatever()) f(); else g();
+	}
+	void f() { cout << "yes\n"; }
+	void g() { cout << "no\n"; }
+	X::X() : xyz(rand()), pqr(rand())
+	        { cout << "constructing an X at " << ((void*)this) << "\n"; }
+	X::~X() { cout << "destructing an X at " << ((void*)this) << "\n"; }
+	X::X(const X& x) : xyz(x.xyz), pqr(x.pqr)
+	        { cout << "copying an X from " << ((void*)&x) <<
+	                                " to " << ((void*)this) << "\n"; }
+	X::whatever() { return rand(); }
+At the close of main() (in fact, before `f()' is even called), TC++ calls a
+destructor on the copy of `x' even though the copy was never constructed.
+
+Borland says:
+        True.  Fixed in v1.01
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Serious bug in code generator
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+
+An explicit 2-parameter ctor in a by-value return statement is sometimes very
+useful in practice.  Ex: a string concatenation operation, as it is typically
+implemented, uses much too much CPU; ex:
+	class String {
+	  char* data;
+	  int   len;
+	  friend String operator+(const String& A, const String& B);
+	public:
+	  String(const char*);
+	  //...
+	};
+	String operator+(const String& A, const String& B)
+	{
+	  /*line-1*/ char* mem = new char[A.len + B.len + 1];
+	  /*line-2*/ strcpy(mem, A.data);
+	  /*line-3*/ strcat(mem, B.data);
+	  /*line-4*/ String ans = mem;
+	  /*line-5*/ delete mem;
+	  /*line-6*/ return ans;
+	} /*line-7*/
+Couting freestore operations: line 1 uses a `new', line 4 uses a `new', line
+5 uses a `delete', line uses string's copy ctor which uses another `new', and
+line 7 `delete's the temporary string `ans'.  Final score: 3 new, 2 delete's.
+A smart compiler will construct `ans' in the location of the return value,
+which will reduce this to 2 new's and 1 delete.  But a simple strategy can
+reduce it even further to 1 `new' and zero (0) delete's (even if the compiler
+isn't very smart):
+	class String {
+	  char* data;
+	  int   len;
+	  friend String operator+(const String& A, const String& B);
+	  String(char* _data, int _len) : data(_data), len(_len) { }
+	public:
+	  String(const char*);
+	  //...
+	};
+	String operator+(const String& A, const String& B)
+	{
+	  /*line-1*/ char* mem = new char[A.len + B.len + 1];
+	  /*line-2*/ strcpy(mem, A.data);
+	  /*line-3*/ strcat(mem, B.data);
+	  /*line-4*/ return String(mem, A.len + B.len);
+	} /*line-5*/
+The private constructor String::String(char*,int) is what I call a `trust-me'
+ctor.  Ie: it is only usable by trusted routines, which I enforced by making
+it private.  It just creates a String by copying the *pointer* & the length.
+The pointer is *assumed* to be a pointer allocated by `new char[...]', since
+``String::~String()'' will `delete' the pointer.  Furthermore the `length' is
+assumed to be correct.  Final score: there's only ONE `new' in operator+ (on
+line 1) and ZERO `delete' operations.  There are no dangling pointers, and no
+memory `leaks'.  Ok, now to TC++'s problem:
+  Line 4 [[``return String(mem, A.len + B.len);'']] is interpreted by TC++ to
+mean ``construct the return value right on the stack'' (ie: not a temporary
+object, but the actual return location).  TC++ does the right thing by not
+creating a temporary, otherwise it would have to copy to the return location
+and then `destruct' the temporary.  HOWEVER, TC++ then goes ahead an treats
+the constructed object as if it *were* a temporary, and it tries to copy it
+to the return location, which is where it already is!  Thus the copy ctor is
+called with `this' pointing to *itself*.  This is disasterous if copy ctor
+allocates memory; Ex:
+	String::String(const String& S)
+	{
+	  data = new char[S.len+1];	//If &S == this, changes S.data also!!
+	  strcpy(data, S.data);		//Copy GARBAGE into itself
+	  len = S.len;
+	}
+
+WORKAROUND #1: put an explicit ``if (this == &S)'' test at the head of the
+copy ctor (credit for this clean and effective solution goes to Stephen
+Bellantoni, sjb@cs.toronto.edu).  Ex:
+	String::String(const String& S)
+	{
+	  if (this == &S) return;	//Protect against TC++ 1.00 & 1.01 bug
+	  data = new char[S.len+1];	//If &S == this, changes S.data also!!
+	  strcpy(data, S.data);		//Copy GARBAGE into itself
+	  len = S.len;
+	}
+Naturally this won't work for those things that need an initialization list,
+but for things that have identical semantics for assignment as for copy-ctor,
+this should suffice.
+
+WORKAROUND #2: If there's a one-parameter ctor that will automatically convert
+to the return value, then you don't need an explicit constructor in the return
+stmt.
+
+WORKAROUND #3: If you need a more-than-one parameter ctor (ex: ``return
+complex(re,im)'', then you can construct a temporary and return the temporary
+by value.  Ex:
+	complex foo()
+	{ //...
+	  complex my_return_value = complex(re, im);
+	  return  my_return_value;
+	}
+Unfortunately workaround #3 won't be as fast since it requires an extra copy
+ctor and the temporary (``my_return_value'') has to be `destructed'.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Probably the same serious bug in code generator as above
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+Thanks to:  Jamshid Afshar <jamshid@emx.utexas.edu>
+
+The above explicit 2-parameter ctor in a by-value return statement is
+apparently part of a bigger pattern.  The problem appears to be that a
+by-value return statement always calls the copy constructor to copy the
+returned object back into the caller's frame.  However when the returned
+expression is already constructed in the caller's frame, this causes a `copy
+to self'.
+
+Basically then, whenever the returned object from a return-by-value function
+is constructed right inside the `return' statement, this will copy the object
+to itself.  Fortunately this doesn't always cause problems.  Ex: copying a
+complex number to itself will simply copy the real and the imaginary parts to
+themselves, which won't change a thing.  However the String example above
+shows how it can be disastrous.
+
+The following demonstrates this more general pattern:
+
+#include <iostream.h>
+#include <stdlib.h>
+class X {
+  int x;
+public:
+  X() : x(1) { }
+  X(const X& f);
+};
+X::X(const X& f) : x(f.x)
+{ if (this==&f) {cout << "Copying an object to itself!!" << endl; abort();} }
+
+X bar() { X x; return x; }  // create temp local X, then copy it back to caller
+X foo() { return bar();  }  // return a return value; copies to itself; BOOM!
+main()  { X x = foo(); return 0; }
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Serious problem with ifstreams
+Workaround: Provided below
+Versions:   1.00 and 1.01
+Fixed in:   2.0
+Thanks to:  Joseph Puglielli, Santa Barbara, CA
+Also to:    Michael Schwartz/U.Denver/New College/mschwartz@diana.cair.du.edu
+
+	#include <fstream.h>
+
+	class InFile {
+	  ifstream ifs;
+	public:
+	  InFile(const char* filename);
+	  //...
+	};
+
+	#if 1
+	InFile::InFile(const char* filename) : ifs(filename) { }      //Works
+	#else
+	InFile::InFile(const char* filename) { ifs.open(filename); }  //Fails
+					//This fills the buffer with garbage!
+	#endif
+
+The basic problem appears to be that fstreambuf::open(const char*) is
+unreliable.  Use the constructor version instead.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   ??
+Workaround: Provided below
+Versions:   ??
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Scott Schram / 72561,207 on compuserve / sshram on BIX:
+
+When you compile with -N (stack checking ON), TC++ declares _stklen at the
+first function definition (when it emits code to do the stack-overflow check).
+The only way you can use it to extend the stack is to include <dos.h> *BEFORE*
+your first function definition.  Ex: this will fail:
+	int a(void) { return 0; }  // Implicitly causes _stklen to be declared
+	unsigned _stklen = 20000;  // This *RE*-declares _stklen...
+	main() { a(); return 0; }
+Instead use this:
+	#include <dos.h>           // EXPLICITLY declares _stklen
+	int a(void) { return 0; }  // Implicitly causes _stklen to be declared
+	unsigned _stklen = 20000;
+	main() { a(); return 0; }
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Limitation of the preprocessor
+Workaround: None provided
+Versions:   ??
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Kevin Routley - Digital Equipment Corp, routley@tle.enet.dec.com
+
+MACRO EXPANSION LIMIT
+
+The limitation of 4096 characters for a macro expansion is too small for
+non-toy programs. This can prevent Turbo C++ from being used as a development
+environment for large programs. Ideally a macro expansion should only be
+limited by the compiling machine's memory (if that, using memory swapping).
+
+As an example, multiple data structures can be easily and conveniently
+initialized from a single instance of the entered information (illustrated in
+Example 2. If table_data contains more than a few lines with more than a
+couple of items, and the author uses spaces to insure readibility, you can
+easily exceed the 4096 character limit.
+
+EXAMPLE:  STRUCT INIT. FROM A SINGLE SET OF DATA
+	/* setup the data to init all the structures with */
+	#define table_data					\
+	X( "text1",    0,    CONST1, 1, 1, 0,     struct1, 1 )	\
+	X( "text1234", 0, CONST1234, 1, 1, 0,     struct2, 1 )	\
+	 . . .							\
+	X( "text99",   0,   CONST99, 0, 0, 0, structure99, 0 )
+	
+	/* setup the macro to init table1. Only some of the fields are used.*/
+	#define X (string, foo, bar, fum, foobar, dataptr, flag )\
+	 { foo, bar, fum, flag }
+	/* table1 is an array of structs, each with four int fields*/
+	table1[MAX_TABLE] = { table_data };
+	#undef X
+	
+	/* setup a different macro to init table2. */
+	/* Different fields are used this time.    */
+	#define X (string, foo, bar, fum, foobar, dataptr, flag )\
+	 { flag, string }
+	table2[MAX_TABLE] = { table_data };
+	#undef X
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Inconsistency w/ C language defn of unsigned'ness of short and int
+Workaround: None provided
+Versions:   1.00 and possibly 1.01
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Leonid A. Broukhis <leo@s514.ipmce.su>
+            Inst Prec Mech&Comp Equip, Moscow, USSR
+
+X/OPEN part 4, C Language definition, 2.5.5, 2.5.6.1, 2.5.6.6
+defines the type conversion rules as follow:
+ 2.5.5 Unsigned
+ Whenever an unsigned integer and a plain integer are combined, the plain int
+ is converted to unsigned and the result is unsigned. ... In a 2's complement
+ representation, this conversion is conceptual; there is no actual change in
+ the bit pattern.
+ 2.5.6 Arithmetic Conversions
+ 1. Any operands of type char or short are converted to int, and any operands
+ of type unsigned char or unsigned short are converted to unsigned int.
+ 6. [ Otherwise ], if either operand is unsigned, the other is converted to
+ unsigned and that is the type of the result.
+
+Ex: The following two programs work differently:
+ main() {int i=3; unsigned int   u=0xffff; if (u<i) puts("!!");} //no output
+ main() {int i=3; unsigned short u=0xffff; if (u<i) puts("!!");} //outputs `!!'
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: 1.01.8
+Severity:   Makefile produced by PRJ2MAK still needs some manual editing
+Workaround: Provided below
+Versions:   2.0
+Thanks to:  Joe Dubner/HP/Spokane WA 99220/509-921-3514/dubner@hpspkla.hp.com
+
+[[NOTE THAT THIS IS A DIFFERENT BUG FROM THE VERSION 1.01 PRJ2MAK BUG BELOW]]
+
+The makefile that PRJ2MAK version 2.0 produces includes a spurious "/o" flag.
+This is an excerpt from the Makefile that PRJ2MAK produced from a .PRJ file:
+     #		*Explicit Rules*
+     pn.exe: pn.cfg $(EXE_dependencies)
+       $(TLINK) /v/x/c/d/o/P-/L\BC\LIB @&&|
+     /o- c0h.obj+
+
+Note that the "/o" option in the TLINK line is incorrect.  "/o" means "overlay
+the following modules or libraries", but there is no module or library
+following the "/o"; there's just another cmd line option.  TLINK fails with:
+     Fatal: Unable to open file 'p- Pc$;Y]UJZ'   (edited somewhat)
+
+The workaround is to edit the makefile produced by PRJ2MAK and delete the "/o"
+in the TLINK line.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Bug-report: modified in 1.01.8
+Severity:   Makefile produced by PRJ2MAK may need some manual editing
+Workaround: Provided below
+Versions:   1.01
+Fixed in:   2.0
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Joe Dubner/HP/Spokane WA 99220/509-921-3514/dubner@hpspkla.hp.com
+
+[[NOTE THAT THIS IS A DIFFERENT BUG FROM THE VERSION 2.0 PRJ2MAK BUG ABOVE]]
+
+The makefile that PRJ2MAK version 1.01 produces doesn't include the overlay
+manager library in overlayed projects.  TLINK then fails with:
+     Warning: Overlays generated and no overlay manager included
+
+Similar errors appear for undefined symbols that are referenced in the code
+(ex: __OvrInitExt and __OvrInitEms).
+
+A suitable workaround appears to be to edit the makefile to include:
+     \tc\lib\overlay.lib+
+in the linker section, just prior to linking the fp87.lib or emu.lib library.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Uncommon bug in the parse of:  delete [num] (ptr-expr)
+Workaround: Provided below
+Versions:   1.00 and possibly 1.01
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Bradley Keister/Physics Dept/Carnegie Mellon U
+	    keister@poincare.phys.cmu.edu
+
+The following is ++ified code from Numerical Recipes:
+	double* get_vector(int nl, int nh)
+	  { double* v;  v = new double[nh-nl+1];  return v-nl; }
+	void free_vector(double* v, int nl)
+	  { delete[4](v+nl); }
+	    ^^^^^^^^^^^^^^^
+TC++ gives error: "Too few params in call to 'delete(void far*, unsigned int)'"
+Replacing it with "delete v+nl;" gives "Value of type void is not allowed..."
+Replacing it with "delete v;" will cause TC++ to not complain, though `v' must
+then be bumped by hand with an extra step, and then it will generate incorrect
+code if `p' points to an object whose class has a destructor (``delete[]p''
+and ``delete p'' are different --- see ARM p.64-65).  The workaround is:
+	void free_vector(double* v, int nl)
+	  { v += nl; delete [4] v; }
+Though naturally the 4 (----^^^----) will have to be replaced with something
+more meaningful.  When TC++ becomes compliant with C++ 2.1, we can just say:
+	void free_vector(double* v, int nl)
+	  { v += nl; delete [] v; }
+Hopefully by then the bug will be fixed, and we'll be able to simply say:
+	void free_vector(double* v, int nl)
+	  { delete [] (v+nl); }
+
+PS: the original example compiles under cfront.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   The effects of this bug will show up randomly :-)
+Workaround: Repair stdlib.h as indicated below
+Versions:   1.00
+Fixed in:   1.01
+Thanks to:  Jim Seymour [qintar@agora.UUCP, qintar@agora.rain.com]
+	    Cipher Systems Inc, PO Box 329, North Plains, OR  97133
+Also to:    George Theall/SSWS14@penndrls.upenn.edu/SSWS14@penndrls.bitnet
+            Social Sci Computing/Univ Penn/Philadelphia, PA 19104/215-898-3419
+Also to:    Per Westermark/Dept of inf.proc./University of Umea, Sweden
+            mapwk@cs.umu.se
+
+`random(int)' is an inline function [C++] and a macro [C] that produces a
+random num from 0 to N-1.  It's defined in <stdlib.h> as:
+
+#ifdef __cplusplus
+inline int _Cdecl random(int __num) { return (int)(((long)rand()*__num)/RAND_MAX); }
+#else
+#define random(num)     (int)(((long)rand()*(num))/RAND_MAX)
+#endif
+
+This definition is wrong, as `random(n)' occasionally returns large numbers.
+The solution is to replace ``RAND_MAX'' by ``((unsigned)RANDMAX + 1)''.
+Ie: replace the above definitions with (hold on to your hat!):
+
+#ifdef __cplusplus
+inline int _Cdecl random(int __num) { return (int)((long)rand()*__num)/(unsigned(RAND_MAX)+1); }
+#else
+#define random(num)     (int)(((long)rand()*(num))/((unsigned)RAND_MAX+1))
+#endif
+
+Note that I used ``unsigned(RAND_MAX)'' in the C++ version (just for fun :-).
+
+
+######### ######### ######### ######### ######### ######### ######### #########
+#########   Missed features and other non-serious bugs start here     #########
+######### ######### ######### ######### ######### ######### ######### #########
+
+Severity:   Non-serious incompatibility in rarely used header file
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+Thanks to:  Pete Humphrey / pete@edsr.eds.com / 505-345-1863
+            EDS Research / 5951 Jefferson Street NE / Albuquerque NM 87109-3432
+
+<generic.h>: Instead of using the usual "name2" style macros, Borland
+invented their own set of macros for concatenating pieces of names.  Any code
+using the Stroustrup-style macros (eg. code compatable with g++, CC, or
+Zortech C++) will break.  A work-around is to stick the following on the
+bottom of your <generic.h>:
+			#define name2 _Paste2
+			#define name3 _Paste3
+			#define name4 _Paste4
+
+Borland says:
+     TRUE.  As to why . . . copyright issues.
+
+My response:
+	I hope that doesn't mean every compiler will be forced to use
+	its own (unique and non-portable) naming scheme!
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Not serious
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+
+Several classlib\include\*.h have #include "foo.h" rather than <foo.h>.
+This will only cause a problem if you have an indentically named header file
+in your current working directory (#include "file.h" starts in current dir,
+then searches the "standard places"; <file.h> only searches standard places).
+Note that TC++ by default doesn't find the classlib header files; if you want
+it to, add the line to turboc.cfg:  -IC:\TC\CLASSLIB\INCLUDE
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Not serious inconsistency in classlib's header files
+Workaround: Provided below
+Versions:   1.00
+Fixed in:   1.01
+
+Some include files have #ifndef __FILENAME_H, others have #ifndef _FILENAME_H.
+(inconsistent #leading underscores).  See for example sortable.h vs set.h, etc.
+
+Obviously this won't cause any problems; it's just an inconsistency that could
+be corrected as time permits.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Bug in support tool
+Workaround: Put a copy of builtins.mak in your current working directory
+Versions:   Occurs in both TC++ 1.00 and 1.01
+[Borland says 1.01 fixed this, but my 1.01 still exhibits this behavior]
+
+`make -n' looks for and reads `builtins.mak' ONLY if it's in the current dir.
+Naturally this is a bug, since make can't give an accurate picture of what a
+real `make' would do without the macros and implicit rules in `builtins.mak'.
+
+>Craig Orsinger/craig@slovax.wa.com/R&DAssoc/3625 Perkins L SW/Tacoma,WA 98499:
+>This also happens if you call "make" from your makefile. I don't know if this
+>occurs if the makefile and "make" program are on the same disk partition, but
+>it definitely does when they are not. My work-around was to use the new
+>"search path" feature of make to tell it where the "builtins.mak" file is.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Not serious
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+
+<iostream.h> always includes <mem.h> which slows compilation some.  In fact
+<iostream.h> doesn't need `NULL', and only needs memcpy() if _BIG_INLINE_ is
+defined, which will probably be rare.  Therefore the line
+        #include <mem.h>        // to get memcpy and NULL
+can be replaced with:
+        #ifdef _BIG_INLINE_
+        #include <mem.h>        // to get memcpy
+        #endif
+Since nearly everything includes <iostream.h>, and since relatively few things
+will want _BIG_INLINE_, this should be a winner.  Note however that some code
+might assume <iostream.h> pulls in <mem.h>.
+
+Borland says:
+   iostream.h is big and slow to compile.  Other speedups are to
+   remove all the comments from the file.  This speeds up 286 
+   machines.
+
+My response:
+   If you know iostream.h is big and slow to compile, why should you make
+   it approx 10% bigger and slower?
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Non-serious bug in header file
+Workaround: Provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+
+<iomanip.h> needs <iostream.h> but doesn't get it.  Add this to <iomanip.h>:
+        #ifndef __IOSTREAM_H
+        #include <iostream.h>
+        #endif
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Non-serious missed feature in integrated environment
+Workaround: None provided
+Versions:   ??
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Kevin Routley - Digital Equipment Corp, routley@tle.enet.dec.com
+
+TC.EXE DISPLAY CUSTOMIZATION
+
+I am unable to customize the colors of the integrated environment so that they
+display reasonably on my monochrome VGA monitor.  TCINST has an option "Mode
+for Display". No matter which option I select (e.g. Black and White, or
+Monochrome) to customize TC.EXE to have, I always get the same default color
+display mode when I invoke TC.EXE. The default mode is very difficult to read
+on my monochrome display.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Non-serious error in support tool
+Workaround: Non-detailed workaround provided below
+Versions:   Occurs in both TC++ 1.00 and 1.01
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Mark (M.S.) Lord <MLORD@bnr.ca.bitnet>:
+
+The GREP utility doesn't correctly display its permanent option settings.
+Ex: turn on the UNIX-style option and then display the options.
+The problem should be immediately obvious.
+
+You can patch the GREP.EXE by locating the table of screen offsets used
+internally for this purpose.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Missed feature
+Workaround: None
+Versions:   Occurs in both TC++ 1.00 and 1.01
+
+TCCNVT.EXE (the configuration file converter) isn't in the distribution.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Non-serious missed feature
+Workaround: None provided
+Versions:   Occurs in both TC++ 1.00 and 1.01
+
+Missed Feature: There is a subtle C++ bug in the code below.  Even though the
+initialization list in String::String(const char*) looks like Len will get
+initialized before s, in fact the initialization order is fixed by the position
+within the class, which is just the opposite.  Thus an arbitrary and
+unpredictable amount of storage will be allocated!  (I put this `missed
+feature' in the `bug' report because TC++ users are used to TC++'s *excellent*
+warnings, and they may be puzzled if the compiler silently accepts code which
+is patently wrong.  For example, TC++ complains about locals that are used
+before they're initialized, and this is an analogous situation.)
+	class String {
+	  char* s;
+	  unsigned Len;
+	public:
+	  String(const char* p);     // char* --> String
+	  //...
+	};
+	String::String(const char* p) : Len(strlen(p)), s(new char[Len+1])
+	{			/////// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	  strcpy(s, p);		/////// Missed feature: TC++ should warn here
+	}			/////// Ex: `Len used before it is initialized'
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Severity:   Non-serious missed optimization
+Workaround: None provided
+Versions:   ??
+Disclaimer: I haven't personally checked this -- MPC
+Thanks to:  Kevin Routley - Digital Equipment Corp, routley@tle.enet.dec.com
+
+BITFIELD OPERATION PERFORMANCE
+
+Bitfield operations are not optimal. See Example 1 for an example program.
+Testing the first bit of a multi-bit bitfield structure is done in 20 (8086)
+cycles with the TEST instruction:
+     TEST    WORD PTR [BP-06], 0001
+The third bit in a multi-bit bitfield structure is testing by performing a
+pair of shift instructions, requiring 25 cycles:
+     MOV    AX, WORD PTR [BP-06]
+     SHR    AX, 1
+     SHR    AX, 1
+     TEST   AX, 0001
+Larger bitfield structures use the multiple shift instruction to test higher
+bits. For example, the eighth bit requires seven shifts and 61 cycles to test:
+     MOV    AX, WORD PTR [BP-06]
+     MOV    CL, 7
+     SHR    AX, CL
+     TEST AX, 0001
+This poor optimization places severe penalties on those programs that might
+choose to use bitfields to store flags instead of char objects. As far as
+space is concerned, it is more efficient to use a bitfield structure for three
+or more boolean flags rather than chars.  The bitwise & operator illustrates
+that all three tests above could have been performed with individ- ual TEST
+instructions (a total of 63 cycles compared to the 106 cycles required by the
+above tests):
+     TEST    WORD PTR [BP-06], 0001
+     TEST    WORD PTR [BP-06], 0004
+     TEST    WORD PTR [BP-06], 0080
+In fact, a series of similar (& or |) operations on bitfield structure
+elements could be optimized to a single TEST instruction.
+
+EXAMPLE BITFIELD PROGRAM:
+	#include <stdio.h>
+	main()
+	 {
+	 struct foo
+	     {
+	     unsigned flag1 : 1;
+	     unsigned flag2 : 1;
+	     unsigned flag3 : 1;
+	     unsigned flag4 : 1;
+	     unsigned flag5 : 1;
+	     unsigned flag6 : 1;
+	     unsigned flag7 : 1;
+	     unsigned flag8 : 1;
+	     } flags;
+	 char lflag1 = 0;
+	 char lflag2 = 1;
+	 char lflag3 = 0;
+	 char lflag4 = 1;
+	 flags.flag1 = flags.flag8 = 1;
+	 if ( flags.flag1 && flags.flag8 && lflag2 && lflag4 )
+	     printf("True\n");
+	 else
+	     printf("False\n");
+	}
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Marshall Cline
+
+PS: If your company is interested in on-site C++/OOD training, drop me a line!
+--
+Marshall Cline / Asst.Prof / ECE Dept / Clarkson Univ / Potsdam, NY 13676
+cline@sun.soe.clarkson.edu / Bitnet:BH0W@CLUTX / uunet!clutx.clarkson.edu!bh0w
+Voice: 315-268-3868 / Secretary: 315-268-6511 / FAX: 315-268-7600
+..
+
+

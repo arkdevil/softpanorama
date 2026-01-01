@@ -1,0 +1,320 @@
+{====================================================================}
+{                              VGA Jokes                             }
+{                      Turbo Pascal 6.0 Library                      }
+{                             Version 1.0                            }
+{====================================================================}
+{             Copyright (c) 1992, 93 by Serge N. Varjukha            }
+{                Estonia, Tallinn. Phone (0142) 666 500              }
+{====================================================================}
+
+{$A+,B-,D+,E-,F-,G-,I-,L+,N-,O-,R-,S-,V-,X+}
+
+unit VgaJokes;
+
+interface
+
+{=================================== Color constants ================}
+const
+  Black        =  0;
+  Blue         =  1;
+  Green        =  2;
+  Cyan         =  3;
+  Red          =  4;
+  Magenta      =  5;
+  Brown        =  6;
+  LightGray    =  7;
+  DarkGray     =  8;
+  LightBlue    =  9;
+  LightGreen   = 10;
+  LightCyan    = 11;
+  LightRed     = 12;
+  LightMagenta = 13;
+  Yellow       = 14;
+  White        = 15;
+  Blink        = $80;
+
+{=================================== Modes constants ================}
+  BW40         =  0;
+  CO40         =  1;
+  BW80         =  2;
+  CO80         =  3;
+  Mono         =  7;
+
+{=================================== Cursor constants ===============}
+  NormCursor   = $0C0D;
+  CgaCursor    = $0607;
+  EgaCursor    = $0C0B;
+  MonoCursor   = $0C0B;
+  BlockCursor  = $0C00;
+  CurrentCursor : word = NormCursor;   {current cursor form}
+
+type
+  Palette       = array [0..16] of byte;
+  PaletteRegs   = 0..15;
+  FontType      = (ftBadFont, ft8x8, ft8x14, ft8x16);
+  FontBlock     = array [0..8191] of byte;
+  FontPtr       = ^FontBlock;
+  LanguageType  = (English, Russian, Estonian);
+  CrtRegs       = $00..$18;
+  RgbRec = record
+    R, G, B : byte
+  end;
+  RgbValue      = 0..63;
+  DacColorRegs  = array [0..255] of RgbRec;
+  DacColorBuf   = ^DacColorRegs;
+  CpuRegs = record                   {Copyright by Borland}
+    case integer of                  {kidnapped from dos.tpu}
+      0 : (AX,BX,CX,DX,BP,SI,DI,DS,ES,Flags : word);
+      1 : (AL,AH,BL,BH,CL,CH,DL,DH : byte)
+  end;
+
+{=================================== VGA System variables ===========}
+
+var
+  VideoColumns : word absolute $40:$4A;   {number of columns on screen}
+  VideoRows    : byte absolute $40:$84;   {number of rows on screen minus 1}
+  VideoRegen   : word absolute $40:$4C;   {size of regeneration buffer}
+  VideoHeight  : word absolute $40:$85;   {character heigth}
+  VideoMode    : byte absolute $40:$49;   {current video mode}
+  VideoOfs     : word absolute $40:$4E;   {current video page offset}
+  CrtBasePort  : word absolute $40:$63;   {CRT controller base address}
+  EgaInfo      : byte absolute $40:$87;   {miscellaneous EGA/VGA info}
+
+{=================================== Main routine! ==================}
+
+  function VgaPresent: boolean;
+
+{=================================== Screen =========================}
+
+  procedure ScreenDown;
+
+  procedure ScreenUp;
+
+  procedure ScreenLeft;
+
+  procedure ScreenRight;
+
+  procedure CenterScreen;
+
+  procedure SetScreenSize(Rows, Columns : byte);
+
+  procedure ScreenOn;
+
+  procedure ScreenOff;
+
+  procedure SetScreenRows(Rows : byte);
+
+  procedure ElegantScreen;
+
+  procedure MicroScreen(L : LanguageType); {51 x 80 x 8}
+
+  procedure BigScreen;
+
+  procedure MediumScreen;
+
+  procedure EgaLongScreen(L : LanguageType); {28 x 80 x 14}
+
+  procedure EgaScreen(L : LanguageType); {25 x 80 x 14}
+
+  procedure VgaScreen(L : LanguageType); {25 x 80 x 16}
+
+  procedure CgaScreen(L : LanguageType); {28 x 80 x 8}
+
+  procedure RoyalScreen(L : LanguageType); {51 x 80}
+
+  procedure Font8x8Screen(L : LanguageType); {50 x 80}
+
+  procedure CheapScreen(L : LanguageType); {12 x 80}
+
+  procedure ResetScreen;
+
+  function SetTwoScreens(Line : byte): word;
+
+  procedure WriteScreenA(S : string; X, Y, Attr : byte);
+
+  procedure VerticalScroll(ScanLine : word);
+
+  procedure FastVerticalScroll(ScanLine : word);
+
+{=================================== Border =========================}
+
+  procedure SetBorderColor(Color : RgbValue);
+
+  function GetBorderColor: RgbValue;
+
+  procedure IncBorderWidth;
+
+  procedure DecBorderWidth;
+
+  procedure NormalBorderWidth;
+
+{=================================== DAC ============================}
+
+  procedure SaveAllColors(Buffer : DacColorBuf);
+
+  procedure RestoreAllColors(Buffer : DacColorBuf);
+
+  procedure SaveColors(First, Count : byte; Buffer : DacColorBuf);
+
+  procedure RestoreColors(First, Count : byte; Buffer : DacColorBuf);
+
+  procedure SetColorReg(ColorReg: byte; R, G, B : RgbValue);
+
+  procedure GetColorReg(ColorReg: byte; var R, G, B : RgbValue);
+
+{=================================== Palette ========================}
+
+  procedure SavePalette(P : Palette);
+
+  procedure RestorePalette(P : Palette);
+
+  procedure SetPaletteReg(Reg : PaletteRegs; Value : RgbValue);
+
+  function GetPaletteReg(Reg : PaletteRegs): RgbValue;
+
+  procedure GrayColors;
+
+  procedure StandardPalette;
+
+{=================================== Modes ==========================}
+
+  function GetVideoMode: byte;
+
+  procedure SetVideoMode(Mode : byte);
+
+  function GetVideoPage: byte;
+
+  procedure SetVideoPage(Page : byte);
+
+  function SetMode800x600: boolean;
+
+  procedure SetMode300x100;
+
+  function BlinkOn: boolean;
+
+  procedure SetBlinkOn(On: boolean);
+
+{=================================== Resident programs info =========}
+
+  function AnsiSysLoaded: boolean;
+
+  function HimemLoaded: boolean;
+
+  function VidramLoaded: boolean;
+
+  function NlsFuncLoaded: boolean;
+
+  function VgaDiskLoaded: boolean;
+
+  function GraphicsLoaded: boolean;
+
+  function GraftablLoaded: boolean;
+
+{=================================== Fonts ==========================}
+
+  procedure LoadRusFont(F : FontType);
+
+  procedure LoadEstFont(F : FontType);
+
+  function SaveFonts(FileName : string): boolean;
+
+  function RestoreFonts(FileName : string): boolean;
+
+  function GetFont(FontBuf: FontPtr; Block: byte): boolean;
+
+  function LoadFont(FontBuf: FontPtr; Block: byte): boolean;
+
+  procedure SecondCharSet(CharSet : byte);
+
+  function RusUpCase(C : char): char;
+
+  function EstUpCase(C : char): char;
+
+{=================================== Savings ========================}
+
+  function SaveScreen(FileName : string): boolean;
+
+  function SaveGraphScreen(FileName : string): boolean;
+
+  function RestoreGraphScreen(FileName : string): boolean;
+
+{=================================== Write routines =================}
+
+  procedure ClearScreen(Color : PaletteRegs; Filler : char);
+
+  procedure ClearAllPages(Color : PaletteRegs; Filler : char);
+
+  procedure FastWrite(S : string; X, Y, Attr : byte);
+
+  procedure DrawFrame(X0, Y0, X1, Y1, Attr : Byte);
+
+{=================================== Miscellaneous ==================}
+
+  procedure WriteGraphMap(MapNum : byte; BufPtr : pointer; Size: word);
+
+  procedure ReadGraphMap(MapNum : byte; BufPtr : pointer; Size: word);
+
+  procedure WaitVerticalRetrace;
+
+  procedure CallOrigInt10(Regs : CpuRegs);
+
+  procedure ResetVgaBios;
+
+  function ReadCrtReg(Reg : CrtRegs): byte;
+
+  procedure WriteCrtReg(Reg : CrtRegs; Value : byte);
+
+  function LtoA(L : longint): string;
+
+{=================================== 16 pages support ===============}
+
+  procedure Set16Pages;
+
+  procedure Set8Pages;
+
+  procedure FastWrite16(S : string; X, Y, Attr : byte);
+
+  procedure ClearScreen16(Color : PaletteRegs; Filler : char);
+
+  procedure ClearAllPages16(Color : PaletteRegs; Filler : char);
+
+  procedure SetVideoPage16(Page : byte);
+
+{=================================== Cursor =========================}
+
+  procedure CursorTo(X, Y : byte);
+
+  procedure CursorOff;
+
+  procedure CursorOn;
+
+  procedure CursorForm(ScanLines : word);
+
+  function GetCursorForm: word;
+
+{=================================== Mouse ==========================}
+
+  function MouseInstalled: boolean;
+
+  function MouseOrKeyPressed: boolean;
+
+  procedure ShowMouse;
+
+  procedure HideMouse;
+
+{=================================== Keyboard =======================}
+
+  function KeyPressed: boolean;
+  {returns true if keyboard buffer not empty, see crt.tpu}
+
+  function ReadLastKey: word;
+  {returns last key in keyboard buffer, then buffer cleared}
+
+  function PreviewKey: word;
+  {preview next key in keyboard buffer without clearing}
+
+{=================================== VGA Jokes message ==============}
+
+  procedure DrawTitle(X, Y, Attr : byte);
+
+{=================================== implementation =================}

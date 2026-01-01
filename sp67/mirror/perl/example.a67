@@ -1,0 +1,53 @@
+From: ATE1 S7 60 S11 55 V1 X1 S0 0 <psoltan@delphi.com>
+Newsgroups: comp.lang.perl
+Subject: problem with fork
+Date: Sun, 28 Aug 94 23:45:20 -0500
+Organization: Delphi (info@delphi.com email, 800-695-4005 voice)
+Message-ID: <hK4RmoI.psoltan@delphi.com>
+
+I hope this isn't too silly a question but I have a problem with the
+program at the end of this posting.  I wanted to find all references
+to a particular item ($key) on a CD-ROM.  Since grep would
+probably work better than anything I wrote I decided to use fork
+to run it.  The only problem is that the child process starts
+outputting before the parent is done outputting.  I can't tell which file
+contains the reference.  Is there some way to flush the parents
+output to the screen before forking the process?  I couldn't find
+anything in the man pages and nothing I tried seem to work.  I tried
+putting the print after the fork.  I tried putting the child process to sleep
+for 1 second to give the parent time to finish.  Nothing worked.  If  anybody
+has a suggestion I would appreciate it.
+ 
+Thanks,
+Phil Soltan (psoltan@delphi.com)
+ 
+#!/usr/bin/perl
+#
+$root = "/system_cd/jokes";
+$key = "[lL]awyer";
+#
+&list_files($root); # lists all files at and below $root
+foreach $fn (@filenames) {
+  print("$fn: \n"); # print next file to grep
+  unless(fork) {
+    exec ("grep -15 -n \"$key\" $fn");
+  }
+  wait;
+}
+#
+sub list_files {
+  local($file); # make local so we can use recursion
+  local($base);
+  $base = $_[0];
+  chdir($base) || die("Unable to change to $base");
+  foreach $file (<*>) {
+    $test = "$base"."\/$file";
+    if ( -d $test ) {
+      &list_files($test);
+    } elsif (-T $test) {
+        push(@filenames, $test);
+    }
+  }
+}
+ 
+

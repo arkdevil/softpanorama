@@ -1,0 +1,326 @@
+
+					Include	Utils.Asi
+;-------------------------------------------------------------
+;
+;       Cookie.BSP -- Display Message from 'Fortune Cookie' file
+;
+;	Purpose:
+;		Just for fun
+;
+;	(C) 1991 Compact Soft
+;	Written by: cs:dk
+;
+;-------------------------------------------------------------
+
+		ProductName	'Cookie'
+		Version		1 0
+
+.model tiny, pascal
+
+.code
+
+org	100h
+
+start:
+	jmp	Main
+
+.data
+
+		db	2
+Usage$		label	byte
+
+Title$		label	byte
+		db	_Name, '  Version '
+		db_ver
+		db	'  (C)',255,' Compact Soft, 1991'
+		db_line
+		db_line
+		
+		db_line	' Synopsis:'
+		db_line	<'	', _Name, ' randomly (timer-based) selects message'>
+		db_line	<'	from specified message file, and writes it to stdout.'>
+		db_line	' Usage:'
+		db_line	<'	', _Name, ' filename'>
+		db_$
+
+		db	1
+FileError$	label	byte
+		db_line	<_Name, ': file error'>
+		db_$
+
+		db	1
+BadFile$	label	byte
+		db_line	<_Name, ': not a message base file'>
+		db_$
+
+		db	0
+Success$	db	'$'
+
+ParamsSpecified	db	FALSE
+
+Signature	db	11h, 'M', 'B', 10h
+SignatureSize	equ	$ - offset Signature
+
+CRLF$		db	13, 10, '$'
+Char$		db	'?$'
+
+.data?
+
+Filename	db	128 dup (?)
+Handle		dw	?
+
+FileBuffer	dd	?
+
+.code
+
+; ===== Command line parser
+
+proc	LoCase
+; IN:
+;	al = char
+; OUT:
+;	al = LoCase (char)
+
+	cmp	al, 'A'
+	jb	@@exit
+	cmp	al, 'Z'
+	ja	@@exit
+	add	al, 'a' - 'A'
+@@exit:
+	ret
+endp	LoCase
+
+proc	IsSpace
+; IN:
+;	al = char
+; OUT:
+;	ZF = 1 if al is space or tab
+
+	cmp	al, ' '
+	je	@@exit
+	cmp	al, 9
+@@exit:
+	ret
+endp	IsSpace
+
+proc	ParseCommandLine
+; IN:
+;	(none)
+; OUT:
+;	CF = 1 if syntax error
+
+EndOfCommandLine	equ	0dh
+
+	uses	ax, si
+
+	mov	si, 81h
+
+@@skipSpace:
+	mov	al, [si]
+
+	cmp	al, EndOfCommandLine
+	je	@@exitOk
+
+	call	IsSpace
+	jne	@@handleParameter
+	inc	si
+	jmp	@@skipSpace
+
+@@handleParameter:
+
+	cmp	ParamsSpecified, TRUE
+	je	@@error
+
+	mov	ParamsSpecified, TRUE
+	lea	di, Filename
+	$DO
+		mov	al, [si]
+		cmp	al, EndOfCommandLine
+		$LEAVE	E
+		call	IsSpace
+		$LEAVE	E
+		mov	[di], al
+		inc	di
+		inc	si
+	$ENDDO	jmp
+	
+	clr	al
+	mov	[di], al	; end of filename
+
+	; parameter must be followed by space (or EOL)
+
+	mov	al, [si]
+	cmp	al, EndOfCommandLine
+	je	@@exitOk
+
+	call	IsSpace
+	jne	@@error
+	inc	si
+	jmp	@@skipSpace
+
+@@error:
+	stc
+	jmp	@@exit
+
+@@exitOk:
+	clc
+
+@@exit:
+	ret
+endp	ParseCommandLine
+
+
+MsgExit	macro	msg
+	lea	dx, msg
+	call	PrintMsgExit
+endm
+
+proc	PrintMsgExit
+; IN:
+;	ds:dx -> $-message, preceeded by exit code
+
+	mov	bx, dx
+	DOS	9
+	mov	al, [bx - 1]
+	DOS	4ch
+
+endp	PrintMsgExit
+
+proc	ReadBase	
+; IN:
+;	cx = bytes to read
+
+	mov	bx, Handle
+	lea	dx, FileBuffer
+	DOS	3fh		; read file
+	$IF	C
+		MsgExit	FileError$
+	$ENDIF
+	cmp	ax, cx
+	$IF	NE
+		MsgExit	FileError$
+	$ENDIF
+	
+	ret
+endp	ReadBase	
+
+
+proc	Main
+
+	call	ParseCommandLine
+	$IF	C
+		MsgExit	Usage$
+	$ENDIF
+	cmp	ParamsSpecified, TRUE
+	$IF	NE
+		MsgExit	Usage$
+	$ENDIF
+	
+	mov	al, 0
+	lea	dx, Filename
+	DOS	3dh		; open file for read
+	$IF	C
+		MsgExit	FileError$
+	$ENDIF
+	mov	Handle, ax
+	
+	mov	cx, SignatureSize
+	call	ReadBase
+	
+	lea	si, Signature
+	lea	di, FileBuffer
+	cld
+	rep	cmpsb
+	$IF	NE
+		MsgExit	BadFile$
+	$ENDIF
+
+	; get directory offset	
+	mov	cx, 4
+	call	ReadBase
+	
+	; seek to directory
+	mov	bx, Handle
+	mov	dx, word ptr FileBuffer [0]
+	mov	cx, word ptr FileBuffer [2]
+	mov	al, 0		; from begin
+	DOS	42h		; lseek file
+	$IF	C
+		MsgExit	FileError$
+	$ENDIF
+	
+	; get size of directory
+	mov	cx, 2
+	call	ReadBase
+	
+	mov	cx, word ptr FileBuffer		; # of messages
+	push	es
+		clr	ax
+		mov	es, ax
+		mov	bx, [es: 46ch]
+		mov	ax, [es: 46eh]
+	pop	es
+	clr	dx
+	div	cx	; divide high word, dx = remainder
+	mov	ax, bx	; get low word
+	div	cx	; get "random" message number in dx
+
+	; seek to directory entry
+	shl	dx, 1	; convert ...
+	shl	dx, 1	;     ... to dwords per
+	clr	cx	; long offset
+	mov	bx, Handle
+	mov	al, 1		; from current
+	DOS	42h		; lseek file
+	$IF	C
+		MsgExit	FileError$
+	$ENDIF
+	
+	; get offset of message	
+	mov	cx, 4
+	call	ReadBase
+
+	; seek to message	
+	mov	dx, word ptr FileBuffer [0]
+	mov	cx, word ptr FileBuffer	[2]
+	mov	bx, Handle
+	mov	al, 0		; from begin
+	DOS	42h		; lseek file
+	$IF	C
+		MsgExit	FileError$
+	$ENDIF
+	
+	; print message
+	$DO
+		; read char
+		mov	cx, 1
+		call	ReadBase
+		
+		mov	al, byte ptr FileBuffer
+
+		cmp	al, 0
+		$LEAVE	E
+		
+		cmp	al, 10
+		$IF	E
+			lea	dx, CRLF$
+			DOS	9
+		$ELSE
+			mov	dl, al
+			DOS	2	; print char
+		$ENDIF
+	$ENDDO	jmp
+	
+	lea	dx, CRLF$
+	DOS	9
+	
+	; close message base	
+	mov	bx, Handle
+	DOS	3eh		; close file
+
+	MsgExit	Success$
+
+endp	Main
+
+end	start
+

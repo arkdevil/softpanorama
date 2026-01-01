@@ -1,0 +1,253 @@
+Newsgroups: bit.listserv.tsorexx
+Message-ID: <TSO-REXX%94082510043296@BITNIC.CREN.NET>
+Date: Thu, 25 Aug 1994 10:01:14 DST
+From: Peter Flass <FLASS@LBDRSCS.BITNET>
+Organization: New York State Legislative Bill Drafting Commission
+Subject: (source) REXX whole number to binary integer conversion
+
+A while ago I promised to post my assembler routine for converting REXX numeric
+data to binary.  Here it is, FWIW.  The routine is called by:
+         rslt = D2I( whole_number )
+----------------- CUT CUT CUT CUT CUT -------------------------------
+         TITLE 'CONVERSION - REXX CHARACTER STRING TO BINARY'
+D2I      CSECT
+***********************************************************************
+*                                                                     *
+* MODULE NAME: D2I                                                    *
+*                                                                     *
+* FUNCTION: ROUTINE TO CONVERT REXX CHARACTER STRING TO               *
+*           A BINARY INTEGER.                                         *
+*                                                                     *
+* CALLING SEQUENCE:                                                   *
+*           BINARY = D2I(WHOLE_NUMBER)                                *
+*           INPUT:   WHOLE_NUMBER - A POSITIVE OR NEGATIVE            *
+*                    INTEGRAL VALUE.                                  *
+*           OUTPUT:  BINARY - A BINARY FULLWORD INTEGER (LENGTH=4).   *
+*                    IF THE NUMBER TO BE CONVERTED IS NOT NUMERIC,    *
+*                    NOT AN INTEGER, OR OUTSIDE THE ALLOWABLA RANGE   *
+*                    FOR A FULLWORD 'ERROR' IS RETURNED.              *
+*                                                                     *
+* AUTHOR:   PETER FLASS                                               *
+*           NYS LEGISLATIVE BILL DRAFTING COMMISSION                  *
+*           AUGUST, 1994.                                             *
+*                                                                     *
+* ATTRIBUTES: AMODE(31), RMODE(31). PROBLEM STATE, UNAUTHORIZED.      *
+*                                                                     *
+* STATUS:   MVS REXX, HLASM OR ASMH.                                  *
+*                                                                     *
+* REGISTER USAGE:                                                     *
+*           R0, R1 -  WORK REGISTERS                                  *
+*           R2     -> ARGUMENT BLOCK                                  *
+*           R3     -  @SOURCE_STRING                                  *
+*           R4     -  L'SOURCE_STRING                                 *
+*           R5-R8  -  UNUSED                                          *
+*           R9     -  current state register                          *
+*           R10,R11-  DIGIT ACCUMULATOR                               *
+*           R12    -  BASE REGISTER                                   *
+*           R13    -> GETMAIN/SAVEAREA                                *
+*           R14,R15-  WORK REGISTERS                                  *
+*                                                                     *
+* MODIFICATIONS:                                                      *
+*                                                                     *
+***********************************************************************
+         EJECT
+         MACRO
+&NAME    VERSION                   &VERSLVL
+* . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . *
+VERSION  EQU   *                   PROGRAM LEVEL INFORMATION   PTF1
+         DC    CL8'&NAME'          MODULE NAME
+         DC    CL1' '
+         DC    CL8'VERSION '
+         DC    CL8'&VERSLVL'       VERSION/LEVEL
+         DC    CL8'&SYSDATE'       ASSEMBLY DATE
+         DC    C' '
+         DC    CL5'&SYSTIME'       ASSEMBLY TIME
+VERSIONL EQU   *-VERSION                                       PTF1
+         DS    0H                  ALIGNMENT                   PTF1
+* . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . *
+         SPACE 3
+         MEND
+         EJECT
+*        REGS  ,                   EQUATE REGISTERS
+*
+***********************************************************************
+* *            G e n e r a l   R e g i s t e r   E q u a t e s      * *
+***********************************************************************
+*
+R0       EQU   0         General Register 0
+R1       EQU   1         General Register 1
+R2       EQU   2         General Register 2
+R3       EQU   3         General Register 3
+R4       EQU   4         General Register 4
+R5       EQU   5         General Register 5
+R6       EQU   6         General Register 6
+R7       EQU   7         General Register 7
+R8       EQU   8         General Register 8
+R9       EQU   9         General Register 9
+R10      EQU   10        General Register 10
+R11      EQU   11        General Register 11
+R12      EQU   12        General Register 12
+R13      EQU   13        General Register 13
+R14      EQU   14        General Register 14
+R15      EQU   15        General Register 15
+*
+***********************************************************************
+*
+         SPACE 3
+BASE     EQU   R12                 MY BASE REGISTER
+         EJECT
+D2I      CSECT
+         B     BEGIN-*(,R15)       SKIP COMMENT
+D2I      VERSION 1.0
+BEGIN    EQU   *
+         SAVE  (14,12)             SAVE REGISTERS
+         LR    BASE,R15            ESTABLISH BASE REGISTER
+         USING D2I,BASE                     .
+         LR    R2,R1               SAVE A(EFPL)
+         GETMAIN RU,LV=WRKLEN,LOC=ANY   SET UP SAVEAREAS
+         ST    R1,8(,R13)                   .
+         ST    R13,4(,R1)                   .
+         LR    R13,R1                       .
+         USING WRKAREA,R13                  .
+         XC    ZAREA(ZLEN),ZAREA   ZERO OUT WORKING STORAGE
+         L     R3,EFPLEVAL-EFPL(,R2) Load A(EVALBLOCK_ADDR)
+         L     R3,0(,R3)                  A(EVALBLOCK)
+         SR    R0,R0               Clear returned data length
+         ST    R0,EVALBLOCK_EVLEN-EVALBLOCK(,R3)
+         L     R3,EFPLARG-EFPL(,R2) Load A(ARG_LIST)
+         LM    R3,R4,0(R3)         PICK UP INPUT ADDR AND LENGTH
+         LA    R9,STATE0           INITIALIZE THE CURRENT STATE
+         SR    R10,R10             CLEAR DIGIT ACCUMULATOR
+         SR    R11,R11                      .
+         EJECT
+*---------------------------------------------------------------------*
+*        SCAN THE STRING, VALIDATE, CONVERT.                          *
+*---------------------------------------------------------------------*
+SCANLOOP EQU   *                   RUN THE SCANNER
+         LTR   R4,R4               CHECK REMAINING LENGTH
+         BNP   SCANEND             .. ALL DONE
+         CLI   0(R3),C' '          TEST NEXT CHARACTER
+         BL    RETURN              .. OUT OF RANGE
+         SR    R1,R1
+         IC    R1,0(,R3)           GET NEXT CHARACTER
+         IC    R1,TRTABLE-C' '(R1) TRANSLATE THE CHARACTER
+         LR    R15,R1              GET TRANSLATED VALUE
+         SRL   R15,4               SHIFT DOWN TYPE BITS
+         IC    R15,0(R15,R9)       WHERE TO GO FROM HERE
+         SLL   R15,2               MULT X 4
+         LA    R9,STATE0(R15)      POINT TO NEXT STATE TABLE ENTRY
+         B     *+4(R15)            BRANCH TO PROCESSING ROUTINE
+         B     SCANNEXT              00 LEADING BLANKS
+         B     SCANSIGN              01 SIGN
+         B     SCANDIGS              02 INTEGRAL DIGITS
+         B     SCANNEXT              03 TRAILING BLANKS
+         B     SCANERR               04 Error
+*
+SCANNEXT EQU   *
+         LA    R3,1(,R3)           ADVANCE CHARACTER POINTER
+         BCTR  R4,0                DECREMENT COUNT
+         B     SCANLOOP            CONTINUE SCAN
+*
+SCANSIGN EQU   *                   SIGN
+         CLI   0(R3),C'+'          Q/ '+' SIGN?
+         BE    SCANNEXT            .. Yes, no action required
+         OI    SIGN,NEGATIV        .. No, must be minus
+         B     SCANNEXT
+*
+SCANDIGS EQU   *                   DIGITS
+         SLDL  R10,4               SHIFT UP ACCUMULATED DIGITS
+         OR    R11,R1              OR IN NEXT DIGIT
+         OI    SIGN,DIGTST         INDICATE ONE DIGIT PROC
+         CL    R10,=X'0FFFFFFF'    Test for overflow
+         BH    SCANERR             .. Yes, error
+         B     SCANNEXT
+*
+SCANERR  EQU   *                   ERROR ROUTINE
+         L     R3,EFPLEVAL-EFPL(,R2) Load A(EVALBLOCK_ADDR)
+         L     R3,0(,R3)                  A(EVALBLOCK)
+         LA    R0,5                Set returned data length
+         ST    R0,EVALBLOCK_EVLEN-EVALBLOCK(,R3)
+         MVC   EVALBLOCK_EVDATA-EVALBLOCK(5,R3),=C'ERROR'
+         B     RETURN              Exit
+*
+SCANEND  EQU   *                   END OF SCAN LOOP
+         TM    SIGN,DIGTST         Q/ HAVE WE PROCESSED ANYTHING?
+         BNO   RETURN              .. NO, Exit
+         SLDL  R10,4               SHIFT UP
+         STM   R10,R11,DWD         SAVE
+         OI    DWD+7,X'0C'         ASSUME POSITIVE SIGN
+         TM    SIGN,NEGATIV        Q/ IS IT NEGATIVE?
+         BNO   *+8                 .. NO
+         OI    DWD+7,X'0D'         .. YES, CHANGE SIGN
+         CP    DWD,=P'2147483647'  Check for max binary integer
+         BH    SCANERR             .. Too large
+         CP    DWD,=P'-2147483648'  Check for min binary integer
+         BL    SCANERR             .. Too small
+         CVB   R1,DWD              Get binary result value
+         L     R3,EFPLEVAL-EFPL(,R2) Load A(EVALBLOCK_ADDR)
+         L     R3,0(,R3)                  A(EVALBLOCK)
+         LA    R0,4                Set returned data length
+         ST    R0,EVALBLOCK_EVLEN-EVALBLOCK(,R3)
+         ST    R1,EVALBLOCK_EVDATA-EVALBLOCK(,R3)
+         SPACE 3
+RETURN   EQU   *                   RETURN TO CALLER
+         LR    R1,R13              SAVE A(SAVEAREA)
+         L     R13,4(,R13)         RESTORE PREV SAVEAREA ADDR
+         FREEMAIN RU,LV=WRKLEN,A=(1) FREE WORKAREA
+         SR    R15,R15             SET RETURN CODE
+         RETURN (14,12),RC=(15)    RETURN TO CALLER
+         EJECT
+STATETBL DS    0F                  STATE TRANSITION TABLE
+*        (ENTRY LENGTH MUST BE MULTIPLE OF 2)
+*                 0 1 2 3
+STATE0   DC    X'02000104'           LEADING BLANKS
+STATE1   DC    X'02040404'           SIGN
+STATE2   DC    X'02030404'           INTEGRAL DIGITS
+STATE3   DC    X'04030404'           TRAILING BLANKS
+         SPACE 3
+*
+*        VALUES FOR TRANSLATE TABLE:
+*              X'0x' = NUMERIC DIGIT (x= DIGIT VALUE 0-9)
+*              X'10' = BLANK
+*              X'20' = SIGN '+'/'-'
+*              X'30' = ALL OTHER CHARACTERS
+*
+TRTABLE  DS    0F                  CHARACTER TYPE TRANSLATE TABLE
+         DC    (256-C' ')X'30'     INIT TO INVALID CHARACTERS
+         ORG   TRTABLE+C'0'-C' '
+         DC    X'00010203040506070809' TRANSLATED DIGITS
+         ORG   TRTABLE+C' '-C' '
+         DC    X'10'               TRANSLATED BLANK
+         ORG   TRTABLE+C'+'-C' '
+         DC    X'20'               TRANSLATED '+'
+         ORG   TRTABLE+C'-'-C' '
+         DC    X'20'               TRANSLATED '-'
+         ORG   ,
+         SPACE 3
+         LTORG ,                   HERE BE LITERALS
+         EJECT
+WRKAREA  DSECT ,                   FUNCTION WORKAREA
+SAVEAREA DS    9D                  STANDARD OS SAVEAREA
+*
+ZAREA    EQU   *                   AREA TO ZERO OUT
+DWD      DS    D                   DOUBLEWORD WORKAREA
+SIGN     DS    X                   SIGN FLAGS, ETC
+DIGTST   EQU   X'80'               1... .... DIGIT TEST
+NEGATIV  EQU   X'01'               .... ...1 NEGATIVE SIGN
+ZLEN     EQU   *-ZAREA             L'AREA TO BE ZEROED OUT
+*
+WRKLEN   EQU   *-WRKAREA           LENGTH OF WORKAREA
+*
+         PRINT NOGEN
+         IRXEFPL ,                 Copy REXX EFPL
+         IRXEVALB ,                Copy REXX EVALBLOCK
+         END
+
+--------
+Peter Flass   <FLASS@LBDRSCS>
+Systems Programmer -- Team OS/2
+NYS Legislative Bill Drafting Commission
+1450 Western Avenue, 3rd floor
+Albany, NY 12203
+Voice:(518)458-5114  FAX:(518)458-5108
+

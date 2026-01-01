@@ -1,0 +1,386 @@
+$macro_file gsv_stat;
+
+{ Гурин С.В. Томск, политехнический институт, кафедра электрических станций,
+             рабочий телефон 49-25-07. 21-мая-91
+             Домашний адрес: 634057 г. Томск ул. Говорова 48 кв 68
+  Multi-Edit 5.00.
+  Различные установки.
+}
+
+{ 1. Макро gsv_stat: мои начальные установки.
+     Включение макроса производится через раздел меню Install:
+       Install
+         Display setup
+           Screen layouts
+             macro: gsv_stat^gsv_stat
+}
+
+{  1.1. Макро gsv_star: формирование "звездного неба"
+        - вызывается автоматически через полминуты,
+        - проверяет таймаут неактивности клавиатуры,
+        - запускает (не выгружая Multi-Edit) файл gsv_star.com,
+          реализующий функцию звездного неба.
+        Время таймаута для "звездного неба" и автозаписи по неактивности
+        клавиатуры устанавливается через раздел меню Install
+          Install
+            Backups / Temp / Autosave
+              Autosave setup
+                Seconds of keyboard inactivity : таймаут
+        Перед формированием звездного неба производится автозапись всех
+        измененных файлов. Собственно реализация функции звездного неба
+        производится программой gsv_star.com - эта законченная программа
+        и может быть использована автономно. Формат вызова:
+          gsv_star.com [-S]
+        Ключ S в командной строке отключает звук движущихся комет.
+        Файл gsv_star.com должен находиться в каталоге Multi-Edit.
+        Прим: формирование звездного неба квитируется глобальной переменной
+              gsv_flag_star: для временного запрета формирования этой пере-
+              менной присваивается значение FALSE, для последующего разрешения
+              значение TRUE.
+   1.2. Путь для поиска help-файлов берется из строки окружения с
+        именем me_help. Эту строку наиболее целесообразно задавать в
+        autoexec.bat. Формат строки аналогичен path.
+}
+
+
+$macro gsv_stat from EDIT DUMP;
+{ Макрос, формирующий мои начальные установки }
+  def_int(timeout);
+  set_global_str('gsv', 'gsv - Гурин С.В. Томск, ТПИ, каф. электрических станций');
+
+  { Установка "Звездного неба" }
+  if file_exists(me_path + 'gsv_star.com') then
+    timeout := parse_int('/T1=', global_str('!autosaveparms'));
+    if (timeout <> 0) then
+      if (timeout < 60) then
+        timeout := 60;
+      end;
+      set_global_int('gsv_timeout', timeout * 19 + 50);
+      set_global_int('gsv_time_star', system_timer);
+      set_timer_event('gsv_star', 500, all);
+      set_global_int('gsv_flag_star', TRUE);
+    else
+      set_global_int('gsv_flag_star', FALSE);
+    end;
+  else
+    make_message('Не найден файл ' + lower(me_path) + 'gsv_star.com');
+    beep;
+    delay(1000);
+    set_global_int('gsv_flag_star', FALSE);
+  end;
+
+  { Установка умалчиваемого типа блока, маркируемого мышкой.
+    1 - сплошной (линейный)
+    2 - прямоугольный (колоночный)
+    3 - потоковый (непрерывный)
+  }
+  set_global_int('@last_block_type', 2);
+
+  { Разрешение/запрет перемещения в начало списка последнего выбранного
+    элемента базы данных
+    0 - разрешение
+    1 - запрет
+  }
+  set_global_int('@no_db_to_top@', 0);
+
+  { Установка каталогов для поиска help-файлов }
+  if (get_environment('me_help') <> '') then
+    set_global_str('!help_path!', get_environment('me_help'));
+  else
+    make_message('Нет переменной окружения me_help');
+    beep;
+    delay(1000);
+  end;
+
+  { Выбор: 16 цветов фона без мигания (0),
+            8 цветов фона с миганием  (1)
+  }
+  set_global_int('gsv_blink_bit', 0);
+  r_ax := $1003; r_bx := global_int('gsv_blink_bit'); intr($10);
+
+  { Задание установок восстановления после запуска различных программ }
+  r_ax := $1900; intr($21);
+  set_global_int('gsv_drive',      r_ax and $ff);
+  set_global_str('gsv_path',       dir_path);
+  set_global_int('gsv_mouse',      mouse);
+end_macro;
+
+
+$macro gsv_star from ALL;
+{ автоматически вызываемый макрос формирования звездного неба.
+  Программа gsv_star вызывается без выгрузки Multi-Edit, поэтому, при
+  отсутствии достаточного объема свободной памяти, она может не запускаться.
+  Мне представляется это более удобным, чем периодическая выгрузка Multi-Edit.
+  Перед формированием звездного неба производится запись всех измененных
+  файлов: это достигается тем, что время автозаписи по неактивности клавиа-
+  тура наступает раньше, чем время запуска звездного неба.
+}
+  def_int(tmp_swap_mode, tmp_reduce_mem);
+  if ((global_int('gsv_flag_star') = TRUE) and
+      ((system_timer - last_keypress_time) > global_int('gsv_timeout')) and
+      ((system_timer - global_int('gsv_time_star')) > global_int('gsv_timeout'))
+     ) then
+     tmp_swap_mode  := swap_mode;
+     tmp_reduce_mem := reduce_mem;
+     swap_mode  := 0;
+     reduce_mem := 1;
+     shell_to_dos(me_path + 'gsv_star.com', FALSE);
+     { shell_to_dos(me_path + 'gsv_star.com -S', FALSE); } {без звука}
+     swap_mode  := tmp_swap_mode;
+     reduce_mem := tmp_reduce_mem;
+     set_global_int('gsv_time_star', system_timer);
+  end;
+end_macro;
+
+
+$macro gsv_exec from ALL;
+{ Запуск программы. Имя запускаемой программы передается через return_str.
+  Опции: /WAIT=1   - после завершения программы выводится сообщение
+                     "Нажмите любую клавишу ..." и ожидается нажатие
+         /SCREEN=0 - экран не очищается и не восстанавливается
+                 1 - перед запуском восстанавливается экран DOS, после
+                     запуска восстанавливается предыдущий экран
+                 2 - перед запуском экран очищается, маркер устанавливается
+                     в верхнюю позицию экрана, после запуска
+                     восстанавливается предыдущий экран
+         /MEM=     - количество памяти для выполнения программы
+         /SWAP=0   - выгрузка Multi-Edit по умолчанию
+               1   - нет выгрузки
+               2   - выгрузка только на диск
+               3   - выгрузка только в EMS
+               4   - выгрузка в EMS, затем на диск
+         /CMD=1    - запуск программы через command.com
+         /REST=1   - восстановление текущих установок диска и каталога
+}
+  def_int(x, y, screen);
+  x := wherex;
+  y := wherey;
+  screen := parse_int('/SCREEN=', mparm_str);
+  save_box(1, 1, screen_width, screen_length);
+  if (screen = 1) then
+    rest_dos_screen;
+    gotoxy(1, screen_length);
+  elsif (screen = 2) then
+    clear_screen($07);
+    gotoxy(1, 1);
+  end; {if}
+  run_macro('meutil1^exec /MEM='  + parse_str('/MEM=', mparm_str) +
+                         '/SWAP=' + parse_str('/SWAP=', mparm_str) +
+                         '/CMD='  + parse_str('/CMD=', mparm_str));
+  if (parse_str('/WAIT=', mparm_str) = '1') then
+    run_macro('gsv_wait');
+  end; {if}
+  if (screen = 1) then
+    save_dos_screen;
+  end; {if}
+  kill_box;
+  update_status_line;
+  if (parse_str('/REST=', mparm_str) = '1') then run_macro('gsv_restore all');
+  else                                           run_macro('gsv_restore');
+  end; {if}
+  gotoxy(x, y);
+end_macro;
+
+
+$macro gsv_wait from ALL;
+{ Вывод в нижней строке экрана сообщения "Нажмите любую клавишу ..." и
+  ожидание ответа
+}
+  def_int(fr, sr);
+  fr := fkey_row;
+  sr := status_row;
+  fkey_row   := 0;
+  status_row := 0;
+  draw_char(32, 1, screen_length, $07, screen_width);
+  write('Нажмите любую клавишу ...', 1, screen_length, black, lightgreen);
+  read_key;
+  draw_char(32, 1, screen_length, $07, screen_width);
+  fkey_row   := fr;
+  status_row := sr;
+end_macro;
+
+
+$macro gsv_restore from ALL;
+{ Вспомогательный макрос, восстанавливающий статусные установки,
+  которые могут быть изменены запускаемыми программами.
+  Опция макроса: all - полное восстановление,
+                       по умолчанию диск и путь не восстанавливаются.
+}
+  set_global_int('gsv_time_star', system_timer);
+  r_ax := $1003; r_bx := global_int('gsv_blink_bit'); intr($10);
+  mouse := global_int('gsv_mouse');
+  if (lower(mparm_str) = 'all') then
+    r_ax := $1900; r_dx := global_int('gsv_drive'); intr($21);
+    change_dir(global_str('gsv_path'));
+  end;
+end_macro;
+
+
+$macro gsv_message from ALL;
+{ вспомогательный макрос: вывод бокса с сообщением.
+  Текст сообщения передается через Return_Str.
+  Опции: /W=1 - ожидать нажатия на любую клавишу, после чего
+                удалить бокс с экрана.
+         /C=  - цвет/фон сообщения
+                если опция цвета не задана, то используется error_color
+}
+  def_int(len,    { длина сообщения }
+          x, y,   { координаты бокса }
+          color   { атрибуты }
+         );
+  def_str(mes[72]);
+
+  mes := return_str;
+  len := svl(mes);
+  color := parse_int('/C=', mparm_str);
+  if (color = 0) then
+    color := error_color;
+  end;
+
+  x := (screen_width - len - 2) / 2;
+  y := (screen_length - 1) / 2;
+  put_box(x, y, x + len + 5, y + 3, 0, color, '', 1);
+  write(mes, x + 2, y + 1, 0, color);
+  if parse_int('/W=', mparm_str) = 1 then
+    read_key;
+    kill_box;
+  end;
+end_macro;
+
+
+$macro gsv_run_db from ALL;
+{ Выполнение макроса с установками, заданными из базы данных, имеющей
+  структуру типа USER.DB. Строка параметров базы данных передается через
+  return_str.
+}
+  def_int(flag);
+  def_str(command[128]);
+  flag    := global_int('gsv_flag_star');
+  command := parse_str('CMD=', return_str);
+  if (parse_int('WAIT=', return_str) = 1) then
+    set_global_int('gsv_flag_star', FALSE);
+  end; {if}
+  make_message(command);
+  run_macro(command);
+  set_global_int('gsv_flag_star', flag);
+end_macro;
+
+
+$macro gsv_exec_db from ALL;
+{ Выполнение программы с установками, заданными из базы данных, имеющей
+  структуру типа USER.DB. Строка параметров базы данных передается через
+  return_str. Вызов макроса:
+    run_macro('gsv_exec_db ' + имя_файла);
+  Имя файла не является обязательным параметром. Если имя файла указано,
+  то в командную строку при вызове программы добавляется аргумент, опреде-
+  ляемый метасимволами <FILE>, <EXT>, <NAME>, <PATH>, создаваемыми из
+  полного имени файла.
+}
+  def_int(swap, screen);
+  def_str(sdir[80], par[500]);
+  par  := return_str;
+  sdir := parse_str('DIR=', par);
+  if (sdir <> '') then
+    if (str_char(sdir, svl(sdir)) = '\') then
+      return_str := sdir + parse_str('CMD=', par);
+    else
+      return_str := sdir + '\' + parse_str('CMD=', par);
+    end; {if}
+  else
+    return_str := parse_str('CMD=', par);
+  end; {if}
+  if (mparm_str <> '') then
+    run_macro('mesys^xlatecmdline /F=' + mparm_str);
+  end; {if}
+  swap   := parse_int('SWAP=', par);
+  screen := parse_int('REST=', par);
+  if (swap = 5) then
+    swap := 0;
+  end;
+  if (screen = 0) then
+    screen := 2;
+  end;
+  make_message(return_str);
+  run_macro('gsv_exec /WAIT='   + parse_str('WAIT=', par) +
+                     '/SCREEN=' + str(screen) +
+                     '/MEM='    + parse_str('SWAP_MEM=', par) +
+                     '/SWAP='   + str(swap) +
+                     '/CMD='    + parse_str('USECMD=', par));
+end_macro;
+
+
+$macro gsv_load from ALL;
+{ Создание нового окна и загрузка в него файла: имя передается через
+  return_str. Если файл успешно загружен, то в error_level возвращается 0.
+  При загрузке контролируется наличие уже загруженного файла. После
+  загрузки окно становится нескрытым и текущим.
+  В return_int возвращается признак:
+    0 - ошибка,
+    1 - файл был ранее загружен,
+    2 - файл загружен,
+    3 - создан новый пустой файл
+}
+  def_int(cw, rf);
+  cw := window_id;
+  rf := refresh;
+  refresh := FALSE;
+  return_int := 0;
+  if (switch_file(caps(return_str))) then { файл уже загружен }
+    if (window_attr and $81) then         { если окно скрытое, то перевод }
+      window_attr := window_attr and $7E; { его в список доступных }
+    end; {if}
+    return_int := 1;
+  else
+    run_macro('mesys^createwindow');
+    if (error_level <> 0) then
+      run_macro('meerror');
+      switch_win_id(cw);
+    else
+      run_macro('mesys^ldfiles /NW=1/NC=1');
+      if (error_level <> 0) then
+        delete_window;
+        switch_win_id(cw);
+      else
+        tof;
+        if (at_eof) then return_int := 3;
+        else             return_int := 2;
+        end; {if}
+      end; { if error }
+    end; {if}
+  end; {if}
+  refresh := rf;
+end_macro;
+
+
+
+$macro gsv_mouevent from EDIT; { 29-янв-92 }
+{ Реализация функций мышки по перемещениям внутри текущего окна, скроллингу,
+  изменению размеров и положения окна.
+  Вызов:
+    run_macro('gsv_mouevent NOF') - без обработки функциональных клавиш
+    run_macro('gsv_mouevent')     - с обработкой функциональных клавиш
+}
+  def_int(fflag);
+  if (caps(mparm_str) = 'NOF') then fflag := FALSE;
+  else                              fflag := TRUE;
+  end; {if}
+  mou_check_status;
+  if (((mou_last_x >= win_x1)  and  { маркер в окне, не включая верх рамки }
+       (mou_last_x <= win_x2)  and
+       (mou_last_y >  win_y1)  and
+       (mou_last_y <= win_y2)
+      )                        or
+      ((  mou_last_y = win_y1)        and  { маркер вверху рамки }
+       (( mou_last_x = win_x1)        or   { левый угол }
+        ((mou_last_x >= (win_x1 + 7)) and  { верх рамки, кроме имени окна }
+         (mou_last_x <=  win_x2     )
+        )
+       )
+      )                        or
+      ( fflag                  and  { флаг обработки функциональных клавиш }
+       (mou_last_y = screen_length) { маркер в строке функциональных клавиш }
+      )
+     ) then run_macro('mouse^mouevent');
+            new_screen;
+  end; {if}
+end_macro; { gsv_mouevent }

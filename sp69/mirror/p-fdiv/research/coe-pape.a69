@@ -1,0 +1,234 @@
+From: moler@mathworks.com (Cleve Moler)
+Newsgroups: comp.sys.intel,comp.soft-sys.matlab,sci.math.num-analysis
+Subject: A New Hardware/Software Pentium FDIV Workaround
+Date: 1 Dec 1994 00:12:02 -0500
+Organization: The MathWorks, Inc., Natick, MA 01760
+Message-ID: <3bjlv2$r3v@acoma.mathworks.com>
+
+Greetings.
+
+Last week, I suggested a hardware/software workaround for the Pentium
+FDIV bug.  And, I promised that we would release a Pentium-aware
+version of MATLAB that incorporated the workaround.  Since then,
+I have heard from several people suggesting improvements.  In
+particular, Terje Mathisen and Tim Coe have made such good suggestions
+that I want to consider a different algorithm.  I have enough
+confidence in this new algorithm that we are now in the process
+of using it for the Pentium-aware MATLAB.
+
+Mathisen is the PC programming expert from Norsk Hydro in Norway
+who confirmed Thomas Nicely's original bug report, and who wrote
+P87TEST.  Tim Coe is the semiconductor design engineer from
+Vitesse Semiconductor whose model of the chip's behavior led him
+to examples of the worse-case behavior, including the
+4195835/3145727 example.
+
+With this posting, the three of us are providing a status report
+on a more ambitious project.  We believe it should be possible
+to modify software so that it can run on defective Pentiums
+and provide IEEE compliant floating point arithmetic with very
+little, if any, degradation in speed.  
+
+This is work in progress.  We're not absolutely sure yet that it
+is guaranteed to do everything we want.  We will continue to 
+study, refine and check the ideas and the code.  (I particularly
+want to thank Audrey Benevento and Marc Ullman for their
+contributions to our work here at the MathWorks.)
+
+The algorithm that I was so enthusiastic about a week ago starts
+with an FDIV to compute z = x/y.  Then the residual, r = x - y*z,
+is computed.  If the residual is "small", z is deemed to be OK.
+If not, x and y are both scaled by 3/4, and the process is repeated.
+It is very difficult to define "small" in such a way that the
+resulting z is certainly the correctly rounded result.  Our
+new algorithm completely avoids such delicate decisions.
+
+One personal comment: As far as I am concerned, the activity in
+the comp.sys.intel newsgroup over the past three weeks has been
+a mixed blessing.  It brought this problem to the attention of
+a wide audience quickly.  It hooked me up with experts like
+Mathisen and Coe that I would never meet otherwise.  It definitely
+contributed to the creation of the solution we are proposing.
+But now I am finding it impossible to read everything being
+posted in the group.  In fact, it has become counter productive.
+I may be missing some important posts, buried in among all the
+stuff of questionable technical merit.
+
+Years ago, Alex Chorin, a math professor at Berkeley, began a
+book review with one of my all-time favorite quotes,
+
+   "This book detracts from the sum total of human knowledge"
+
+I am afraid we may have now reached that point with the activity
+in comp.soft-sys.intel.  I will be looking to comp.soft-sys.matlab
+and sci.math.num-analysis for future discussion of the aspects
+of this problem that I am interested in.
+
+   -- Cleve Moler
+
+-----------------
+             
+           A New Hardware/Software Pentium FDIV Workaround
+
+                Tim Coe, coe@vitsemi.com
+                Terje Mathisen, Terje.Mathisen@hda.hydro.com
+                Cleve Moler, moler@mathworks.com
+
+One of us (Coe) has developed a model which explains all the known
+examples of FDIV errors.  We believe we now understand the bit
+patterns well enough that we can identify certain bands in the space
+of floating point numbers which are "at risk".  The test involves
+looking only at the denominator, although the numerator also affects
+whether or not an error actually occurs.  If the denominator is found
+to be outside the at-risk bands, the FDIV instruction can be safely
+used to produce the correctly rounded IEEE result.  If the denominator
+is in one of the at-risk bands, then scaling both the numerator and
+denominator by 15/16 eliminates the risk.  Moreover, if the scaling
+and subsequent FDIV instruction are carefully carried out in the
+extended precision format, it is still possible to produce the
+correctly rounded result.
+
+No attempt is made to predict before the FDIV whether or not an error
+will actually occur, and no attempt is made after the FDIV to assess
+the size of the residual.
+
+Where, exactly, are the bands of at-risk denominators used in our
+new algorithm?  Between each two powers of two, Coe specifies five
+small intervals to avoid.  Consider the interval 4096 <= y < 8192.
+For values of y in this range, the intervals to avoid have width one.
+
+Here they are, in decimal and in hex.
+
+       4607.    4607.999999...
+       5375.    5375.999999...
+       6143.    6143.999999...
+       6911.    6911.999999...
+       7679.    7679.999999...
+
+      40b1ff0000000000   40b1ffffffffffff
+      40b4ff0000000000   40b4ffffffffffff
+      40b7ff0000000000   40b7ffffffffffff
+      40baff0000000000   40baffffffffffff
+      40bdff0000000000   40bdffffffffffff
+
+A picture of the interval would look something like this.  Each of
+the five *'s represents a subinterval to be avoided.  The length of
+each subinterval is 1/4096-th of the length of the overall length.
+
+      [.....*........*........*........*........*.......)
+
+It is interesting to note that scaling the third subinterval by 3/4
+sends it into the first subinterval.  This is another weakness of
+Moler's original proposal.  But scaling by 15/16 shifts each
+subinterval to a safe region.
+
+Think of the 64 bit floating point representation of the denominator as
+consisting of 16 four-bit half bytes, or "nibbles."  These are represented
+by the 16 characters in the hex printout.  Also, think of the binary
+point as being just after the third byte or sixth nibble.  That's between
+the pair of f's and the string of zeros in the hex numbers given above.
+Then, with the hidden bit and the binary point shown explicitly, the
+numbers are of the form:
+
+         1aff.xxxxxxxxxx * 2^e
+
+The algorithm says to avoid denominators which have eight consecutive
+ones in the positions indicated by ff and a = 1, 4, 7, 10, or 13 in the
+first nibble of the fraction.  The exponent and the low order 40 bits
+of the fraction are not involved in the decision.
+
+Here is some pseudo C.  The input is a pair of 64 bit double precision
+floating point numbers, x and y.  The output is intended to be the 64 bit
+double precision floating point number which is closest to the exact 
+quotient x/y.
+
+       double x,y,z
+       long double xx,yy,zz
+       char ychar[8]
+       nibble ynib[16], a
+       /* Use same 64-bit storage for y, ychar and ynib */
+
+       /* Check for 8 consecutive ones
+
+       if (ychar[3] = 0xff) {
+
+           /* Check for the five bands
+
+           a = ynib[4]
+           if (a == 1) || (a == 4) || (a == 7) || (a == 10) || (a == 13) {
+               xx = 0.9375*x
+               yy = 0.9375*y
+               zz = xx/zz
+               z = zz
+               return
+           }
+       }
+
+       z = x/y
+       return
+
+
+This is probably best implemented in assembly language, both because we
+want it to be fast, and because some C compilers don't give us proper
+access to the long double format.
+
+Here is today's (11/29) version of the assembly code written by one of
+us (Mathisen).  It is intended to be used with the in-lining facility of
+the WATCOM 10 C compiler.  Its unique feature is a 32 entry table which 
+drives the test.  The table can be set to all zeros for chips without
+the bug and to the appropriate nonzero quantities if a defective
+chip is detected at startup.   The code also deals with denormals,
+which we have so far ignored in this discussion.
+
+We include the code here primarily to show our approach.  It is not
+expected to be the final, complete solution.  Anybody interested in
+details should contact Terje.Mathisen@hda.hydro.com via email.
+
+
+    #include <math.h>
+    #include <stdio.h>
+    
+    static float _fdiv_scale = 0.9375;
+    static char _fdiv_risc[32] = {0};
+    
+    long double lfdiv(long double x, long double y);
+    #pragma aux lfdiv = \
+    "  sub esp,12"\
+    "  fld st"\
+    "  fstp tbyte ptr [esp]"\
+    "  mov eax,[esp+4]"\
+    "  shr eax,15"\
+    "  cmp al,255"\
+    "   jne ok"\
+    "  mov al,ah"\
+    "  and eax,31"\
+    "  cmp _fdiv_risc[eax],ah"\
+    "   jz ok"\
+    "  fld [_fdiv_scale]"\
+    "  fmul st(2),st"\
+    "  fmulp st(1),st"\
+    "ok:"\
+    "  fdivp st(1),st"\
+    "  add esp,12"\
+       parm reverse [8087] [8087]\
+       modify nomemory exact [eax 8087]\
+       value [8087];
+    
+    void _fdiv_risc_init(void)
+    {
+       int i;
+       if (fdiv_fail()) {
+          for (i = 1; i < 16; i += 3)
+             _fdiv_risc[i+16] = i;
+       }
+    }
+    
+    void main(void)
+    {
+       double z;
+    
+       z = lfdiv(425678.0, 3142567.0);
+       printf("z = %G\n",z);
+    }
+
+

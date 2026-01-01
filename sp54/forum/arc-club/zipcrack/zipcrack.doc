@@ -1,0 +1,377 @@
+          ZIPCRACK (Zip Password Finder, version for PKZIP 1.10)
+      Copyright 1992 by Paul Kocher (kocherp@leland.stanford.edu)
+
+
+First the legal stuff:
+-------------------------------------------------------------------------
+THIS PROGRAM MAY NOT BE EXPORTED OUTSIDE THE UNITED STATES OR DISTRIBUTED 
+IN ANY WAY THAT VIOLATES U.S. OR FOREIGN LAW.  THIS PROGRAM MUST NOT BE 
+USED TO GAIN UNAUTHORIZED ACCESS TO DATA AND IS NOT INTENDED TO HELP 
+USERS TO VIOLATE THE LAW. 
+-------------------------------------------------------------------------
+You may distributed UNMODIFIED copies of the unregistered version of 
+ZIPCRACK freely, subject to the above limitations, provided all files are 
+included in unmodified form. 
+-------------------------------------------------------------------------
+The author disclaims ALL warranties relating to the program(s), whether 
+express or implied.  In absolutely no event shall the author be liable 
+for any amount in excess of what the user paid to the author for the use 
+of the software.  This software may halt your computer, making it 
+necessary to hit Ctrl-Alt-Delete or turn the power off, so do not run 
+ZIPCRACK if there is valuable data in memory.
+-------------------------------------------------------------------------
+To prevent misuse of ZIPCRACK, this version will not check passwords that 
+are more than five characters long.  See the form at the end of this file 
+if you want to obtain the source code and a version of the software that 
+does not include the five-character restriction, or if you have a file you 
+want decrypted. 
+-------------------------------------------------------------------------
+
+
+     ZIPCRACK is a program designed to demonstrate how easy it is to find 
+passwords on files created with PKZIP.  The approach used is a fast 
+brute-force attack, capable of scanning thousands of passwords per second 
+(5-6000 on an 80386-33).  While there is currently no known way to 
+unencrypt PKZIP's files without first locating the correct password, the 
+probability that a particular zip's password can be found in a billion-
+word search (which takes about a day on a fast '486) is high enough that 
+anyone using the encryption included in PKZIP 1.10 should be cautious.  
+(Note: as of this writing, PKZIP version 2.00 has not been released, so 
+it is not yet known whether future versions of PKZIP will use an improved 
+encryption algorithm.)  The author's primary purpose in releasing this 
+program is to encourage improvements in zip security.  The intended goal 
+is NOT to make it easy for every computer user to break into any zip, so 
+no effort has been made to make the program user-friendly. 
+
+     To prevent misuse of ZIPCRACK, this version will not check passwords 
+that are more than five characters long.  See the form at the end of this 
+file if you want to obtain the source code and a version of the software 
+that does not include the five-character restriction, or if you have a 
+file you want decrypted.
+-------------------------------------------------------------------------
+
+
+                          FINDING ZIP PASSWORDS
+
+
+
+DISPLAYING THE ENCRYPTION HEADER WITH ZIPHEAD:
+
+          There are two steps to finding the password on a ZIP file.  
+     First run ZIPHEAD.EXE to display the encryption headers of each 
+     encrypted file in the archive.  A typical session would look like 
+     this: 
+
+       C> ziphead testzip.zip
+          ZIPFILE ENCRYPTION HEADER DISPLAY UTILITY.
+          This program is supplied without warranty of any kind.
+          You may copy this program freely so long as it is not sold.
+          By Paul Kocher (kocherp@leland.stanford.edu)
+
+          DEMO:             74 A2 A1 68 2B 4B BE 2B E9 E9 D2 3E D8 9F 
+          PRIMES:           7A B0 F0 71 22 A0 37 96 50 B3 1A 9B 82 E6 
+
+     Note that ZIPHEAD does not display anything for nonecrypted files.  
+     
+
+RUNNING ZIPCRACK:
+
+          To search for passwords, all ZIPCRACK needs is the information 
+     displayed by ZIPHEAD.  So, to search for the password used on the 
+     file PRIMES in TESTZIP.ZIP, you would enter: 
+
+          ZIPCRACK 7A B0 F0 71 22 A0 37 96 50 B3 1A 9B 82 E6
+       
+     at the DOS prompt.  (If you don't want to type the string of HEX 
+     digits in manually, you can redirect the output of ZIPHEAD into a 
+     file that can then be edited into a batch file.  See the example 
+     later in this file for more information on doing this.)  Note that 
+     ZIPCRACK does no error checking, so if you enter the data 
+     incorrectly or even enter garbage, the computer will probably not 
+     complain (although the search results will be meaningless).  
+     
+
+
+DOING THE SEARCH:
+
+          The computer displays " Enter search: " and waits for you to 
+     tell it the range of passwords to search.  You can either enter a 
+     password directly or enter a range of passwords.  Normally you would 
+     not want to manually try one password at a time, so you would 
+     usually give the computer a set of passwords to search.  Enter the 
+     "minimum" password value followed by a tilde (~) followed by a 
+     "maximum" password value.  For example, if you enter "maac~mbec" the 
+     computer will try the passwords maac, mabc, macc, madc, maec, mbac, 
+     mbbc, mbcc, mbdc, and mbec.  Entering "AAAA~ZZZZ" would search for 
+     all four-letter passwords that are made of only uppercase letters.  
+     Note that if you were to enter "ZZZZ~AAAA" the computer searches from 
+     Z up to A, covering ASCII values 90 through 255 and 0 through 65, 
+     making a very long (about 6 days on an 80306-33) and probably 
+     useless search.  The search strings: 
+
+          !~}              !!~}}            !!!~}}}
+          aaa!~zzz}        Aaa!~Zzz}        AAA!~ZZZ}
+          aaaa0~zzzzz      Aaaa0~Zzzzz      AAAA0~ZZZZz
+
+     will find most passwords that are five digits or less.  To do these 
+     searches takes from five to six hours on an 80386-33.  Press enter 
+     at the "Enter Search" prompt to exit to DOS. 
+
+
+
+FINDING THE CORRECT PASSWORD:
+
+          ZIPCRACK can identify 99.9985% of incorrect passwords.  However 
+     one incorrect password in 65536 will be displayed as a possibility.  
+     So, for example, when you search the range aaaa~zzzz for the file 
+     PRIMES in TESTZIP.ZIP (which was encrypted with the password "tiny") 
+     the following happens: 
+
+       C> ZIPCRACK 7A B0 F0 71 22 A0 37 96 50 B3 1A 9B 82 E6
+           Enter search: aaaa~zzzz
+          cgft
+          dkfb
+          qcqy
+          tfpk
+          tiny
+          tqdb
+          tqwx
+          xbbn
+           Enter search: 
+
+     As you can see, the computer has displayed seven incorrect 
+     passwords.  When we try to unzip the file using one of these wrong 
+     passwords, the following happens: 
+
+       C> pkunzip -sqcqy testzip primes
+
+          PKUNZIP (R)    FAST!    Extract Utility    Version 1.1    03-15-90
+          Copr. 1989-1990 PKWARE Inc. All Rights Reserved. PKUNZIP/h for help
+          PKUNZIP Reg. U.S. Pat. and Tm. Off.
+
+          Searching ZIP: TESTZIP.ZIP
+            Exploding: PRIMES  PKUNZIP: Warning! file has bad table
+          PKUNZIP: Warning! file fails CRC check
+
+          TESTZIP.ZIP has errors!
+
+     So far as ZIPCRACK and PKZIP can tell, "qcqy" is a legal password. 
+     While it is a legal password, it is not the correct one, and when 
+     the computer tries to decode the file, the result is garbage.  So 
+     how can one decide which is the correct password?  If there is only 
+     one file in the archive, the best thing to do is to run PKZIP many 
+     times (from a batch file), attempting each of passwords.  
+     Fortunately there is usually an easier approach.  If two files in a 
+     zip are encoded with the same password (as is almost always the case 
+     if there are two or more encrypted files in one zip), you can test 
+     the passwords found in the first search on a second file in the 
+     archive.
+     
+
+
+AN EXAMPLE:
+
+          Here, to demonstrate the whole procedure, is an example of how 
+     one would go about locating the password from the included file 
+     TESTZIP.ZIP.  In this example, the ranges a~z, aa~zz, aaa~zzz, and 
+     aaaa~zzzz are searched.  (This covers all one, two, three, and
+     four digit passwords that are made with only lowercase letters.)  
+     You can replace "edit" with any ASCII/text editor you like.
+     
+       C> ziphead testzip.zip >go.bat
+       C> type go.bat
+          ZIPFILE ENCRYPTION HEADER DISPLAY UTILITY.
+          This program is supplied without warranty of any kind.
+          You may copy this program freely so long as it is not sold.
+          By Paul Kocher (kocherp@leland.stanford.edu)
+
+          DEMO:             74 A2 A1 68 2B 4B BE 2B E9 E9 D2 3E D8 9F 
+          PRIMES:           7A B0 F0 71 22 A0 37 96 50 B3 1A 9B 82 E6 
+
+       C> edit go.bat
+              ...           make the file output look like:
+          ZIPCRACK 74 A2 A1 68 2B 4B BE 2B E9 E9 D2 3E D8 9F <pword >pword2
+     
+       C> edit pword
+              ...           make the file output look like:
+          a~z
+          aa~zz
+          aaa~zzz
+          aaaa~zzzz
+                             <-- don't forget the blank lines at the end
+
+        C> go
+     
+     After a minute or two (depending on the speed of your computer), the 
+     program will finish.  Nothing is displayed on the screen when the 
+     program runs.  You can now see the results of your search: 
+
+       C> type pword2
+           Enter search: a~z
+           Enter search: aa~zz
+           Enter search: aaa~zzz
+           Enter search: aaaa~zzzz
+          bpeq
+          cnso
+          leva
+          tiny
+          uwyp
+          vyjl
+          yrev
+           Enter search: 
+
+     You now have to decide which of the seven displayed passwords is 
+     correct.  You could manually try each with PKZIP, although this 
+     would be a little tedious.  Also, you could look at the results from 
+     searching the file PRIMES and note that "tiny" is the only password 
+     covered by both searches.  However, you would then have to run your 
+     search twice, which would take twice as long. 
+     
+     The fastest way to chose the correct password is to edit the file 
+     called "pword2" and remove all lines beginning with "Enter search" 
+     so that the file pword2 looks like:
+     
+       C> type pword2
+          bpeq
+          cnso
+          leva
+          tiny
+          uwyp
+          vyjl
+          yrev
+                                           <--- blank line
+     
+     with a blank line at the end.  Because the file PRIMES in the 
+     same ZIP was encrypted with the same password (as is usually 
+     the case), we can try each of these passwords on PRIMES:
+
+       C> ZIPCRACK 7A B0 F0 71 22 A0 37 96 50 B3 1A 9B 82 E6 <pword2
+
+     Note that the hex data (7A B0 F0, etc) is for the file PRIMES this 
+     time.  The computer then quickly displays: 
+
+           Enter search: bpeq
+           Enter search: cnso
+           Enter search: leva
+           Enter search: tiny
+          tiny
+           Enter search: uwyp
+           Enter search: vyjl
+           Enter search: yrev
+           Enter search: 
+
+     The password "tiny" is the only one that passed both tests and is 
+     correct.  Note that it is possible (one try in four billion) that an 
+     incorrect password could pass both tests, but this password will 
+     still produce errors when used in PKZIP.  If no passwords pass both 
+     tests, one of three things has happened: 
+
+     1) The correct password was not included in the original search
+     2) The two files you used were encrypted with different passwords
+     3) You entered the encryption data incorrectly or there was 
+          some other human error
+
+     Reminder: This version of the ZIPCRACK only works with passwords 
+     that are 5 (or fewer) characters long.
+
+
+-------------------------------------------------------------------------
+
+WHAT TO DO IF YOU CANNOT FIND THE PASSWORD:
+
+     ZIPCRACK is designed to demonstrate potential weaknesses in zip 
+     security.  It is limited to short passwords to people from using the 
+     program to gain unauthorized access to others' data.  However, if 
+     you have a zip that you need to find the password to, there are two 
+     things you can do: 
+     
+          1) ZIP PASSWORD SEARCH SERVICE:  Mail a disk containing your 
+             zip file OR a printout from ZIPHEAD showing headers for AT 
+             LEAST three files encrypted with the same password. If you 
+             can provide any information about the password (such as its 
+             approximate length, whether there are capital and/or 
+             lowercase letters in it, whether there is a number at the 
+             end, whether it is a word/name/etc.), it greatly increases 
+             the chances that the password can be found.  Also enclose a 
+             self-addressed stamped envelope, $2 (non-refundable), and a 
+             signed copy of the form below.  If the password on your zip 
+             can be found, there will be an additional $100.00 charge 
+             ($300.00 for businesses/government agencies) and will be 
+             told the password.  There is no additional fee if the 
+             password cannot be found.  Diskettes cannot be returned, so 
+             keep copies of all files you send.  Files should be mailed 
+             on 5.25" or 3.5" PC diskettes or 3.5" high density (1.44 MB) 
+             Mac diskettes. 
+
+          2) OBRAINING SOURCE CODE AND THE UNRESTRICTED PROGRAM:
+             See the order form below for prices.  The diskette you 
+             recieve includes source code (PC assembly), an executable 
+             version of the program with no password length limitation, 
+             and a dictionary file.
+             
+     Offer only available within the United States.  Prices and 
+     availability subject to change without notice.
+
+     
+
+-------------------------------------------------------------------------------
+     
+                                  ORDER FORM
+
+
+     ZIP password search                $2.00 (if successful, costs are:
+                                             $100 for individuals,
+                                             $300 for business/government)
+
+
+     Diskette with source code,         $50.00
+     executable version with no
+     password length restriction,       disk size (circle):   5.25"   3.5"
+     includes dictionary file
+     (For individual use only)
+
+     Diskette with source code,         $300.00
+     executable version with no
+     password length restriction,       disk size (circle):   5.25"   3.5"
+     includes dictionary file
+     (Business/government use)
+     
+                                        Total enclosed: $___________
+
+
+     
+     Notes or special instructions: _____________________________________
+
+     ____________________________________________________________________
+     
+     ____________________________________________________________________
+
+     ____________________________________________________________________
+
+     
+
+     If I am requesting a zip password search, I promise that I have a 
+     legal right to access the data I want decrypted.  The author (Paul 
+     Kocher) will not be held liable for for damages resulting from the 
+     accidental release of enclosed data.
+
+     If I am ordering a program disk, I understand that the program I am 
+     ordering is NOT shareware or in the public domain.  I will not copy 
+     the software (except for backup purposes) or distribute modified 
+     versions.  I will not use the software to violate the law. 
+
+
+     Signed ______________________________________  Date ________________
+
+
+
+
+    MAIL TO:                     FROM:
+     Paul Kocher                  Name: _________________________________
+     7700 NW Ridgewood Dr.
+     Corvallis, OR 97330       Address: _________________________________
+
+                        City/State/Zip: _________________________________
+
+                          Phone Number: _________________________________
+                           (optional, for faster password search results)

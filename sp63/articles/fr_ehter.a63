@@ -1,0 +1,397 @@
+From: Igor Kaminskiy <Igor_Kaminskiy@p10.f2.n5005.z2.gate.phantom.msk.su>
+Newsgroups: relcom.lan
+Subject: Frames EnterNet. Info . Part I .  ( from InterNet ).
+Message-ID: <2_5005_2_10_3df14629@gate.phantom.msk.su>
+Date: Thu, 24 Mar 1994 19:39:54 +0300
+
+                    Hi , All !
+        Выловил я сегодня в InetNet интеpесное письмо 
+пpо IPX , frame EtherNet & etc. , написанное весьма читабельным языком .
+Ложy сюда - дyмаю , многим бyдет интеpесно и модеpатоp не бyдет
+пpотив .
+
+С yважением:
+/Barbarossa
+-----------------------------------------------------------------------    
+
+I asked a couple of weeks agos which frame type I should go for
+(Ethernet_II or Ethernet_803.2) as I wanted to get rid of Ethernet_802.3
+
+The conclusion?  It's not an easy choice which one to go for, but do get
+rid of Ethernet_802.3 if possible.  Ethernet_II seems to edge out
+Ethernet_802.2 for most places.
+
+Here is a summary of responses:
+
+==================================================================
+
+From: stefani@yesway.lkg.dec.com (Lawrence V. Stefani)
+
+   I find it difficult to believe that any bridge, router, or switch vendor
+today wouldn't support both DIX (Ethernet_II) and 802.2 (ETHERNET_802.2) 
+frames.
+But be that as it may, your immediate goal should be to discourage "raw 802.3"
+(ETHERNET_802.3) IPX frame type use as much as possible.  Some reasons for
+staying away would be:
+
+        1. It's not standard.
+        2. "raw 802.3" only supports IPX.
+        3. "raw 802.3" does not support IPX checksumming.
+        4. "raw 802.3" will likely cause interoperability problems with other
+            media types (FDDI, Token-Ring, ATM, etc).
+        5. Novell is moving away from "raw 802.3" and may drop support for it
+           some day.  See Don Provan's (Novell) postings on frame types.
+
+   There are other reasons, but as long as you make sure there's an IPX router
+somewhere to convert frames between E_802.3 and either E_II or E_802.2, you
+should cover most connection problems for the time being.  If you're already in
+the process of standardizing your network connections choose another frame 
+type.
+
+   As for which frame type (E_II or E_802.2) to use, it really depends.  I'm
+more sympathetic to E_II since I can use it to run IPX, DECnet, and TCP/IP on
+it.  For NetBEUI shops, they're probably more likely to use ETHERNET_802.2
+framing.  If I had to choose between the two, I'd probably choose E_II, but if
+I were you, I'd suggest to Cisco that they support both kinds of framing since
+you never know what users are going to use.  Especially the users that feel
+comfortable messing around with NET.CFG.  However, if you're only running IPX
+and TCP/IP, you may find it easier to just say "ETHERNET_II" all the way around
+(servers and clients).  Good luck, and definitely post your summary...I'd be
+very interested in hearing what others have to say.
+
+==================================================================
+
+From: Albert Fu <albert@netboss.dn.itg.telecom.com.au>
+
+We are using Ethernet_II on most of our file servers and routers
+for both IP & IPX protocols, and have been doing so for years without
+encountering any problems. Some of our sites have a mix of ethernet_ii
+for IP and ethernet_802.3 for ipx for historical reason.
+
+The default for Netware 3.12 and Netware 4 is ethernet_802.2. This is
+more in line with the international standard. The Cisco 9.12 software
+allows you to use multiple frame types per ethernet interface during the
+migration phase if you decide to convert. We do not have any plan to
+convert to ethernet_802 at this stage.
+
+==================================================================
+
+From: rchadder@wimsey.com (Richard Chadderton)
+
+I've got the same question!  350 nodes already running Ethernet_802.3
+and Ethernet_II make it a big deal for me to change to Ethernet_802.2,
+just because somebody says it's better.
+
+I need to know _why_ it will make my job easier, and _how_ I can go
+about supporting both 802.2 and 802.3 on the same IPX net during
+conversion.
+
+If anyone has tips, advice, ACK's, etc. please post here for me and
+the other poor souls burdened with this hard choice.
+
+==================================================================
+
+From: hcb@world.std.com (Howard C Berkowitz)
+
+This is in response to an earlier posting; I must apologize for
+losing the email address of the person who volunteered to
+summarize.  In any case,  I am attaching an informal set of
+tutorial notes I use in teaching router courses.
+
+DISCLAIMER:  These are personal notes on my understanding
+of Novell framing.  This is my personal email account.
+My company, PSC International, is a network consulting and
+training firm, and a Cisco Training Partner.  I am a
+Certified Cisco Instructor, but Cisco has not seen this
+material.
+
+............
+
+
+                      How did Novell get framed?
+
+                         Howard C. Berkowitz
+                         -------------------
+
+Historically, Ethernet is the predecessor of the IEEE 802 family
+of LAN data link protocols.  Since different Novell implementations
+were done at different times along the data link protocol
+development path, different equipment may expect different framing
+and fail to interoperate with other equipment. Novell can use
+any of four LAN framing schemes, discussed below.  The four types
+are:
+
+         Ethernet Phase II with IPX in the entire data field
+         IEEE 802.3 with IPX in the entire data field
+            This is a nonstandard usage that came before IEEE
+            standards were finished; Novell calls it
+            802.3_raw.
+         IEEE 802.3 MAC with a data field containing an
+            IEEE 802.2 header and an IPX packet
+         IEEE 802.3 MAC with a data field containing an
+            IEEE 802.2 header, a SNAP extension field
+            with the Ethernet type code for IPX, and
+            an IPX packet.
+
+Ethernet Phase II (phase I is obsolete) assumes the data link
+layer consists of one homogeneous sublayer.  IEEE, however,
+splits the data link layer into an upper Logical Link Control
+(LLC) sublayer and a lower Medium Access Control (MAC) sublayer.
+IEEE 802.3 is a MAC (and physical layer) specification derived
+from Ethernet Phase II.  Some Novell implementations were done
+using the 802.3 protocol before 802.2 was available.
+
+Ethernet and 802.3 frames differ primarily in the usage of
+a single two-octet field.  Both start with:
+
+           8 octets of preamble, used for hardware synchronization
+           6 octets of destination MAC address
+           6 octets of source MAC address
+
+Now comes the difference.
+
+          Ethernet                      802.3
+          --------                      -----
+          Vendor type code              Frame length
+
+It's quite easy to tell whether a given frame is 802.3 or Ethernet,
+assuming the frame check sequence is correct.  All legal Ethernet
+type codes are greater than 1518, the largest legal 802.3 frame size.
+
+Unfortunately, the overall problem is more complicated.  All
+802 series MAC protocols assume that the first few bytes of
+the MAC frame data field will be the 802.2 Logical Link Control
+header.  In LLC Class I, the type normally seen on "Ethernet-style"
+LANs, this will be a three-octet field.  The important part of
+this are the first and second octets, which are respectively
+the Destination Service Access Point (DSAP) and Source Service
+Access Point (SSAP) identifiers.
+
+SAP identifiers serve roughly the same purpose as the Ethernet
+type field. They tell the receiver which protocol format to use
+to decode the rest of the data field.  In other words, they
+identify the MAC service user.
+
+Standard SAP identifiers are defined only for standard
+higher-layer protocols such as IP and OSI CLNP.  So what do we
+do with IPX, a proprietary protocol?
+
+For that matter, what do we do with other nonproprietary
+protocols?  Ethernet has a two-octet field for protocol codes,
+but 802.2 only allows one.  Other than in the Federal budget,
+sixteen bits do not fit in eight.
+
+The IEEE answer was to reserve a specific code (hex AA) to
+allow an "escape" mechanism called the Subnetwork Access Protocol
+(SNAP).  If the first two LLC header octets are 0xAAAA, then
+the next byte is the conventional LLC frame type, followed by
+a three-octet organization tyle and a two-octet protocol type
+defined by that organization.
+
+Novell uses the DSAP/SSAP value of 0xE0E0 to indicate an
+802.2 frame containing IPX.  802.2 support was introduced in
+NetWare 3, and is used to carry IPX and OSI CLNP.
+
+Returning to the SNAP frame, Novell encodes an organization
+code of 0x000000 and a protocol code of 0x8137.  SNAP support
+was added in NetWare 3, and is used (with other type field
+values for multiprotocol support) to carry IPX, IP, and
+AppleTalk Phase II protocols.
+
+The previous three frame types are consistent with IEEE standard
+usage.  Novell has a fourth nonstandard mode, used only to carry
+IPX, called 802.3_raw.  This uses a standard 802.3 MAC frame,
+but the first two octets of the IPX packet (currently the value
+0xFF) are at the very beginning of the data field.  Clearly,
+if the receiver is expecting to see 802.2 codes, it will get
+very confused.
+
+In general, servers and clients on the same medium need to
+use the same frame type to communicate.  A few implementations
+will sequentially send IPX in each of the four frame types
+to be sure SOMEONE can get it.
+
+Routers strip off the frame and extract the IPX packet (or
+any other protocol received).  As long as the router can
+receive the frame format, it can re-encapsulate it into the
+form expected by the next hop LAN.
+
+Different routers have different support for the various
+Novell framings.  Cisco, for example, supports only Ethernet
+and 802.3_raw in its releases through the 9.1 series; all four
+types are in the new 9.2 release.
+
+This doesn't HAVE to be an operational problem, as long as
+the LAN and router administrators are careful that all devices
+that need to talk on the same medium use the same framing.
+All four modes can be configured in NetWare 3x, but only
+Ethernet and 802.3_raw in Netware 2x.
+
+In extreme cases, if a server could not be configured to
+the frame protocol needed by a client, they might be put
+on separate LAN segments and let a router reencapsulate as
+needed.
+
+For further reading, consider the 802.3 and 802.2 standards
+from IEEE, Novell's Guide to NetWare LAN Analysis by Laura
+Chappell, and the appropriate router manuals.  Cisco IPX
+encapsulation, for example, is in Volume III, Chapter 17, of
+the Software Release 9.1 Router Products Configuration and
+Reference.
+
+==================================================================
+
+From: hcb@world.std.com (Howard C Berkowitz)
+
+You raise above a factor that adds complexity:  FDDI.  If you by
+any chance will be bridging anything from the CSMA/CD side to the
+FDDI ring, that very strongly suggests 802.2.  You see, FDDI and
+Token Ring always run with 802.2.  Now, mixed media bridging
+between Ethernet/802.3 style of any sort and TR/FDDI presents significant
+problems in any case, due to things like differences in address
+bit ordering.
+
+Running Ethernet_II to the ring side adds the complication that
+LLC (i.e., 802.2) has to be inserted going toward the ring, and
+stripped out going toward Ethernet.  Again, this a problem more
+associated with bridging.
+
+Now, there may be a best-of-both-worlds solution.  I emphasize MAY,
+as I have just started to read the documentation [Cisco 9.2].  It appears
+you can run all four CSMA/CD style encapsulations on the same
+Cisco "ethernet" interface; they have to have different Novell
+network numbers.  9.2 adds the ability to have multiple
+Novell numbers on the same physical segment, much as you can
+have multiple IP subnets.
+
+==================================================================
+
+From: brucec@infi.net (Bruce Childress)
+
+:         Forget the ISO picture book. Frames are the bits on the wire.
+: There is no reason I can think of, except one, to consider Ethernet_802.2;
+: it is a political move and not a swift one. The exception is Novell has
+: required this frame kind only for certain Remote Boot situations. The
+: frame to use Ethernet_II; the world runs on that. For more information
+: please have a look at file Ethernet.txt in directory misc on netlab2.usu.edu.
+:         Joe D.
+
+I've had a weird situation where I tried to change the frame type to
+ethernet_ii on some of my workstations, but found one program would not run,
+couldn't believe it had anything to do with the frame type, but when I
+changed back to ethernet_802.3, the program ran again? weird? yes
+The program was Interlligent Query (IQ)
+Maybe someone can shed some light on why?
+
+==================================================================
+
+Found at netlab2.usu.edu in /misc as ethernet.txt
+
+I (Kevin Sartorelli) have edited this heavily to just leave those
+bits referring to advantages/disadvantages of different frame types.
+The whole document is well worth reading).
+
+From: don provan <donp@NOVELL.COM>
+
+The 802.2 header made 802.3 consistent with the other 802 physical
+layer protocols.  This was intended to allow easy use of these
+datalink layers by the ill-fated OSI protocol suite.  Until NetWare
+v4.0 shipped with Ethernet_802.2 as the default for Ethernet drivers,
+OSI was the only significant use of the 802.3/802.2 protocol (except
+for a few uses of the SNAP extension to 802.2, which in Novell drivers
+is a different frame type: Ethernet_SNAP).
+
+802.2, being three bytes long, makes the network layer packet badly
+aligned in an 802.3 packet.  In addition, only seven bits are available
+in 802.2 for descriminating between different protocols, so there can
+only be 128 different protocols on an 802.2 network.
+
+First of all, if you are installing a *new* network, then *don't* use
+Ethernet_802.3.  One thing's for sure: Ethernet_802.3 is obsolete.
+New networks should use a more current frame type such as Ethernet_II.
+
+So the only real question is whether you should convert an existing
+Ethernet_802.3 network to some other frame type.
+
+The first observation is that Ethernet_802.3 isn't generally dangerous.
+The problems that have occurred because of Ethernet_802.3 frames are few
+and far between, and generally involve older hardware or software.  If
+you haven't already seen any such problems, then you probably never
+will.  So normally there's no risk to keeping Ethernet_802.3 as a
+existing network's frame type.  In particular, if your Ethernet_802.3 is
+fairly static and you do not plan any major upgrades or additions to it,
+then you can continue with Ethernet_802.3 indefinitely without concern.
+
+On the other hand, Ethernet_802.3 is an obsolete frame type, as i
+say.  So if you find a convenient opportunity, you may want to switch
+a network away from it.  For example, if you decide to upgrade all of
+your client nodes from older software to an ODI driver or the VLM
+client, that might be a good time to also switch to Ethernet_II since
+you're already making modifications on every node.
+
+One consideration that may be important to you is that IPX packets
+with checksums cannot be transmitted on Ethernet_802.3 networks.  In
+order to take advantage of the data integrity provided by the IPX
+checksum feature of the newer NetWare releases, you'll have to
+upgrade your Ethernet_802.3 networks to Ethernet_II or some other
+Ethernet frame type.
+
+Novell does not, at least to my knowledge, explicitly recommend any one
+Ethernet frame type for carrying IPX traffic, although perhaps the
+default frame type of Ethernet_802.2 on the v4.0 LAN drivers might
+provide a clue.  My PERSONAL recommendation, however, is, "When given a
+choice, run IPX on Ethernets exclusively with the Ethernet_II frame
+type."
+
+With only a couple of exceptions, every significant protocol uses
+Ethernet_II instead of either Ethernet_802.2 or Ethernet_SNAP.
+
+[The exceptions?  OSI runs on Ethernet_802.2, and the "new" AppleTalk
+runs on Ethernet_SNAP, although the old AppleTalk runs on Ethernet_II.
+(I quote "new" because the later version of AppleTalk is actually
+fairly well established; it's basically just what you'd think of as
+AppleTalk.  Pure "old" AppleTalk networks are rather rare these days.)]
+
+The practical effect of Ethernet being the principle framing standard
+is that you are often using Ethernet_II framing already for some
+other protocol.  If you're running any other protocol (other than
+OSI), using Ethernet_802.2 for IPX will mean having one more frame
+type to worry about on that NIC.  For example, if you're using TCP/IP
+on a NetWare v3.11 server, the Ethernet_II frame type is already
+loaded for IP.  If you also run IPX over Ethernet_II instead of
+Ethernet_802.2, you won't have to reload the LAN driver for a second
+frame type.
+
+I rule out Ethernet_SNAP simply because IPX has never been normally run
+on that frame type.  There's no significant technical advantage for IPX
+between Ethernet_II and Ethernet_SNAP, but Ethernet_II is by far more
+common of the two, particularly for IPX.
+
+p.s. No, i didn't forget.  The first minor technical advantage of
+Ethernet_II is that in it the IPX packet is aligned to the proper word
+boundary.  The poor alignment of Ethernet_802.2 will cause a slight
+performance penalty in some cases, although i've seen nothing to
+indicate the performance penalty would ever be significant...or even
+measurable, for that matter.
+
+The second is that in Ethernet_II, the hex E-type 8137 is officially
+assigned to IPX by IEEE.  The Ethernet_802.2 SAP which IPX uses (hex
+E0) is *not* officially assigned to IPX.  E0 is in the range of SAPs
+which are reserved for local definition.  This means that there's no
+official restriction against some other network protocol using a SAP
+of E0, although in practice it is extremely unlikely anyone would
+ever do such a thing.  -dp
+
+==================================================================
+
+----------------------------------------------------------------------
+Kevin Sartorelli      Central Institute of Technology, Computer Centre
+Ph: +64 4 527 6398    Fax: +64 4 527 6376                  New Zealand
+Internet: kevin@cit.ac.nz    Fido: 3:771/375   MHS: kevin@cit via NHUB
+
+
+
+--- msgedsq 2.0.5
+ * Origin: My E-Mail is root@kivc-s.tomsk.su , NetMail is (2:5005/2.10)
+
+

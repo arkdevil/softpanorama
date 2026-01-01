@@ -1,0 +1,232 @@
+Newsgroups: softpan.talks
+Path: softp!relay1!river!csoft!news-server
+From:  Dmitry S. Kohmanyuk <dk@farm.cs.kiev.ua>
+Subject: так заведем softpan.sources?
+Reply-To: dk@farm.cs.kiev.ua
+Organization: Animals Paradise Farm
+Distribution: su
+Date: Sun, 18 Apr 93 02:02:07 +0300 
+Message-ID: <ACln8qh4C4@farm.cs.kiev.ua>
+Lines: 221
+Sender: news-server@river.cs.kiev.ua
+
+
+        вот тулза (класс), которая умеет размерности (в смысле физики)
+проверять ...
+
+Newsgroups: comp.lang.misc
+Path: softp!farmua!relay1!csoft!kiae!bitcom!fuug!news.funet.fi!news.tele.fi!uunet!munnari.oz.au!bunyip.cc.uq.oz.au!ross
+From: ross@minmet.uq.oz.au (Ross Cottrell)
+Subject: Re: Dimension types
+Message-ID: <C5MC62.D84@bunyip.cc.uq.oz.au>
+Keywords: Types, dimensions, units
+Sender: news@bunyip.cc.uq.oz.au (USENET News System)
+Organization: Prentice Centre, University of Queensland
+References: <1993Apr15.134835.29851@infodev.cam.ac.uk>
+Date: Sat, 17 Apr 1993 08:13:14 GMT
+Lines: 199
+
+ajk13@cl.cam.ac.uk (Andrew Kennedy) writes:
+
+>One aim behind strongly typed languages is to catch common programmer errors
+>before programs are run. Programs written for scientific applications tend to
+>involve types such as Real, Complex, and vectors and matrices of these. However,
+>it would be nice to go further and incorporate some notion of "dimension" into>the language. The idea behind this is to keep track of the physical units in which
+>the values are measured (metres, ohms, joules or whatever) and to prevent "dimension
+>errors" such as the addition of velocity and time. Does anyone know of real systems
+>which do this or of research which has been done? As far as I can tell from a casual
+>perusal of the literature, comprehensive systems such as Mathematica do not even permit
+>dynamic dimension-checking at runtime.
+
+Funny that you should ask.
+I wrote something a while back that does exactly this in C++.
+It uses templates and can potentially be used with no run-time penalty.
+Checking can be switched off entirely for compilers that do not support
+templates, or simply to speed up compilation.
+
+It was written using Borland C++, but hasn't been used extensively.
+I'd be interested in hearing from anybody who uses it.
+
+Here it comes:
+
+// mlt.cpp - mass, length & time dimension checked class templates
+// v1.00 - This is public domain source code by Ross Cottrell, July 1992.
+// Please send a copy of any significant modifications to me at:
+// FidoNet: 3:640/820 Internet: ross@minmet.uq.oz.au CompuServe: 100036,635
+
+// This has been tested using BC++ 3.1
+
+#include "mlt.hpp"
+
+#ifdef TEST_MLT
+
+typedef MLT(0,  0,  0)  Dimensionless, Dimless;
+typedef MLT(1,  0,  0)  Mass;
+typedef MLT(0,  1,  0)  Length;
+typedef MLT(0,  0,  1)  Time;
+typedef MLT(0,  1,  -1) Velocity, Veloc;
+typedef MLT(0,  1,  -2) Acceleration, Accel;
+typedef MLT(1,  1,  -2) Force;
+typedef MLT(1,  2,  -2) Energy;
+typedef MLT(1,  2,  -3) Power;
+
+MLT_BINARY( 1,  0,  0,  0,  1,  -2)     // mass and acceleration
+MLT_BINARY( 0,  1,  0,  1,  1,  -2)     // length and force
+MLT_BINARY( 0,  0,  1,  1,  2,  -2)     // time and energy
+MLT_BINARY( 0,  0,  1,  0,  1,  -1)     // time and velocity
+MLT_BINARY( 0,  0,  1,  0,  1,  -2)     // time and acceleration
+
+//MLT_POWERS(   0,  1,  -2, 2)              // acceleration
+// haven't got powers and roots working yet
+
+typedef MLT(0.5,0.5,0.5)    Mystery;    // test whether doubles work here
+
+#include <math.h>
+
+int
+main(int, char **) {
+
+    Mass    m = 5.0;    // 5 kg mass
+    Accel   a = -9.8;   // one gravity
+    Force   f = m * a;  // in Newtons (the weight of a 5kg mass)
+    Length  d = 1.5;    // 1.5 meters
+    Energy  w = f * d;  // in Joules (energy needed to lift it 1.5m)
+    Time    t = 3.0;    // 3 seconds
+    Power   p = w / t;  // in Watts (power needed to do it in 3 seconds)
+
+    Veloc   u = 0.0;                // stationary at the beginning
+    Length  s = u*t + 0.5*a*t*t;    // distance fallen in 3 seconds
+    Veloc   v = u + a*t;            // final velocity after 3 seconds
+
+//  v = u + a/t;            // error (bad dimensions)
+
+//  s = u*t + 0.5 * a * pow(t, 2);  // exercise pow()
+//  s = -100.0;
+//  t = root((s * 2.0)/a, 2);   // time to fall 100 meters (uses root)
+
+    v = M_PI;
+
+//  m = f;                  // error (bad dimensions)
+    m = double_(f);         // subvert checking with an explicit cast
+
+    return 0;
+}
+
+#endif
+// end of mlt.cpp
+
+
+// mlt.hpp - mass, length & time dimension checked class templates
+// v1.00 - This is public domain source code by Ross Cottrell, July 1992.
+// Please send a copy of any significant modifications to me at:
+// FidoNet: 3:640/820 Internet: ross@minmet.uq.oz.au CompuServe: 100036,635
+
+#ifndef _MLT_HPP
+#define _MLT_HPP
+#ifndef CHECK_MLT_DIMS      // any predefined value will override this
+#define CHECK_MLT_DIMS 1    // nonzero enables, zero disables checking
+#endif
+
+class double_ {             // exists merely to allow explicit casting
+public:
+                double_     (double X) : x(X)       {}
+    operator    double      ()                      { return x; }
+private:
+    double      x;
+};
+
+#if CHECK_MLT_DIMS          // dimension checking enabled
+
+template <long m, long l, long t>
+class mlt {
+public:
+                mlt         ()          : x(0)  {}
+                mlt         (double X)  : x(X)  {}
+    operator    double_     () const            { return x; }
+    const mlt&  operator+=  (const mlt& a)      { x+=a.x; return *this; }
+    const mlt&  operator-=  (const mlt& a)      { x-=a.x; return *this; }
+    const mlt&  operator*=  (double f)          { x*=f; return *this; }
+    const mlt&  operator/=  (double f)          { x/=f; return *this; }
+    const mlt&  operator*=  (mlt<0,0,0> f) { x*=(double_)f; return *this; }
+    const mlt&  operator/=  (mlt<0,0,0> f) { x/=(double_)f; return *this; }
+private:
+    double      x;
+};
+
+template <class mlt>
+inline mlt
+operator+(const mlt& a, const mlt& b) {
+    return double_(a) + double_(b);
+}
+
+template <class mlt>
+inline mlt
+operator-(const mlt& a, const mlt& b) {
+    return double_(a) - double_(b);
+}
+
+template <class mlt>
+inline mlt
+operator*(double a, const mlt& b) {
+    return a * double_(b);
+}
+
+template <class mlt>
+inline mlt
+operator*(const mlt& a, double b) {
+    return double_(a) * b;
+}
+
+template <class mlt>
+inline mlt
+operator/(const mlt& a, double b) {
+    return double_(a) / b;
+}
+
+#define mlt_factor  362880L         // this is 9!
+#define MLT_(x)     (long((x)*mlt_factor))
+#define MLT(m,l,t) mlt<MLT_(m), MLT_(l), MLT_(t)>
+
+#define MLT_BINARY_(m1, l1, t1, m2, l2, t2)                 \
+inline mlt<m1+m2, l1+l2, t1+t2>                             \
+operator* (const mlt<m1,l1,t1>&a, const mlt<m2,l2,t2>&b) {  \
+    return double_(a) * double_(b);                         \
+}                                                           \
+                                                            \
+inline mlt<m2+m1, l2+l1, t2+t1>                             \
+operator* (const mlt<m2,l2,t2>&a, const mlt<m1,l1,t1>&b) {  \
+    return double_(a) * double_(b);                         \
+}                                                           \
+                                                            \
+inline mlt<m1-m2, l1-l2, t1-t2>                             \
+operator/ (const mlt<m1,l1,t1>&a, const mlt<m2,l2,t2>&b) {  \
+    return double_(a) / double_(b);                         \
+}                                                           \
+                                                            \
+inline mlt<m2-m1, l2-l1, t2-t1>                             \
+operator/ (const mlt<m2,l2,t2>&a, const mlt<m1,l1,t1>&b) {  \
+    return double_(a) / double_(b);                         \
+}
+
+#define MLT_BINARY(m1, l1, t1, m2, l2, t2)                  \
+ MLT_BINARY_(MLT_(m1), MLT_(l1), MLT_(t1), MLT_(m2), MLT_(l2), MLT_(t2))
+
+#else                           // dimension checking disabled
+#define MLT(m,l,t) double       // unchecked - all just double precision
+#define MLT_BINARY(m1, l1, t1, m2, l2, t2)
+#endif
+#endif
+// end of mlt.hpp
+
+Note: When testing this, define TEST_MLT (or no code will be generated
+for mlt.cpp).
+
+
+Regards, Ross.
+
+
+
+--
+((setter reply-address) *my-mail* "dk%farm.cs.kiev.ua@ussr.eu.net") #| cs:dk |#
+
+

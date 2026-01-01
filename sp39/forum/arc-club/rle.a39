@@ -1,0 +1,356 @@
+/*
+By: Eric Engler
+To: All
+Re: RLE 1/6
+---------------------------------------------------------------------------
+There has been much discussion in this echo regarding the RLE data
+compression method.  RLE is an easy and fast way to compress data,
+but the compression rate isn't nearly as good as that obtained with
+LZW or LZSS.  I will present the best RLE algorithm I know of, along
+with it's source.  For those who want the best compression available
+I suggest FREQing the file AR002.ZIP from 1:375/2.  This is the new
+method used in LHA, the "follow on" program to LHARC.  AR002 has the
+C source, which is slower than LHA, but compresses just as good.  If
+anyone wants my assembler code for LZW (not as good as AR002), it can
+be FREQed as LZW_ASM.ZIP from 1:375/2.
+                     A Very Good RLE Algorithm
+   My RLE algorithm is based on one presented in Dr. Dobbs Journal,
+May 89.  My code is different, but the algorithm is the same.  This
+RLE algorithm uses special control bytes instead of escape codes.
+A control byte would do 2 things:  it's MS bit (bit 7) would tell you
+if the following data consisted of a single byte to be repeated, and,
+if so, the lower 7 bits would tell you the number of repetitions.  If
+the MS bit was clear, this meant that the next X bytes are unencoded
+(where X is given by the lower 7 bits of the control byte).  The value
+represented by the lower 7 bits (either a repetition count or a
+length) ranges from 1 to 128, instead of the 0 to 127 range you'd
+normally get with 7 bits.  In this method, a byte has to repeat more
+than 2 times in order to be encoded.  All instances of repeating bytes
+are represented in exactly 2 bytes (unless there are more than 128
+repetitions).  This is fairly unique in that you get a 33% savings on
+a character repeated only 3 times!
+   This implementation has a constant "worst-case" performance of 1
+overhead byte for every 128 data bytes.  This worst-case performance
+consists of a data stream where no byte repeats more than twice.
+                      Suggested Improvement #1
+   If you know the data you're compressing consists of text files, you
+can use a more efficient way to store the repeated space character.
+Most instances of a repeated space will have 65, or less, repetitions.
+By using the second highest bit of the control byte (bit 6) to
+indicate whether a space is being encoded, you can use a single
+control byte to represent up to 65 repetitions of a space (range = 2
+to 65)!  If the repeated char. isn't a space, the following byte will
+yield the char and you can have up to 66 repetitions of that character
+(range = 3 to 66).  It follows from this idea that you can encode a
+repeating space even if you only have 2 repetitions, and you will save
+50%!  For all repeating chars other than space, you'll need 3
+repetitions in order to save anything.
+                      Suggested Improvement #2
+   If you're encoding a chunk with no repeated characters, you can use
+bit 6 to indicate if you have an extension count.  If bit 6 is set,
+the count of unrepeated bytes to follow will be the 6 unused bits in
+the control byte plus the 8 bits in the following byte, for a total of
+14 bits in the count.  If bit 6 is clear, then you have between 1 and
+64 bytes of non-repeated characters.  This allows more than 16K of
+non-repeating bytes to be encoded with just 2 bytes of overhead!  The
+actual number of non-repeating bytes allowed in 1 chunk is 16384 + 64,
+since we know there are more than 64 non-repeating bytes (if there
+were less than 64 we would have only used the lower 6 bits for the
+count).
+                             Summary
+   These 2 improvements can be used separately or together.  The first
+improvement can be optimized for non-text data by favoring the 0 byte
+instead of the space byte.  In fact, you could store a flag indicator
+in the first byte of the compressed file to indicate which char is
+being favored.
+   For best results, you should always expand the tabs from a text
+file before applying RLE compression.
+*/
+
+/* rlepack.c  --  by Eric Engler */
+#include <stdio.h>
+#include <stdlib.h>
+#define LIMIT     1
+#define NON_MATCH 2
+#define EOF_FOUND 3
+
+void encode (void);
+int process_comp(void);
+int get_byte(void);
+void process_uncomp(unsigned char);
+void flush_outbuf(void);
+
+FILE *fpin, *fpout;
+
+/* table used to look for sequences of repeating bytes */
+unsigned char tmpbuf[4];  /* we use subscripts 1 - 3 */
+int ch, tmpbuf_cnt;
+
+/* output buffer for non-compressed output data */
+unsigned char outbuf[128];
+int outbuf_cnt;
+
+void main (argc, argv)
+int argc;
+char *argv[1];
+{
+    if (argc != 3)
+       {
+       puts("\r\nERROR: Wrong number of arguments");
+       puts("Specify input and output filepaths with extensions.");
+       exit(1);
+       }
+
+    if (fpin = fopen(argv[1], "rb"))
+       fpout = fopen(argv[2], "wb");
+    if ((fpin == NULL) || (fpout == NULL))
+       {
+       puts("\r\nERROR: Files didn't open OK");
+       puts("Specify input and output filepaths with extensions.");
+       exit(1);
+       }
+    if (setvbuf(fpin, NULL, _IOFBF, 8192) != 0)
+       puts("\nWARNING: Can't set file buffer\n");
+    if (setvbuf(fpout, NULL, _IOFBF, 8192) != 0)
+       puts("\nWARNING: Can't set file buffer\n");
+
+    encode();
+    fclose(fpin);
+    fclose(fpout);
+}
+
+void encode ()
+{
+    int ret_code;
+
+    tmpbuf_cnt = 0;  /* no. of char's in tmpbuf */
+    outbuf_cnt = 0;  /* no. of char's in outbuf */
+    while (1)
+        {
+        if (get_byte() == EOF)  /* read next byte into ch */
+           break;
+        tmpbuf[++tmpbuf_cnt] = (unsigned char) ch;
+        if (tmpbuf_cnt == 3)
+            {
+            /* see if all 3 match each other */
+            if ((tmpbuf[1] == tmpbuf[2])
+             && (tmpbuf[2] == tmpbuf[3]))
+               {
+               /* they do - add compression */
+               /* this will process all bytes in input file until
+                  a non-match occurs, or 128 bytes are processed,
+                  or we find eof */
+               ret_code=process_comp();
+               if (ret_code == EOF_FOUND)
+                  break;        /* stop compressing */
+               if (ret_code == NON_MATCH)
+                  tmpbuf_cnt=1; /* save the char that didn't match */
+               else
+                  /* we just compressed the max. of 128 bytes */
+                  tmpbuf_cnt=0;    /* start over for next chunk */
+               }
+            else
+               {
+               /* we know the first byte doesn't match 2 or more
+                  others, so just send it out as uncompressed. */
+               process_uncomp(tmpbuf[1]);
+
+               /* see if the last 2 bytes in the buffer match */
+               if (tmpbuf[2] == tmpbuf[3])
+                  {
+                  /* move byte 3 to position 1 and pretend we just
+                     have 2 bytes -- note that the first byte was
+                     already sent to output */
+                  tmpbuf[1]=tmpbuf[3];
+                  tmpbuf_cnt=2;
+                  }
+               else
+                  {
+                  /* send byte 2 and keep byte 3 - it may match the
+                     next byte.  Move byte 3 to position 1 and set
+                     count to 1.  Note that the first byte was
+                     already sent to output */
+                  process_uncomp(tmpbuf[2]);
+                  tmpbuf[1]=tmpbuf[3];
+                  tmpbuf_cnt=1;
+                  }
+               }
+            }
+        }  /* end while */
+    flush_outbuf();
+}
+
+/*------------------------------------------------------------------*
+ This flushes any non-compressed data not yet sent, then it processes
+ repeating bytes until > 128, or EOF, or non-match.
+      return values: LIMIT, EOF_FOUND, NON_MATCH
+ Prior to ANY return, it writes out the 2 byte compressed code.
+ If a NON_MATCH was found, this returns with the non-matching char
+ residing in tmpbuf[0].
+      Inputs: tmpbuf[0], input file
+      Outputs: tmpbuf[0] (sometimes), output file, and return code
+ *------------------------------------------------------------------*/
+int process_comp()
+{
+     /* we start out with 3 repeating bytes */
+     register int len = 3;
+
+     /* we're starting a repeating chunk - end the non-repeaters */
+     flush_outbuf();
+
+     while (get_byte() != EOF)
+        {
+        if (ch != tmpbuf[1])
+            {
+            /* send no. of repeated bytes to be encoded */
+            fputc((--len) | 0x80, fpout);
+            /* send the byte's value being repeated */
+            fputc(tmpbuf[1], fpout);
+            /* save the non-matching character just read */
+            tmpbuf[1]=(unsigned char) ch;
+            return NON_MATCH;
+            }
+        /* we know the new byte is part of the repeating seq */
+        len++;
+        if (len == 128)
+            {
+            /* send no. of repeated bytes to be encoded */
+            fputc((--len) | 0x80, fpout);
+            /* send the byte's value being repeated */
+            fputc(tmpbuf[1], fpout);
+            return LIMIT;
+            }
+        } /* end while */
+
+        /* if flow comes here, we just read an EOF */
+        /* send no. of repeated bytes to be encoded */
+        fputc((--len) | 0x80, fpout);
+        /* send the byte's value being repeated */
+        fputc(tmpbuf[1], fpout);
+        return EOF_FOUND;
+}
+
+/*----------------------------------------------------------------*
+ This adds 1 non-repeating byte to outbuf.  If outbuf becomes full
+ with 128 bytes, it flushes outbuf.
+ There are no return codes and no bytes are read from the input.
+ *----------------------------------------------------------------*/
+void process_uncomp(char1)
+unsigned char char1;
+{
+    outbuf[outbuf_cnt++] = char1;
+    if (outbuf_cnt == 128)
+       flush_outbuf();
+}
+
+/*---------------------------------------------------*/
+/* This flushes any non-compressed data not yet sent.*/
+/* On exit, outbuf_cnt will equal zero.              */
+/*---------------------------------------------------*/
+void flush_outbuf()
+{
+    register int pos=0;
+
+    if(!outbuf_cnt)
+       return;        /* nothing to do */
+
+    /* send no. of unencoded bytes to be sent */
+    fputc(outbuf_cnt - 1, fpout);
+
+    for ( ; outbuf_cnt; outbuf_cnt--)
+       fputc(outbuf[pos++], fpout);
+}
+
+/*---------------------------------------------------*/
+/* This reads the next byte into ch.  It returns EOF */
+/* at end-of-file, or on error.                      */
+/*---------------------------------------------------*/
+int get_byte()
+{
+     ch = fgetc(fpin);
+     if (feof(fpin) || ferror(fpin))
+         {
+         /* there are either 0, 1, or 2 char's to write
+            before we quit */
+         if (tmpbuf_cnt == 1)
+            process_uncomp(tmpbuf[1]);
+         else
+            {
+            if (tmpbuf_cnt == 2)
+               {
+               process_uncomp(tmpbuf[1]);
+               process_uncomp(tmpbuf[2]);
+               }
+            }
+         return EOF;
+         }
+     return 0;
+}
+
+/* rleupack.c  --  by Eric Engler */
+#include <stdio.h>
+#include <stdlib.h>
+
+FILE *fpin, *fpout;
+void decode(void);
+
+void main (int argc, char *argv[1])
+{
+   if (argc != 3) {
+        puts("\r\nERROR: Wrong number of arguments");
+        puts("Specify input and output filepaths with extensions.");
+        exit(1);
+   }
+     if (fpin = fopen(argv[1], "rb"))
+        fpout = fopen(argv[2], "wb");
+     if ((fpin == NULL) || (fpout == NULL))
+        {
+          puts("\r\nERROR: Files didn't open OK");
+        puts("Specify input and output filepaths with extensions.");
+        exit(1);
+        }
+     decode();
+     fclose(fpin);
+     fclose(fpout);
+}
+
+void decode ()
+{
+    int ch, i;
+    while (1)
+       {
+       ch=fgetc(fpin);
+       if (feof(fpin) || ferror(fpin))
+           break;
+       if (ch > 127)
+          {
+          i = ch - 127;   /* i is the number of repetitions */
+          /* get the byte to be repeated */
+          ch = fgetc(fpin);
+          if (feof(fpin) || ferror(fpin))
+             {
+             puts("\nERROR: premature end of file\n");
+             break;
+             }
+          /* uncompress a chunk */
+          for ( ; i ; i--)
+             fputc(ch, fpout);
+          }
+       else
+          {
+          /* copy out some uncompressed bytes */
+          i = ch + 1;     /* i is the no. of bytes */
+          /* uncompress a chunk */
+          for ( ; i ; i--)
+             {
+             ch = fgetc(fpin);
+             if (feof(fpin) || ferror(fpin))
+                {
+                puts("\nERROR: premature end of file\n");
+                break;
+                }
+             fputc(ch, fpout);
+             }
+          }
+      } /* end while */
+}

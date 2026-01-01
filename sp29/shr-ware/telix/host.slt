@@ -1,0 +1,950 @@
+//////////////////////////////////////////////////////////////////////////////
+//
+//   H O S T . S L T
+//
+//   Copyright (C) 1988 PTel and Colin Sampaleanu
+//
+//   This is a Host Mode for Telix, written as a script file.
+//   Ton configure Host Mode parameters such as passwords, run the 'HCONFIG'
+//   script. That script is run automatically if the Host Mode ocnfiguration
+//   file 'HOST.CNF' is missing.
+//
+//   This script will only work with Hayes compatible modems, but may be
+//   modified for operation with othe rmodems.
+//
+//////////////////////////////////////////////////////////////////////////////
+
+// Parameters which can be configured
+
+str pass1[8] = "pass1",                 // The level 1 pass
+    pass2[8] = "pass2",                 // The level 2 (Sysop) pass
+    shellpass[8] = "shell",             // the pass to enter the Remote Shell
+    shutpass[8] = "shut",               // the pass to shut down the Host Mode
+    host_downloads[64],                 // where users may download from
+    host_uploads[64];                   // where uploaded files go
+int direct_connect = 0;
+
+str current_caller[31],                 // storage of current caller's name
+    conn300[] = "CONNECT^M",            // modem result messages for bauds
+    conn1200[] = "CONNECT 1200",
+    conn2400[] = "CONNECT 2400",
+    conn9600[] = "CONNECT 9600",
+    conn19200[] = "CONNECT 19200";
+int finished_caller,                    // set to TRUE when must return to top
+    local_mode,                         // set to TRUE when local test mode
+    access_level,                       // access level of current caller
+    carrier_counts = 1,                 // TRUE if should watch Carrier signal
+    already_connected = 0,
+    exit_requested = 0,                 // set to TRUE if Sysop has pressed Esc
+    connection_lost = 0,                // set to TRUE when carrier lost
+    kill_user = 0;                      // set to TRUE when user must be purged
+
+int old_scr_chk_key,                    // storage for some system variables
+    old_cisb_auto,                      // which we have to modify and put
+    old_zmod_auto,                      // back to what they were when done
+    old_sound;
+str old_down_dir[64],
+    old_up_dir[64];
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+main()
+
+{
+ int c;
+
+ clear_scr();
+
+ if (read_host_config_file() == -1)
+  {
+   prints("Unable to read HOST.CNF...");
+   prints("Running HCONFIG, the Host Mode configuration script.^M^J");
+   call("HCONFIG");
+   if (read_host_config_file() == -1)
+    {
+     prints("Still unable to read HOST.CNF. Aborting Host Mode.^M^J");
+     return -1;
+    }
+  }
+
+ if (!check_directories())
+  {
+   prints("Either the upload or download directory as defined in the HOST.CNF file");
+   prints("doesn't exist. Either create the missing directory with the DOS 'MKDIR'");
+   prints("command, or run the HCONFIG script to redefine what directories to use.");
+   prints("Aborting Host Mode.");
+   return -1;
+  }
+
+ old_scr_chk_key = _scr_chk_key;
+ _scr_chk_key = 0;
+ old_cisb_auto = _cisb_auto;
+ _cisb_auto = 0;
+ old_zmod_auto = _zmod_auto;
+ _zmod_auto = 0;
+ old_sound = _sound_on;
+ _sound_on = 0;
+ old_down_dir = _down_dir;
+ _down_dir = host_uploads;   // these are reversed because we are now the Host
+ old_up_dir = _up_dir;
+ _up_dir = host_downloads;   // these are reversed because we are now the Host
+
+ usagelog("HOST.LOG");
+
+ if (direct_connect)
+  carrier_counts = 0;
+ else
+  carrier_counts = 1;
+
+ if (!direct_connect && carrier())
+  already_connected = 1;
+
+ if (!direct_connect && !already_connected)
+  {
+   prints("Initializing modem");
+   cputs_tr(_auto_ans_str);
+  }
+ 
+ while (1)
+  {
+   finished_caller = kill_user = 0;
+
+   if (direct_connect)
+    carrier_counts = 0;
+   else
+    carrier_counts = 1;
+
+   if (!direct_connect)
+    {
+     prints("^M^JHost Mode: Waiting for call...");
+     prints("(Press Esc to exit, or 'L' for local test mode).^M^J");
+
+     do
+      {
+       if (carrier())
+        {
+         local_mode = 0;
+         break;
+        }
+
+       c = inkey();
+       if (c)
+        {
+         if (c == 27)
+          {
+           exit_requested = 1;
+           break;
+          }
+         else if (c == 'l' || c == 'L')               // local teswt mode
+          {
+           prints("Local test mode entered");
+           local_mode = 1;
+           carrier_counts = 0;
+          }
+        }
+      }
+     while (toupper(c) != 'L');
+    }
+
+   if (!exit_requested)
+    {
+     prints("Incoming call. Sysop: press Esc to exit, or END to terminate user.");
+
+     do_one_caller();
+     if ((connection_lost || kill_user) && carrier_counts && carrier())
+      hangup();             // make sure nobody sneaks in
+    }
+   already_connected = 0;
+   if (exit_requested)
+    {
+     if (!carrier() && !direct_connect)
+      cputs_tr(_mdm_init_str);
+     _scr_chk_key = old_scr_chk_key;
+     _cisb_auto = old_cisb_auto;
+     _zmod_auto = old_zmod_auto;
+     _sound_on = old_sound;
+     _down_dir = old_down_dir;
+     _up_dir = old_up_dir;
+     prints("^M^JHost mode script finished.");
+     usagelog("*CLOSE*");
+     return 1;
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+do_one_caller()
+
+{
+ str strn[80],
+     fname[64];
+ int option,
+     status,
+     c, i, i2, f;
+
+ access_level = 1;
+
+ if (already_connected)
+  prints("Already Connected!");
+ else if (carrier_counts)
+  {
+   if (!determine_baud())
+    ;                          // do something else here if this is a problem
+  }
+
+ delay(10);
+ type_file("LOGO.MSG");
+
+ flushbuf();
+ while (1)
+  {
+   host_send("Please enter your full name: ");
+   host_input_strn(current_caller, 30);
+   host_send("^M^J");
+
+   if (finished_caller)
+    return;
+
+   if (strlen(current_caller) >= 5)
+    break;
+  }
+
+ access_level = ask_for_pass(3, pass1, pass2);
+
+ if (access_level)
+  ustamp("Logon by ", 1, 0);
+ else
+  ustamp("Failed logon attempt by ", 1, 0);
+ ustamp(current_caller, 0, 1);
+
+ if (!access_level)
+  {
+   host_send("Goodbye!^M^J");
+   if (carrier_counts)
+    {
+     delay(10);
+     hangup();
+    }
+   return;
+  }
+
+ type_file("WELCOME.MSG");
+
+ while (1)
+  {
+   if (finished_caller)
+    return;
+
+   host_send("^M^JFiles  Type  Upload  Download  Shell  Chat  Goodbye ? ");
+   host_input_strn(strn, 1);
+   option = toupper(subchr(strn, 0));
+   host_send("^M^J");
+
+   if (option == 'F')                 // Files directory
+    {
+     if (access_level == 2)
+      {
+       host_send("Enter 'filespec' or press Return for *.*,^M^J: ");
+       host_input_strn(fname, 64);
+       host_send("^M^J");
+
+       if (just_filename(fname))
+        {
+         strn = host_downloads;
+         strcat(strn, fname);
+        }
+       else
+        strn = fname;
+      }
+     else
+      {
+       strn = host_downloads;
+       strcat(strn, "*.*");
+      }
+       
+     if (local_mode)
+      show_directory(strn, 0, carrier_counts);
+     else
+      show_directory(strn, 1, carrier_counts);
+     host_send("^M^J");
+    }
+   else if (option == 'T')            // Type a file
+    {
+     host_send("Type what file? ");
+     host_input_strn(strn, 64);
+     host_send("^M^J");
+     if (access_level != 2)             // if access 1, name and ext only
+      fnstrip(strn, 3, fname);
+     else
+      fname = strn;
+
+     if (just_filename(fname))
+      {
+       strn = host_downloads;
+       strcat(strn, fname);
+       fname = strn;
+      }
+
+     if (!filefind(fname, 0, strn))
+      {
+       host_send("Unable to find ");
+       host_send(fname);
+       continue;
+      }
+
+     type_file(fname);
+    }
+   else if (option == 'G')            // Goodbye (Hang-up)
+    {
+     host_send("^M^JGoodbye!^M^J");
+     ustamp("User logged off.", 1, 1);
+     if (carrier_counts)
+      {
+       delay(10);
+       hangup();
+      }
+     return;
+    }
+   else if (option == 'C')            // Chat mode
+    {
+     prints("Sysop: Press Space to chat, any other key not to.^M^J");
+     c = 0;
+     _sound_on = 1;
+     for (i = 8; i && !c; --i)
+      {
+       if (carrier_counts && !carrier())
+        {
+         prints("^M^JConnection has been lost, call terminated.^M^J");
+         connection_lost = 1;
+         finished_caller = 1;
+         break;
+        }
+       cputc('^G');
+       tone(523, 20);
+       tone(659, 20);
+       tone(523, 20);
+       tone(659, 20);
+       tone(523, 20);
+       tone(659, 20);
+       for (i2 = 30; i2 && (c = inkey()) == 0; --i2)
+        delay(1);
+      }
+     _sound_on = 0;
+     if (finished_caller)
+      continue;
+     if (c != ' ' || !c)
+      {
+       host_send("Sorry, the Sysop is unavailable^M^J");
+       continue;
+      }
+     host_send("The sysop is here!^M^J");
+     chatmode(1);
+    }
+   else if (option == 'U')            // User upload
+    {
+     option = host_get_prot();
+     if (!option)
+      continue;
+
+     status = 1;
+     if (option == 'T' || option == 'M' || option == 'S' ||
+         option == 'Y' || option == 'Z' || option == 'E')
+      {
+       send_transfer_msg();
+       status = receive(option, "");
+      }
+     else
+      {
+       host_send("Upload what file? ");
+       host_input_strn(strn, 48);
+       host_send("^M^J");
+       if (!strn)
+        continue;
+       if (access_level != 2)             // if access 1, name and ext only
+        fnstrip(strn, 3, fname);
+       else
+        fname = strn;
+
+       if (just_filename(fname))
+        {
+         strn = host_uploads;
+         strcat(strn, fname);
+         fname = strn;
+        }
+
+       if (filefind(fname, 23, strn))
+        host_send("File already exists!^M^J");
+       else
+        {
+         send_transfer_msg();
+         status = receive(option, fname);
+        }
+      }
+     if (status == -2)                        // Carrier lost
+      connection_lost = finished_caller = 1;
+     else if (status == -1)
+      host_send("^GOne or more files not received!^M^J");
+    }
+   else if (option == 'D')            // User download
+    {
+     option = host_get_prot();
+     if (!option)
+      continue;
+     host_send("Download what file(s)? ");
+     host_input_strn(strn, 48);
+     host_send("^M^J");
+     if (!strn)
+      continue;
+     if (access_level != 2)      // if not level 2, keep only name & ext
+      fnstrip(strn, 3, fname);
+     else
+      fname = strn;
+
+     if (just_filename(fname))
+      {
+       strn = host_downloads;
+       strcat(strn, fname);
+       fname = strn;
+      }
+
+     if (!filefind(fname, 0, strn))
+      {
+       host_send("Unable to find any matching file(s)!^M^J");
+       continue;
+      }
+
+     status = 1;
+     send_transfer_msg();
+     status = send(option, fname);
+     if (status == -2)                        // Carrier lost
+      connection_lost = finished_caller = 1;
+     else if (status == -1)
+      host_send("^GOne or more files not received!^M^J");
+    }
+   else if (option == 'S')            // Remote shell
+    {
+     if (ask_for_pass(3, shellpass, shellpass) != 0)
+      {
+       host_send("Type EXIT and then press Enter to come back.^M^J");
+       if (get_baud() == 300)
+        delay(10);
+       if (local_mode)
+        dos("", 0);
+                 // See if user has prepared a custom file for shell operation
+                 // and call that if it exists
+       else if (filefind("RSHELL.BAT", 0, strn))
+        dos("RSHELL.BAT", 0);
+       else   // otherwise make our own temporary batch file for redirection
+        {
+         // now want to make a temporary batch file which will be called
+         // to redirect DOS input and output, then shell to another copy
+         // of COMMAND.COM
+         f = fopen("HOSTTEMP.BAT", "w");
+         if (f)
+          {
+           if (get_port() != 1 && get_port() != 2)
+            {
+             host_send("Remote Shell not supported on this comm port due to DOS limits!^M^J");
+             continue;
+            }
+
+           strn = "COMx";
+           setchr(strn, 3, get_port() + '0'); // get right name to redirect
+
+           fputs("CTTY ", f);           // write to batch file
+           fputs(strn, f);
+           fputs("^M^JCOMMAND^M^J", f);
+           fputs("CTTY CON^M^J", f);
+           fputs("EXIT^M^J", f);
+
+           if (!local_mode)             // call batch file
+            dos("HOSTTEMP.BAT", 0);
+
+           fclose(f);
+          }
+         else
+          host_send("Can't open temporary batch file!^M^J");
+        }
+      }
+    }
+   else if (option == '^Z')            // Shut down Host Mode
+    {
+     host_send("Shut down Host mode. ");
+     if (!ask_for_pass(3, shutpass, shutpass))
+      continue;
+     host_send("Goodbye!^M^J");
+     if (carrier_counts)
+      hangup();
+     ustamp("User shut down Host Mode.", 1, 1);
+     finished_caller = 1;
+     exit_requested = 1;
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+host_get_prot()
+
+{
+ str prot[1];
+
+ host_send("^M^JModem7  SEAlink  Xmodem  1k-Xmodem  G-1k-Xmodem  Ymodem  YmodEm-g  Zmodem^M^J");
+ host_send("Which protocol? ");
+ host_input_strn(prot, 1);
+ host_send("^M^J");
+ 
+ if (strposi("MSX1GYEZ", prot, 0) == -1)     // if illegal prot
+  prot = "";                                 // return 0
+
+ return (toupper(subchr(prot, 0)));
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+send_transfer_msg()
+
+{
+ host_send("Ready to transfer file(s)... Press Ctrl-X at least twice to abort^M^J");
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Determine the baud rate once a Carrier Detect Signal has been detected
+// Since no characters were read, the 'CONNECT' string should still be
+// in the receive buffer.
+
+determine_baud()
+
+{
+ int t3, t12, t24, t96, t192;
+ int tmark, stat;
+ int new_baud = 0;
+
+ printsc("Determining baud... ");
+
+ track_free(0);                // clear all existing tracks
+
+ t3 = track(conn300, 0);       // check for connect strings
+ t12 = track(conn1200, 0);
+ t24 = track(conn2400, 0);
+ t96 = track(conn9600, 0);
+ t192 = track(conn19200, 0);
+
+ tmark = timer_start(30);      // wait up to 3 seconds for string
+                             
+ while (!time_up(tmark))
+  {
+   if (!carrier())
+    {
+     track_free(0);            // clear all existing tracks
+     return 0;
+    }
+
+   if (cinp_cnt())
+    track_addchr(cgetc());
+
+   stat = track_hit(0);
+   if (stat == 0)
+    continue;
+
+   if (stat == t3)
+    new_baud = 300;
+   else if (stat == t24)
+    new_baud = 2400;
+   else if (stat == t96)
+    new_baud = 9600;
+   else if (stat == t192)
+    new_baud = 19200;
+   else
+    new_baud = 1200;
+
+   break;                      // have baud rate, get out
+  }
+
+ if (!new_baud)                // time-up without CONNECT string
+  {
+   prints("Failed!");
+   track_free(0);              // clear all existing tracks
+   return 0;     
+  }
+
+ printn(new_baud);
+ prints("");
+ set_cparams(new_baud, get_parity(), get_datab(), get_stopb());
+
+ track_free(0);                // clear all existing tracks
+ return 1;                     // indicate success
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+type_file(str fname)
+
+{
+ int f;
+ str buf[100];
+ int ichar, lines_sent = 0;
+
+ f = fopen(fname, "r");
+ if (!f)
+  return -1;
+
+ host_send("^M^J");
+
+ while (1)
+  {
+   if (carrier_counts)
+    if (!carrier())
+     {
+      connection_lost = 1;
+      finished_caller = 1;
+      fclose(f);
+      return 0;
+     }
+
+   if (fgets(buf, 80, f) == -1)
+    {
+     fclose(f);
+     return 1;
+    }
+
+   host_send(buf);
+   host_send("^M^J");
+   ++lines_sent;
+
+   if (lines_sent >= 22)
+    {
+     lines_sent = 0;
+     host_send("[More]");
+     host_input();
+
+     if (finished_caller)         // if user inactivity
+      {
+       fclose(f);
+       return 0;
+      }
+
+     host_send("^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H^H ^H");
+    }
+
+   while (cinp_cnt())
+    {
+     ichar = cgetc();
+     if (ichar == '^C' || ichar == '^K')
+      {
+       host_send("^M^J");
+       fclose(f);
+       return 1;
+      }
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+host_send(str outstr)
+
+{
+
+ printsc(outstr);
+ if (!local_mode)
+  cputs(outstr);
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+host_send_c(int chr)
+
+{
+ 
+ printc(chr);
+ if (!local_mode)
+  cputc(chr);
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+host_input_strn(str buf, int maximum)
+
+{
+ int i = 0, key;
+
+ while (1)
+  {
+   key = host_input();
+   if (!key)                 // timeout or user disconnect
+    {
+     setchr(buf, 0, 0);      // set string to empty
+     return 0;               // indicate there is a problem
+    }
+
+   if (key == '^M')
+    break;
+   if (key == 127 || key == 8)
+    {
+     if (i)
+      {
+       --i;
+       host_send_c(key);
+      }
+     continue;
+    }
+   if (i < maximum)
+    {
+     setchr(buf, i, key);
+     i = i + 1;
+    }
+   else
+    i = i + 1;
+  }
+
+ if (i > maximum)
+  i = maximum;
+
+ setchr(buf, i, '^0');
+
+ if (subchr(buf, 0))
+  return 1;
+ else
+  return 0;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+host_input()
+
+{
+ int c;
+ int t;
+
+ t = timer_start(2400);         // 4 minutes inactivity allowed
+
+ while (1)
+  {
+   if (time_up(t) && !direct_connect)
+    {
+     host_send("^M^J^M^JInactivity period too long. Connection terminated!^M^J");
+     if (carrier_counts)
+      hangup();
+     finished_caller = 1;
+     kill_user = 1;
+     return 0;
+    }
+
+   if (carrier_counts)
+    if (!carrier())
+      {
+       prints("^M^JConnection has been lost, call terminated.^M^J");
+       connection_lost = 1;
+       finished_caller = 1;
+       return 0;
+      }
+
+   if ((c = inkey()) != 0)
+    {
+     if (c == 27)               // ESC key, sysop wants to exit
+      {
+       finished_caller = 1;
+       exit_requested = 1;
+       return 0;
+      }
+     else if (c == 0x4f00)      // END key, temrinate user
+      {
+       prints("^M^JUser terminated!");
+       ustamp("User terminated!", 1, 1);
+       if (carrier_counts)
+        hangup();
+
+       finished_caller = 1;
+       kill_user = 1;
+       return 0;
+      }
+
+     else if (c <= 255)
+      {
+       if (c != 8 && c != 127)   
+        host_send_c(c);
+       return c;
+      }
+    }
+
+   if (!local_mode)
+    if (cinp_cnt())
+     {
+      c = cgetc();
+      if (c != 8 && c != 127)
+       host_send_c(c);
+      return c;
+     }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+ask_for_pass(int maxtries, str pass1, str pass2)
+
+{
+ int i;
+ str strn[8];
+
+ for (i = 0; i < maxtries; ++i)
+  {
+   if (i)
+    host_send("Wrong! Try again.^M^J");
+   host_send("Password: ");
+   host_input_strn(strn, 8);
+   host_send("^M^J");
+
+   if (finished_caller)
+    return 0;
+
+   if (!strcmpi(strn, pass1))
+    return 1;
+
+   if (!strcmpi(strn, pass2))
+    return 2;
+  }
+
+ host_send("No more chances. Access denied.^M^J");
+
+ return 0;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+read_host_config_file()
+
+{
+ str s[80];
+ int f, stat;
+
+ s = _telix_dir;
+ strcat(s, "HOST.CNF");
+
+ f = fopen(s, "r");
+ if (!f)
+  {
+   printsc("Can't open ");
+   prints(s);
+   return -1;
+  }
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ pass1 = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ pass2 = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ shellpass = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ shutpass = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ host_downloads = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ host_uploads = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ direct_connect = (toupper(subchr(s, 0)) == 'D');
+
+ fclose(f);
+ return 1;
+
+// jump here if error
+
+ got_error:
+  fclose(f);
+  return -1;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+check_directories()
+
+{
+ str s[80];
+ int i, a;
+
+ // first remove trailing slashes
+
+ s = host_uploads;
+ i = strlen(s);
+ if (i > 0)
+  if (subchr(s, i - 1) == '\' || subchr(s, i - 1) == '/')
+   setchr(s, i - 1, 0);
+ if (s && !(strlen(s) == 2 && subchr(s, 1) == ':'))
+  {
+   a = fileattr(s);
+   if (a == -1 || !(a & 16))
+    return 0;                  // not a directory or doesn't exist
+  }
+
+ s = host_downloads;
+ i = strlen(s);
+ if (i > 0)
+  if (subchr(s, i - 1) == '\' || subchr(s, i - 1) == '/')
+   setchr(s, i - 1, 0);
+ if (s && !(strlen(s) == 2 && subchr(s, 1) == ':'))
+  {
+   a = fileattr(s);
+   if (a == -1 || !(a & 16))
+    return 0;                  // not a directory or doesn't exist
+  }
+
+ return 1;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// returns TRUE if passed filespec is just a filename. Also handles the
+// forward slash as a path separator.
+
+just_filename(str filespec)
+
+{
+ int slash, space;
+
+ if (strpos(filespec, ":", 0) != -1)
+  return 0;
+ if (strpos(filespec, "\", 0) != -1)
+  return 0;
+ if ((slash = strpos(filespec, "/")) == -1)
+  return 1;
+
+ space = strpos(filespec, " ");
+ if (space == -1)
+  return 0;
+ if (space < slash)
+  return 1;
+
+ return 0;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////

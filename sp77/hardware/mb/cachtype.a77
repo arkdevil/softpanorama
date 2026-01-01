@@ -1,0 +1,101 @@
+From: jylee@Sun.COM (Jong Y. Lee)
+Newsgroups: comp.sys.ibm.pc.hardware.chips
+Subject: Re: Write back vs Write through Caching
+Date: 18 Sep 1995 17:00:26 GMT
+
+G.Credland (G.Credland@shef.ac.uk) wrote:
+: martinh@iprolink.co.nz (Martin Herring) wrote:
+: >What is the difference between the two methods of caching Write back
+: >and Write through?
+: >...
+
+: Write through caching only caches reads from memory, and not writes.
+
+: Write back caching caches both reads and writes, thereby giving a
+: slight improvement in processor performance.
+
+This is not exactly what's happening.  Write through cache can also
+cache reads and writes (with write allocate).  The distinction
+of write through and write back is, with write through the main
+memory has to be updated.  The cache might or might not be updated
+depending on whether the line is being cached, and the write
+allocate policy.  The write back cache will always cache writes,
+thus reduces the traffic going to main memory.  Also the write
+call will return faster since it doesn't have to wait to access
+the main memory.
+
+
+Jongyoon Lee
+
+--
+jylee@Eng.Sun.COM
+
+I don't represent my employer.
+
+From news.ios.com!news.ece.uc.edu!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!uunet!in2.uu.net!news1.digital.com!pa.dec.com!nntpd.lkg.dec.com!peavax.eng.pko.dec.com!ip08106 Thu Sep 21 00:53:58 1995
+Path: news.ios.com!news.ece.uc.edu!babbage.ece.uc.edu!news.kei.com!news.mathworks.com!uunet!in2.uu.net!news1.digital.com!pa.dec.com!nntpd.lkg.dec.com!peavax.eng.pko.dec.com!ip08106
+From: tatosian@plough.enet.dec.com (Dave Tatosian)
+Newsgroups: comp.sys.ibm.pc.hardware.chips
+Subject: Re: Write back vs Write through Caching
+Date: 19 Sep 1995 08:12:11 GMT
+Organization: DEC/Alpha Server Engineering
+Lines: 53
+Message-ID: <43lu0r$3oq@peavax.eng.pko.dec.com>
+References: <43jith$ado@news.express.co.nz> <43jqp2$4h4@hippo.shef.ac.uk>
+NNTP-Posting-Host: te175.pko.dec.com
+X-Newsreader: News Xpress Version 1.0 Beta #4
+
+In article <43jqp2$4h4@hippo.shef.ac.uk>,
+   "G.Credland" <G.Credland@shef.ac.uk> wrote:
+>martinh@iprolink.co.nz (Martin Herring) wrote:
+>>What is the difference between the two methods of caching Write back
+>>and Write through?
+>
+>Write through caching only caches reads from memory, and not writes.
+>
+>Write back caching caches both reads and writes, thereby giving a
+>slight improvement in processor performance.
+
+Well, that's certainly not an accurate description of most "write through"
+caching schemes...
+
+The real difference between "write back" and "write through" cache schemes is
+that when a processor modifies a cache line on a "write through" cache, it'll
+broadcast the modified line out to the lower levels of the memory hierarchy,
+and those levels will "take the update". Whereas on the "write-back" scheme,
+the broadcast doesn't take place until the modified line is displaced by a
+difference line due to a miss. However, in both schemes, the modified data is
+retained in the cache until it's displaced by a subsequent cache miss.
+
+What sense would it make to arbitrarily kick out the dirty cache line from the
+L1 cache and invalidating the index location? The program that modified data
+in that line might be walking down the line poking at each word in the line -
+and displacing it just to refetch it again, and again, and again, would sure
+thrash the memory channel, wouldn't it?
+
+So, in fact, a write through cache *can* cache write data as well as read
+data. By retaining the dirty line (until it's displaced by a cache miss that
+maps to the same cache index) at least read bandwidth isn't burned
+unnecessarily.
+
+On the "write back" scheme, the modified ("dirty") cache line would not be
+broadcast out to the lower memory levels until a subsequent "miss" caused that
+line to be "victimized" by the new fill data. At that point the dirty line is
+pushed down the memory hierarchy - and depending on the design of the system -
+would be written all the way back to the main memory (the SIMMs), after which
+the new fill data would take it's place in the cache.
+
+That's the advantage of the "write-back" scheme - it conserves both read *and*
+write bandwidth...
+
+(Note that this description leaves out the implementation of victim buffers,
+so don't tweak me on that! ;^)
+
+/dave
+
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<> Dave Tatosian           tatosian@plough.enet.dec.com <>
+<> Digital Equipment Corp.    Alpha Server Engineering  <>
+<>         "Read this and nobody gets hurt ;^)"         <>
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+

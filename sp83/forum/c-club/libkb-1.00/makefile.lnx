@@ -1,0 +1,309 @@
+#
+# Makefile for Linux and GNU make
+#
+# libkb -- a free, advanced and portable low-level keyboard library
+# Copyright (C) 1995, 1996 Markus Franz Xaver Johannes Oberhumer
+# For conditions of distribution and use, see copyright notice in kb.h 
+#
+
+
+# This is a ready-to-run Makefile.
+# do a 'make' to build the library and the test programs.
+
+# do a 'make install' as root.
+# you might want to change these, but probably not.
+INSTALL_INCLUDEDIR := /usr/local/include
+INSTALL_LIBDIR := /usr/local/lib
+
+
+# /***********************************************************************
+# // Configuration
+# // Tools needed: find, install, nm, perl, sed, tr, zip
+# ************************************************************************/
+
+lib_name:=kb
+major_shared:=1
+minor_shared:=0
+
+O := .o#			# object extension
+A := .a#			# library extension
+E := .out#			# executable extension
+
+
+#
+# change the LIB_TARGET to suite your needs
+
+##LIB_TARGET := aout.static
+##LIB_TARGET := aout.shared
+##LIB_TARGET := elf.shared
+
+ifeq ($(strip $(LIB_TARGET)),)
+LIB_TARGET := aout.static
+endif
+
+
+FIND    := find
+TOUCH   := touch
+##REN     := mmv -rp
+REN     := mv -i
+INSTALL := install -m 444 -o root -g root
+
+PWD        := $(shell pwd)
+DIRNAME    := $(shell echo $(PWD) | sed -e 's|.*[/\\]||')
+DISTNAME   := $(DIRNAME)
+VERSION    := $(shell echo $(DIRNAME) | sed -e 's/[^0-9]//g')
+
+UNAME_M    := $(shell uname -m)
+
+
+# /***********************************************************************
+# // Directories
+# ************************************************************************/
+
+SRCDIR = include:src:samples:util
+
+vpath %.c     $(SRCDIR)
+vpath %.cc    $(SRCDIR)
+vpath %.cpp   $(SRCDIR)
+vpath %.h     $(SRCDIR)
+vpath %.hh    $(SRCDIR)
+vpath %.pl    $(SRCDIR)
+
+
+
+# /***********************************************************************
+# // Compiler and linker flags
+# ************************************************************************/
+
+CC            := gcc
+## CFLAGS        += -v			# be verbose
+CFLAGS        += -DKB_DEBUG=1		# log some debug infos
+CFLAGS        += -Iinclude
+CFLAGS        += -Wall -W -pedantic	# all warnings on
+CFLAGS        += -O2 			# optimize 
+ifeq ($(UNAME_M),i486)
+CFLAGS        += -m486 			# optimize for 486
+endif
+
+### even more warnings for all library source files
+ifeq (1,2)
+CFLAGS_LIBKB  += -Wstrict-prototypes
+CFLAGS_LIBKB  += -Wmissing-prototypes -Wmissing-declarations
+CFLAGS_LIBKB  += -Wpointer-arith -Wwrite-strings -Wshadow -Wcast-align
+CFLAGS_LIBKB  += -Wnested-externs
+endif
+
+### debugging
+ifeq (1,2)
+CFLAGS        += -g 			# include debug information
+else
+CFLAGS        += -fomit-frame-pointer 	# optimize (no debugging possible)
+LDFLAGS       += -s			# strip executable
+endif
+
+### bounds checking
+ifeq (1,2)
+CFLAGS        += -fbounds-checking
+LDFLAGS       += -fbounds-checking
+endif
+
+### curses
+ifeq (1,1)
+CFLAGS_CURSES += -I/usr/include/ncurses
+LDLIBS_CURSES += -lncurses		# use ncurses 1.8.5 or higher
+else
+LDLIBS_CURSES += -lcurses		# use curses
+endif
+
+
+# /***********************************************************************
+# // includes and default target
+# ************************************************************************/
+
+.PHONY: default all test_pgm clean realclean
+
+default: all
+
+STATIC_LIB = lib${lib_name}$A
+
+ifneq ($(strip $(wildcard Makefile.inc)),)
+include Makefile.inc
+else
+include makefile.inc
+endif
+
+SRCS += kblinux.c
+
+
+.PHONY: lib_install shared_lib_install static_lib_install
+
+ifeq ($(strip $(LIB_TARGET)),aout.shared)
+  include config/linux/aout_so.mk
+  LIBKB = $(SHARED_LIB)
+  lib_install : shared_lib_install
+  clean:: shared_lib_clean
+endif
+
+ifeq ($(strip $(LIB_TARGET)),elf.shared)
+  include config/linux/elf_so.mk
+  LIBKB = $(SHARED_LIB)
+  lib_install : shared_lib_install
+  clean:: shared_lib_clean
+endif
+
+ifeq ($(strip $(LIB_TARGET)),aout.static)
+  LIBKB = $(STATIC_LIB)
+  lib_install : static_lib_install
+endif
+
+
+# /***********************************************************************
+# // rules
+# ************************************************************************/
+
+CFLAGS        := $(strip $(CFLAGS))
+CFLAGS_LIBKB  := $(strip $(CFLAGS_LIBKB))
+LDFLAGS       := $(strip $(LDFLAGS))
+LDLIBS        := $(strip $(LDLIBS))
+
+
+# rules for compiling the library
+$(OBJS) : %$O : %.c
+	$(COMPILE.c) $(CFLAGS_LIBKB) $< $(OUTPUT_OPTION)
+
+$(SHARED_OBJS) : %.so : %.c
+	$(COMPILE.c) $(SHARED_CFLAGS) $(CFLAGS_LIBKB) $< $(OUTPUT_OPTION)
+
+
+# other rules
+kbtst$O : %$O : %.c
+	$(COMPILE.c) $(CFLAGS_CURSES) $< $(OUTPUT_OPTION)
+
+_kbname.hh: mkkbname.pl kb.h
+	perl -w $^ > $@
+
+mktables$E: mktables$O
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+8: 8$O 
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+
+# /***********************************************************************
+# // main targets
+# ************************************************************************/
+
+all: uppercase  8  $(LIBKB)  test_pgm
+
+
+clean::
+	$(RM) $(strip $(OBJS))
+	$(RM) *.o *.out 8 *.tmp
+	$(RM) libkb*.a libkb*.sa libkb*.so.*
+	$(RM) libkb*.tar.gz libkb*.zip
+
+realclean: clean
+
+
+test_pgm: $(LIBKB) kbtstlnx$E simple$E sigalrm$E keycodes$E tube$E
+
+kbtstlnx$E: kbtst$O $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) $(LDLIBS_CURSES) -o $@
+
+simple$E: simple$O $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+sigalrm$E: sigalrm$O $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+keycodes$E: keycodes$O $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+tube$E: tube$O $(LIBKB)
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -lvgagl -lvga -lm -o $@
+##	chmod a+rs,go-w $@
+
+
+# /***********************************************************************
+# // library targets
+# ************************************************************************/
+
+$(STATIC_LIB): $(OBJS)
+	-$(RM) $@
+	$(AR) rcs $@ $^
+
+
+# /***********************************************************************
+# // installation
+# ************************************************************************/
+
+.PHONY: hdr_install static_lib_install install
+
+hdr_install : kb.h kbmlock.h
+	$(INSTALL) $^  $(INSTALL_INCLUDEDIR)/
+
+static_lib_install : $(STATIC_LIB)
+	$(INSTALL) $^  $(INSTALL_LIBDIR)/
+
+install :: all hdr_install lib_install
+	@echo 'libkb' library installed.
+
+
+# /***********************************************************************
+# // uppercase
+# // if you unzip the MSDOS distribution (libkbXXX.zip),
+# // make should automatically rename all files to uppercase as needed
+# ************************************************************************/
+
+.PHONY: uppercase 
+
+uppercase: $(UPPER_MAKE) $(UPPER_FILE)
+
+$(UPPER_MAKE) $(UPPER_FILE):
+	-$(REN) `echo $@ | tr A-Z a-z` $@
+
+
+# /***********************************************************************
+# // distribution
+# ************************************************************************/
+
+.PHONY: chmod chown_root tar zip rar distclean dist pack
+
+chmod:
+	chmod -R go-w *
+
+chown_root:
+	chown -R root:root *
+
+tar: mkdist.pl uppercase 
+	$(FIND) -type f -print | perl $< $(DIRNAME) | sort | (cd .. && tar -cvf- -T-) | (cd .. && gzip -9 > $(DIRNAME)/$(DISTNAME).tar.gz)
+
+zip: mkdist.pl uppercase 
+	-$(RM) $(DISTNAME).zip
+	$(FIND) -type f -print | perl $< $(DIRNAME) | sort | (cd .. && zip -9 -o -@ $(DIRNAME)/$(DISTNAME).zip)
+	$(TOUCH) -c $(DISTNAME).zip
+
+# get the RAR archiver from ftp://ftp.elf.stuba.sk/pub/pc/pack
+rar: mkdist.pl uppercase 
+	-$(RM) $(DISTNAME).rar
+	$(FIND) -type f -print | perl $< $(DIRNAME) > /tmp/libkb.tmp
+	(cd .. && rar a -s -ds -m5 -tl $(DIRNAME)/$(DISTNAME).rar @/tmp/libkb.tmp)
+	$(TOUCH) -c $(DISTNAME).rar
+
+
+
+distclean: 
+
+dist: grep distclean chmod all distexe touch tar
+
+pack: chmod zip
+
+
+# /***********************************************************************
+# // Autoconf (preliminary)
+# ************************************************************************/
+
+.PHONY: autoscan
+
+autoscan: 
+	autoscan

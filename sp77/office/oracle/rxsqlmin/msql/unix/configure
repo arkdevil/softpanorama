@@ -1,0 +1,191 @@
+#!/home/users/mhesslin/regina/src/rexx
+/* change the above to point to your rexx executable                  */
+/* For Regina, something like #!/usr/local/bin/rexx                   */
+/* For REXX/imc, something like #!/usr/local/bin/rexx -x              */
+/* For REXX/6000, something like #!/usr/local/bin/rx                  */
+includes.1 = 'rexxsaa.h'
+includes.2 = 'rexxsaa.h'
+includes.3 = 'rexxsaa.h, rexxtype.h'
+libs.1 = 'libregina.a'
+libs.2 = 'librexx.a'
+libs.3 = 'librexx.a'
+makefile.1 = 'Makefile'
+makefile.2 = 'Make'
+macros.1 = 'LL CC CEXTRA EEXTRA DYN_LINK SHL_TYPE DYN_LD ELIBS DYN_COMP',
+           'MISCDEFS DEBUG PROF OPTIMIZE COPT LINKOPT LIBS LDEXTRA'
+macros.2 = 'CC CCFLAG LDFLAG MORECCFLAGS LIBRARIES'
+int.1 = 'Regina'
+int.2 = 'REXX/imc'
+int.3 = 'REXX/6000'
+msql_macros = 'CC LINK CPP EXTRA_LIB EXTRA_CFLAGS'
+Say
+Say 'REXX/SQL can be built with Regina, REXX/imc or REXX/6000 depending on'
+Say 'the platform on which you are building REXX/SQL.'
+Say
+Say 'This configuration utility will create a Makefile based on the mSQL'
+Say 'Makefile and one of the following:'
+Say
+Say ' - the makefile used to build your Regina interpreter,'
+Say ' - the Make file used to build your REXX/imc interpreter, or'
+Say ' - hard-coded switches when using the REXX/6000 interpreter.'
+Say
+Say 'Before continuing, you also need to know the directory where the following'
+Say 'files reside:'
+Say
+Say 'for Regina:    ' includes.1 libs.1
+Say 'for REXX/imc:  ' includes.2 libs.2
+Say 'for REXX/6000: ' includes.3 libs.3
+Say
+interpreter = ''
+Do 3
+   Say 'Enter the number corresponding to the REXX interpreter you are using'
+   Say
+   Say '1 - Regina'
+   Say '2 - REXX/imc'
+   Say '3 - REXX/6000'
+   Say
+   Parse Pull interpreter
+   Select
+     When interpreter = 1 Then Leave
+     When interpreter = 2 Then Leave
+     When interpreter = 3 Then Leave
+     Otherwise interpreter = ''
+   End
+End
+If interpreter = '' Then
+  Do
+    Say 'Configuration aborted after 3 attempts at setting REXX intepreter.'
+    Exit 1
+  End
+
+Say ''
+Say 'Enter the full path to the include files:' includes.interpreter
+Parse Pull includes_path .
+len = Length(includes_path)
+If Substr(includes_path,len,1) = '/' Then includes_path = Substr(includes_path,1,len-1)
+Say 'Enter the full path to the library files:' libs.interpreter
+Parse Pull libs_path
+len = Length(libs_path)
+If Substr(libs_path,len,1) = '/' Then libs_path = Substr(libs_path,1,len-1)
+If interpreter \= 3 Then
+  Do
+    Say 'Enter the full path to the file used to build your interpreter:' makefile.interpreter
+    Parse Pull makefile_path
+    len = Length(makefile_path)
+    If Substr(makefile_path,len,1) = '/' Then makefile_path = Substr(makefile_path,1,len-1)
+  End
+Say 'Enter the full path to the mSQL msql source directory eg. /tmp/msql-1.0.7/src/msql'
+Parse Pull msqlfile_path
+len = Length(msqlfile_path)
+If Substr(msqlfile_path,len,1) = '/' Then msqlfile_path = Substr(msqlfile_path,1,len-1)
+tempfile = 'Makefile'
+Say 'Building Makefile in current directory...'
+Call putline '#******************************************************************'
+Call putline '#  The following lines added for mSQL'
+Call putline '#******************************************************************'
+Call ParseMakefile 'MSQL' msqlfile_path||'/Makefile.full'
+Call putline '#******************************************************************'
+Call putline '#  The following lines added for REXX/SQL using' int.interpreter 'interpreter'
+Call putline '#******************************************************************'
+Call ParseMakefile 'REXX' makefile_path||'/'||makefile.interpreter
+Call SetBeforeMacros
+Select
+  When interpreter = 1 Then Call BuildRegina
+  When interpreter = 2 Then Call Buildimc 
+  When interpreter = 3 Then Call Build6000 
+End
+Call SetAfterMacros
+Exit 0
+
+BuildRegina: 
+Call putline ''
+Call putline 'MSQLLIBS = -L'||msqlfile_path '-lmsql $(EXTRA_LIB)'
+Call putline 'MYCCFLAGS = $(CCFLAGS) $(COPT) $(EXTRA_CFLAGS)'
+Call putline 'MYLDFLAGS = $(LINKOPT) $(LDFLAGS)'
+Call putline 'MYLIBS = $(LIBS) $(MSQLLIBS)'
+Call putline 'MYLDEXTRA = $(LDEXTRA)'
+Return
+
+Buildimc:
+Call putline ''
+Call putline 'MSQLLIBS = -L'||msqlfile_path '-lmsql $(EXTRA_LIB)'
+Call putline 'MYCCFLAGS = $(CCFLAGS) $(CCFLAG) $(MORECCFLAGS) $(PIC) $(EXTRA_CFLAGS)'
+Call putline 'MYLDFLAGS = $(CCFLAG) $(LDFLAG) $(DEBUG) $(LDFLAGS)'
+Call putline 'MYLIBS = $(LIBRARIES) $(MSQLLIBS)'
+Call putline 'MYLDEXTRA = echo'
+Return
+
+Build6000:
+Call putline ''
+Call putline 'MSQLLIBS = -L'||msqlfile_path '-lmsql $(EXTRA_LIB)'
+Call putline 'MYCCFLAGS = $(CCFLAGS) -DUSE_AIXREXX -D_XOPEN_SOURCE $(EXTRA_CFLAGS)'
+Call putline 'MYLDFLAGS = $(LDFLAGS)'
+Call putline 'MYLIBS = $(MSQLLIBS)'
+Call putline 'MYLDEXTRA = echo'
+Return
+
+putline: Procedure Expose tempfile
+Parse Arg line
+rc = Lineout(tempfile,line)
+Return
+
+SetBeforeMacros:
+Call putline ''
+Call putline 'LD = $(LINK)'
+Call putline 'SQLOBJS = rexxsql.o minsql.o hash.o'
+Call putline 'ORAOBJS = rexxmin.o minmin.o hash.o'
+Call putline 'CCFLAGS = -DUNIX -I../../common -I'||includes_path '-I'||msqlfile_path '-c'
+Return
+
+SetAfterMacros:
+Call putline ''
+Call putline 'rexxsql: $(SQLOBJS)'
+Call putline '	$(LD) $(MYLDFLAGS) -o rexxsql $(SQLOBJS)' libs_path||'/'||libs.interpreter '$(MYLIBS)'
+Call putline '	$(MYLDEXTRA) rexxsql'
+Call putline ''
+Call putline 'rexxmin: $(ORAOBJS)'
+Call putline '	$(LD) $(MYLDFLAGS) -o rexxmin $(ORAOBJS)' libs_path||'/'||libs.interpreter '$(MYLIBS)'
+Call putline '	$(MYLDEXTRA) rexxmin'
+Call putline ''
+Call putline 'hash.o: ../../common/hash.c ../../common/hash.h'
+Call putline '	$(CC) $(MYCCFLAGS) -ohash.o ../../common/hash.c'
+Call putline ''
+Call putline 'rexxsql.o: ../rexxsql.c ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -orexxsql.o ../rexxsql.c'
+Call putline 'rexxmin.o: ../rexxsql.c ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -DMIN_PREFIX -orexxmin.o ../rexxsql.c'
+Call putline ''
+Call putline 'minsql.o: ../minsql.c ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -ominsql.o ../minsql.c'
+Call putline 'minmin.o: ../minsql.c ../rexxsql.h'
+Call putline '	$(CC) $(MYCCFLAGS) -DMIN_PREFIX -ominora.o ../minsql.c'
+Return
+
+ParseMakefile:
+Parse Arg filetype makfile .
+trace o
+valid = 0
+If filetype = 'REXX' Then maclist = macros.interpreter
+Else 
+  Do
+    maclist = msql_macros
+    valid = 1
+  End
+Do While(Lines(makfile)>0)
+  line = Linein(makfile)
+  If interpreter = 2 Then
+    Do
+      If Pos('@EOF',line) \= 0 Then valid = 1
+    End
+  Else
+    valid = 1
+  Do i = 1 To Words(maclist)
+    If Substr(line,1,Length(Word(maclist,i))) = Word(maclist,i) & valid = 1 Then
+      Do
+        Call putline(line)
+        Leave
+      End
+  End
+End
+trace o
+Return

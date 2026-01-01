@@ -1,0 +1,256 @@
+'**************************************************************************
+'*                       MSSetup Installation for WDC Fastdisk driver, etc.
+'**************************************************************************
+
+''$DEFINE DEBUG  ''Define for script development/debugging
+
+'$INCLUDE 'setupapi.inc'
+'$INCLUDE 'msdetect.inc'
+
+DECLARE FUNCTION UpdateSystemIni LIB "mscuistf.dll" (szAdd$,szDelete$) As INTEGER
+
+''Dialog ID's
+CONST WELCOME       = 100
+CONST ASKQUIT       = 200
+CONST DESTPATH      = 300
+CONST EXITFAILURE   = 400
+CONST EXITQUIT      = 600
+CONST EXITSUCCESS   = 700
+CONST OPTIONS       = 800
+CONST APPHELP       = 900
+CONST CHECK         = 2500
+CONST BADPATH       = 6400
+CONST IDD_InstalledSysIni       =       102
+CONST IDD_FailedSysIni1         =       7802
+CONST IDD_InfoSysIni2           =       7803
+CONST IDD_FailedSysIni3         =       7804
+CONST EXITSUCCESS2              =       7805
+CONST IDD_SYSTEMINI             =       101
+CONST IDD_SYSTEMINI2            =       7801
+
+''Bitmap ID
+CONST LOGO = 106
+
+GLOBAL DEST$        ''Default destination directory.
+GLOBAL WasCreated
+
+DECLARE SUB Install
+DECLARE FUNCTION MakePath (szDir$, szFile$) AS STRING
+
+
+INIT:
+    CUIDLL$ = "mscuistf.dll"            ''Custom user interface dll
+    HELPPROC$ = "FHelpDlgProc"          ''Help dialog procedure
+
+    SetBitmap CUIDLL$, LOGO
+    SetTitle "WDC Caviar Installation Program Version 1.1"
+
+    szInf$ = GetSymbolValue("STF_SRCINFPATH")
+    IF szInf$ = "" THEN
+    	szInf$ = GetSymbolValue("STF_CWDDIR") + "WDCDRV.INF"
+    END IF
+    ReadInfFile szInf$
+
+    DEST$ = GetWindowsDir()
+    DEST$ = MID$(DEST$,1,LEN(DEST$)-1)
+
+'$IFDEF DEBUG
+    i% = SetSizeCheckMode(scmOnIgnore)    '' could use scmOff; def = scmOnFatal
+    WinDrive$ = MID$(GetWindowsDir, 1, 1)
+    IF IsDriveValid(WinDrive$) = 0 THEN
+    	i% = DoMsgBox("Windows drive ('"+WinDrive$+"') is not a valid drive.", "DEBUG", MB_TASKMODAL+MB_ICONHAND+MB_OK)
+    	GOTO QUIT
+    END IF
+'$ENDIF ''DEBUG
+
+
+WELCOME:
+    sz$ = UIStartDlg(CUIDLL$, WELCOME, "FInfoDlgProc", APPHELP, HELPPROC$)
+    IF sz$ = "CONTINUE" THEN
+    	UIPop 1
+    ELSE
+    	GOSUB ASKQUIT
+    	GOTO WELCOME
+    END IF
+
+GETPATH:
+    SetSymbolValue "EditTextIn", DEST$
+    SetSymbolValue "EditFocus", "END"
+GETPATHL1:
+    sz$ = UIStartDlg(CUIDLL$, DESTPATH, "FEditDlgProc", APPHELP, HELPPROC$)
+    DEST$ = GetSymbolValue("EditTextOut")
+
+    IF sz$ = "CONTINUE" THEN
+    	IF IsDirWritable(DEST$) = 0 THEN
+    	    GOSUB BADPATH
+    	    GOTO GETPATHL1
+    	END IF
+    	UIPop 1
+    ELSEIF sz$ = "REACTIVATE" THEN
+    	GOTO GETPATHL1
+    ELSEIF sz$ = "BACK" THEN
+    	UIPop 1
+    	GOTO WELCOME
+    ELSE
+    	GOSUB ASKQUIT
+    	GOTO GETPATH
+    END IF
+
+
+    Install
+
+
+QUIT:
+    ON ERROR GOTO ERRQUIT
+
+    IF ERR = 0 THEN
+        IF WasCreated = 0 THEN
+        	dlg% = EXITSUCCESS
+        ELSE
+            dlg% = EXITSUCCESS2
+        END IF
+    ELSEIF ERR = STFQUIT THEN
+	    dlg% = EXITQUIT
+    ELSE
+    	dlg% = EXITFAILURE
+    END IF
+QUITL1:
+    sz$ = UIStartDlg(CUIDLL$, dlg%, "FInfo0DlgProc", 0, "")
+    IF sz$ = "REACTIVATE" THEN
+    	GOTO QUITL1
+    END IF
+    UIPop 1
+
+    END
+
+ERRQUIT:
+    i% = DoMsgBox("Setup sources were corrupted!", "Setup Message", MB_OK+MB_TASKMODAL+MB_ICONHAND)
+    END
+
+
+
+BADPATH:
+    sz$ = UIStartDlg(CUIDLL$, BADPATH, "FInfo0DlgProc", 0, "")
+    IF sz$ = "REACTIVATE" THEN
+    	GOTO BADPATH
+    END IF
+    UIPop 1
+    RETURN
+
+
+
+ASKQUIT:
+    sz$ = UIStartDlg(CUIDLL$, ASKQUIT, "FQuitDlgProc", 0, "")
+
+    IF sz$ = "EXIT" THEN
+    	UIPopAll
+    	ERROR STFQUIT
+    ELSEIF sz$ = "REACTIVATE" THEN
+    	GOTO ASKQUIT
+    ELSE
+    	UIPop 1
+    END IF
+    RETURN
+
+
+
+'**
+'** Purpose:
+'**     Builds the copy list and performs all installation operations.
+'** Arguments:
+'**     none.
+'** Returns:
+'**     none.
+'*************************************************************************
+SUB Install STATIC
+
+    CUIDLL$ = "mscuistf.dll"            ''Custom user interface dll
+    
+    SrcDir$ = GetSymbolValue("STF_SRCDIR")
+    IF DEST$ <> GetWindowsDir() THEN
+    	CreateDir DEST$, cmoNone
+    ENDIF
+
+    OpenLogFile MakePath(DEST$, "LOGFILE.OUT"), 0
+    WriteToLogFile ""
+    WriteToLogFile "  User chose as destination directory: '" + DEST$ + "'"
+    WriteToLogFile ""
+    WriteToLogFile "  May have had to create the directory: " + DEST$
+    WriteToLogFile ""
+
+    AddSectionKeyFileToCopyList "wdc", "Configuration", SrcDir$, DEST$
+    AddSectionKeyFileToCopyList "wdc", "ConfigHelp", SrcDir$, DEST$
+    AddSectionKeyFileToCopyList "wdc", "DocFile", SrcDir$, DEST$
+    AddSectionKeyFileToCopyList "wdc", "Driver", SrcDir$, DEST$
+    DumpCopyList MakePath(DEST$,"LOGFILE.OUT")
+    CopyFilesInCopyList
+
+    sz$ = UIStartDlg(CUIDLL$, IDD_SYSTEMINI, "FInfoDlgProc", APPHELP, HELPPROC$)
+    IF sz$ = "CONTINUE" THEN
+    	UIPop 1
+    ELSEIF sz$ = "EXIT" THEN
+    	UIPop 1
+    	sz$ = UIStartDlg(CUIDLL$, IDD_SYSTEMINI2, "FInfoDlgProc", APPHELP, HELPPROC$)
+    	UIPop 1
+    	GOTO FinishInstall
+    END IF
+
+	szSystemIni$ = MakePath(GetWindowsDir(),"SYSTEM.INI")
+    IF GetIniKeyString(szSystemIni$,"386enh","32BitDiskAccess") = "" THEN
+    	CreateIniKeyValue szSystemIni$,"386enh","32BitDiskAccess","off",cmoOverwrite
+        iVal2% = UpdateSystemIni("*int13","*int13")
+        WasCreated = 1
+    ELSE
+        WasCreated = 0
+    END IF
+
+    szNewDriver$ = DEST$+"\"+GetSectionKeyFilename("wdc","Driver")
+    iVal% = UpdateSystemIni(szNewDriver$,"*wdctrl")
+
+    IF iVal% = 0 THEN
+    	sz$ = UIStartDlg(CUIDLL$, IDD_FailedSysIni1, "FInfoDlgProc", APPHELP, HELPPROC$)
+    	UIPop 1
+    	ERROR -1
+    ELSEIF iVal% = 2 THEN
+    	sz$ = UIStartDlg(CUIDLL$, IDD_InfoSysIni2, "FInfoDlgProc", APPHELP, HELPPROC$)
+    	UIPop 1
+    ELSEIF iVal% = 3 THEN
+    	sz$ = UIStartDlg(CUIDLL$, IDD_FailedSysIni3, "FInfoDlgProc", APPHELP, HELPPROC$)
+    	UIPop 1
+    ENDIF
+
+FinishInstall:
+    UIPopAll
+
+    CreateProgmanGroup "Western Digital", "", cmoNone
+    ShowProgmanGroup  "Western Digital", 1, cmoNone
+    CreateProgmanItem "Western Digital", "Caviar Setup", MakePath(DEST$,"caviar.exe"), "", cmoOverwrite
+
+    CloseLogFile
+	
+END SUB
+
+
+
+'**
+'** Purpose:
+'**     Appends a file name to the end of a directory path,
+'**     inserting a backslash character as needed.
+'** Arguments:
+'**     szDir$  - full directory path (with optional ending "\")
+'**     szFile$ - filename to append to directory
+'** Returns:
+'**     Resulting fully qualified path name.
+'*************************************************************************
+FUNCTION MakePath (szDir$, szFile$) STATIC AS STRING
+    IF szDir$ = "" THEN
+    	MakePath = szFile$
+    ELSEIF szFile$ = "" THEN
+    	MakePath = szDir$
+    ELSEIF MID$(szDir$, LEN(szDir$), 1) = "\" THEN
+    	MakePath = szDir$ + szFile$
+    ELSE
+    	MakePath = szDir$ + "\" + szFile$
+    END IF
+END FUNCTION
+

@@ -1,0 +1,116 @@
+From: okir@mond.swb.de (Olaf Kirch)
+Newsgroups: comp.os.linux.announce
+Subject: SECURITY: NFS Vulnerability
+Date: 12 Mar 1995 17:38:01 GMT
+Organization: National Radio Astronomy Observatory
+Message-ID: <JUPHOFF.95Mar12123801@tarsier.cv.nrao.edu>
+Reply-To: linux-security@linux.nrao.edu
+
+
+	ALERT - Announcement of the Linux Emergency Response Team :)
+
+
+The current Linux NFS server (version 2.0) has a couple of security problems
+some of which have been known for a while and supposedly been fixed a long
+time ago.  However, none of the versions I found on the usual FTP sites had
+these fixes incorporated.
+
+On top of that, I discovered a few days ago that you can easily trick it by
+guessing NFS file handles.  This particularly nasty hole allows anyone
+to mount your entire file system and view all files (kiss your shadow
+protected passwords goodbye :->). I have written a sample program that
+demonstrates this hole and will release it at a later date.
+
+Release 2.1 of the Universal NFS server fixes these security holes.
+It does the following things:
+
+	*	Authenticate NFS file handles on every request. Support
+		for it was there, but didn't work in all cases.
+
+		Authentication code is not yet optimized. Especially
+		for sites that have wildcard names in their /etc/exports,
+		this may cause performance problems. I'll be working
+		on a revamped authentication code that does this faster.
+
+	*	Use setfsuid/setfsgid for setting owner/group on file
+		access rather than seteuid. With the old seteuid method,
+		any user on the system could kill the server.
+
+		The setfsuid/setfsgid functions were not implemented
+		in libc-4.6.27, so I added a small assembler file
+		that implements them. libc-4.6.29 seems to have them,
+		though.
+
+		There seem to have been patches that fixed this particular
+		bug before, but they never seem to have made it to any
+		FTP server.
+
+	*	Implement root_squash and no_root_squash mount options.
+
+		There was a fix for this posted to Usenet recently
+		which implemented the root_squash option. Release 2.1
+		obsoletes this patch.
+
+
+
+The complete source is available as nfs-server-2.1.tar.gz from
+linux.nrao.edu in /pub/people/okir/nfsd. It should compile out of
+the box, and reportedly works with gcc-ELF, too.
+
+In the same directory, you will find a binary release of portmap-3,
+written by Wietse Venema.  I highly recommend you use it, because
+older versions of portmap have a couple of problems that can result in
+users on your system gaining root access and/or foreign machines mounting
+directories from your system via NFS.
+
+Attached to the end of this message, you find the MD5 and PGP signatures
+for both files. The PGP signature can be verified with my public key (you
+can obtain the key by fingering okir@brewhq.swb.de). To verify the PGP
+signatures, save each of them to a separate file and pipe them into pgp.
+
+Regards,
+Olaf
+--------------------- linux-security BLURB -------------------------
+To find out about the linux-security and linux-alert mailing lists, send
+mail to majordomo@linux.nrao.edu with the following commands in the message
+body:
+
+help
+lists
+end
+
+The mailing lists are also archived at linux.nrao.edu; majordomo's help
+text should tell you how to retrieve them.
+
+----------------------- MD5 signatures -----------------------------
+	60a6a6983b52e9cd469cbf93dc285bc6  nfs-server-2.1.tar.gz
+	2201659365250c78766c9b123a598699  portmap-3.tar.gz
+
+---------------------- PGP signature for nfsd ----------------------
+-----BEGIN PGP MESSAGE-----
+Version: 2.6
+
+iQCVAgUAL2JZbeFnVHXv40etAQGsPwQAoHNjpnRuqQfbFS61RM4K6SpLH5dp71+M
+3mEKt/lrv9qZwz+3uQmmLmE4l2Ycg+nOnXTBCDRZPxiwwKYhQO3MPrTNslkhHNi8
+FpKAWl1x5yuj4oULW+JnJe15tT9kyk0teoX1bxO4eIxB18jOyxrTHfJ3is/2xmJp
+JOfwWWk+9Kk=
+=iL95
+-----END PGP MESSAGE-----
+
+-------------------- PGP signature for portmap ---------------------
+-----BEGIN PGP MESSAGE-----
+Version: 2.6
+
+iQCVAgUAL2MUvuFnVHXv40etAQHhuwP/SSbfIK3AFMUulqibxC6WH24qzpEMYQMs
+H2KTDQONkZCrfIctyTnjMHA/V81qKki3LodrlVafs3v/M5PV4J5pvCnrmAZDbU6m
+7z2o+SjFGFS1T3/UIj9uAPyJ5W5TPjzNnkTBj8SgyyL7pCpiKG5CsYEEWK0MiMyA
+P2bqC07ZfAw=
+=Wb6T
+-----END PGP MESSAGE-----
+
+-- 
+The normal moderators for this newsgroup (Matt Welsh and Lars Wirzenius)
+were bypassed for this announcement; we (Olaf Kirch and Jeff Uphoff)
+have their implicit approval for important security announcements, by
+prior arrangement.
+

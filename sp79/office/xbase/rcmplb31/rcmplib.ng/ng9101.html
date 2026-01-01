@@ -1,0 +1,188 @@
+<HTML>
+<HEAD><TITLE>RCmpLib 3.1 Clipper Compression Library - Long Entry</TITLE></HEAD>
+<BODY>
+
+<A HREF="ng8c70.html">[&lt;&lt;Previous Entry]</A>
+<A HREF="ng5e84.html">[^^Up^^]</A>
+<A HREF="nga58d.html">[Next Entry&gt;&gt;]</A>
+<A HREF="menu.html" >[Menu]</A>
+<A HREF="info.html">[About The Guide]</A>
+<HR>
+<PRE>
+ <B>R_DCmpFile() </B>
+ Extract one or more files from an RCmpLib archive
+──────────────────────────────────────────────────────────────────────────────
+
+ <B>Syntax</B>
+        nRetCode = R_DCmpFile ( cRcpFile, cSkeleton [, cDrvPath
+                        [, nBarLen [, nBarRow [, nBarCol [, cBarChr
+                        [, cBarColor [, cPassWord [, lEscape [, cRCmpBlk
+                        ] ] ] ] ] ] ] ] ] )
+
+ <B>Arguments</B>
+        cRcpFile        Name of the archive file to extract files from
+                        Format  : [drive:][\path\]filename[.ext]
+                        Example : C:\INVOICE\INVOICE.ZIP
+                        Default extension is <B>.RCP</B>
+
+        cSkeleton       Skeleton(s) of file(s) to extract from the archive
+                        Multiple skeletons must be separated by a
+                        semicolon (;) :
+                        P.e. : '*.DBF;*.NTX'
+
+                        The skeletons may contain the DOS wildcards,
+                        * and/or ?.
+                        A skeleton may NOT include drives and/or paths
+
+        cDrvPath        Drive and/or path where file should be extracted to
+                        Default : current directory
+
+        nBarLen         Length of the progression bar
+                        Default : 0 = no progression bar
+
+        nBarRow         Screen row for the progression bar
+                        Default : centered on the screen
+
+        nBarCol         Screen column for the progression bar
+                        Default : centered on the screen
+
+        cBarChr         Character used for displaying progression bar
+                        Default : █ = Chr ( 219 )
+
+        cBarColor       Color of the progression bar. This is a Clipper
+                        color string.
+                        Default : 'GR+/G' = Yellow on Green
+
+        cPassword       Password for decryption of the archive file.
+                        The maximum length of the password is 10 characters.
+                        Default : no decryption
+                        NOTE    : the password is <B>case-sensitive</B> !
+
+        lEscape         .F.     : compression can't be interrupted by
+                                  the user
+                        .T.     : compression may be interrupted by pressing
+                                  the &lt;Esc&gt; key
+                        Default : .F. = no interruption
+
+        cRCmpBlk        User function that is called once for each file
+                        skeleton, just before decompression.
+                        The <B>current file skeleton</B> is passed to cRCmpBlk.
+
+ <B>Returns</B>
+        nRetCode        Return code
+
+                        Possible return codes :
+
+                         0  No errors detected
+                         1  Invalid parameter(s) passed
+                         2  Error opening archive file
+                         3  Archive not compressed by
+                            RCmpLib
+                            - or -
+                            Incorrect password
+                         4  Earlier version of RCmpLib
+                         5  Error CREATING archive file
+                         6  Error READING  input  file
+                         7  Error WRITING  output file
+                         9  Compression aborted by user
+                        12  Archive is corrupt
+
+ <B>Description</B>
+        Extracts one or more files from a RCmpLib archive.
+
+        If the archive is created with password encryption, the same
+        password should be passed when extracting the file.
+        If the password is incorrect error code 3 will be returned.
+
+        The timestamp of the original (uncompressed) files will be restored
+        after the decompression.
+
+        About the <B>USER FUNCTION cRCmpBlk</B> :
+        The function, when used, should return one of the following values :
+        0       Decompression will be aborted;
+                R_DCmpFile() will return 9 ("Aborted by user")
+        1       Decompression continues
+
+ <B>Example</B>
+        PRIVATE nRetCode                        &amp;&amp; Return code R_Compress
+
+        *--------------------------------------------------------------------
+        * Extract the *.DBF &amp; *.NTX files from the archive C:\DB\ARCHIVE.RCP
+        * Place the extracted files in the C:\DBDAT directory
+        * Use a progression bar, 20 chars long, centered, default char (█),
+        *    barcolor = Bright White on Blue
+        * Password = TESTPW
+        * Non interruptable ( lEscape = .F. )
+        * User function to call for each file skeleton : ShowName ()
+        *--------------------------------------------------------------------
+        nRetCode = <B>R_DCmpFile</B> ( 'C:\DB\ARCHICE.RCP', '*.DBF;*.NTX', ;
+                'C:\DBDAT', 20, nil, nil, nil, 'W+/B', 'TESTPW', .F., ;
+                'ShowName' )
+
+        IF nRetCode != 0
+                *-- Oops, error while extracting ...
+                DO CASE
+                CASE    nRetCode = 1
+                        ?'Invalid parameter(s) passed'
+                CASE    nRetCode = 2
+                        ?'Error opening archive file'
+                CASE    nRetCode = 3
+                        ?'Invalid archive or incorrect password'
+                CASE    nRetCode = 4
+                        ?'Earlier version of RCmpLib'
+                CASE    nRetCode = 5
+                        ?'Error CREATING archive file'
+                CASE    nRetCode = 6
+                        ?'Error READING  input  file'
+                CASE    nRetCode = 7
+                        ?'Error WRITING  output file'
+                CASE    nRetCode = 9
+                        ?'Compression aborted by user'
+                CASE    nRetCode = 12
+                        ?'Archive is corrupt'
+                ENDCASE
+
+                InKey ( 0 )
+        ENDIF
+
+        QUIT
+
+        *------------------------------------------------------------------
+        * Display the skeleton of the files being extracted
+        *------------------------------------------------------------------
+        FUNCTION ShowName
+        PARAMETERS cFileSkel
+
+        *-- Display text just above the progression bar
+        @9,10 SAY 'Extracting  : ' + cFileSkel + Space (12-Len(cFileSkel))
+
+        RETURN  1                       &amp;&amp; Continue compression
+
+        More examples can be found in the demo program <B>RCmpDemS.PRG</B>.
+
+<B>Caution</B>
+
+        ┌────────────────────────────────────────────────────────────────╖
+        │                         -+- CAUTION -+-                        ║
+        │                                                                ║
+        │     IN THE UN-REGISTERED  VERSION OF RCMPLIB THE FOLLOWING     ║
+        │     REGISTRATION MESSAGE WILL BE DISPLAYED AT RANDOM TIMES     ║
+        │        (WHILE EXECUTING THE R_DCMPFILE() FUNCTION) :           ║
+        │                                                                ║
+        │ <B>UN-Registered version of RCmpLib -+- Please wait for 8 seconds</B> ║
+        │                                                                ║
+        │       AFTER A 8 SECONDS DELAY THE PROGRAM WILL CONTINUE.       ║
+        ╘════════════════════════════════════════════════════════════════╝
+
+  <B>о</B>
+</PRE>
+<HR>
+<B>See Also:</B>
+<A HREF="ng715b.html">R_CmpFile()</A>
+<A HREF="ng82af.html">R_CmpList()</A>
+<A HREF="ngadc7.html">R_IsRCmp()</A>
+<A HREF="ngc79b.html">ErrorCodes</A>
+<A HREF="ngcc56.html">Registration</A>
+
+</BODY>
+</HTML>

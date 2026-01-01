@@ -1,0 +1,868 @@
+$macro VaUtil Dump;
+  Make_Message ('VaUtil.mac, (c) Мунтьянов В.А., Ver.1.01, Пермь, 1993');
+end_macro;
+
+
+$macro Row2Top;
+  Def_Int (I, OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+
+  I := C_Row;
+  RM ('MeSys^BotWin');
+  while (I > 1) do
+    Down;
+    --I;
+  end;
+  RM ('MeSys^TopWin');
+  Refresh := OldRefresh;
+end_macro; { Row2Top }
+
+
+$macro CenterRow;
+  Def_Int (LineRow, I, CurrLine, OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+
+  LineRow := (Win_Y2 - Win_Y1 - 1) shr 1;
+  I := C_Row - LineRow;
+  CurrLine := C_Line;
+
+  if (I < 0) then
+    RM ('MeSys^TopWin');
+    while (I < 0) do
+      Up;
+      ++I;
+    end;
+    while (C_Line < CurrLine) do
+      Down;
+    end;
+  elsif (I > 0) then
+    RM ('MeSys^BotWin');
+    while (I > 0) do
+      Down;
+      --I;
+    end;
+    while (C_Line > CurrLine) do
+      Up;
+    end;
+  end;
+  Refresh := OldRefresh;
+end_macro; { CenterRow }
+
+
+$macro WorkCenterRow;
+  Def_Int (LineRow, I, CurrLine, OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+
+  LineRow := (Win_Y2 - Win_Y1) shr 2;
+  I := C_Row - LineRow;
+  CurrLine := C_Line;
+
+  if (I < 0) then
+    RM ('MeSys^TopWin');
+    while (I < 0) do
+      Up;
+      ++I;
+    end;
+    while (C_Line < CurrLine) do
+      Down;
+    end;
+  elsif (I > 0) then
+    RM ('MeSys^BotWin');
+    while (I > 0) do
+      Down;
+      --I;
+    end;
+    while (C_Line > CurrLine) do
+      Up;
+    end;
+  end;
+  Refresh := OldRefresh;
+end_macro; { WorkCenterRow }
+
+
+$macro DelBlank;
+  Def_Int (OldRefresh, Done);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Push_Undo;
+
+  if (Caps (MParm_Str) = '/B') then { Before }
+    Done := False;
+    while Not (Done) do
+      if (C_Line = 1) then
+        Done := True;
+      else
+        Up;
+        if (Remove_Space (Get_Line) = '') then
+          Del_Line;
+        else
+          Down;
+          Done := True;
+        end;
+      end;
+    end;
+  else
+    if (Caps (MParm_Str) = '/A') then
+      Down;
+    end;
+    while (Remove_Space (Get_Line) = '') and
+          (Not (At_Eof)) do
+      Del_Line;
+    end;
+    if (Caps (MParm_Str) = '/A') then
+      Up;
+    end;
+  end;
+
+  Pop_Undo;
+  Refresh := OldRefresh;
+end_macro; { DelBlank }
+
+
+$macro InsertBlank;
+  Def_Int (OldRefresh, InsertMode, CCol);
+  Def_Str (CurrLine);
+
+  OldRefresh := Refresh;
+  InsertMode := Insert_Mode;
+  Refresh := False;
+  Insert_Mode := True;
+  Push_Undo;
+
+  CCol := C_Col;
+
+  if (Caps (MParm_Str) = '/A') then { After }
+    Eol; Cr; Up;
+  else
+    CurrLine := Get_Line;
+    Put_Line ('');
+    Cr;
+    Put_Line (CurrLine);
+    if (Caps (MParm_Str) <> '/B') then { In current line }
+      Up;
+    end;
+  end;
+
+  Goto_Col (CCol);
+  Pop_Undo;
+  Insert_Mode := InsertMode;
+  Refresh := OldRefresh;
+end_macro; { InsertLine }
+
+
+$macro ShiftLeft;
+  Def_Str (CurrLine);
+  Def_Int (OldRefresh, I, Changed, CLine, TopLine);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Push_Undo;
+
+  if Marking then
+    Block_End;
+  end;
+
+  CLine := C_Line;
+  RM ('MeSys^TopWin');
+  TopLine := C_Line;
+
+  if (Block_Stat = 1) then { Line block marked }
+    Goto_Line (Block_Line1);
+    while (C_Line <= Block_Line2) do
+      CurrLine := Shorten_Str (Get_Line);
+      if (Svl (CurrLine) > 0) and (Str_Char (CurrLine, 1) = ' ') then
+        Put_Line (Str_Del (CurrLine, 1, 1));
+      end;
+      Down;
+    end;
+  elsif (Block_Stat = 2) then { Columnar block marked }
+    Goto_Line (Block_Line1);
+    while (C_Line <= Block_Line2) do
+      Changed := False;
+      CurrLine := Shorten_Str (Get_Line);
+      I := Block_Col1;
+      while (I <= Block_Col2) do
+        if (Svl (CurrLine) >= Block_Col1) and
+           (Str_Char (CurrLine, Block_Col1) = ' ') then
+          CurrLine := Str_Del (CurrLine, Block_Col1, 1);
+          Changed := True;
+        end;
+        ++I;
+      end;
+      if Changed then
+        Put_Line (CurrLine);
+      end;
+      Down;
+    end;
+  else
+    Make_Message ('Для сдвига требуется строчная или блочная маркировка');
+  end;
+
+  Goto_Line (TopLine);
+  RM ('VaUtil^Row2Top');
+  while (C_Line <> CLine) do
+    Down;
+  end;
+  Pop_Undo;
+  Refresh := OldRefresh;
+end_macro; { ShiftLeft }
+
+
+$macro ShiftRight;
+  Def_Str (CurrLine);
+  Def_Int (OldRefresh, I, Changed, CLine, TopLine);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Push_Undo;
+
+  if Marking then
+    Block_End;
+  end;
+
+  CLine := C_Line;
+  RM ('MeSys^TopWin');
+  TopLine := C_Line;
+
+  if (Block_Stat = 1) then { Line block marked }
+    Goto_Line (Block_Line1);
+    while (C_Line <= Block_Line2) do
+      CurrLine := Shorten_Str (Get_Line);
+      if (Svl (CurrLine) > 0) then
+        Put_Line (' ' + CurrLine);
+      end;
+      Down;
+    end;
+  elsif (Block_Stat = 2) then { Columnar block marked }
+    Goto_Line (Block_Line1);
+    while (C_Line <= Block_Line2) do
+      Changed := False;
+      CurrLine := Shorten_Str (Get_Line);
+      I := Block_Col1;
+      while (I <= Block_Col2) do
+        if (Svl (CurrLine) >= Block_Col1) then
+          CurrLine := Str_Ins (' ', CurrLine, Block_Col1);
+          Changed := True;
+        end;
+        ++I;
+      end;
+      if Changed then
+        Put_Line (CurrLine);
+      end;
+      Down;
+    end;
+  else
+    Make_Message ('Для сдвига требуется строчная или блочная маркировка');
+  end;
+
+  Goto_Line (TopLine);
+  RM ('VaUtil^Row2Top');
+  while (C_Line <> CLine) do
+    Down;
+  end;
+  Pop_Undo;
+  Refresh := OldRefresh;
+end_macro; { ShiftRight }
+
+
+$macro LastPageBreak;
+  Def_Int (OldRefresh, RegExpStat, IgnoreCase, FileMode);
+  Def_Str (SearchStr);
+
+  if Get_Extension (File_Name) = 'PAS' then
+    FileMode := 1;
+  elsif Get_Extension (File_Name) = 'SRC' then
+    FileMode := 2;
+  elsif Get_Extension (File_Name) = 'S' then
+    FileMode := 3;
+  elsif Get_Extension (File_Name) = 'PRG' then
+    FileMode := 4;
+  elsif Get_Extension (File_Name) = 'CPP' then
+    FileMode := 5;
+  elsif Get_Extension (File_Name) = 'ASM' then
+    FileMode := 6;
+  else
+    FileMode := 0;
+  end;
+
+  if FileMode then
+    OldRefresh := Refresh;
+    RegExpStat := Reg_Exp_Stat;
+    IgnoreCase := Ignore_Case;
+
+    Refresh := False;
+    if (FileMode = 1) then                      { PAS }
+      Reg_Exp_Stat := False;
+      SearchStr := '{*}';
+    else
+      Reg_Exp_Stat := True;
+      if (FileMode = 5) then                    { CPP }
+        SearchStr := '%//---';
+      elsif (FileMode = 6) then                 { ASM }
+        SearchStr := '%;---';
+      else
+        Ignore_Case := True;
+        if (FileMode = 2) then                  { SRC }
+          SearchStr := '%@$macro ';
+        elsif (FileMode = 3) then               { S }
+          SearchStr := '%macro ';
+        else                                    { PRG (4) }
+          SearchStr := '%proc';
+        end;
+      end;
+    end;
+
+    Up; Up;
+    if ((FileMode = 5) or (FileMode = 6)) then  { CPP || ASM }
+      Up;
+    end;
+    if Search_Bwd (SearchStr, 0) then
+      if (FileMode = 1) or                      { PAS || CPP || ASM }
+         (FileMode = 5) or
+         (FileMode = 6) then
+        Down;
+      end;
+      RM ('VaUtil^Row2Top');
+      if (FileMode <> 1) then                   { !PAS }
+        Down;
+      end;
+    else
+      Tof;
+    end;
+
+    Ignore_Case := IgnoreCase;
+    Reg_Exp_Stat := RegExpStat;
+    Refresh := OldRefresh;
+    if Refresh then
+      Redraw;
+    end;
+  else
+    Last_Page_Break;
+  end;
+end_macro; { LastPageBreak }
+
+
+$macro NextPageBreak;
+  Def_Int (OldRefresh, RegExpStat, IgnoreCase, FileMode);
+  Def_Str (SearchStr);
+
+  if Get_Extension (File_Name) = 'PAS' then
+    FileMode := 1;
+  elsif Get_Extension (File_Name) = 'SRC' then
+    FileMode := 2;
+  elsif Get_Extension (File_Name) = 'S' then
+    FileMode := 3;
+  elsif Get_Extension (File_Name) = 'PRG' then
+    FileMode := 4;
+  elsif Get_Extension (File_Name) = 'CPP' then
+    FileMode := 5;
+  elsif Get_Extension (File_Name) = 'ASM' then
+    FileMode := 6;
+  else
+    FileMode := 0;
+  end;
+
+  if FileMode then
+    OldRefresh := Refresh;
+    RegExpStat := Reg_Exp_Stat;
+    IgnoreCase := Ignore_Case;
+
+    Refresh := False;
+    if (FileMode = 1) then                      { PAS }
+      Reg_Exp_Stat := False;
+      SearchStr := '{*}';
+    else
+      Reg_Exp_Stat := True;
+      if (FileMode = 5) then                    { CPP }
+        SearchStr := '%//---';
+      elsif (FileMode = 6) then                 { ASM }
+        SearchStr := '%;---';
+      else
+        Ignore_Case := True;
+        if (FileMode = 2) then                  { SRC }
+          SearchStr := '%@$macro ';
+        elsif (FileMode = 3) then               { S }
+          SearchStr := '%macro ';
+        else                                    { PRG (4) }
+          SearchStr := '%proc';
+        end;
+      end;
+    end;
+
+    if Search_Fwd (SearchStr, 0) then
+      if (FileMode = 1) or                      { PAS || CPP || ASM }
+         (FileMode = 5) or
+         (FileMode = 6) then
+        Down;
+      end;
+      RM ('Row2Top');
+      if (FileMode <> 1) then                   { !PAS }
+        Down;
+      end;
+    else
+      Eof;
+      Goto_Col (1);
+    end;
+
+    Ignore_Case := IgnoreCase;
+    Reg_Exp_Stat := RegExpStat;
+    Refresh := OldRefresh;
+    if Refresh then
+      Redraw;
+    end;
+  else
+    Next_Page_Break;
+  end;
+end_macro; { NextPageBreak }
+
+
+$macro RunLastMacro;
+  RM (Global_Str ('Mac_Run'));
+end_macro;
+
+
+$macro DispAsciiCode;
+  if (Cur_Char = Char(0)) then
+    Make_Message ('0, ($0)');
+  else
+    Make_Message (Str (Ascii (Cur_Char))+', ($'+Hex_Str (Ascii (Cur_Char))+')');
+  end;
+end_macro;
+
+
+$macro ContextHelp;
+  if Get_Extension (File_Name) = 'PRG' then
+    RM ('FoxPro^PrgHelp');
+  elsif Get_Extension (File_Name) = 'SRC' then
+    RM ('SrcHelp');
+  elsif Get_Extension (File_Name) = 'PAS' then
+    RM ('PasHelp');
+  else
+    Beep;
+    Make_Message ('File extension not PAS, PRG or SRC!');
+  end;
+end_macro;
+
+
+$macro LastHelp;
+  Def_Str (LastHelpRec);
+  Def_Int (TopStack);
+
+  TopStack := Global_Int ('@HSTACK');
+  if (TopStack > 0) then
+    Working;
+    LastHelpRec := Global_Str ('@HSTACK' + Str (TopStack));
+    Set_Global_Str ('@HSTACK' + Str (TopStack), '');
+    --TopStack;
+    Set_Global_Int ('@HSTACK', TopStack);
+
+    RM ('MEHelp /F='+Parse_Str ('/F=', LastHelpRec)+
+        '/LK='+Parse_Str ('/C=', LastHelpRec)+
+        '/TO='+Parse_Str ('/O=', LastHelpRec)+
+        '/LN='+Parse_Str ('/L=', LastHelpRec));
+  else
+    RM ('MEHelp /F=HelpList');
+  end;
+end_macro; { LastHelp }
+
+
+$macro GetInt;
+  Def_Str (RunStr);
+  Def_Int (ScreenPlace);
+
+  RunStr := 'USERIN^QUERYBOX /ML=3' + { Макс. длины строки }
+                            '/W=3' +  { Макс. ширина строки на экране }
+                            '/P=' + Return_Str +
+                            '/N=1';   { Числовой ввод }
+
+  ScreenPlace := WhereY+1;
+  if ScreenPlace+4 > Screen_Length then
+    ScreenPlace := Screen_Length-4;
+  end;
+  RunStr := RunStr + '/L='+Str(ScreenPlace);
+
+  ScreenPlace := Screen_Width / 2 - 30;
+  RunStr := RunStr + '/C='+Str(ScreenPlace);
+
+  Run_Macro(RunStr);
+end_macro; { GetInt }
+
+
+$macro GetWord Trans;
+  Def_Int (OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Mark_Pos;
+  Right;
+  Word_Left;
+  if (XPos (Cur_Char, Word_Delimits, 1) <> 0) then
+    Word_Right;
+  end;
+  Return_Str := '';
+  while (XPos (Cur_Char, Word_Delimits, 1) = 0) do
+    Return_Str := Return_Str + Cur_Char;
+    Right;
+  end;
+  Goto_Mark;
+  Refresh := OldRefresh;
+end_macro;
+
+
+$macro Text2Search Trans;
+
+{  if Block_Stat = 0 then }
+    RM ('GetWord');
+{  else
+    RM ('GetMarkLine');
+  end; }
+
+  Set_Global_Str ('Search_Str', Return_Str);
+end_macro;
+
+
+$macro Text2Replace Trans;
+
+{  if Block_Stat = 0 then }
+    RM ('GetWord');
+{  else
+    RM ('GetMarkLine');
+  end; }
+
+  Set_Global_Str ('Replace_Str', Return_Str);
+end_macro;
+
+
+$macro GetMarkLine Trans;
+  Def_Int (LastRegExpStat);
+
+  Refresh := False;
+  Mark_Pos;
+  if (Block_Stat >= 2) then    { Блок колоночный или текстовый }
+    if Marking then
+      Block_End;
+    end;
+    Goto_Line (Block_Line1);
+    if (Block_Stat = 3) and    { Текстовый блок }
+       (Block_Line1 <> Block_Line2) then
+      Return_Str := Copy (Get_Line, Block_Col1, 255);
+    else
+      Return_Str := Copy (Get_Line, Block_Col1, Block_Col2 - Block_Col1 + 1);
+    end;
+  else
+    LastRegExpStat := Reg_Exp_Stat;
+    Reg_Exp_Stat := True;
+    if Search_Bwd ('[|9|32]', 1) then
+      Forward_Till_Not ('|9|32|255');
+    else
+      Goto_Col (1);
+    end;
+    Return_Str := Get_Word ('|9|32|255');
+    Reg_Exp_Stat := LastRegExpStat;
+  end;
+  Goto_Mark;
+  Refresh := True;
+end_macro;
+
+
+$macro Capitalize;
+  Def_Int (OldInsertMode, OldRefresh);
+  Def_Int (I, CharCode);                 { Upper & Lower string }
+  Def_Str (OperStr, TempStr);            { Upper & Lower string }
+
+  Push_Undo;
+  OldRefresh := Refresh;
+  Refresh := False;
+  OldInsertMode := Insert_Mode;
+  Insert_Mode := False;
+
+  Mark_Pos;
+  Right;
+  Word_Left;
+  if XPos (Cur_Char, Word_Delimits, 1) then
+    Word_Right;
+  end;
+
+  while (XPos (Cur_Char, Word_Delimits, 1) = 0) do
+    while (XPos (Cur_Char, Word_Delimits + '_', 1) <> 0) do
+      Right;
+    end;
+
+    if (XPos (Cur_Char, Word_Delimits, 1) = 0) then
+      OperStr := Cur_Char;
+      call UpperStr;
+      Text (OperStr);
+    end;
+
+    Mark_Pos;
+    OperStr := '';
+    while (XPos (Cur_Char, Word_Delimits + '_', 1) = 0) do
+      OperStr := OperStr + Cur_Char;
+      Right;
+    end;
+    Goto_Mark;
+    call LowerStr;
+    Text (OperStr);
+  end;
+  goto Quit;
+
+
+UpperStr:
+  TempStr := '';
+  I := 1;
+  while (I <= Svl (OperStr)) do
+    CharCode := Ascii (Str_Char (OperStr, I));
+
+    if (CharCode >= 97) and
+       (CharCode <= 122) then
+      CharCode := CharCode - 32;
+    elsif (CharCode >= 160) and
+          (CharCode <= 175) then
+      CharCode := CharCode - 32;
+    elsif (CharCode >= 224) and
+          (CharCode <= 239) then
+      CharCode := CharCode - 80;
+    end;
+
+    TempStr := TempStr + Char (CharCode);
+    ++I;
+  end;
+  OperStr := TempStr;
+  ret;
+
+
+LowerStr:
+  TempStr := '';
+  I := 1;
+  while (I <= Svl (OperStr)) do
+    CharCode := Ascii (Str_Char (OperStr, I));
+
+    if (CharCode >= 65) and
+       (CharCode <= 90) then
+      CharCode := CharCode + 32;
+    elsif (CharCode >= 128) and
+          (CharCode <= 143) then
+      CharCode := CharCode + 32;
+    elsif (CharCode >= 144) and
+          (CharCode <= 159) then
+      CharCode := CharCode + 80;
+    end;
+
+    TempStr := TempStr + Char (CharCode);
+    ++I;
+  end;
+  OperStr := TempStr;
+  ret;
+
+
+Quit:
+  Goto_Mark;
+  Pop_Undo;
+  Insert_Mode := OldInsertMode;
+  Refresh := OldRefresh;
+  Redraw;
+end_macro; { Capitalize }
+
+
+$macro MarkWord Trans;
+
+  Refresh := False;
+  If Marking Then
+    Block_Off;
+  End;
+  Mark_Pos;
+  Right;
+  Word_Left;
+  If XPos (Cur_Char, Word_Delimits, 1) Then
+    Word_Right;
+  End;
+  Col_Block_Begin;
+  Forward_Till (Word_Delimits);
+  Left;
+  Block_End;
+  Goto_Mark;
+  Refresh := True;
+  Make_Message (' Word marked');
+end_macro;
+
+
+$macro FormatFeed Trans;
+  Text (Char (12));
+end_macro;
+
+
+$macro FindExtraChars;
+  Def_Int (Done, OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Working;
+  Goto_Col (1);
+  Return_Int := True;
+  Done := False;
+  while Not (Done) do
+    if At_Eof then
+      Done := True;
+    else
+      if (Length (Get_Line) > Right_Margin) then
+        Eol;
+        RM ('VaUtil^CenterRow');
+        Done := True;
+        Return_Int := False;
+      end;
+    end;
+    if Not (Done) then
+      if ((C_Line and 31) = 0) then
+        Put_Line_Num (C_Line);
+      end;
+      Down;
+    end;
+  end;
+  Refresh := OldRefresh;
+{  Redraw; }
+end_macro; { FindExtraChars }
+
+
+$macro FindBlankLine;
+  Def_Int (OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Working;
+  while (Remove_Space (Get_Line) <> '') do
+    if ((C_Line and 31) = 0) then
+      Put_Line_Num (C_Line);
+    end;
+    Down;
+  end;
+  RM ('VaUtil^CenterRow');
+  Refresh := OldRefresh;
+end_macro; { FindBlankLine }
+
+
+$macro Trim;
+  Def_Int (OldRefresh);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+  Working;
+  Push_Undo;
+  Goto_Col (1);
+  while Not (At_Eof) do
+    if ((C_Line and 31) = 0) then
+      Put_Line_Num (C_Line);
+    end;
+    Put_Line (Shorten_Str (Get_Line));
+    Down;
+  end;
+  Pop_Undo;
+  Refresh := OldRefresh;
+end_macro; { Trim }
+
+
+$macro SetListFile;
+  {-Макрос устанавливает значение системной переменной
+    Номер окна списка файлов}
+  Set_Global_Int ('!FileListWinId', Window_Id);
+  Make_Message ('Метка окна списка файлов = ' + Str (Window_Id) + '; номер = ' + Str (Cur_Window));
+end_macro; { SetListFile }
+
+
+$macro GetFileName;
+  {-Макрос возврата текущей строки содержания в переменной Return_Str
+    или False в переменной Return_Int, если файла содержания нет
+    Курсор перемещается на следующую строку содержания}
+  Def_Int (CurrWindowId);
+
+  Return_Int := True;
+  CurrWindowId := Window_Id;
+  if Switch_Win_Id (Global_Int ('!FileListWinId')) then
+    Return_Str := Remove_Space (Get_Line);
+    if (Pos (' ', Return_Str) <> 0) then
+      Return_Str := Copy (Return_Str, 1, Pos (' ', Return_Str) - 1);
+    end;
+    Goto_Col (1);
+    if Not (At_Eof) then
+      Down;
+      Goto_Col (1);
+    end;
+    Switch_Win_Id (CurrWindowId);
+  else
+    Make_Message ('Файл списка файлов удален или не установлен. Запустите SetListFile');
+    Return_Int := False;
+  end;
+end_macro; { GetFileName }
+
+
+$macro RunMacroForList;
+  {-Макрос формирования содержания документа}
+  Def_Int (OldRefresh, Done, ErrorPresent, LastWindowId, Margin, MaxUndo);
+
+  OldRefresh := Refresh;
+  Refresh := False;
+
+  ErrorPresent := False;
+  LastWindowId := Window_Id;
+  Margin := Right_Margin;
+  MaxUndo := Max_Undo;
+  Error_Level := 0;
+  Create_Window;
+  if (Error_Level = 0) then
+    Done := False;
+
+    while Not (Done) do
+      RM ('VaUtil^GetFileName');
+      if Return_Int and (Return_Str <> '') then
+        Error_Level := 0;
+        Load_File (Return_Str);
+        if (Error_Level = 0) then
+          Make_Message ('Обработка файла ' + Return_Str);
+          Right_Margin := Margin;
+          Max_Undo := 0;
+          RM (MParm_Str);
+          if Return_Int then
+            if File_Changed then
+{              Error_Level := 0; }
+              Save_File;
+              if Error_Level = 0 then
+                Erase_Window;
+              else
+                Make_Message ('Файл '+Return_Str+' не записывается. Код ошибки '+Str (Error_Level));
+                ErrorPresent := True;
+                Done := True;
+              end;
+            end;
+          else
+            Max_Undo := MaxUndo;
+            ErrorPresent := True;
+            Done := True;
+          end;
+        else
+          Make_Message ('Файл '+Return_Str+' не читается. Код ошибки '+Str (Error_Level));
+          Max_Undo := MaxUndo;
+          ErrorPresent := True;
+          Done := True;
+        end;
+      else
+        Done := True;
+      end;
+    end;
+
+  else
+    Make_Message ('Не могу создать новое окно. Код ошибки '+Str (Error_Level));
+    ErrorPresent := True;
+  end;
+  if Not (ErrorPresent) then
+    Delete_Window;
+    Switch_Win_Id (LastWindowId);
+    Make_Message ('OK');
+  end;
+  Refresh := OldRefresh;
+end_macro; { RunMacroForList }

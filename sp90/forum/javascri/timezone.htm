@@ -1,0 +1,505 @@
+<HTML>
+<HEAD>
+<TITLE>JavaScript International Time Calculator - v1.2</TITLE>
+
+<META Name="description" Content="Find the time around the world - JavaScript International Time Zone calculator. Save and use offline, easy to customize. (Requires Netscape 3/Internet Explorer 3)">
+<META Name="keywords" Content="javascript, gmt, greenwich mean time, uct, universal coordinated time, daylight savings time, daylight savings, summer time, standard time, time zone, time zones, ian fennell">
+
+<!--
+//=========== JavaScript International Time Calculator ===========
+//=========== Copyright 1996 Ian Fennell (redlodge@gem.co.za) all rights reserved =========
+//=========== written from scratch Oct '96 ===========
+//
+//======YOU MAY COPY, USE AND MODIFY THE CONTENTS OF THIS FILE ON CONDITION THAT: =========
+//====== You include the top 2 lines of this comment.
+//====== If it is posted on the WWW you let me know where it is being used. 
+//====== You are not a registered company or commercial organisation. 
+//
+//=========== Customizing this script ==========
+// It's easy to change the locations displayed in the table or add new items to the form listbox.
+// You can have as many places as you like listed in each.
+// To add a location you need to know its standard offset from GMT (aka Universal Co-ordinated Time)
+// If you know that it observes Daylight Savings Time that's useful, but not essential.
+//
+// The GMT offset and DST period are held in this format:
+//	"GMT offset%DST period" - the % is a separator.
+//
+//The GMT offset must be a value between 12 and -11 (a '+' is not needed for times ahead of GMT).
+//If the offset is not round hours, enter the minutes after a decimal point (full stop, period...)
+//	e.g. India (5 hours 30 mins ahead of GMT) = 5.30 
+//
+//The DST period should be one of the following, which are 'built into' this page:
+//	0 - Daylight Savings never used, or have no info.
+//	1 - Uncertain; they do or have in the past, but don't have definite info.
+//	2 - DST from 1st Sun in April to Last Sun in October (USA/Canada)
+//	3 - DST from Last Sun in March to Last Sun in October (UK/Europe)
+//	4 - DST from Last Sun in October to Last Sun in March (Australia - NSW, Vic, ACT, SA)
+//	5 - DST from 1st Sun in October to Last Sun in March (Australia - Tasmania)
+//	6 - DST from 1st Sun in October to 1st Sun on/after 15 March (New Zealand)
+//	7 - DST from Last Sun in March to 1st Sun in September (Russia)
+//(If you are sure of other DST periods and know JavaScript you can go to the function 'CheckDST' and add it -
+//alternatively you can mail me so that I can update the page).
+// 
+//Example: to add Italy the data would be stored as "1%3" 
+// (standard time 1 hour ahead of GMT, Daylight Savings period 3 in list above)
+// to add Italy to the table, open this file in any text editor, go to CUSTOMIZE TABLE below and add the line -
+//	"1%3", "Italy",
+//to add Italy to the form list box, go to CUSTOMIZE FORM below and add the line -
+//	<OPTION VALUE= "1%3">Italy
+//Not too complicated, hey? And of course you can delete any places you don't much care for.
+
+//-->
+
+<SCRIPT language="JavaScript">
+<!--
+	dstZones = new Array ();
+	qReport = new Array ();
+	TableTimes = new Array();
+	currentQuery = null;
+
+	var Local = new Date();
+	var GMToffset = Local.getTimezoneOffset();
+
+	if (navigator.appName == "Netscape") {
+		if (GMToffset < 0) {GMToffset = Math.abs(GMToffset)}
+		else {GMToffset = GMToffset - (Math.abs(GMToffset) *2)};
+	};
+	var newline= (navigator.appVersion.lastIndexOf('Win') != -1) ? "\r\n" : "\n";
+
+function Into24hrs (time) {
+	if ( time > 1440)
+		{ time -= 1440}
+	else
+		{ if ( time <0) { time = 1440 + time } };
+	return time;
+	} // --- Into24hrs
+
+function GMTnow (GMT) {
+	var time = new Date();
+	hrs = time.getHours();
+	mins = time.getMinutes();
+	GMT = (hrs*60 + mins) - GMToffset;
+	GMT = Into24hrs(GMT);
+	return GMT;
+	}
+
+function formatRelative (time) {
+	var Report = null;
+	var Direction  = (time > 0) ? " ahead" : " behind";
+	time = Math.abs (time);
+	var Hours = Math.floor (time/60);
+	var Mins = (time - Hours * 60);
+	Report = Hours + "h ";
+	if (Mins != 0) {Report=Report+Mins + "m "};
+	Report = Report+ Direction;
+	if (time== 0) {Report="Same Time"};
+	return Report;
+	}; 
+
+function formatTime (time) {
+	var fHours = Math.floor (time/60) ;
+	if (fHours <= 9) {fHours = "0" + fHours}; 
+	var fMins = time - (fHours * 60);
+	if (fMins <= 9) {fMins = "0" + fMins}; 
+	var fTime = fHours + ":" + fMins;
+	return fTime;
+	};
+
+function CheckDST () {
+	var uNow = new Date();
+	var uMonth = uNow.getMonth();
+	var uDate = uNow.getDate();
+	var uDay = uNow.getDay();
+
+	var FirstSun8Feb = ( (uMonth == 1 && uDate > 14) || uMonth > 1 ) ? true : false;
+	if ((uMonth == 1)&&(uDate >= 8)) {
+		var DaysLeft = 14  - uDate;
+		FirstSun8Feb = (uDay + DaysLeft <= 6) ? true : false;
+		};
+
+	 var FirstSun15Mar = ( (uMonth == 2 && uDate > 21) || uMonth > 2 ) ? true : false;
+	if ((uMonth == 2)&&(uDate >= 15)) {
+		DaysLeft = 21  - uDate;
+		FirstSun15Mar = (uDay + DaysLeft <= 6) ? true : false;
+		};
+
+	var LastSunMar = (uMonth > 2) ? true : false;
+	if ((uMonth == 2)&&(uDate >= 25)) {
+		DaysLeft = 31  - uDate;
+		LastSunMar = (uDay + DaysLeft <= 6) ? true : false;
+		};
+
+	var FirstSunApr = ( (uMonth == 3 && uDate > 7) || uMonth > 3 ) ? true : false;
+	if ((uMonth == 3)&&(uDate <= 7)) {
+		var DaysGone = 7  - uDate;
+		FirstSunApr = (uDay - DaysGone >0) ? true : false;
+		};
+
+	var LastSunSep = (uMonth > 8) ? true : false;
+	if ((uMonth == 8)&&(uDate >= 24)) {
+		DaysLeft = 30  - uDate;
+		LastSunSep = (Day + DaysLeft <= 6) ? true : false;
+		};
+
+	var FirstSunOct = ( (uMonth == 9 && uDate > 7) || uMonth > 9  ) ? true : false;
+	if (uMonth == 9 && uDate <= 7) {
+		DaysGone = 7  - uDate;
+		FirstSunOct = (uDay - DaysGone >0) ? true : false;
+		};
+
+	var FirstSun15Oct = ( (uMonth == 9)&&(uDate > 21) || (uMonth > 9) ) ? true : false;
+	if ( uMonth == 9 && (uDate >= 15 || uDate <= 21) ) {
+		DaysLeft = 21  - uDate;
+		FirstSun15Oct = (uDay + DaysLeft <= 6) ? true : false;
+		};
+
+	var LastSunOct = (uMonth > 9) ? true : false;
+	if ((uMonth == 9)&&(uDate >= 25)) {
+		DaysLeft = 31  - uDate;
+		LastSunOct = (uDay + DaysLeft <= 6) ? true : false;
+		};
+
+	dstZones[0] = "X";
+	dstZones[1] = "?";
+	dstZones[2] =  (FirstSunApr && !LastSunOct) ? "Y" : "N";//usa/canada
+	dstZones[3] =  (LastSunMar && !LastSunOct) ? "Y" : "N";//uk/europe
+	dstZones[4] =  (LastSunOct || !LastSunMar) ? "Y" : "N";//aus	
+	dstZones[5] =  (FirstSunOct || !LastSunMar) ? "Y" : "N";//aus-tasmania
+	dstZones[6] =  (FirstSunOct || !FirstSun15Mar) ? "Y" : "N";//nz
+	dstZones[7] =  (LastSunMar && !LastSunSep) ? "Y" : "N";//russia
+
+	} 
+
+
+function qHandler(ZoneData) {
+	qReport[0] = ""; qReport[1] = ""; qReport[2] = ""; qReport[3] = "";	
+
+	var qGMTparse = parseFloat(ZoneData);
+	var qGMToffset_hrs = parseInt(qGMTparse, 10) ; 
+	var qGMToffset_min= parseInt ( Math.round((qGMTparse-qGMToffset_hrs) * 100), 10);
+	var qDSTperiod = ZoneData.charAt (ZoneData.length - 1);
+	var qGMTperiod = 1440/60;
+	if ( (qGMToffset_hrs > 12) || (qGMToffset_hrs <-11) ) {qReport[0] = "BAD DATA"; return};
+	if (qDSTperiod > dstZones.length) {qReport[3] = "BAD DATA"};
+
+
+	var relGMT = (qGMToffset_hrs * 60) + qGMToffset_min; 
+	if (dstZones [qDSTperiod] == "Y") {relGMT += 60; qReport[3] = "Yes (+1 hour)"};
+	if (dstZones [qDSTperiod] == "N") {qReport[3] = "No"};
+	if (dstZones [qDSTperiod] == "X") {qReport[3] = "n/a"};
+	if (dstZones [qDSTperiod] == "?") {qReport[3] = "uncertain"};
+
+	var qPlaceTotMins = GMTnow (qPlaceTotMins);
+	qPlaceTotMins += relGMT; 
+	qPlaceTotMins = Into24hrs (qPlaceTotMins);
+	qReport[0] = qPlaceTotMins;
+
+	qReport[2] = formatRelative (relGMT);
+
+	var relLoc = relGMT - GMToffset;
+	qReport[1] = formatRelative (relLoc);
+	}
+
+function qReply (ZoneData) {
+	
+	currentQuery = ZoneData;
+	qHandler (ZoneData);
+	document.Places.elements[0].value =
+		"Current Time = " + formatTime ( qReport[0] )
+		+ newline + "Relative to Local = "+ qReport[1] 
+		+ newline + "Relative to GMT = "+ qReport[2]
+		+ newline + "Using Daylight Savings? = " + qReport[3]; 
+
+	}
+
+
+function writeTable () {
+
+	cities = new Array (
+
+// ============================ CUSTOMIZE TABLE ===============
+// IMPORTANT! - The last item in the list (currently "Sydney") must not have a comma after it! (the others must).
+
+		"0%3", "London",
+		"1%3", "Berlin",
+		"-5%2", "New York",
+		"-8%2", "Los Angeles",
+		"9%0", "Tokyo",
+		"8%0", "Hong Kong",
+		"10%4", "Sydney"
+
+// ===========================================================
+
+		);
+
+	document.write ("<P><CENTER>"
+	+ "<TABLE WIDTH=90%  BORDER=0  BGCOLOR='DABA50'>"
+	+ "<TR>"
+	+ "<TD><FONT COLOR='DABA50'>.</FONT>"
+	+ "<TD ALIGN=center><B>Current Time</B>"
+	+ "<TD ALIGN=center>" + "<B>Relative to Local</B>"
+	+ "<TD ALIGN=center><B>Relative to GMT</B>"
+	+ "<TD ALIGN=center><B>Daylight Savings?</B>");
+
+	for (var idx = 0; idx < cities.length; idx+=2) {
+
+	var qGMTparse = parseFloat(cities[idx]);
+	var qGMToffset_hrs = parseInt(qGMTparse, 10) ; 
+	var qGMToffset_min= parseInt ( Math.round((qGMTparse-qGMToffset_hrs) * 100), 10);
+	var qDSTperiod = cities[idx].charAt (cities[idx].length - 1);
+	var relGMT = (qGMToffset_hrs * 60) + qGMToffset_min; 
+	if (dstZones [qDSTperiod] == "Y") {relGMT += 60};
+	TableTimes[idx/2] = relGMT;
+
+	qHandler( cities[idx] );
+
+	document.write ("<TR>"
+	+ "<TD ALIGN=right><FONT FACE='arial, helvetica' COLOR='0000FF'><B>" + cities[idx+1] 
+	+ "</B>&nbsp&nbsp</FONT>" 
+	+ "<TD ALIGN=center><INPUT TYPE=text SIZE=10>"
+	+ "<TD ALIGN=center BGCOLOR='FFFFFF'>" + qReport[1] 
+	+ "<TD ALIGN=center BGCOLOR='FFFFFF'>" + qReport[2]
+	+  "<TD ALIGN=center BGCOLOR='FFFFFF'>" + qReport[3]);
+		}; //for
+	
+	document.write ("</TABLE></CENTER></FORM>");
+	} // ---- writeTable
+
+
+var timerID = null;
+var timerRunning = false;
+var id;
+
+function stopclocks (){
+        if(timerRunning)
+                clearTimeout(timerID);
+        timerRunning = false;
+	}
+
+function showclocks () {
+	var GMT = GMTnow (GMT);
+	var fTime = formatTime ( Into24hrs (GMT + GMToffset) );
+	document.Table.elements[0].value = "      "+ fTime; 
+	var fTime = formatTime ( Into24hrs (GMT) ); 
+	document.Table.elements[1].value = "      "+ fTime; 
+
+	var TableClock = null;
+	for (var idx = 2; idx <= TableTimes.length+1; idx++) {
+		TableClock = null;
+		TableClock += GMT+TableTimes[idx-2];
+		document.Table.elements[idx].value = "      "+ formatTime ( Into24hrs ( TableClock ) );
+		};
+
+	if (currentQuery != null) {qReply (currentQuery)};
+
+	timerID = setTimeout("showclocks()",1000);
+	timerRunning = true;
+	}
+
+function startClocks () {
+	document.Places.elements[0].value= newline + '   Other cities and countries...'
+	stopclocks();
+	showclocks();
+	}
+
+//-->
+</SCRIPT>
+</HEAD>
+
+
+
+<BODY bgcolor="EECE80" onLoad="startClocks();">
+
+<NOSCRIPT>
+<B>If you can read this your browser is not JavaScript enabled, and the calculator will not work.<BR>
+It requires Netscape Navigator 3.0: <A HREF="http://home.netscape.com/comprod/mirror/index.html">
+Get it here</A></B> - (it will also work with Internet Explorer 3.0)<P>
+<B>If you <I>are</I> using Navigator 3.0 and you see this message, you need to enable
+JavaScript by choosing Options | Network Preferences | Languages</B>
+</NOSCRIPT>
+
+<CENTER>
+<FORM NAME='Table'>
+<FONT FACE='arial, helvetica' SIZE=+1 COLOR='0000FF'>
+<B><U>International Time Zone Calculator</U></B>
+</FONT>
+<P>
+<TABLE WIDTH=90% BGCOLOR='DABA50'>
+<TR>
+<TD ALIGN=center >
+<FONT COLOR='0000FF'><B>Your Local Time: </B></FONT>
+<INPUT TYPE=text SIZE=10>
+<TD ALIGN=center>All times in <B>24 hour</B> format
+<TD ALIGN=center><FONT COLOR='0000FF'><B>GMT(UCT): </B></FONT>
+<INPUT TYPE=text SIZE=10>
+</TABLE>
+</CENTER>
+
+<script>
+<!--
+	CheckDST();
+	writeTable();
+//-->
+</script>
+
+<CENTER>
+
+<FORM NAME="Places">
+<TABLE  WIDTH=90% BGCOLOR='DABA50' CELLPADDING=5>
+<TR><TD ALIGN=center VALIGN=middle>
+<TEXTAREA ROWS=4 COLS=39 WRAP="virtual"></TEXTAREA>
+
+<TD>
+<TABLE CELLPADDING=5>
+<TR><TD ALIGN=center VALIGN=middle>
+<SELECT NAME="PlaceSelector">
+
+<!--============================= CUSTOMIZE FORM ================-->
+
+<OPTION VALUE="4.30%0">Afghanistan
+<OPTION VALUE="-3%0">Argentina
+<OPTION VALUE="9.30%4">Australia - Adelaide
+<OPTION VALUE="10%0">Australia - Brisbane
+<OPTION VALUE="9.30%0">Australia - Darwin
+<OPTION VALUE="10%4">Australia - Melbourne
+<OPTION VALUE="8%0">Australia - Perth
+<OPTION VALUE="10%5">Australia - Tasmania
+<OPTION VALUE="-4%0">Bolivia
+<OPTION VALUE="-5%1">Brazil - Andes
+<OPTION VALUE="-3%1">Brazil - East
+<OPTION VALUE="-4%1">Brazil - West
+<OPTION VALUE="6.30%0">Burma (Myanmar)
+<OPTION VALUE="-7%2">Canada - Calgary
+<OPTION VALUE="-3.30%2">Canada - Newfoundland
+<OPTION VALUE="-4%2">Canada - Nova Scotia
+<OPTION VALUE="-5%2">Canada - Quebec
+<OPTION VALUE="-5%2">Canada - Toronto
+<OPTION VALUE="-8%2">Canada - Vancouver
+<OPTION VALUE="-6%2">Canada - Winnipeg
+<OPTION VALUE="8%1">China - Mainland
+<OPTION VALUE="8%0">China - Taiwan
+<OPTION VALUE="-5%0">Colombia
+<OPTION VALUE="-5%1">Cuba
+<OPTION VALUE="2%1">Egypt
+<OPTION VALUE="2%3">Finland
+<OPTION VALUE="1%3">France
+<OPTION VALUE="1%3">Germany
+<OPTION VALUE="0%0">Ghana
+<OPTION VALUE="2%3">Greece
+<OPTION VALUE="5.30%0">India
+<OPTION VALUE="8%0">Indonesia - Bali, Borneo
+<OPTION VALUE="9%0">Indonesia - Irian Jaya
+<OPTION VALUE="7%0">Indonesia - Sumatra, Java
+<OPTION VALUE="3.30%1">Iran
+<OPTION VALUE="3%0">Iraq
+<OPTION VALUE="2%1">Israel
+<OPTION VALUE="-5%1">Jamaica
+<OPTION VALUE="3%0">Kenya
+<OPTION VALUE="9%0">Korea (North & South)
+<OPTION VALUE="8%0">Malaysia
+<OPTION VALUE="-6%1">Mexico City
+<OPTION VALUE="0%0">Morocco
+<OPTION SELECTED VALUE="5.45%0">Nepal
+<OPTION VALUE="12%6">New Zealand
+<OPTION VALUE="5%0">Pakistan
+<OPTION VALUE="-5%0">Peru
+<OPTION VALUE="8%0">Philippines
+<OPTION VALUE="1%3">Poland
+<OPTION VALUE="11%7">Russia - Kamchatka
+<OPTION VALUE="3%7">Russia - Moscow
+<OPTION VALUE="9%7">Russia - Vladivostok
+<OPTION VALUE="8%0">Singapore
+<OPTION VALUE="2%0">South Africa
+<OPTION VALUE="1%3">Spain
+<OPTION VALUE="1%3">Sweden
+<OPTION VALUE="7%0">Thailand
+<OPTION VALUE="12%0">Tonga
+<OPTION VALUE="2%3">Turkey
+<OPTION VALUE="3%1">Ukraine
+<OPTION VALUE="5%0">Uzbekistan
+<OPTION VALUE="7%0">Vietnam
+<OPTION VALUE="-9%2">USA - Alaska
+<OPTION VALUE="-5%2">USA - Atlanta
+<OPTION VALUE="-7%2">USA - Boulder
+<OPTION VALUE="-6%2">USA - Chicago
+<OPTION VALUE="-5%0">USA - East Indiana
+<OPTION VALUE="-10%0">USA - Hawaii
+<OPTION VALUE="-8%2">USA - Seattle
+
+<!--=============================================================-->
+
+</SELECT>
+
+<TR><TD ALIGN=center VALIGN=middle>
+<INPUT  type="button" name="PlaceQuery" value="Time Now..." onclick="qReply(Places.PlaceSelector.options[Places.PlaceSelector.selectedIndex].value)">
+<BR>
+</TABLE></TABLE>
+</FORM>
+
+
+<HR WIDTH=90%>
+
+<TABLE WIDTH=85%>
+<TR><TD>
+<CENTER>Copyright&copy;1996&nbsp;<A HREF="mailto:redlodge@gem.co.za">Ian Fennell</A></CENTER>
+<P>
+<FONT COLOR='710076'><B>Notes:</B></FONT>
+<P>
+This page can be saved and used offline.
+<P>
+It's quite easy to customize this page to show the places you want - see <I>document source</I> for details.<BR>
+If you regularly need to know the time in just a few places, try the
+<A HREF="tzlite.html">
+streamlined version
+</A>
+of this page.
+<P>
+<B>Daylight Savings</B> periods are calculated to the day, not the hour, so some times will be 1 hour adrift on days when the clocks change.
+<P>
+If <B>Using Daylight Savings?</B> shows as 'n/a' for a location it means that it is never used there, <I>or</I> that I have no information about it being used.  If it shows as 'uncertain' it means that DST is, or has been, used there, but I have no definite information on the current dates.
+<P>
+<I>If the times displayed are obviously wrong, <a href="timetest.html">try this first</A>.</I>
+<P>
+If you can correct any inaccuracies, have any suggestions, or find this page useful please <A HREF="mailto:redlodge@gem.co.za">mail</A> me.
+<P>
+I tested this with Navigator 3 and Explorer 3 on Win 95 and it works on both. <BR>
+If it doesn't work (or <I>does</I> work) on other browsers/platforms I'd be interested to know.<P>
+By the way...
+<FONT SIZE="-1">
+<I>I accept no responsibility for any inconvenience caused by inaccurate results!</I>
+</FONT>
+<P>
+
+</TABLE>
+
+<HR WIDTH=90%>
+
+<TABLE WIDTH=85%>
+<TR><TD>
+<FONT COLOR='710076'><B>Related Links:</B></FONT>
+<P>
+Set your watch by the 
+<A HREF="http://tycho.usno.navy.mil/">
+U.S. Naval Observatory
+</A>
+<P>
+See who's awake and who's asleep with the
+<A HREF="http://www.fourmilab.ch/earthview/vplanet.html">
+Earth and Moon Viewer
+</A>
+<P>
+To my
+<A HREF="http://www.geocities.com/tokyo/3776">
+homepage
+</A>
+for further excitement...
+
+</TABLE>
+
+</CENTER>
+
+<HR WIDTH=90%>
+</BODY>
+</HTML>
+
+<!-- "Baaje ke ho?" -->

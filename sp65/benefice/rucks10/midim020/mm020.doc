@@ -1,0 +1,470 @@
+MIDI-MASTER(TM) v0.20с, General MIDI File Player, 27-Feb-94
+Copyright (C)1994 Cornel Huth - All Rights Reserved.
+
+
+Actual Limitations:
+
+- MM.EXE is a beta release (0.20) MIDI player and, at this level, is only
+  a test-bed for the GUS (Advanced Gravis UltraSound) and OPL2/3 support
+  code of Ruckus.
+
+The following relates to the GUS section of MM:
+
+- Interactive volume changes should be made gradually.
+- AM vibrato not 100% accurate (awaiting full specs before moving on).
+- FM vibrato has no specs to follow (awaiting full specs, but pretty close).
+- Does not operate in a Windows DOS box if the GUS Windows device driver
+  has been installed. Altering the ULTRASND= IRQ/DMA may work, but it is not
+  recommended. The normal result is a DMA timeout error.
+- Not all MIDI-performance events are currently supported (too many to list,
+  either way, but will be in later versions).
+- Programmer's inability to recall all actual limitations.
+- MIDI files > 64K not reliable. Results vary. Not recommended.
+- Notes sticking occasionally. Reducing voices (/X) may help (for now).
+- Device patch filenames are statically stored.
+- Single waveform size is limited to approximately 256K.
+- Single patch size is limited to approximately 256K.
+
+
+The OPL section has further limitations due to time constraints in getting
+this release out by the end of February 1994. Much of what follows is
+specifically for the GUS, since the GUS code took 6 months; the OPL code
+took about 1 month (so far).
+
+Actual Features:
+
+- Command-line and interactive control of volume, volume response type,
+  AM (command-line only) & FM vibrato effects, overall balance, clock
+  (elapsed/time remaining), tempo (-50% to +200%), and screen display
+  (interactive only).
+- Displayed info includes current MIDI state and hardware state.
+- Selectable timer (on-board, PC timer-0, alt).
+- DMA transfer rate is calculated.
+- Both normal and low-rez patch loading (16- or 8-bit form).
+- Device memory-use & number of allocations detailed.
+- Single waveform size of approximately 256K.
+- Single patch size of approximately 256K.
+- Failsafe aborts around possible problem areas (both int 3 and int 0 --
+  int 3 are not trapped (use DEBUG with breakpoints on) but all int 0
+  are handled (either a real div/0, overflow, or a failsafe trap).
+  A state-dump is shown on all failsafe traps and the system restored
+  to a stable state.
+- Automatic detection and handling of Windows dual-sequenced MIDI files
+  with option to override.
+- Lots of command-line options to select play state, including MIDI channels,
+  MIDI events, pitchbend range, volume, volume response type, device memory
+  reserve, default patch select, active voices, and a few more.
+
+For the OPL section:
+- Almost no events are performed by the OPL driver (basically null events).
+
+
+Fast Tips:
+
+Use the batch files included for simple runs.
+
+Read this entire document (has to be faster reading it than it was writing it).
+Use /L0 for log-response MIDI files (default is linear volume response).
+Use General MIDI L1-sequenced files for best results.
+Use /Q1 if you have 256K GRAM.
+Use /F1 to activate failsafe traps (defaults to off).
+Avoid switching log/linear response when playing.
+Avoid very low volume levels.
+Do not use AM vibrato (/o2 or /o3).
+Do not use MM from the Windows DOS box with the GUS drivers installed.
+Let me know of any serious problems. Provide lots of details.
+ 
+
+Mail:
+
+E-mail address, BBS support info, and the error list is at the end of this
+document.
+
+
+----------------------------------------------------------------------------
+MIDI-MASTER(TM) was developed using the Ruckus Toolkit. This toolkit will be
+made available on the support BBS in the Ruckus developer's conference in
+beta form soon. Shareware versions at the usual locations, but release will
+come months away from the initial beta versions.
+
+This program contains the generic MIDI parser and the static LIB version
+of the GUS support code. The parser has some of the controller support and
+on hold. Full GM-performance support will be available by release.
+
+Back to this program. Here's what you need (GUS):
+
+ 1. 286 or higher CPU - the GUS support code was written using
+    a few 286 instructions that made a world of difference.
+    Only high-end cards will have 286+ code. The AdLibs, OPL2s,
+    will run just fine with an 8088. 1MB of GRAM probably is
+    a good idea. Patches are loaded in native form (16-bit,
+    full sample), unless the command-line override option is used.
+
+For the OPL section:
+
+1a. The patch data in R2OPL2OP.PAT and R2OPL4OP.PAT must be in the
+    current directory. There are several out-of-whack patches in
+     them, but these can/will be improved when the patch editor
+     becomes available. The 4op patches sound pretty good. It's
+     best to use /m6 (all 4op voices) if you use any 4op voices at all.
+
+
+Note: For a quick list of the available command-line options, start up
+      the program with a single ? parameter.
+
+
+ 2. The following environment variables must be set:
+
+    ULTRASND=260,7,7,11,11
+    ULTRADIR=F:\SND\_GUS
+    rem PATDIR=F:\SND\_GUS\MIDI   (not needed now)
+    rem DLXDIR=F:\PRG\ASM\R2\_DLX (not needed now)
+
+    In other words, set the ULTRASND= eVar to something that
+    works for your system. The above is my setting. the ULTRADIR=
+    eVar is the location of the GUS directory. In this directory
+    must be the patch file directory, MIDI. Patch files must be
+    the current version (patch version 1.10). The old patch files
+    may not work (probably won't). Anyway, everyone should have
+    their GUS 2.06 disks by now. The new patches are on these disks
+    (5.5MB worth!).
+
+For the OPL section:
+
+2a. No special requirements currently.
+
+
+
+----------------------------------------------------------------------------
+That's it. Basically, all you have to do is give it a filename.ext. But you
+do have these command-line options available:
+
+  C>mm midifile.ext [/B /C /D /E /F /L /M /O /P /Q /R /T /V /W /X /Y /Z]
+
+        midifile.ext can be any valid DOS pathname to a valid MIDI file
+        sequenced for General MIDI. Alternate sequencer-support later.
+
+        Esc at any time exits to DOS.
+
+ /Bn=0 or baseport (e.g., 388 for PAS-OPLs, 2x0 for SB-OPLs, not for GUS)
+ /Cn=0 to FFFFh, default channel mask=FFFFh (all MIDI channels on)(see /Wn)
+ /Dn=2,3,5; no default device - must be specified (2=OPL2, 3=OPL3, 5=GUS)
+ /En=0 to 7F00h, default event mask=7F00h (all MIDI events on)
+ /Ln=0 or 1, default volume response=1 linear, 0=log
+ /Mn=0 to x, default device mode=0 (for OPLs x=number of 4op voices (0-6))
+ /On=0 to 3, default LFOs off=0 (1=FMvib, 2=AMvib, 3=both)
+ /Pn=0 to 15, default drum channel=9 (0=no drums)(channels are 0-based)
+ /Qn=0 or 1, default patch quality mode=0 (max), 1=min
+ /Rn=-768 to 1023, default reserve=0 (neg for topdown reserve) [GUS]
+ /Tn=0 to 2, default timer=0 PC 8253 timer0, 1=on-board timer, [2=RTC]
+ /Vn=0 to 100, default music volume=50 linear & 90 log
+ /Wn=0 to 2 default=2 WDS extended-level, 1=base-level, 0=no WDS adjust
+ /Xn=14 to 32, default voices=32 [GUS]
+ /Yn=0 to 2, default=0, enforce CPU check (1=do not enforce, 2=bypass test)
+ /Zn=0 to 127, default program=0 (AcPiano), 999 for none
+
+
+Details on Command-Line Options (most):
+
+/B - base port
+
+        On the OPL devices you need to specify a base port. For 2op voices
+        388 (for 388hex) will just about always work. For 4op voices, 388
+        will work for most OPL3s (such as the PAS-16), but Sound Blasters
+        require you to use the SBx's base port (220, 240, etc.).
+
+/C - channel mask/selector
+
+        /C is to override the default channels selected. You can
+        enter either a hex, binary, or if you can figure it out,
+        decimal number here. Hex values must be followed with an "h",
+        and binary either a "b" or "y". For example:
+
+                /C3FFh  channels 0-9
+                /C3F0h  channels 4-9
+                /C111b  channels 0-2
+                /CFFFFh          0-15 (all 16 MIDI channels)
+                /C1111111b       0-6
+                /C1000011111y    0-4,9
+                /C01000011111b   0-4,9
+
+        De-selected channels do not use any device memory. Using /C disables
+        WDS detection (see /W).
+
+/D - device
+
+        Currently MM supports the GUS only (device 5).
+
+/E - MIDI event mask
+
+        MIDI events range from 80h (note-off) to E0h (pitchwheel).
+        Only the most significant byte is current used by Ruckus.
+        Others should be as indicated below.
+
+        For example:
+
+                /e7F00h         all MIDI events processed
+                /e3F00h         all but pitchwheel
+
+
+      F E D C B A 9 8  76543210 FEDVBA98 76543210
+      0                11111111 00000000 00000000
+        1              pitchwheel change
+          1            channel after-touch
+            1          program change
+              1        controller change
+                1      polyphonic after-touch (not used currently)
+                  1    note-on
+                    1  note-off
+
+/L - linear/log volume response
+
+        /L1 (default) selects linear response to volume info.
+        /L0 is for a log response. Most MIDI files can be played
+        in linear mode, even log-based ones. However, it is very
+        obvious when a linear-based MIDI file is played in log
+        form (very low volume, for one).
+
+/O - LFO effects (letter O)
+
+        /O selects what LFO effects to use. /o1 selects FM vibrato.
+        /o2 select amplitude vibrato (tremelo). /o3 selects both.
+        The default is off since these are not 100% accurate (yet)
+        since they have not been documented (yet).
+
+/P - drum channel selector
+
+        /P alters the drum channel. The default is 9. To use no
+        drum channel use /P0. The channel mask/drum channel is shown
+        under the channel number (0-F). 1 indicates that that channel
+        is active; 0 inactive. A P marks which channel is the percussive.
+
+/Q - Convert patch waveforms to 8-bit before moving to device RAM
+
+        /Q0 (default) loads all required patches in original form (16-
+        or 8-bit, whatever it is). /Q1 loads all patches in low-rez form.
+        MM cannot handle /Q1 when a patch is originally 8-bit (not likely
+        that you have any patches of 8-bit form). Later versions will allow
+        patch-based selection (e.g., load only patch#0 in 8-bit, etc.).
+
+/R - reserve GRAM amount
+
+        /R reserves a contiguous amount of device RAM so that you
+        can skip over selected parts of RAM or for limiting the number
+        of banks (on supported hardware) that are used. For example, if
+        you wanted to see if a MIDI file will load into a 256K of RAM,
+        se /R-768 (if you have 1MB of device RAM). Using a negative value
+        reserves in whole blocks only (i.e., -1 reserves 256K as does -256).
+        Positive values skip in actual amounts.
+
+/T - timer selector
+
+        /Tn selects either the PC timer (n=0) or the onboard timer (n=0,
+        default). The PC timer permits a very precise resolution (1 part
+        per million). The onboard timer is not so precise, at only 1 part
+        per 12500 (the alternate timer is 1 part per TBA). For high T/Q
+        (MIDI ticks/quarter note) values (say, over 192, 480 especially)
+        the PC timer is better.
+
+/V - volume
+
+        Volume to start at. Range is 1 to 99. Linear response mode will
+        use this in the same form. Log, also. The default startup volume
+        is 50 for linear and 90 for log. It is not recommended (currently)
+        to use much lower volume levels.
+
+ /Wn=0 to 2 default=2 WDS extended-level, 1=base-level, 0=no WDS adjust
+
+/W - Windows dual-sequence MIDI file adjust
+
+        If a Windows MIDI file is detected, by default, the device's
+        capabilities are consulted to determine which sequence to play.
+        All devices but the OPL2/dual-OPL2 play the extended-sequencer
+        channels (0-9, drum on 9). The basic-sequencer plays channels
+        12-15, drum on 15. You can override the default sequencer selection
+        using the above values (where 0 disables WDS detection, 1 plays
+        channels 12-15 regardless, and 2 plays 0-9 regardless).
+
+        WDS is also disabled whenever /C channel mask is used.
+
+/X - number of voices
+
+        The /Xnn is for the number of voices to use. The default is
+        32 (1-based). You can use any value from 1 to 32. The lower
+        this number the more likely that playing voices will be "stolen".
+        If the number of voices selected is out-of-range, the closest
+        in-range value will be used.
+
+/Z - default patch
+
+        The default patch is 0, acpiano.pat, and this patch is always
+        installed whether it's needed or not. To alter the default
+        patch use /Z where nn is 0 to 127. Values > 127 cause no
+        default patch to be loaded (can save about 64K of GRAM if
+        acpiano isn't used).
+
+?  - show help screen
+
+        Shows some quick start info.
+
+
+----------------------------------------------------------------------------
+Additional notes.
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ MVL FEDCBA9876543210  <───▐▌───> AM T Tks T/Q . Msr B BPM -%+  Clock   Tick  │
+│                                  FM                              :           │
+│──────────────────────────────────────────────────────────────────────────────│
+│ -DEV- I/O C IQ Ti Vx DMA-xRate Rz GRAM  Free  Big  B0+ B1+ B2+ B3= Used  T/A │
+│                          K/sec        K     K    K      -   -   -      K     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+The following is part of the displayed info. MV is the master volume (V/v
+alters volume), L is the log/linear toggle. The "FEDCB...0" is the channel
+map mask. Only those channels with a 1 below it are active. In the case of
+the drum channel, a P is used instead of the 1. 0 or blank means that
+channel is not being processed. See /C & /P for altering this. The < - >
+is the overall balance. The < > (or , . keys) adjust the balance. The numbers
+below this indicate the number of voices forced off during or prior to
+a sustain (left) and the number of voices doffed after a sustain (right).
+The latter is prefered. The more voices available the less voices stolen.
+
+AM (command-line activated) and FM (CL or F/f key) are the tremelo and vibrato
+states. Bright letters indicate that effect as on. T is the MIDI file type
+(type-0 and -1 are supported). Tks is the number of tracks (up to 64 supported,
+32 shown). T/Q is the number of MIDI ticks per quarter-note. . marks the
+location of the time signature of the piece. Msr/B is the current measure and
+beat. BPM is the calculated tempo (in beats/minute). The +/- keys let you
+adjust the tempo -50% to +200%. The C/c selects time elapsed or time remaining.
+This is calculated and will vary according to tempo changes. Tick is the
+current MIDI tick.
+
+The device parameters include the device, I/O port, DMA channel, IRQ line,
+timer, and active voices. The DMA transfer rate, if applicable, is timed.
+Only the first transfer is timed.
+
+GUS: When loading the default patch of the current GUS patches (patch 1.10),
+the acpiano.pat, the first sample is about 7340 bytes (or half that many
+words). Patches are typically loaded in patch number order. Rates of 600K/sec
+are typical on a 16-bit channel. Half that on an 8-bit DMA channel.
+
+The amount of device RAM (less any negative /R) installed, amount "Free",
+and the largest block that can be allocated is shown. Also the amount of RAM
+used, by bank, and total amount used. T/A is the total allocations made:
+as in number of patches loaded (each patch uses a single allocation;
+allocations are made on a best-fit basis). Each bank uses a single 32-byte
+allocation for basic housekeeping (meaning that if T/A=6 and you have
+four RAM banks (GUS:1MB), then 2 patches have been loaded). This means that
+the actual largest patch that can be loaded is 256K less 32 bytes.
+
+Several display screens are available. Use TAB/backTAB to select. These
+will be documented when all are completed/finalized.
+
+
+----------------------------------------------------------------------------
+Contact:
+
+You can contact me through the BBS, preferably in the developer's conference,
+or through my Fido point (Cornel Huth @ 1:387/800.8), or via Internet
+(chuth@lonestar.utsa.edu -or- cornel.huth@LChance.sat.tx.us). As for other
+cards, the SB16 (CSP), PAS-16, Aria-based cards, and a refinement of the
+previous cards supported will also be in the toolkit. I'll keep a steady
+flow of alphas/betas in the onference's download area. Just keep me posted
+on any problems.
+
+        The 40th Floor BBS.
+        BBS support telephone: 1(210)684-8065. V.32bis (300-14.4k)
+        Hours: Monday through Friday, 5pm to 9am next morning
+               Weekend hours are 1pm to 9am next morning.
+               All times USA Central Time [-0600/-0500]
+
+
+
+----------------------------------------------------------------------------
+Error List:
+
+Errors are reported in two values: the first is the section that generated
+the error, and the second is the error encountered. For example, STAT: 00:2
+is a DOS-generated error. Error 2 is file not found. 3 is path not found.
+21 is device not ready. Consult a DOS manual for specifics. As another
+example, STAT: 03:31 is the error returned when attempting to use MM
+in a Windows DOS box when the GUS device driver is installed.
+
+   ERR_DMATIMEOUT  EQU R2E+31  ;DMA transfer did not signal completion
+
+R2E is 300h (from below, only the MSB is used) and 31 the error number.
+Put them together and you get 03:31.
+
+
+;no section (00);DOS-generated
+RKE = 100h      ;kernal-related
+R2E = 300h      ;Ruckus-related
+RVE = 400h      ;Vox-related
+RME = 500h      ;MIDI-related
+RDE = 600h      ;Mod-related
+RPE = 700h      ;patch-related
+
+                 
+;DOS-type errors generated/returned by Rcukus
+ERR_UNXEOF      EQU -3      ;unexpected end of file DOS (65533)
+ERR_DISKFULL    EQU -2      ;disk full DOS              (65534)
+ERR_NOMEMORY    EQU 8       ;cannot allocate required memory from DOS
+
+
+;kernal errors
+ERR_NOHANDLES   EQU RKE+04  ;no handles left from ss$Malloc for MCB
+ERR_BADHANDLE   EQU RKE+06  ;handle not valid from ss$Free for MCB/xms$ too
+ERR_MEMCORRUPT  EQU RKE+07  ;memory corrupt from ss$Malloc for MCB
+ERR_NOMEMKRN    EQU RKE+08  ;no/not enough memory from ss$Malloc for MCB
+ERR_NOMATCH     EQU RKE+09  ;EnvVar not found
+ERR_NOXMSMGR    EQU RKE+20  ;xms$Init called but no XMS manager installed
+ERR_XMS16MB     EQU RKE+21  ;XMS allocation crossed 16MB (no-go for ISA DMA)
+
+
+;device init/access errors
+ERR_ILLEGAL_CMD EQU R2E+01  ;command code not valid
+ERR_NODEVICE    EQU R2E+02  ;device in context not detected
+ERR_DEVICEON    EQU R2E+03  ;device in context has already been installed
+ERR_DEVIRQ      EQU R2E+04  ;device in context fails IRQ test (NYI)
+ERR_DEVDMA      EQU R2E+05  ;device in context fails DMA test (NYI)
+ERR_NOMEMDEV    EQU R2E+08  ;device in context has no RAM available
+ERR_NOTINGEAR   EQU R2E+11  ;device in context has not been installed
+ERR_INGEAR      EQU R2E+12  ;device in context has already been installed
+ERR_DMATIMEOUT  EQU R2E+31  ;DMA transfer did not signal completion
+ERR_DMABADMODE  EQU R2E+32  ;DMA mode not valid for request
+ERR_DMABUSY     EQU R2E+33  ;DMA channel already in use
+ERR_DMAGRAM256  EQU R2E+39  ;GRAM 256K page crossing on DMA attempt [GUS]
+ERR_BADENVVAR   EQU R2E+91  ;requested EnvVar not found or incomplete
+ERR_BADPATH     EQU R2E+92  ;path+filename+ext > MAX_PATHSIZE
+ERR_MMSSCORRUPT EQU R2E+93  ;general memory manager is corrupt
+ERR_MMSSLOCKFAIL EQU R2E+94 ;general memory manager lock failed
+ERR_INVALID_TASK EQU R2E+99 ;internal error
+
+
+;MIDI file errors
+ERR_MIDI_FORMAT EQU RME+01  ;file is not of type 0 or type 1
+ERR_MIDI_TRACKS EQU RME+02  ;file contains more too many tracks (more than 64)
+ERR_MIDI_TIMING EQU RME+03  ;file division timing not metrical
+ERR_MIDI_HEADER EQU RME+04  ;file does not start with "MT"
+
+
+;patch/voice allocation errors          
+ERR_UNKPATHDR   EQU RPE+01  ;patch file does not start with "GF" [GUS]
+;ERR_BADPATCH   EQU RPE+02  ;patch format not known
+ERR_UNKPATINS   EQU RPE+02  ;patch file contains more than 1 instrument [GUS]
+ERR_UNKPATLAYER EQU RPE+03  ;patch file contains more than 1 layer [GUS]
+ERR_NOMEMDMA    EQU RPE+06  ;no memory for temporary DMA transfer buffer
+ERR_NOCACHE     EQU RPE+07  ;patch permanent store/cache not available (XMS)
+ERR_NOMEMPATCH  EQU RPE+08  ;cannot allocate required patch memory
+ERR_BADPATCHNO  EQU RPE+21  ;melodic/drum patch number out-of-range or not loaded
+ERR_NOPATCHMAP  EQU RPE+22  ;drum patch number out-of-range (percCh ky# doesn't map)
+ERR_PATCHBOGUS  EQU RPE+23  ;patch contains out-of-bounds data  
+ERR_PATCHIS8    EQU RPE+24  ;patch is already in low-rez form
+ERR_BADLOOPADDR EQU RPE+25  ;loop points not valid
+ERR_PATCHINUSE  EQU RPE+26  ;patch number has already been allocated
+ERR_PATCHZERO   EQU RPE+27  ;patch number is not allocated/no patch data
+ERR_BADVOICE    EQU RPE+50  ;voice number not valid (user selected)
+ERR_VOICENA     EQU RPE+51  ;voice is not available (already in use)
+ERR_VOICEACTIVE EQU RPE+52  ;voice active (cannot unassign w/o force)
+
+;<EOF>

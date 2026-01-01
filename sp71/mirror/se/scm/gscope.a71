@@ -1,0 +1,266 @@
+From: throopw%sheol.uucp@dg-rtp.dg.com (Wayne Throop)
+Newsgroups: comp.software.config-mgmt,comp.lang.tcl
+Subject: Re: code browser wanted
+Date: 8 Dec 1994 16:45:00 GMT
+Organization: Alcatel Network Systems (Raleigh, NC)
+Message-ID: <3c7d6c$cld@aurns1.aur.alcatel.com>
+
+:: From: Leslie Giles (giles@fig.nacto.lkg.dec.com)
+:: I'm looking for a code browser to run on Unix (specifically
+:: DECstation/Ultrix).  I've used cscope and if anybody can tell me
+:: where/how to get a licensed or public domain copy of that, I'll be
+:: ecstatic.  Otherwise if anybody knows of _any_ Unix X-windows code
+:: browser that can cope with around a million lines of code or more,
+:: please let me know. 
+
+: From: render@massive.uccs.edu (Hal Render)
+: I don't know if this is what you want, but there's a nice freeware
+: symbolic debugger for C that runs under Ultrix.  It's called ups
+
+GNU has a cscope-like tool, also.  I believe called "gscope".
+My exposure is only secondhand, though
+
+On the other hand, I find the appended "wish" script[1] useful, and
+have indeed used it on code of more than 1 meganewline in size[2].
+
+I prefer using the (also appended) awk script to generate the index
+files the browser uses, but the index file can be created any which way
+suits you.  For example, to have a point-and-click interface to get from
+any token to its definition, you might use ctags to create the index,
+like so:
+
+      ctags -x *.c | \
+           awk '{printf "%s %s %3.3s\n", $1, $3, $2}' | \
+           sort >idx
+
+I find the full syntax-blind cross reference nice, because it includes
+references to places in comments that mention variables of interest, and
+I can quickly find stylized parts of comments (such as "ensures:" or
+"requires:" comments in function definitions) with the tool 
+(eg by looking for the token "requires"). 
+
+( Beware temporary crossposting to comp.lang.tcl;
+  Note followup-to is comp.software.config-mgmt only;
+  Set an appropriate followup if you expand on tcl-only issues. )
+--
+[1] The "wish" is the tcl/tk windowing shell.  See the tcl faq in
+    comp.lang.tcl and crossposted to news.answers for more detail.
+[2] It generated an index of 120 megabytes to browse only 40 megabytes
+    of code, so beware when using the syntax-blind crossreference-everything
+    awk script below.  It all still works, but it chews up disk space
+    for breakfast.
+--
+Wayne Throop   throopw%sheol.uucp@dg-rtp.dg.com
+               throop@aur.alcatel.com
+
+
+-- mxref: script for making simple cross reference tables
+#!/bin/sh
+#
+# usage: mxref infile1 infile2 ... >outfile
+#
+# create index lines for all tokens in the given files
+nawk '{
+    sub("$"," ")
+    gsub("[^a-zA-Z0-9_]+"," ")
+    sub("^ ","")
+    gsub(" "," " FILENAME " " sprintf("%3d",FNR) "\n")
+    printf "%s",$0
+}' ${1+"$@"} | egrep '.....* .* ' | sort -T .
+
+-- vxref: script for browsing sources given a cross reference table
+#!/usr/bin/env wish-f
+#
+# usage: vxref file
+#
+# view an xref compiled with mxref
+
+set idxf [lindex $argv 0]
+
+frame .panel
+button .panel.quit -text quit -command {destroy .}
+button .panel.help -text help -command {
+display.reftext delete 1.0 end
+display.reftext insert 1.0 {
+To start out, X-select a token on any X window, and click the
+"idx" button.  Index lines for that token will be inserted in the
+left window pane.
+
+Move the text cursor to any of the index lines in the left pane,
+and click on the "ref" button, and the text where reference occurs
+will be displayed in the right window pane.  Simply right-click
+on an index line is an abbreviation for moving the cursor and
+clicking on "ref".
+
+Right-clicking in the right pane is an appreviation for double-clicking
+to select the current token, and then clicking the "idx" button.
+
+The "clr" button empties the index pane.
+
+The "tcl" button executes the current X selection as a tcl script.
+
+You can launch your favorite editor, positioned to the file and
+line displayed in the "ref" pane, by defining the "launch-edit"
+and "launch-view" procedures in your $HOME/.env-vxrefrc file.
+For example, to launch vi:
+
+    proc launch-edit {file line} {
+        exec xterm -e vi -c $line $file & }
+    proc launch-view {file line} {
+        exec xterm -e view -c $line $file & }
+
+or emacs (via the emacs client):
+
+    proc launch-edit {file line} {
+        exec emacsclient +$line $file & }
+
+In general, any customization can be added to the .env-vxrefrc file.
+For example, to select a small, 10-point font for the two primary
+text display windows:
+
+    .display.idxtext configure -font *courier*medium*r*normal*100*
+    .display.reftext configure -font *courier*medium*r*normal*100*
+
+In general, any wish tcl commands can be used in the rc file.
+The widget names initially available for customization are
+
+    widget name               widget type
+    -----------               -----------
+    .panel                    frame
+    .panel.quit               button
+    .panel.help               button
+    .panel.tcl                button
+    .panel.clr                button
+    .panel.idxshrink          button
+    .panel.idx                button
+    .panel.idxgrow            button
+    .panel.ref                button
+    .panel.le                 button
+    .panel.lv                 button
+    .panel.fname              text
+    .display                  frame
+    .display.idxscroll        scrollbar
+    .display.idxtext          text
+    .display.refscroll        scrollbar
+    .display.reftext          text
+}}
+button .panel.tcl -text tcl -command {eval [selection get]}
+button .panel.clr -text clr -command {.display.idxtext delete 1.0 end}
+button .panel.all -text all -command {
+    .display.idxtext delete 1.0 end
+    .display.idxtext insert 1.0 [exec cat $idxf]\n
+}
+button .panel.idx -text idx -command {
+    set w [selection get]
+    .display.idxtext insert 1.0 [exec look $w $idxf]\n
+    .display.idxtext yview 0
+}
+button .panel.ref -text ref -command {
+    set r [.display.idxtext get "insert linestart" "insert lineend"]
+    set f [lindex $r 1]
+    set l [expr [lindex $r 2]-1]
+    .display.reftext delete 1.0 end
+    .display.reftext insert 1.0 [exec grep -n {^} $f]\n
+    .display.reftext yview $l
+    .panel.fname delete 1.0 end
+    .panel.fname insert 1.0 $f
+}
+button .panel.le -text edit -command {
+    launch-edit [.panel.fname get 1.0 end] \
+                [expr int([.display.reftext index @1,1])]
+}
+button .panel.lv -text view -command {
+    launch-view [.panel.fname get 1.0 end] \
+                [expr int([.display.reftext index @1,1])]
+}
+proc launch-view {file line} {
+    error "view command not defined"
+}
+proc launch-edit {file line} {
+    error "edit command not defined"
+}
+text .panel.fname -height 1 -width 60 -borderwidth 4 -relief ridge
+
+button .panel.idxshrink -text < -command {
+    .display.idxtext configure -width \
+        [expr [lindex [.display.idxtext configure -width] 4]-10]
+}
+button .panel.idxgrow -text > -command {
+    .display.idxtext configure -width \
+        [expr [lindex [.display.idxtext configure -width] 4]+10]
+}
+
+pack .panel.quit -side left
+pack .panel.help -side left
+pack .panel.tcl -side left
+pack .panel.clr -side left
+pack .panel.idxshrink -side left
+pack .panel.idx -side left
+pack .panel.idxgrow -side left
+pack .panel.ref -side left
+pack .panel.le -side left
+pack .panel.lv -side left
+pack .panel.fname -side left
+
+frame .display
+scrollbar .display.idxscroll -command {.display.idxtext yview}
+text .display.idxtext -width 40 -height 40 \
+     -yscroll {.display.idxscroll set}
+bind .display.idxtext <ButtonRelease-3> {
+    .display.idxtext mark set insert @%x,%y
+    .panel.ref invoke
+}
+scrollbar .display.refscroll -command {.display.reftext yview}
+text .display.reftext -width 80 -height 40 \
+     -yscroll {.display.refscroll set}
+pack .display.idxscroll -side left -fill y
+pack .display.idxtext -side left
+pack .display.refscroll -side left -fill y
+pack .display.reftext -side left
+bind .display.reftext <ButtonRelease-3> {
+    .display.reftext tag remove sel 1.0 end
+    .display.reftext tag add sel {@%x,%y wordstart} {@%x,%y wordend}
+    .panel.idx invoke
+}
+
+pack .panel -side top -anchor w
+pack .display -side top
+
+wm minsize . 100 100
+
+catch {source $env(HOME)/.vxrefrc}
+
+From ankh.iia.org!uunet!news.mathworks.com!udel!gatech!howland.reston.ans.net!news.sprintlink.net!pipex!bnr.co.uk!bcarh8ac.bnr.ca!corpgate!news.utdallas.edu!rdxsunhost.aud.alcatel.com!aur.alcatel.com!news Fri Dec  9 00:45:07 1994
+Path: ankh.iia.org!uunet!news.mathworks.com!udel!gatech!howland.reston.ans.net!news.sprintlink.net!pipex!bnr.co.uk!bcarh8ac.bnr.ca!corpgate!news.utdallas.edu!rdxsunhost.aud.alcatel.com!aur.alcatel.com!news
+From: throopw%sheol.uucp@dg-rtp.dg.com (Wayne Throop)
+Newsgroups: comp.software.config-mgmt,comp.lang.tcl
+Subject: Re: code browser wanted
+Followup-To: comp.software.config-mgmt
+Date: 8 Dec 1994 20:43:16 GMT
+Organization: Alcatel Network Systems (Raleigh, NC)
+Lines: 19
+Message-ID: <3c7r54$r0e@aurns1.aur.alcatel.com>
+References: <3c582b$inm@nntpd.lkg.dec.com> <3c5dlc$7el@harpo.uccs.edu> <3c7d6c$cld@aurns1.aur.alcatel.com>
+NNTP-Posting-Host: aursag.aur.alcatel.com
+Xref: ankh.iia.org comp.software.config-mgmt:1073 comp.lang.tcl:12265
+
+: From: throopw%sheol.uucp@dg-rtp.dg.com (Wayne Throop)
+: -- vxref: script for browsing sources given a cross reference table
+
+Oops.  Somebody just pointed out to me that the posting software
+ate a leading "." character on some of the lines of the vxref script,
+causing the "help" button to error out instead of displaying text.
+
+To fix this, apply the following diff:
+
+12,13c12,13
+< display.reftext delete 1.0 end
+< display.reftext insert 1.0 {
+---
+> .display.reftext delete 1.0 end
+> .display.reftext insert 1.0 {
+
+--
+Wayne Throop   throopw%sheol.uucp@dg-rtp.dg.com
+               throop@aur.alcatel.com
+

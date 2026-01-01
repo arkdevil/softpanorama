@@ -1,0 +1,242 @@
+Multi-user corner
+
+MULTI-USER QUERIES
+
+By Kevin Smith
+
+Softbite International
+
+33 N. Addison Rd., Suite 206
+
+Addison, IL  60101
+
+Ph: 708-833-0006
+
+Picture this:  You have just installed your first multi-user Paradox
+application.  You have tested each and every line of code, and there are
+no problems.  The system worked great on your machine, and the limited
+amount of multi-user testing that you did worked fine.
+
+But a user executes a query, and their machine seems to hang.  All
+morning, they stare at the PLEASE WAIT you have placed in the center of
+their screen.  Finally, after all the data entry people go to lunch, the
+query finishes and the report is produced.
+
+Sounds pretty gloomy, but entirely possible with a good sized multi-user
+application.  The phenomena that occurred is called "query restart".
+Query restart only happens when a table that is being looked at in a
+query is modified by another user before the query finishes.
+
+In other words, if user 1 starts a query on the ORDERS table, that query
+tries to look at the entire table during the query process (PDOX
+documentation calls it a "snapshot").  If user 2 posts a change (add,
+change or delete) to the ORDERS table while user 1 is querying it, user
+2's posting operation takes precedence and causing the ORDERS table to
+be changed.  User 1's query then restarts from the beginning.  User 1's
+query will only complete when the ORDERS table remains unchanged for the
+duration of the query.
+
+Is this bad?  Well, not always.  Many times, the user won't even notice
+that the query has restarted.  In an environment where data entry is not
+heavy, query restart will not happen very much, and will not be a
+problem.
+
+The Paradox query gets its speed from its algorithm of looking at the
+entire table (or indexes), not record-by-record (like a SCAN ...
+ENDSCAN).  If the table changes during this process, the query must
+restart.  Let's look at a few techniques for minimizing the effect of
+the query restart.  For the sake of a relevant example, let's assume the
+following:
+
+ORDERS table - 12 fields, 10,000 records, about 100 added per day, 300
+modified per day
+
+CUST table - 10 fields, 200 records
+
+PRODUCTS table - 4 fields, 200 records
+
+Records are being added (and changes being made) to the ORDERS table all
+day long.  Periodically during the day, the following query is executed:
+
+ORDERS═╦═══Customer ID══╦══Purchase date══╦═══Product code═╦═Quantity
+       ║√+ cust         ║√+ today         ║√+ prod         ║√+
+CUST═══╦══Customer ID═╦Customer last name╦Customer first name╦Address
+       ║  cust        ║√+                ║√+                 ║√+
+PRODUCTS╦══Product code══╦Product description╦══Product price═╦═══Pro
+        ║  prod          ║√+                 ║√+              ║√+
+
+This query produces an ANSWER table that is used to output invoices.
+Let's assume for now that this query takes 60 seconds to execute.  If a
+change is made to any table involved in the query, the query will
+restart.  The effect is - the query will not finish until there is a
+full 60 period where ORDERS, CUST and PRODUCTS are not changed.
+
+The problem, though, is the inability of this query to finish during
+heavy data entry operations.  There are three possible solutions to this
+problem:
+
+1.   Decrease the time that the query takes.
+
+2.   Decrease the time that the query is "vulnerable" to restarting via
+"query splitting".
+
+3.   Stop the posting of records until the query is completed.
+
+Let's look at each one (probably in order of preference).
+
+1.   Decrease the time that the query takes.
+
+In general, the most useful tool in speeding up queries is the presence
+of indexes.  The query used above has three main functions.
+
+The first function is to select those records from the ORDERS table with
+a purchase date of today.  The presence of an index (secondary index) on
+the [PURCHASE DATE] field will help speed the process.  Once the records
+from ORDERS are selected, the query takes the selected records and looks
+up each customer id from the CUST table.  This is a process of searching
+the CUST table for the [CUSTOMER ID] for each record selected from
+ORDERS.  The presence of an index (key or primary index) on the
+[CUSTOMER ID] field of the CUST table will speed the query
+substantially.  The final selection that must be done is the selection
+of the [PRODUCT CODE] from the PRODUCT table.  This is much like the
+selection of the [CUSTOMER ID], and the same indexing suggestions apply.
+
+2.   Decrease the time that the query is "vulnerable" to restarting via
+"query splitting".
+
+"Query splitting" is probably the least recognized (yet incredibly
+effective) solution to the problem.  Its effectiveness lies with an
+understanding of the actual processes involved in the query.  The three
+steps that this query performs (explained above) all must be completed
+before the query is no longer vulnerable to restart.
+
+The result of the following two queries is the same as the result of the
+one shown previously:
+
+ORDERS═╦═══Customer ID══╦══Purchase date══╦═══Product code═╦═Quantity
+       ║√+              ║√+ today         ║√+              ║√+
+
+then
+
+ANSWER═╦═══Customer ID══╦══Purchase date══╦═══Product code═╦═Quantity
+       ║√+ cust         ║√+               ║√+ prod         ║√+
+CUST═══╦══Customer ID═╦Customer last name╦Customer first name╦Address
+       ║  cust        ║√+                ║√+                 ║√+
+PRODUCTS╦══Product code══╦Product description╦══Product price═╦═══Pro
+        ║  prod          ║√+                 ║√+              ║√+
+
+It is here that the secret to preventing restart lies.  If the step of
+selecting records from ORDERS is separated from the "lookup" of
+customers and products, the time that the query is vulnerable to restart
+is reduced to only the time it takes to select the records from ORDERS.
+This query will be faster because it has less work to do (no "lookups"
+of customers or products).  The "lookup" of the customer and product
+information is done in a 2nd query of ANSWER, CUST and PRODUCTS, which
+creates a new, complete ANSWER table.  This 2nd query will not restart
+when changes are posted to the ORDERS table (the ANSWER table is being
+used, not ORDERS).
+
+Many of the systems that I've seen have problems with restart, and many
+times, the process of "query splitting" is a great solution to the
+problem.  It really works well.
+
+3.   Stop the posting of records until the query is completed.
+
+This is the most drastic (and most difficult to implement) approach to
+the problem.  It uses the concept of semaphore locking.  Semaphore
+locking is simply placing locks on non-existent tables.  These locks are
+used as flags to other PAL routines that another user is doing something
+that should not be interrupted.
+
+Semaphores are added to the query process discussed here as follows:
+
+    a.    Prior to executing the query, place the semaphore by executing
+ LOCK "FLAGTBL1" WL
+
+    b.    Execute the query
+
+    c.    Remove the semaphore by executing  UNLOCK "FLAGTBL1" WL
+
+The result here is that the imaginary table FLAGTBL1 is "full locked"
+during the query.  Paradox does this by placing a file called
+FLAGTBL1.LCK in the shared directory.  When FLAGTBL1 is unlocked,
+FLAGTBL1.LCK is deleted.
+
+To complete the process, code must be inserted (prior to posting of any
+records) to check for the existence of a lock on FLAGTBL1 (meaning that
+the query is in progress).  This can be done as follows:
+
+coedit "orders" ; put the table onto the workspace in coedit mode
+
+while true
+
+   imagerights readonly ; do not allow direct changes to the table
+
+   wait table  ; wait for the "F7" or the "F2"
+
+     prompt "Move to record to edit, then press F7, Press Esc to end"
+
+     until "F7","F2"
+
+   if retval = "F7" then  ; user wants to edit the record
+
+      formkey ; flip to a form
+
+      imagerights ; turn of the READONLY restriction - allow changes
+
+      lockrecord ; place a lock on the record
+
+      if retval = false the
+
+         message "RECORD IS IN USE - TRY AGAIN LATER"
+
+         sleep 500 ;  wait  1/2  second
+
+         loop ; go back up to the WAIT TABLE
+
+      endif
+
+      wait record ; hold the user here and allow changes
+
+         prompt "Make changes to record, press F2 when done
+
+         until "F2"
+
+      LOCK "FLAGTBL1" PWL
+
+      while retval = false then ; check is the query is running
+
+         message "Important query is running - changes will be posted
+ASAP - Please wait"
+
+         sleep 500 ;  wait  1/2  second
+
+         LOCK "FLAGTBL1" PWL
+
+      endwhile
+
+      unlockrecord ; post changes to table
+
+      UNLOCK "FLAGTBL1" PWL
+
+      formkey ; flip back to tableview
+
+   else
+
+      quitloop
+
+   endif
+
+endwhile
+
+The UNLOCKRECORD command will not be executed until FLAGTBL1.LCK is
+removed (remember, the query removes the lock when finished).  The
+effect is that no posting of changes can be done to the table when the
+query is running.  Code like that above should be inserted into PAL
+routines that modify the shared table.
+
+In summary, if you can speed up the queries with indexes or break
+queries into two steps (step 1: selection then step 2: lookup), your
+query restart problems may be minimized to the point that it is no
+longer an issue.  The use of semaphores is a "last resort" (although not
+unheard of).

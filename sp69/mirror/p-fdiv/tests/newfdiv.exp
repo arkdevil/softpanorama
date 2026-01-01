@@ -1,0 +1,208 @@
+From news.ucdavis.edu!library.ucla.edu!psgrain!usenet.eel.ufl.edu!news.mathworks.com!hookup!usc!news.isi.edu!not-for-mail Tue Nov 22 11:20:44 1994
+Path: news.ucdavis.edu!library.ucla.edu!psgrain!usenet.eel.ufl.edu!news.mathworks.com!hookup!usc!news.isi.edu!not-for-mail
+From: carlton@darkstar.isi.edu (Mike Carlton)
+Newsgroups: comp.sys.intel,comp.arch.arithmetic
+Subject: More on pentium divide bug (and loose teeth)
+Date: 21 Nov 1994 14:24:38 -0800
+Organization: USC Information Sciences Institute
+Lines: 194
+Distribution: world
+Message-ID: <3ar6n6$r83@darkstar.isi.edu>
+NNTP-Posting-Host: darkstar.isi.edu
+Xref: news.ucdavis.edu comp.sys.intel:17872 comp.arch.arithmetic:582
+
+
+Remember when you were a little kid and you had a tooth that was about
+to fall out?  Remember how you couldn't leave it alone; you had to
+keep poking and tugging at it until it finally came out? 
+
+Well, since Intel hasn't come forward with real information on the
+extent of their divide bug, I kept a pentium busy this weekend poking
+the divider.
+
+Here's some more info on the extent of the pentium divide bug. 
+Starting with the information in Tim Coe's excellent articles from
+comp.sys.intel, I performed an exhaustive search over a set of suspect
+divisors.
+
+I limited both dividend and divisor to 23 bits of precision (this is
+IEEE single precision).  Thus, any of these numbers can arise during
+single-precision calculations (as Tim pointed out, the bug is not
+limited to double-precision calculations).
+
+I did the searching with double-precision, but I verified that the
+numbers reported produce the same amount of error using single-
+precision divides (which makes sense, the processor presumably has
+only one divider for both single- and double-precision calculations).
+
+The search program below tries all 8M unique single-precision
+mantissas for a dividend with each of 185 suspect divisors.  The
+divisor mantissas are of the form: D1...[01]1, D = 1+3n for n=0..4
+(i.e. 1, 4, 7, a or d, followed by up to 19 1 bits, with the next to
+the last bit optionally being 0).  I added the optional zero bit after
+some other exhaustive searching turned up errors with this form.
+
+The program runs in a little more than 30 minutes on a 90MHz pentium and
+reports 819 unique pairs with less than single-precision accuracy (i.e.
+the relative error is greater than about 1.2e-07).  It finds 66 pairs
+with just 14 bits of accuracy--about 4 decimal digits.
+
+The most interesting results from the output are shown here.  The
+columns represent, respectively, the dividend, the dividend in hex
+floating point format, the divisor, the divisor in hex floating point,
+the absolute error from the calculation x-(x/y)*y, the relative error
+(i.e. error/dividend), and the number of accurate bits.
+ 
+          x exp      mantissa           y exp      mantissa     err rel err  b
+----------- ----------------- ----------- ----------------- ------- ------- --
+      95233 40f 7401000000000     2359293 414 1fffe80000000  0.1875 2.0e-06 18
+   12484267 416 7cfd560000000       36863 40e 1ffe000000000      96 7.7e-06 16
+    4195835 415 0017ec0000000     3145727 414 7ffff80000000     256 6.1e-05 14
+    5505001 415 4fffa40000000      294911 411 1fffc00000000     192 3.5e-05 14
+
+The first line shows the smallest dividend mantissa with less than
+single-precision accuracy, the second the smallest divisor mantissa.
+The third and fourth lines show the smallest dividend and divisor such
+that only 14-bit accuracy is returned.
+
+The third line matches Tim Coe's example, and indeed, this is the
+example with the greatest relative error (there are also larger pairs
+which match this).
+
+Want to test this on your pentium?  Calculate x/y in your favorite
+spreadsheet and compare the result with your $4 hand calculator.  For
+example, 5505001/294911 produces 18.66600093 on a buggy pentium, while
+the correct answer is 18.66665197.
+
+Another interesting case with a very small dividend (which just barely
+provided single-precision accuracy, not even close to double-precision) is:
+        861 408 ae80000000000     4718589 415 1ffff40000000 9.2e-05 1.1e-07 23
+
+Keep in mind that I didn't search all divisors (although I did search all
+small ones with the given pattern).  Also, the answers are independent of
+the exponent, so each mantissa represents 254 single-precision numbers (or
+2046 double-precision numbers).  You can multiply (or divide) any number
+by any power of 2 and you will get the same relative error.
+
+Also, there are many more error cases than reported by this code.  Out
+of a million random double-precision dividends, I've found as many as
+39 thousand mantissas with less than double-precision accuracy for a
+single divisor mantissa.  One example of a "rich" divisor is 4718589.
+
+cheers,
+--mike carlton@isi.edu
+
+P.S. this was run on a Dell 90MHz pentium delivered about 2 weeks ago,
+so it looks like buggy pentiums are still being delivered to customers.
+
+Here's the search program; this was compiled with gcc under Nextstep 3.2,
+it should work with any ANSI C compiler.
+
+/* 
+   Mike Carlton (carlton@isi.edu)
+   USC/ISI
+   Sun Nov 20 15:12:38 1994
+
+   search some suspect (on a pentium) divide cases 
+
+   try all numerators with unique single-precision (up to 23 bit)
+   mantissas for each denominator with single-precision mantissa of
+   the form D1...[01]1, D = 1+3n for n=0..4 (i.e. 1, 4, 7, a or d,
+   followed by up to 19 1 bits, with the next to the last bit
+   optionally being 0).
+
+   reports all dividend/divisor pairs such that the relative error of
+   x/y is greater IEEE single precision epsilon (1.19209290e-07f).
+
+   the error column shows x-(x/y)*y, relative error shows error/x, and
+   the last column reports the number of accurate bits (log base 2 of
+   the relative error).  single-precision corresponds to 23 bits
+   accuracy, double to 52 bits.
+
+   This code is in the public domain.
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <float.h>
+#include <math.h>
+#include <limits.h>
+
+typedef union {
+	struct {
+		unsigned long mant31_0: 32;	/* little endian format; */
+		unsigned long mant39_32: 8;	/* for big endian, reverse */
+		unsigned long mant47_40: 8;	/* order of fields */
+		unsigned long mant51_48: 4;
+		unsigned long exp3_0: 4;
+		unsigned long exp10_4: 7;
+		unsigned long sgn: 1;
+	} ieee;
+	double d;
+} dbl;
+
+char *ieee(double num)
+{
+	static char out[18];
+	unsigned long exp, man;
+	dbl d;
+	
+	d.d = num;
+	exp = d.ieee.exp10_4 << 4 | d.ieee.exp3_0;
+	man = d.ieee.mant51_48 << 16 | d.ieee.mant47_40 << 8 | d.ieee.mant39_32;
+	sprintf(out, "%03x %05x%08x", exp, man, d.ieee.mant31_0);
+
+	return out;
+}
+
+int main(int argc, char *argv[])
+{
+	unsigned long i;
+	long dig, ones, on;
+	double x, y, quot, err; 
+	char *sep = "------------------------";
+	
+	if (argc != 1) {
+		fprintf(stderr, "Usage: %s\n", argv[0]);
+		exit(1);
+	}
+
+	setbuf(stdout, NULL);
+
+	printf( 
+ 	    "%11.11s %3.3s %13.13s %11.11s %3.3s %13.13s %7.7s %7.7s %2.2s\n",
+	       "x", "exp", "mantissa", "y", "exp", "mantissa",
+	       "err", "rel err", "b");
+	printf("%11.11s %17.17s %11.11s %17.17s %7.7s %7.7s %2.2s\n", 
+	       sep, sep, sep, sep, sep, sep, sep);
+
+	for (ones=19; ones>=1; ones--) {
+		for (dig=4; dig>=0; dig--) {
+			for (on=1; on>=0; on--) {
+				y = (16+3*dig+1) * pow(2.0, (double)ones) +
+						    pow(2.0, (double)ones) - 1;
+				if (!on) {
+					if (ones >= 2) y -= 2.0;
+					else continue;
+				}
+		
+				for (i=1; i<16777216; i+=2) {
+					x = i;
+					quot = x / y;
+					err = fabs(x - (quot * y));
+
+					if (err/x > FLT_EPSILON) {
+				printf("%11.11g %17.17s ", x, ieee(x));
+				printf("%11.11g %17.17s ", y, ieee(y));
+				printf((err >= 1.0) ? "%7.7g" : "%.1e", err);
+				printf(" %.1e %2d\n", err/x, 
+					      (int)floor(-log(err/x)/M_LN2));
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+

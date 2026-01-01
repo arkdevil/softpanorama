@@ -1,0 +1,102 @@
+{*******************************************************************
+										MULTI-EDIT MACRO
+
+Макрос позволяет включать/выключать видимость знаков табуляции,
+устанавливать переменную Tab_Expand, изменять отображаемый размер табуляции,
+а также заменять лидирующие пробелы на табуляции и наоборот, используя идею
+системного макроса Support^Squeez, но без изменения цвета строк.
+
+			Стерник Геннадий ( SterniK° )  08.28.91
+******************************************************************}
+$MACRO Tab TRANS;
+	def_int( jx, lch,X,Y, reti);
+	def_str( tstr );
+ZANOVO:
+	Set_Global_Str ('TabIstr_1','/F= No /T= Yes ');
+	Set_Global_Int ('TabIint_1', Display_Tabs);
+	Set_Global_Str ('TabIparm_1','/T=Display tabs :/TP=5/C=4/L=2/W=5/H=DSPTABS');
+	Set_Global_Str ('TabIparm_2','/T=Tab Function /TP=10/C=8/L=4');
+	Set_Global_Str ('TabIparm_3','/TP=12/T=Tab_Expand Tabs /QK=12/C=4/L=5/G=TabIint_2/R=1/H=Macro^TABOPS');
+	Set_Global_Int ('TabIint_3', Tab_Expand);
+	Set_Global_Str ('TabIparm_4','/TP=12/T=Tab_Expand Spases /QK=12/C=4/L=6/G=TabIint_2/R=0/H=Macro^TABOPS');
+	Set_Global_Int ('TabIint_4', 1-Tab_Expand);
+	Set_Global_Str ('TabIparm_5','/TP=12/T=Spases to TAbs /QK=12/C=4/L=7/G=TabIint_2/R=2');
+	Set_Global_Int ('TabIint_5', 0);
+	Set_Global_Str ('TabIparm_6','/TP=12/T=Tab to SPases /QK=9/C=4/L=8/G=TabIint_2/R=3');
+	Set_Global_Int ('TabIint_6', 0);
+	Set_Global_Int ('TabIint_7', XPos ('|16', Format_Line, 1) - 1);
+	Set_Global_Str ('TabIparm_7','/T=Fixed Tab spacing /TP=1/C=5/L=10/W=2/H=CHNGTABS');
+	Set_Global_Str ('TabIparm_8','/T=Edit Format Line  /KC=<F2>/K1=0/K2=60/TP=11/C=4/L=12/R=4/H=EDFMTLIN');
+	Mark_Pos;
+	RM ('Userin^Data_In /#=8/PRE=Tab/S=1/X=22/Y=5/T=TAB Operations/HT=15');
+	if(Return_Int = 0 )  then goto Final; end;
+	if(Return_Int = 4 )  then
+		RM('Meutil1^Edformat');
+		GoTo ZANOVO;
+		end;
+
+	Display_Tabs := Global_Int ('TabIint_1');
+	jx := Global_Int ('TabIint_7');
+		If( jx > 0 )then
+		RM('MeSys^SetTabs /TS=' + Str(jx));
+		End;
+	Reti := Global_Int ('TabIint_2');
+		IF ( Reti = 1 ) THEN
+				Tab_Expand := TRUE;
+		elsIF ( Reti = 0 ) THEN
+				Tab_Expand := False ;
+		elsIF (Reti = 2) THEN
+				Tab_Expand := TRUE;
+	Make_Message('Преобразование всех "лидирующих" пробелов в табуляцию');
+				else
+				Tab_Expand := False;
+	Make_Message('Замена Табуляций на пробелы');
+		end;
+	if (Reti > 1) then
+		Working;
+		refresh := false;
+		tof;
+		undo_stat := false;  {no undo, to improve speed}
+			while NOT( At_EOF ) Do
+			lch := Line_Changed;
+			first_word;    { курсор на первое слово }
+			jx := C_Col;
+			tstr := Get_Word('');
+			Put_Line('');
+			Goto_Col( jx );
+			Text( tstr );
+			Line_Changed := lch ;
+			down;
+			Put_Line_Num( c_line );
+			end;
+		GoTo_Mark;
+		refresh := true;
+		undo_stat := true;
+	END;
+
+Final:
+	jx := 8;
+	While (jx) do
+		Set_Global_Str('TabIstr_' + Str(jx),'');
+		Set_Global_Int('TabIint_' + Str(jx),0);
+		--jx;
+	end;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;
+
+$MACRO tabs From EDIT;
+
+IF (Display_Tabs = 0 )
+		THEN  Display_Tabs := 1 ;
+		ELSE  Display_Tabs := 0 ;
+END;
+Redraw;
+END_MACRO;
+
+$MACRO tabs From EDIT;
+{ Включает/Выключает символы TAB }
+Display_Tabs := 1 - Display_Tabs;
+Redraw;
+END_MACRO;

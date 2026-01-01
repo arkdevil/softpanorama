@@ -1,0 +1,172 @@
+SECTION 9 - Component Design.
+
+This document contains information that is most often provided
+to users of this section.  There is a listing of common
+Technical Information Documents that can be downloaded from
+the libraries, and a listing of the most frequently asked
+questions and their answers.
+
+Technical Information Documents related to Component Design:
+
+None
+
+Zip files related to Component Design:
+
+TBD
+
+Questions and answers:
+
+Q. "Should I purchase the VCL source code?"
+
+A. If you are interested in component design then positively,
+   absolutely, one hundred percent YES!  Having the VCL source code
+   allows you to examine the way that VCL components are created right
+   down to the private sections.  This can be very useful when trying
+   to create your own custom components.  You also have the ability to
+   step through the source code with the debugger.
+
+
+Q. "Okay, I purchased the VCL source code but where is the source code
+   for the tabbed controls (i.e. TTabbedNotebook etc)?"
+
+A. The source code doesn't contain the source for the tabbed controls
+   because of legal reasons.  However, the interface source is provided
+   in the DELPHI\DOC directory with an INT extension.
+
+   Note:  Registered owners of the Delphi RTL source code can request
+   the TTabSet and TTabbedNotebook source code from Borland Corporate
+   Affairs by contacting Karen Rogers via fax at (US) 408-431-4171.
+
+
+Q. "I am trying to create a custom component but I'm not sure which
+   class I should decend from."
+
+A. The easiest way is to decend from an existing component that has most
+   of the characteristics you are looking for.  If you have to create a
+   custom component from "scratch" then use one of the classes listed
+   below.
+
+   TComponent      - The base starting point for non-visual components.
+   TWinControl     - The base starting point for components that need to
+                     have window handles.
+   TGraphicControl - A good starting point for visual components that
+                     don't need the overhead of a window handle.  This
+                     class has a Paint method, that should be overridden,
+                     but no canvas.
+   TCustomControl  - The most common starting point for visual components.
+                     This class has a Window handle, common events and
+                     properties, and most importantly a canvas with a
+                     Paint() method.
+
+
+Q. "How do I override the default message handler for my Application?"
+
+A. You create a dynamic method that is indexed to the message constant
+   that you want to override.  If you want to override the CM_DIALOGKEY
+   message you would declare the following procedure in the public
+   section of you class declaration:
+
+   Procedure CMDialogKey(var Message: TCMDialogKey);message CM_DIALOGKEY;
+
+   It is common practice to declare the procedure name the same as the
+   message name minus the underscore.  Your message handler would look
+   something like this:
+
+   Procedure TForm1.CMDialogKey(var Message: TCMDialogKey);
+   begin
+     if CharCode = VK_TAB then begin
+       {Process the Alt+Tab key here}
+       result := 1;
+       exit;
+     end;
+     inherited;
+   end;
+
+   Setting result to 1 stops further processing. The inherited
+   statement passes control to the parent handler. Be sure to
+   execute inherited for all the cases you don't want to handle.
+   Do not execute it for the ones you do handle.
+
+
+Q. "Where is the best place to open a splash screen on program
+   start up?"
+
+A. The best place to open a splash screen is in the project source
+   file after the first FormCreate and before the Run  This is
+   accomplisged by creating a form on the fly and then displaying it
+   before the app is actual opened.
+
+   program Project1;
+
+   uses Forms,  Unit1 in 'UNIT1.PAS' {Form1}, Splash;
+
+   {$R *.RES}
+   var
+     SplashScreen : TSplashScreen;  {in the Splash unit}
+   begin
+   Application.CreateForm(TForm1, Form1);
+   SplashScreen := TSplashScreen.Create(Application);
+   try
+     SplashScreen.Show;
+     {
+      do other CreatForms or anyother processing
+      before the app is to be opened
+     }
+     SplashScreen.Close;
+   finally               {Make sure the splash screen gets released}
+     SplashScreen.Free;
+   end;
+   Application.Run;
+   end.
+
+
+Q. "What is the order of event handlers when a form is created
+   and shown?"
+
+A. When a form is created the event handlers are executed in the
+   following order:  OnCreate, OnShow, OnPaint, OnActivate, OnResize
+   and OnPaint again.
+
+
+Q. "Why can't my program find any of the resources that I put in a
+   .RES file if that .RES file is the same name as my form's unit name?"
+
+A. If the name of an included .RES file is the same as the name
+   of a .DPR file Delphi wll overwrite it with it's own .RES file.
+
+
+Q. "I have derived a component from a TPanel.  In the constructor, I
+   look at the BevelWidth property; it is always 1 regardless of what
+   the user sets it to at design time.  Apparently the property is
+   updated with the design time value after my constructor fires.
+   When does this happen?  Where is a good place to trap this value
+   during initialization of the component?"
+
+A. When components are read from a stream, each component is first
+   constructed, then its property values are read from the stream.  A
+   component's Loaded method is called after all streaming has finished.
+   You can override Loaded to do something with the component after its
+   state has been loaded from the stream.
+
+
+Q. "I am trying to publish an array property but I keep getting a #202
+   error telling me that the property cannot be published.  I thought
+   that a property that has a property editor can be published.
+
+A. Check the online help under "published parts" to see what properties
+   and fields can be published.  To stream the data for non-standard
+   data types (which include array properties), override the component's
+   inherited DefineProperties method to register a property reader and
+   writer routine. See TStringList source for an example - it uses
+   DefineProperties to register reader and writer routines to handle
+   streaming the strings in its list.
+
+
+Q. "I am creating a component at run time but the default values that
+   I have declared don't seem to be working.  Why not?"
+
+A. You need to make sure that you are setting the default values for
+   the properties in the Create constructor for the component.  The
+   "default" value for a property is not used when you create a
+   component at run time.
+

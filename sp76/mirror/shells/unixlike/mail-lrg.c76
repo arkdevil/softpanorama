@@ -1,0 +1,507 @@
+From: sjg@zen.void.oz.au (Simon J. Gerraty)
+Subject: Re: Mailing large files automaticly
+Organization: Zen programming...
+Date: Sun, 11 Sep 1994 23:13:35 GMT
+
+simon@midland.co.nz (Simon Lyall) writes:
+>I am trying to send a large file from one account to another...
+>The main problem is that my uucp link between these machines has a limit 
+>of 100K on files..
+>Problems:
+>(1) The messages are sometimes left out-of-order in the mailbox so the 
+>extracted file is corrupt..
+
+Since this is a common problem I thought I'd post the scripts I use to
+handle it.  Uumail.sh splits, big files, uuencodes the chunks and
+mails them off within a shar file that will uudecode the chunk, and
+when all parts are present reconstitute the original file and remove
+the chunks.  
+
+Uumail.sh uses my portable shar.sh and bsplit.sh.  At the other end
+unshar.sh handles unpacking several shar files concatenated together.
+
+Enjoy.
+
+#!/bin/sh
+# This is a shell archive.
+# remove everything above the "#!/bin/sh" line
+# and feed to /bin/sh
+# Use -c option to overwrite existing files
+#
+# Contents: 
+#	shar.sh
+#	unshar.sh
+#	uumail.sh
+#	bsplit.sh
+#
+# packed by: <sjg@zen.void.oz.au> on Mon Sep 12 09:03:15 EST 1994
+#
+PATH=/bin:/usr/bin:/usr/ucb ; export PATH
+if test -f shar.sh -a x$1 != x-c ; then
+  echo shar: Will not over-write existing file \"shar.sh\"
+else
+  echo shar: Extracting \"shar.sh\" \(2292 characters\)
+  sed 's/^X//' >shar.sh << '!EOF'
+X#!/bin/sh
+X#
+X# NAME:
+X#	shar.sh - portable shell archive maker.
+X#
+X# SYNOPSIS:
+X#	shar.sh file(s)
+X#
+X# DESCRIPTION:
+X#	This script will create shell archives, that will create
+X#	needed directories as well as preserving execute
+X#	permissions.
+X#
+X# AUTHOR:
+X#	Simon J. Gerraty <sjg@zen.void.oz.au>
+X
+X# RCSid:
+X#	$Id: shar.sh,v 1.5 1994/03/22 11:39:40 sjg Exp sjg $
+X#
+X#	@(#) Copyright (c) 1993 Simon J. Gerraty
+X#
+X#	This file is provided in the hope that it will
+X#	be of use.  There is absolutely NO WARRANTY.
+X#	Permission to copy, redistribute or otherwise
+X#	use this file is hereby granted provided that 
+X#	the above copyright notice and this notice are
+X#	left intact. 
+X#      
+X#	Please send copies of changes and bug-fixes to:
+X#	sjg@zen.void.oz.au
+X#
+X
+Xcat <<!EOM
+X#!/bin/sh
+X# This is a shell archive.
+X# remove everything above the "#!/bin/sh" line
+X# and feed to /bin/sh
+X# Use -c option to overwrite existing files
+X#
+X# Contents: 
+X`echo $* | sed -e 's/^/#	/' -e 's/ /\\
+X#	/g'`
+X#
+X# packed by: <`logname`@`hostname`> on `date`
+X#
+XPATH=/bin:/usr/bin:/usr/ucb ; export PATH
+X!EOM
+X
+X# list of dirs we have "made"
+Xdirs=""
+X
+Xsplit () { (IFS="$1"; shift; set -- $*; echo "$@"); }
+X
+X# modified from sh_funcs.sh
+Xmkdirs ()
+X{
+X  for _path in $*
+X  do
+X    _dirs=`split / $_path`
+X    case "$_path" in
+X    /*)
+X      _path="/";;
+X    *)
+X      _path="";;
+X    esac
+X    for _dir in $_dirs
+X    do
+X      case "$_path" in
+X      "")
+X        _path=$_dir;;
+X      /)
+X        _path=/$_dir;;
+X      *)
+X        _path=$_path/$_dir;;
+X      esac
+X      case "$_path" in
+X      .)	continue;;
+X      esac
+X      echo "test -d $_path || mkdir $_path"
+X    done
+X  done
+X}
+X
+X# now do it...
+Xfor f in $*
+Xdo
+X  case "$f" in
+X  */*)
+X    dir=`dirname $f`
+X    case "$dirs" in
+X    *" $dir "*) ;;
+X    *)
+X      dirs="$dirs $dir "
+X      echo echo shar: making path \"$dir\"
+X      mkdirs $dir
+X      ;;
+X    esac
+X    ;;
+X  esac
+X  if [ -x $f ]; then
+X    mod="chmod +x $f"
+X  else
+X    mod=""
+X  fi
+X  sz=`wc -c < $f`
+X  cat << !EOC
+Xif test -f $f -a x\$1 != x-c ; then
+X  echo shar: Will not over-write existing file \"$f\"
+Xelse
+X  echo shar: Extracting \"$f\" \($sz characters\)
+X  sed 's/^X//' > $f << '!EOF'
+X!EOC
+X  sed 's/^/X/' $f
+X  cat << !EOC
+X!EOF
+X  if test $sz -ne \`wc -c < $f\`; then
+X    echo shar: \"$f\" unpacked with wrong size!
+X  fi
+X  $mod
+Xfi
+X!EOC
+Xdone
+Xecho "exit 0"
+Xexit 0
+!EOF
+  if test 2292 -ne `wc -c < shar.sh`; then
+    echo shar: \"shar.sh\" unpacked with wrong size!
+  fi
+  
+fi
+if test -f unshar.sh -a x$1 != x-c ; then
+  echo shar: Will not over-write existing file \"unshar.sh\"
+else
+  echo shar: Extracting \"unshar.sh\" \(1867 characters\)
+  sed 's/^X//' >unshar.sh << '!EOF'
+X#!/bin/sh
+X#
+X# NAME:
+X#	unshar.sh - unpack shell archives
+X#
+X# SYNOPSIS:
+X#	unshar.sh < file
+X#	unshar.sh file ...
+X#
+X# DESCRIPTION:
+X#	This script can be used to unpack shell archives
+X#	contained in mail and news articles.  It looks for a
+X#	magic line containing one of:
+X#.nf
+X#	#!/bin/sh
+X#	is a shell archive
+X#	[Rr]emove anything before this line
+X#.fi
+X#
+X#	and feeds the following data to /bin/sh.
+X#
+X#	It handles stdin as well as files named on the command
+X#	line.
+X#	
+X# RETURNS:
+X#	0==success, 1==failure
+X#
+X# SEE ALSO:
+X#	shar.sh
+X#	
+X# AUTHOR:
+X#	Simon J. Gerraty <sjg@zen.void.oz.au>
+X
+X# RCS-ID:
+X#	$Id: unshar.sh,v 1.4 1994/07/28 10:51:00 sjg Exp sjg $
+X#
+X#	@(#) Copyright (c) 1993 Simon J. Gerraty
+X#
+X#	This file is provided in the hope that it will
+X#	be of use.  There is absolutely NO WARRANTY.
+X#	Permission to copy, redistribute or otherwise
+X#	use this file is hereby granted provided that 
+X#	the above copyright notice and this notice are
+X#	left intact. 
+X#      
+X#	Please send copies of changes and bug-fixes to:
+X#	sjg@zen.void.oz.au
+X#
+X
+XTF=/tmp/unshar.$$
+XTF2=/tmp/cnshar.$$
+Xcopy=
+X
+Xtrap exit 1 2 3 15
+Xtrap "rm -f $TF $TF2" 0
+X
+X_unshar ()
+X{
+X  f=$1
+X  sk=`egrep -n '^#(! */bin/sh|.*is a shell archive|.*emove anything before this line)' $f | sed -e 1q`
+X  magic=`echo $sk | tr / . | cut -d: -f2-`
+X  sk=`echo $sk | cut -d: -f1`
+X  if [ $sk -gt 0 ]; then
+X    if [ "$COPY" ]; then
+X      # this really sucks...
+X      # but needed for compatability with a million shar implementations
+X      tail +$sk $f | sed "/^exit /,/^$magic/d" > $TF2
+X      /bin/sh $TF2 -c
+X    else
+X      tail +$sk $f | sed "/^exit /,/^$magic/d" | /bin/sh
+X    fi
+X  fi
+X}
+X
+XTRACE=
+XCOPY=
+Xset -- `getopt xc $*`
+Xfor i in $*
+Xdo
+X  case $i in
+X  --)	shift; break;;
+X  -x)	TRACE=-x; shift;;
+X  -c)	COPY=yes; shift;;
+X  esac
+Xdone
+Xif [ $# -gt 0 ]; then
+X  for f in $*
+X  do
+X    _unshar $f
+X  done
+Xelse
+X  cat - > $TF
+X  _unshar $TF
+Xfi  
+!EOF
+  if test 1867 -ne `wc -c < unshar.sh`; then
+    echo shar: \"unshar.sh\" unpacked with wrong size!
+  fi
+  chmod +x unshar.sh
+fi
+if test -f uumail.sh -a x$1 != x-c ; then
+  echo shar: Will not over-write existing file \"uumail.sh\"
+else
+  echo shar: Extracting \"uumail.sh\" \(3132 characters\)
+  sed 's/^X//' >uumail.sh << '!EOF'
+X:
+X# NAME:
+X#	uumail - uuencode and mail things
+X#
+X# SYNOPSIS:
+X#	uumail [-v][-s][-h "hunk"] [-t "tmp"] "dest" "file" ...
+X#
+X# DESCRIPTION:
+X#	Each "file" is uuencoded and mailed to "dest".
+X#	Unless '-s' is given, each mail item consists of a shell
+X#	archive that will uudecode its conents at the other end.
+X#	
+X#	If "file" is bigger than "hunk" Kbytes it is first split,
+X#	into smaller parts, each of which is uuencoded and mailed
+X#	separately, and the shell archive will automagically
+X#	reconstitute "file" at the other end.
+X#
+X# BUGS:
+X#	Requires shar.sh
+X#
+X# AUTHOR:
+X#	Simon J. Gerraty <sjg@zen.void.oz.au>
+X#
+X
+X# RCSid:
+X#	$Id: uumail.sh,v 1.3 1994/08/13 05:10:25 sjg Exp sjg $
+X#
+X#	@(#) Copyright (c) 1994 Simon J. Gerraty
+X#
+X#	This file is provided in the hope that it will
+X#	be of use.  There is absolutely NO WARRANTY.
+X#	Permission to copy, redistribute or otherwise
+X#	use this file is hereby granted provided that 
+X#	the above copyright notice and this notice are
+X#	left intact. 
+X#      
+X#	Please send copies of changes and bug-fixes to:
+X#	sjg@zen.void.oz.au
+X#
+X
+Xopt_str=sh:t:v
+X# this sets default values of 0 for booleans, and "" for strings
+Xeval `echo $opt_str | sed -e 's/\([^:!]\)\([^:]\)/\1!\2/g' -e 's/\([^:]\)$/\1!/' -e 's/\(.\):/opt_\1=; /g'  -e 's/\(.\)!/opt_\1=0; /g'`
+X
+Xopt_s=1
+X
+Xset -- `getopt $opt_str $*`
+X
+Xwhile [ $# -gt 0 ]
+Xdo
+X  case "$1" in
+X  --)	shift; break;;
+X  -h)	opt_h=$2; shift 2;;
+X  -s)	opt_s=0; shift;;
+X  -v)	opt_v=1; shift;;
+X  -t)	opt_t=$2; shift 2;;
+X  esac
+Xdone
+X
+Xdest=$1; shift;
+X
+X# make sure these are not empty
+Xopt_h=${opt_h:-42}
+Xopt_t=${opt_t:-/tmp}
+X
+Xtest -x /usr/bin/mailx && MAILER=mailx || MAILER=Mail
+X
+Xuushar() {
+X  f=`basename $1`
+X  hunks=${2-0}
+X
+X  case $opt_v in
+X  1)	echo $MAILER -s $1 $dest >&2;;
+X  esac
+X  case $opt_s in
+X  0)
+X    uuencode $f < $1
+X    ;;
+X  1)
+X    u=$f.uu
+X    uuencode $f < $1 > $opt_t/$u
+X    (
+X      cd $opt_t
+X      # this relies on my shar.sh, since we know what
+X      # its output looks like...
+X      shar.sh $u | egrep -v '^(exit 0| *fi)'
+X      cat << !EOC
+X  else
+X    echo shar: uudecoding \"$u\"
+X    uudecode < $u && rm -f $u
+X!EOC
+X      if [ $hunks -gt 0 ]; then
+X        prefix=`basename $3`
+X        cat <<!EOC
+X    case \$? in
+X    0)
+X      c=\`/bin/ls $prefix.*[0-9] | wc -l\`
+X      case \`echo \$c\` in
+X      $hunks)
+X        echo shar: All $hunks parts present, re-building \"$prefix\"
+X        cat $prefix.*[0-9] > $prefix
+X        echo shar: Removing fragments
+X        rm -f $prefix.*[0-9]
+X        ;;
+X      *)
+X        echo shar: Still need \`expr $hunks - \$c\` of $hunks parts
+X        ;;
+X      esac
+X      ;;
+X    *)
+X      shar: uudecode \"$u\" failed!
+X      ;;
+X    esac
+X!EOC
+X      fi
+X      echo "  fi"
+X      echo fi
+X      echo exit 0
+X    )
+X    rm -f $opt_t/$u
+X    ;;
+X  esac
+X}
+X  
+Xfor f in $*
+Xdo
+X  big=`wc -c < $f | awk '{ hunk *= 1024; if ($1 > hunk) { print "yes" } }' hunk=$opt_h -`
+X  case "$big" in
+X  yes)
+X    prefix=$opt_t/`basename $f`
+X    hunks=`bsplit.sh $prefix $opt_h < $f`
+X    for h in $prefix.*[0-9]
+X    do
+X      uushar $h $hunks $prefix | $MAILER -s "$h of $hunks" $dest
+X    done
+X    rm -f $prefix.*[0-9]
+X    ;;
+X  *)
+X    uushar $f | $MAILER -s $f $dest
+X    ;;
+X  esac
+Xdone
+X
+!EOF
+  if test 3132 -ne `wc -c < uumail.sh`; then
+    echo shar: \"uumail.sh\" unpacked with wrong size!
+  fi
+  chmod +x uumail.sh
+fi
+if test -f bsplit.sh -a x$1 != x-c ; then
+  echo shar: Will not over-write existing file \"bsplit.sh\"
+else
+  echo shar: Extracting \"bsplit.sh\" \(1223 characters\)
+  sed 's/^X//' >bsplit.sh << '!EOF'
+X:
+X# NAME:
+X#	bsplit - binary splitter
+X#
+X# SYNOPSIS:
+X#	bsplit.sh "prefix" "count" "blocksz" < "file"
+X#
+X# DESCRIPTION:
+X#	This script reads "file" and produces a series of files named
+X#	"prefix".001 - "prefix".999 etc.  The default "blocksz" is 1k
+X#	so "count" can be considered as the size of each output file
+X#	in Kbytes.  The default is 48Kbytes, which after uuencoding
+X#	makes for about 55Kbyte files for mailing.
+X#
+X# BUGS:
+X#
+X# AUTHOR:
+X#	Simon J. Gerraty <sjg@zen.void.oz.au>
+X#
+X
+X# RCSid:
+X#	$Id: bsplit.sh,v 1.1 1994/08/10 23:17:07 sjg Exp sjg $
+X#
+X#	@(#) Copyright (c) 1994 Simon J. Gerraty
+X#
+X#	This file is provided in the hope that it will
+X#	be of use.  There is absolutely NO WARRANTY.
+X#	Permission to copy, redistribute or otherwise
+X#	use this file is hereby granted provided that 
+X#	the above copyright notice and this notice are
+X#	left intact. 
+X#      
+X#	Please send copies of changes and bug-fixes to:
+X#	sjg@zen.void.oz.au
+X#
+X
+Xprefix=$1
+Xcount=${2:-48}
+Xbs=${3:-1k}
+Xi=0
+X
+X(
+X  while :
+X  do
+X    i=`expr $i + 1`
+X    ext=`expr 000$i : '.*\(...\)'`
+X    file=$prefix.$ext
+X    dd bs=$bs count=$count > $file 2>/dev/null
+X    if [ -s $file ]; then
+X      :
+X    else
+X      expr $i - 1
+X      rm -f $file
+X      exit 0
+X    fi
+X  done
+X)
+!EOF
+  if test 1223 -ne `wc -c < bsplit.sh`; then
+    echo shar: \"bsplit.sh\" unpacked with wrong size!
+  fi
+  chmod +x bsplit.sh
+fi
+exit 0
+-- 
+Simon J. Gerraty        <sjg@zen.void.oz.au>
+
+#include <disclaimer>   /* imagine something _very_ witty here */
+

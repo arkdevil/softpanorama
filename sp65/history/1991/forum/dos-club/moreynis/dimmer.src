@@ -1,0 +1,65 @@
+							$MACRO_FILE Dimmer;
+
+{ Multi_Edit 5.00 interface to Dimmer -- a VGA screen saver by Arkady Moreynis }
+
+$MACRO Dimmer TRANS;
+	Def_Int (old_delay, old_method, enabled_flag);
+
+	R_AX := $6400;
+	Intr ($2F);
+	If R_AX and $FF <> $FF Then
+		Make_Message (' Dimmer not installed.');
+		GoTo exit;
+	End;
+	R_AX := $6404;
+	Intr ($2F);		{ Get dimmer parameters }
+	old_delay := R_AX and $FF;
+	old_method := R_BX and $FF + 1;
+	enabled_flag := (old_delay > 0);
+	If enabled_flag Then
+        Set_Global_Int ('Dim_Iint_1',old_delay);
+		Set_Global_Int ('Dim_Iint_2',1);
+	Else
+		old_delay := 5;
+		Set_Global_Int ('Dim_Iint_2',0);
+	End;
+	Set_Global_Int ('Dim_Iint_1',old_delay);
+	Set_Global_Str ('Dim_Iparm_1','/T=Screen blank delay is/TP=1/C=2/L=1/W=3/MIN=1/H=DIMMER.HLP^*');
+	Set_Global_Str ('Dim_Iparm_2','/T=Enable Dimmer/TP=13/C=2/L=2/H=DIMMER.HLP^*');
+	Set_Global_Str ('Dim_Iparm_3','/TP=10/T=Screen blank method/L=3/C=2');
+	Set_Global_Str ('Dim_Iparm_4','/TP=12/T=Disable video refresh/L=4/C=2/G=Dim_Method/R=1/H=DIMMER.HLP^*');
+	Set_Global_Str ('Dim_Iparm_5','/TP=12/T=Dim current screen/L=5/C=2/G=Dim_Method/R=2/H=DIMMER.HLP^*');
+	Set_Global_Int ('Dim_Method',old_method);
+	Set_Global_Int ('Dim_Iint_4',0);
+	Set_Global_Int ('Dim_Iint_5',0);
+	Set_Global_Int ('Dim_Iint_' + Str (3+Global_Int ('Dim_Method')),1);
+	Set_Global_Str ('Dim_Iparm_6','/TP=10/T=minutes/L=1/C=28');
+	Run_Macro ('Userin^Data_In /#=6/PRE=Dim_/S=1/A=0/T=INTERFACE TO DIMMER/H=DIMMER.HLP^*');
+	If Return_Int >= 1 Then
+        R_AX := $6403;
+        R_BX := Global_Int ('Dim_Method') - 1;
+        Intr ($2F);
+		If Global_Int ('Dim_Iint_2')  Then
+			If Global_Int ('Dim_Iint_1') Then
+        		R_AX := $6402;
+        		R_BX := Global_Int ('Dim_Iint_1');
+        		Intr ($2F);
+        		Make_Message ('Dimmer enabled; screen blank delay is ' + Str (Global_Int ('Dim_Iint_1')) + ' minutes.');
+			End;
+		Else
+            R_AX := $6402;
+            R_BX := 0;
+            Intr ($2F);
+            Make_Message ('Dimmer disabled.');
+		End;
+	Else
+		Set_Global_Int ('Dim_Iint_1',old_delay);
+		Set_Global_Int ('Dim_Method',old_method);
+		Set_Global_Int ('Dim_Iint_2',enabled_flag);
+		Set_Global_Int ('Dim_Iint_4',0);
+		Set_Global_Int ('Dim_Iint_5',0);
+		Set_Global_Int ('Dim_Iint_' + Str (3+Global_Int ('Dim_Method')),1);
+	End;
+ exit:
+
+END_MACRO;

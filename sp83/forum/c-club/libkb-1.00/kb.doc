@@ -1,0 +1,510 @@
+Markus F.X.J. Oberhumer <markus.oberhumer@jk.uni-linz.ac.at>
+
+
+===============================================================================
+1. Introduction
+===============================================================================
+
+libkb is a free, advanced and portable low-level keyboard library
+for MSDOS and Linux.
+
+It has the following highlights:
+
+- it's advanced
+    Allows access to ALL keys and ALL combinations of them.
+    You can individually test left and right Shift and Control,
+    Alt and AltGr, cursor keys, the keypad and everything else
+    you always wanted. Also handles Pause key and Control-Break.
+    Supports virtual terminal switching under Linux.
+    Ideal for games and all applications that want
+    total control over the keyboard.
+
+- it's practical
+    Builtin kbhit()/getkey() like interface that allows you
+    to easily read the keyboard for text input, highscore names
+    or cheat codes.
+
+- it's portable
+    Works under MSDOS and Linux.
+    Written entirely in C without assembler code.
+    Supports Borland C v3.1 and 4.0 (16 bit), Watcom C v10.5 (32 bit),
+    djgpp v1 + v2 (32 bit) and Linux gcc.
+
+- it's safe
+    The library tries to remove its keyboard handler when a program
+    terminates or crashes. For this purpose it installs some intelligent
+    signal handlers and uses the atexit() function to achieve
+    a maximum of robustness.
+    Support for an emergency-exit key sequence is provided - this is 
+    really useful during development.
+    Interrupt handler memory in virtual memory environments is locked.
+
+- it's easy to use
+    The core interface consists of only a handful of functions and variables.
+    Care has been taken not to pollute the global namespace.
+    Example programs are included as well.
+
+- it's free
+    Comes with full source code and documentation. And yes, you can
+    use it in your commercial applications (no GPL restrictions).
+
+
+And the following restrictions:
+    
+- it's americanized
+    As the library hooks the keyboard interrupt, individual
+    keys read with kb_getkey() return hardcoded ASCII values
+    for the scancodes. These are valid for American keyboards only,
+    e.g. on a German keyboard Y and Z seem exchanged.
+    In the beginning I had planned to include support for local key
+    mappings, but this soon started to become too complex.
+    Most advanced games suffer this problem.
+    
+- it's software
+    Unfortunately the keyboard controller hardware was not
+    designed with heavy action in mind. This means that there are
+    various key combinations that cannot be pressed at the
+    same time - the keyboard controller just won't handle them.
+    Nevertheless libkb makes all information the hardware is
+    able to generate available to an application and the test
+    program shows you when an 'overflow' occurs so that you
+    can setup safe default keys for your games.
+    
+
+
+===============================================================================
+2. Documentation
+===============================================================================
+
+The basic usage of the library is very simple:
+
+  - install the keyboard handler with kb_install(0)
+  - update the keyboard with kb_update() 
+  - access single keys with kb_key(KB_SCAN_xxx)
+  - you also have quick access to the shift flags with kb_shift()
+  - if you want to read textual input, use kb_getkey()
+  - if you want to switch back to standard keyboard behavior,
+    call kb_remove(). This will be done for you automatically 
+    when the program terminates or crashes.
+
+
+The flags
+---------
+
+  Some flags can be passed to kb_install(). Not all of them 
+  are foolproof and you should know what you are doing when
+  you are using them. Consider taking a look at the source code
+  for additional information.
+
+
+  Flags that disable default safety features:
+
+    KB_FLAG_NO_ATEXIT 
+      Do not install an atexit() handler.
+
+    KB_FLAG_NO_SIGNAL
+      Do not install signals handlers.
+
+    KB_FLAG_NO_LOCK
+      Do not lock interrupt memory.
+
+
+  Flags that enable extra safety features (useful in development):
+
+    KB_FLAG_SIGINT
+      raise SIGINT on Control-C
+
+    KB_FLAG_EMERGENCY_EXIT
+      enable emergency exit: raise SIGINT on LControl-RControl-C and
+        exit if the SIGINT-handler returns. Under MSDOS this causes
+        an exit from within an interrupt handler which can be 
+        somewhat dangerous, but it seems to work though.
+        You should always setup a SIGINT handler when using this.
+
+    KB_FLAG_EMERGENCY_SIGALRM
+      enable SIGALRM emergency exit (this is mainly useful for Linux):
+        If your program has a bug and it doesn't call kb_update(),
+        the machine would lock under Linux cause KB_FLAG_EMERGENCY_EXIT
+        also relies on kb_update(). When this flag is enabled, the
+        alarm() timer is used to raise SIGALRM if kb_update() is not 
+        called for more than 30 seconds. You should not use SIGALRM
+        for other purposes when using this flag. 
+
+
+  Misc. flags (probably not very useful):
+
+    KB_FLAG_LINUX_NO_VT
+      Linux: virtual terminal switching is disabled
+
+    KB_FLAG_LINUX_VT_NO_KEY
+      Linux: release all keys after virtual terminal switching
+
+    KB_FLAG_DJGPP_NO_RM
+      djgpp: do not install an additional real mode handler
+
+    KB_FLAG_REPEAT_OFF
+      turn off key repeat for kb_getkey()
+
+
+The keycodes
+------------
+
+  The keycode-tables were obtained as a result of investigating
+  the output of kb_bios_getkey() under MSDOS. They are portable
+  across all platforms and will remain fixed.
+  The keycode is computed by passing the result of kb_keypress()
+  or kb_keypeek() to kb_keycode(). You can write your own conversion 
+  routine if you want to add support for local key mappings.
+  
+
+Notes on building libkb
+-----------------------
+
+  It is really IMPORTANT to check your compiler flags so that 
+  code will be generated that does not insert stack overflow checks !
+
+  You should also use a high optimization level in order to use
+  as many CPU registers as possible and avoid memory access 
+  inside interrupt- and signal handlers.
+ 
+
+Notes on using libkb with other libraries
+-----------------------------------------
+
+- Linux + svgalib 1.2.x
+  Though svgalib chains all signals it catches, it does a lot of low-level
+  things to support virtual terminal switching while in graphics mode.
+  So be nice and call kb_install() AFTER svgalib has been initialized.
+  Note that the real initialization does not happen in vga_init() but
+  the first time you call vga_setmode(). 
+  svgalib also doesn't like if you redirect stderr, and you should
+  not use keyboard_init() from <vgakeyboard.h> after kb_install().
+
+
+Signals (advanced feature)
+-------
+
+  To achieve a maximum of robustness, libkb catches (almost)
+  all signals that cause an exit by default (if a signal is 
+  ignored libkb ignores that signal as well).
+  If a catched signal gets raised, the signal handler removes
+  the keyboard handler and chains to the handler it found active
+  at installation time.
+
+  The libkb signal handler expects from the old (chained) handler
+    - that the program terminates, or
+    - that the application gets informed that the keyboard is removed
+
+  You probably don't need to worry 
+    - if you setup your signals before kb_install()
+    - if you want to temporary change a signal after kb_install()
+    - if you want to ignore a signal after kb_install()
+
+  You could find the signal interface useful 
+    - if you want to test if libkb installed a handler for a specific signal
+    - if you want libkb to catch additional signals
+    - if you want to set your own signal handler after kb_install() and
+      want to chain to the one of libkb
+
+
+Memory locking (advanced feature)
+--------------
+ 
+  Memory locking functions have been made public as they are of
+  potential use for all interrupt routines.
+  They can be used independently from the rest of the library.
+
+
+The Operating System (OS) and BIOS functions
+--------------------------------------------
+
+  Please don't get confused:
+    the OS and BIOS layers have nothing to do with the keyboard
+    handler. They mainly act as a portability wrapper and are
+    here for your convenience only.
+
+
+Some comments about the source code
+-----------------------------------
+
+  A low-level library that supports various operating systems
+  and compilers has the tendency of requiring lots of #if and #ifdefs.
+  Adding debugging support makes things even worse.
+  I've done my best to keep the sources readable and you hopefully
+  don't have to mess around with them, and I've tried to design a
+  simple and clear interface that hides all the dirty stuff behind.
+
+
+===============================================================================
+3. Known problems, limitations and compiler related restrictions
+===============================================================================
+
+all platforms:
+    - the keyboard controller hardware has limitations 
+      (see also util/hardware.doc)
+    - there is no support for local key mappings
+    - take care when using other libraries that grab signals
+    - the LEDs are not updated (NumLock, CapsLock, ScrollLock)
+
+Linux:
+    - you must update the keyboard manually using kb_update() !!!
+    - KB_FLAG_EMERGENCY_EXIT also relies on kb_update()
+    - don't use "kill -9" as SIGKILL cannot be caught
+    - libkb doesn't work well under X since the X server is
+      also reading the keyboard (/dev/console)
+    - kb_os_getkey() doesn't work very well, better use kb_os_waitkey()
+      if possible
+
+all MSDOS platforms:
+    - KB_FLAG_EMERGENCY_EXIT can be dangerous (see src/_handler.h)
+    - KB_FLAG_EMERGENCY_EXIT with KB_DEBUG #defined is even
+      more dangerous (because of file I/O within an interrupt handler)
+    - memory locking is implemented for djgpp v2 and Watcom C32 only
+
+MSDOS + djgpp v2:
+    - libkb has been successfully tested with the following DPMI hosts:
+        CWSDPMI 0.90+ (r1+r2), PMODE/DJ 1.0, Windows 3.1,
+        QEMM 7.01 + QDPMI 1.02, QEMM 7.04 + QDPMI 1.05
+
+MSDOS + djgpp v1:
+    - djgpp v1 has no signals implemented.
+      Fortunately abort() calls exit(), so the atexit() handler 
+      will restore the keyboard.
+    - _kb_iswin() doesn't work (INT 0x2f, AX=0x1600 is not supported by go32)
+
+MSDOS + Borland C v3.1:
+    - There is a bug (a nonconforming implementation) in abort().
+      abort() - which is called by assert() - does not raise SIGABRT
+      but exits the program using an internal library function.
+      This means that the keyboard interrupt handler will not get removed
+      and the machine locks up.
+      This problem is fixed in Borland C v4.0
+
+MSDOS + Watcom C:
+    - if you are using PMODE/W then be sure to get the latest
+      version (at least version 1.22) which fixes some problems
+      with signal handling
+
+MSDOS + emx:
+    - interrupt handlers are not supported by emx, so libkb 
+      officially does not (cannot) support emx. But you can use the
+      OS and BIOS functions.
+
+problems not related to libkb:
+    - djgpp v1: the tube graphics demo doesn't work in a Windows DOS box
+      because video memory is remapped to an address different from plain DOS
+    - none of the sound libraries works reliable in a Windows DOS box
+    - the VAT and sb_lib sound libraries crash if your computer is too slow
+      or if you press the Turbo button and decrease CPU speed
+
+
+===============================================================================
+4. The future
+===============================================================================
+
+Planned features include:
+    - test OS compatibility: OS/2, Windows, Windows NT, Linux dosemu
+    - test hardware compatibility: XT, AT, Laptop, Notebook
+    - test djgpp v2 with OS/2, Linux dosemu and other DPMI hosts
+    - test on a 64 bit Linux (DEC Alpha)
+    - test on a 68k Linux (Atari, Amiga)
+    - test with 16 bit Watcom C
+    - test with 32 bit Borland C
+    - test with Turbo C
+    - port to Microsoft C
+    - write a more detailed documentation
+    - use a more understandable English or switch back to German :-)
+
+Possible features include:
+    - support debugging while the handler is active (how ???)
+    - port to OS/2 textmode
+    - port to Windows NT textmode
+    - port to other UNIX variants (BSD)
+
+
+Feel free to contact me if you have problems or can help.
+
+
+
+===============================================================================
+5. Personal annotations
+===============================================================================
+
+I started the creation of libkb in November 1995 when I was 
+thinking of writing a game and played around with some game libraries.
+Strangely enough I couldn't find a full-fledged keyboard 
+routine and I somehow got interested in creating one by myself.
+While my game still only exists in theory, libkb has undergone
+much work and finetuning. I hope to establish libkb as a
+widely used keyboard driver - why would you like to invent
+the wheel over and over again ?
+
+I do not plan to make major changes to the source code or to change
+the interface any more. The scan- and keycodes will stay fixed as well.
+(but no promises...)
+
+While the copying policy allows to do (almost) everything with
+the source code, I would like to remain the primary maintainer of libkb.
+And as I'm a curious person I'd really love to know when you use it
+in a product. Also send me some email if you want to get
+informed about bug-fixes or new ports.
+
+
+Visit my homepage http://www.infosys.tuwien.ac.at/Staff/lux/marco
+to find out more about me and my projects.
+
+
+                                     Have fun,
+                                      Markus
+
+
+
+===============================================================================
+Appendix A. Legal stuff
+===============================================================================
+
+  Copyright (C) 1995, 1996 Markus Franz Xaver Johannes Oberhumer
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+  Markus F.X.J. Oberhumer
+  markus.oberhumer@jk.uni-linz.ac.at 
+
+
+
+===============================================================================
+Appendix B. Internet resources
+===============================================================================
+
+Here are some sources I found useful when creating this library:
+
+- Allegro: a game programming library for djgpp v2
+  written by Shawn Hargreaves <slh100@tower.york.ac.uk>
+
+- GUG: a Watcom PMode (DOS4G) Graphics Library and Tool Set
+  written by Ground Up Software (Neil Breeden <nbreeden@swcp.com>)
+
+- JLib: a library for writing graphical programs for multiple platforms
+  written by Jonathan Paul Griffiths <jpg@cs.waikato.ac.nzi>
+
+- VGL: VGA Graphics Library (VGA mode 13h)
+  written by Mark Morley <morley@camosun.bc.ca>
+
+- WolfSrc: complete source code for the game Wolfenstein 3D
+  written by id Software 
+  http://www.idsoftware.com
+
+- yakIcons: a free C++ library for fast vga graphics animation
+  written by Victor Putz 
+
+
+Useful Linux sources:
+
+- Linux kernel source /usr/src/linux/drivers/char/keyboard.c 
+  written by Linus Torvalds, Johan Myreen and others
+
+- kbd: keytable files and keyboard utilities 
+  written by Andries Brouwer <aeb@cwi.nl>, Risto Kankkunen and others
+ 
+- svgalib: a low level graphics library for Linux
+  written by Harm Hanemaayer <hhanemaa@cs.ruu.nl>, Tommy Frandsen and others
+
+- rawkey: the Rawkey library
+  written by Russell Marks <rm1ajy2@gre.ac.uk>
+
+- The Linux Keyboard HOWTO by Andries Brouwer <aeb@cwi.nl>
+
+- The Linux Keystroke HOWTO by Zenon Fortuna <zenon@netcom.com>
+
+- manual pages of loadkeys(1), dumpkeys(1), showkey(1) and keytables(5)
+
+
+Some other interesting stuff:
+
+- djgpp homepage
+  http://www.delorie.com/djgpp
+
+- PMODE/W: a direct replacement for DOS/4GW, the default extender for Watcom C
+  written by Charles Scheffold and Thomas Pytel
+
+- MikMod: a portable soundsystem for playing music & soundfx on 
+  various systems & compilers
+  written by Jean-Paul Mikkers <mikmak@via.nl>
+
+    I downloaded MikMod from http://www.sedona.net/~mud/mikm209bd.zip.
+    You have to change the makefiles a little bit so that you can 
+    build a library, but apart from this it works great !
+
+- VAT: Varmint's Audio Tools
+  written by Eric Jorgensen and Bryan Wilkins
+  http://www.rt66.com/smeagol/html/vat.html
+
+- sb_lib: The Sound-Blaster Library for DJGPP V. 2.0
+  written by Joel H. Hunter <jhunter@kendaco.telebyte.com>
+
+- zlib: a general purpose compression library
+  written by Jean-loup Gailly and Mark Adler
+  http://quest.jpl.nasa.gov/zlib
+
+- 3D Graphic Engines
+  http://www.cs.tu-berlin.de/~ki/engines.html
+
+
+Some interesting newsgroups:
+
+- news:alt.security.pgp
+- news:comp.compression.*
+- news:comp.lang.c++.*
+- news:comp.lang.perl.*
+- news:comp.lang.smalltalk
+- news:comp.os.linux.*
+- news:comp.os.msdos.djgpp
+- news:rec.games.programmer
+- news:sci.crypt.*
+- news:sci.virtual-worlds.*
+
+
+Most of the MSDOS packages mentioned here are available via anonymous
+ftp from ftp://x2ftp.oulu.fi/pub/msdos/programming/ or from
+ftp://ftp.cdrom.com/demos/ 
+
+Most of the Linux packages mentioned here are available via anonymous
+ftp from ftp://sunsite.unc.edu and ftp://tsx-11.mit.edu. Note that these
+sites are mirrored by many others throughout the universe.
+
+
+
+===============================================================================
+Appendix C. Contributors and frustrators (in no particular order :-)
+===============================================================================
+
+James Johnson <plexus@stein.u.washington.edu>: author of the
+    original tube.cpp graphics demo
+
+Gordon L. Burditt <gordon@sneaky.lonestar.org>: hardware docs
+
+Paul Daniel <pdaniel@vvm.com>: svgalib VT-switching bug report
+
+Jean-Paul Mikkers <mikmak@via.nl>: his MikMod sound system is really great
+
+the unknown author of tube.mod (original name choice2.mod)
+
+Charles Sandmann <sandmann@clio.rice.edu>: helped me with djgpp v2 problems
+
+Shawn Hargreaves <slh100@tower.york.ac.uk>: Allegro is very nice
+
+

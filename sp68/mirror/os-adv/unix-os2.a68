@@ -1,0 +1,338 @@
+From: Peter Foelsche <100114.351@CompuServe.COM>
+Newsgroups: comp.unix.advocacy
+Subject: UNIX vs. NT
+Date: 17 Sep 1994 11:22:58 GMT
+Organization: via CompuServe Information Service
+Message-ID: <35ejij$ljb$1@mhade.production.compuserve.com>
+
+As an entry:
+I know UNIX until the finest details including:
+	mmap, socket, shared memory, semaphores, sed, awk, yacc, lex, device drivers, signals, ...
+I'm using this stuff every day on different UNIX systems like SUN, HP, IBM, ALPHA...
+
+
+> Article 572 (19 left - 2 in thread) of comp.unix.advocacy (43 lines):
+> Newsgroups: comp.os.ms-windows.advocacy,comp.unix.advocacy
+> From: tsikes@netcom.com (Terry Sikes)
+> Subject: UNIX vs. NT
+> Date: Fri, 16 Sep 1994 15:32:07 GMT
+
+> In article <359damINN9gr@cs.utk.edu>, David Doolin <doolin@cs.utk.edu> wrote:
+
+> >I do have a question, though, for the NT types:
+> >
+> >Say its late and I have a couple of three big jobs to run.
+> >So can I log onto a half a dozen NT machines to run them
+> >so I don't bog my (console) cpu down?
+> 
+> Sure.  Use the Ataman telnetd (shareware).
+> 
+
+Using Win-NT or OS/2 you would use another priority class for jobs
+which are not interactive. I've made a test running
+more then 10 fractal calculations in parallel with priority class idle 
+- it does not slow down the interactive jobs running with normal priority.
+Means:
+	An interactive application (an editor) needs only CPU time
+	for a microsecond after you've pressed a certain key. 
+	The rest of the time this editor sleeps.
+	During this time a noninteractive application may run.
+	This will be done by using different priority classes.
+
+Another difference is that if you've running 3 applications
+from 3 different vendors on a UNIX machine,
+you'll probably have at least 3 times the code for creating menues, 
+dialogboxes, file dialogs, buttons and so on loaded on your machine.
+(Don't tell me that UNIX knows DLLs, I speak about the real world!)
+Not to speak about plenty of different help system,
+different styles,
+cut&paste will not work always between tools of different vendors.
+Not to speak about OpenDoc or OLE2,
+not to speak about the bad quality of the applications for UNIX,
+compared to applications for DOS or DOS-Windows,
+not to speak about ...
+
+> >I am curious, because all I know is what the local unix gurus say
+> >about NT.  Not Good.
+
+Yes, there are plenty of guys, which think they know something about OSs.
+I get sick, if such a UNIX guru says:
+	"No reason to change to NT or OS/2,
+	since UNIX offers all that stuff since years!".
+Such a statement points out, that this a guy does not know OS/2 or NT
+- probably he even does not know UNIX.
+Simply ask this guy for differences between both OSs.
+Ask about the advantages of OS/2 and NT compared to UNIX
+and also the other way round.
+Ask him about the advantage of Multithreading even if only one CPU is available.
+If he does not know, he is not qualified to give such statements.
+
+Why I like UNIX more then OS/2 and NT:
+=====================================
+	Plenty of filters are available, like sed, awk.
+	I can do a lot of stuff in the shell like
+	redirecting the output of a command into the commandline
+	of another command,
+	job control and so on.
+
+But there is no reason, to not have this stuff on OS/2 or NT.
+OS/2 does provide a much more better interpreter language: REXX.
+
+Why I don't like UNIX:
+=====================================
+
+The API is antique/ancient.
+It is not ready for Multithreading,
+you may say it is not ready for Multitasking and Multiuser.
+Some examples:
+* There isn't an atomar system call for opening a file
+	and lock it in the same instance.
+* There isn't an atomar system call for creating a filedescriptor
+	and prevent it from inheriting it to child processes.
+* there is no atomar system call for executing a new process!!!!
+	always fork/vfork has to be called before
+	wasting the results of this calls by doing exec
+		(overwriting the created process)
+* shared memory keeps available, also if no process is referencing it!!!
+* return values of system calls will be used for more then one purpose,
+	e.g. open returns a file ID if successfull or -1 for an error.
+* A file opened by a process may be removed.
+* A directory which is the current directory of a process may be removed.
+* The executable/dll file for a running process may be removed
+	- sometimes this results in a crash of the process.
+* files which are opended by a shell for redirecting input/output may be opended
+	for writing by other processes.
+	Such files may be removed by other processes.
+* an texteditor started by root may result in a crash of the whole system
+* UNIX is designed to run filters, which read on stdin and write to stdout.
+	It is designed to do somethink using only one thread in a process
+	- since that plenty of signals will be used.
+	This is error prone.
+	More below.
+* Someone told me, UNIX has been designed by a C programmer.
+	This cannot be - or he must have used a kind of C
+	which did not provide parameters to functions and no return values.
+	There are plenty of system calls which return pointer to static memory,
+	or write into global memory.
+	This is very error prone and totally 
+	unusable for Multithreading.
+* The IPC API:
+	There are two different approaches for doing IPC via pipes. 
+	Inet-Sockets and UNIX-domain sockets.
+	Both are terrible to use.
+* Inet-Sockets may be used remotely.
+	The address a client may connect to is made of
+		hostname & portNumber
+	The portnumber may be reserved for a certain application
+		(like X-Server)
+	or has to be passed somehow to the client application.
+	The client has to do the following:
+		* Create a handle (socket).
+		* Get a internal network address by using the hostname
+			(gethostbyname).
+		* Fill a structure with the network address and the portnumber.
+			The portnumber has to be passed in network order
+			(think about LittleEndian/BigEndian)
+			- probably the OS does not know on which kind of CPU 
+			it is running on (grin).
+		* Call connect to connect to the server.
+			The connect returns immediately with success - also
+			if the server has not accepted this connection.
+			(This is documented like that.)
+			It is not possible for the client to identify
+			wether the server will ever accept this connection
+			or not. This is terrible for designing and error prone.
+	I don't understand why the programmer has to deal with internal
+	network addresses instead of simply pass the hostname.
+* UNIX-Domain sockets may be used only local.
+	The address a client may connect to is made of a filename.
+	An entry in the filesystem will be made.
+	This entry will not be removed if the matching handle will be closed
+		(by calling close or the process owing the handle terminates).
+		So if a server wants to create a socket entry,
+		this entry may be already available
+		- not necessary because of such a process is already running,
+		but because of the matching process has terminated abnormally. 
+		So extra code has to be written to check,
+		wether the entry is still alive.
+		And extra code has to be written to reply to such checks!
+	The above problem is documented like that!
+	The entry may be removed by another process while the process
+	which has created this entry is still running.
+		So if you want to use this stuff,
+		you have to make shure, that nobody
+		has removed your entry. Means:
+		Extra code must be written if a server wants to wait
+		for a connect from a client:
+			* wait a few seconds for a connect,
+			* check via opendir/readir wether the socket entry
+				is still available.
+				If yes, go to point 1.
+				If not, recreate the socket entry
+				and go to point 1.
+
+	This is similar to what is available for OS/2
+		- and I think also for NT (since common history).
+		- without any of the problems described above.
+	But for OS/2 you may use this also remotely simply by putting
+	the hostname in front of the name of the pipe:
+		Server creates is entry like:
+			\pipe\myPipeSocket
+		client may connect locally using this name or remotely with:
+			hostname:\pipe\myPipeSocket
+	General:
+		The number of system calls used for doing IPC
+		is much more larger in UNIX then in OS/2.
+
+* Writing to a pipe results in signal (SIGPIPE)
+	if the other end has been closed.
+	So if you want to create a library for doing IPC,
+	you have to deal with this.
+	Since your library should not catch the SIGPIPE all the time,
+	you have to catch it before trying to write and then to release it.
+	This is not enough:
+	The XDR library on SUN cannot deal with signals.
+	So you have to block all signals during this library is active
+	- and release them after the matching function returns.
+	For insider:
+		xdrrec_create:
+		The writing for this stuff does not only call the passed write
+		function but also something else (probably select).
+		If a signal arrives you may forget your connection,
+		since select returns an error.
+
+conclusion:
+
+	Programming for UNIX is error prone and includes a lot of detours.
+	Code for doing the same on an uptodate OS like OS/2 is much less
+	in size.
+
+Happy Multithreading
+Peter Foelsche
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!MathWorks.Com!news.duke.edu!convex!cs.utexas.edu!chpc.utexas.edu!arlut.utexas.edu!arlut.utexas.edu!not-for-mail Wed Sep 21 22:28:46 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!MathWorks.Com!news.duke.edu!convex!cs.utexas.edu!chpc.utexas.edu!arlut.utexas.edu!arlut.utexas.edu!not-for-mail
+From: broccol@arlut.utexas.edu (Jonathan Abbey)
+Newsgroups: comp.unix.advocacy
+Subject: Re: UNIX vs. NT
+Date: 17 Sep 1994 11:47:45 -0500
+Organization: Applied Research Labs - The University of Texas at Austin
+Lines: 50
+Message-ID: <35f6jh$d8f@csdsun2.arlut.utexas.edu>
+References: <35ejij$ljb$1@mhade.production.compuserve.com>
+NNTP-Posting-Host: csdsun2.arlut.utexas.edu
+
+In article <35ejij$ljb$1@mhade.production.compuserve.com>,
+Peter Foelsche  <100114.351@CompuServe.COM> wrote:
+
+| Why I don't like UNIX:
+| =====================================
+| 
+| The API is antique/ancient.
+| It is not ready for Multithreading,
+
+Solaris 2.3 does Multithreading..
+
+| you may say it is not ready for Multitasking and Multiuser.
+
+
+| Some examples:
+| * There isn't an atomic system call for opening a file
+                   ^^^^^^
+| 	and lock it in the same instance.
+
+There is, if all parties interested in using the file as a lock
+use a proper procedure for opening it..
+
+  /* Here we want to create the file exclusively.  UNIX guarantees
+     that only one process can get a file descriptor at this point. */
+
+  fd = open(LOCKFILE, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+                      ^^^^^^^^^^^^^^^^
+  if (fd < 0)
+    {
+      /* error.. couldn't create and write the file. Some one else must
+         have beat us to the punch. */
+      exit_gash(E_IN_USE, "Simultaneous startup of GASH attempted.");
+    }
+  else
+    {
+      close(fd);
+    }
+
+| conclusion:
+| 
+| 	Programming for UNIX is error prone and includes a lot of detours.
+| 	Code for doing the same on an uptodate OS like OS/2 is much less
+| 	in size.
+
+Your other points are well taken, and seem to be correct.  It will be
+-- 
+-------------------------------------------------------------------------------
+Jonathan Abbey				              jonabbey@arlut.utexas.edu
+Applied Research Laboratories                 The University of Texas at Austin
+-------------------------------------------------------------------------------
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!MathWorks.Com!udel!gatech!swrinde!news.dell.com!tadpole.com!uunet!george.inhouse.compuserve.com!news.inhouse.compuserve.com!compuserve.com!news Wed Sep 21 22:31:59 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!MathWorks.Com!udel!gatech!swrinde!news.dell.com!tadpole.com!uunet!george.inhouse.compuserve.com!news.inhouse.compuserve.com!compuserve.com!news
+From: Peter Foelsche <100114.351@CompuServe.COM>
+Newsgroups: comp.unix.advocacy
+Subject: UNIX vs. NT
+Date: 18 Sep 1994 06:12:06 GMT
+Organization: via CompuServe Information Service
+Lines: 52
+Message-ID: <35glnn$q0i$1@mhadf.production.compuserve.com>
+
+> 
+> From: broccol@arlut.utexas.edu (Jonathan Abbey)
+> Subject: UNIX vs. NT
+> Date: 17 Sep 1994 11:47:45 -0500
+> 
+> ..
+> Solaris 2.3 does Multithreading..
+> 
+
+And some library calls have already been changed into the right direction,
+e.g. (no waranty that this is fully correct,
+	I'm not in front of a UNIX machine)
+
+	char *ctime(const time_t *pTime);
+	char *ctime_r(const time_t *pTime, char *pBuffer,
+	    unsigned int iBufferSize);
+
+But errno is still used
+	I know that this isn't anymore a global variable,
+	but something like that:
+		#define errno aErrno[getTID()]
+	Why not simply using the return value of the system call
+	like it is done in OS/2?
+The problem to prevent a certain handle from beeing inherited
+to childprocesses is still actual (no atomar system call):
+
+	iFD = open(...);
+	fcntl(iFD, I_DONT_KNOW_THE_FLAG, ...);
+
+The above code must be surrounded between some statements
+(for OS/2 DosEnterCritSec(), DosExitCritSec())
+stopping other threads to prevent them creating childprocesses
+which would inherit the handle if created just between open and fcntl.
+
+> ..
+>   fd = open(LOCKFILE, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+> ;
+>                       ^^^^^^^^^^^^^^^^
+
+Yes, this works for applications which are cooperative.
+But to trust in cooperative processes is a mess
+if using a real Multitasking system,
+where the user is able to start every process he likes.
+
+Have you tried this with files on a non local filesystem and with processes
+running on different machines?
+We have had several problems with files on NFS.
+The UNIX OS seems to not care about missing services on machines
+exporting filesystems - such filesystems will be mounted without any warning.
+
+
+Peter Foelsche
+

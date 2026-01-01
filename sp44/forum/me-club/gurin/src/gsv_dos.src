@@ -1,0 +1,276 @@
+$macro gsv_dos from ALL;
+{ Этот макрос выполняет различные функции DOS. При возникновении выводится
+  бокс, содержащий имя операции, тип, класс, сферу ошибки; запрашивается
+  пользовательская реакцию в виде:
+     <игнорировать> <повторить> <завершить>
+  и устанавливает переменную return_int:
+     0 - игнорировать,
+     1 - повторить,
+     2 - завершить
+  Если особо не оговорено, то макрос принимает в качестве параметра
+  имя файла или каталога в переменной return_str. Если команда имеет
+  второй параметр, например, каталог назначения или новое имя, то он
+  передается через глобальную переменную gsv_return_str.
+
+  Функции макроса:
+    /F=1 - создать каталог
+    /F=2 - уничтожить каталог
+    /F=3 - уничтожить файл
+    /F=4 - копировать файл. Опции для данной функции:
+           /L= - длина полоски темпа копирования
+           /X= - начальная X координата полоски
+           /Y= - начальная Y координата полоски
+           Если L не определена, то полоска не выводится
+    /F=5 - переименовать файл
+}
+
+  def_str(sphere[80], { сфера ошибки }
+          class[80],  { класс ошибки }
+          title[55],  { заголовок сообщения об ошибке }
+          name[81],   { имя исходного файла или ошибки }
+          dest[81],   { имя файла назначения }
+          buf[2048]   { буфер копирования }
+         );
+  def_int(act,        { действие при ошибке }
+          xb, yb,     { координаты полоски темпа копирования }
+          lenb,       { длина полоски темпа копирования }
+          bl,         { текущий номер блока при копировании }
+          lenf,       { длина файла в блоках по 2048 байт }
+          func,       { номер операциии макроса }
+          hans,       { описатель исходного файла }
+          hand,       { описатель файла назначения }
+          lenr,       { длина чтения текущего блока }
+          attr        { атрибут исходного файла }
+         );
+  def_str(data[2000] :=
+          '/1=неверный номер функции' +
+          '/2=файл не найден' +
+          '/3=путь не найден' +
+          '/4=слишком много открытых файлов' +
+          '/5=доступ отвергнут' +
+          '/6=неверный описатель' +
+          '/7=разрушены блоки управления памятью' +
+          '/8=недостаточно памяти' +
+          '/9=неверный адрес блока памяти' +
+          '/10=неверное окружение' +
+          '/11=неверный формат' +
+          '/12=неверный код доступа' +
+          '/13=неверная дата' +
+          '/15=задан неверный диск' +
+          '/16=нельзя удалить текущее оглавление' +
+          '/17=не то же самое устройство' +
+          '/18=больше нет искомых файлов' +
+          '/19=попытка записи на защищенный диск' +
+          '/20=неизвестный идентификатор субустройства' +
+          '/21=дисковод не готов' +
+          '/22=неизвестная команда' +
+          '/23=ошибка данных по контрольной сумме' +
+          '/24=неверная длина структуры запроса' +
+          '/25=ошибка поиска на диске' +
+          '/26=неизвестный тип носителя диска' +
+          '/27=сектор не найден' +
+          '/28=конец бумаги на принтере' +
+          '/29=ошибка записи' +
+          '/30=ошибка чтения' +
+          '/32=нарушение разделения файла' +
+          '/33=нарушение блокировки файла' +
+          '/34=неверная замена диска' +
+          '/35=слишком много открытых файлов' +
+          '/80=файл уже существует' +
+          '/S2=дисковое или ленточное устройство' +
+          '/S4=символьное устройство' +
+          '/S5=память' +
+          '/C1=нет ресурса (дескрипторов, памяти, каналов и т.п.)' +
+          '/C2=временная ситуация (например, блокировка файла)' +
+          '/C3=файл/каталог уже существует или нарушение прав доступа' +
+          '/C4=внутренняя ошибка: DOS сбилась' +
+          '/C5=ошибка оборудования' +
+          '/C6=системная ошибка: DOS сбилась' +
+          '/C7=ошибка приложения (некорректный запрос, данные и т.п.)' +
+          '/C8=файл или каталог не найден' +
+          '/C9=неверный формат (запорчен файл, плохой диск и т.п.)' +
+          '/C10=блокировка (файл/элемент захвачен)' +
+          '/C11=ошибка носителя (неверный диск, ошибка контроля и т.п.)'
+         );
+  goto start;
+
+error: { формирование сообщения об ошибке, имя операции в title }
+  r_ax := $5900;
+  r_bx := 0;
+  intr($21);
+  if ((r_ax and $FF) = 21) then
+    beep;
+    run_macro('userin^verify /T= Вставьте дискету и нажмите любую клавишу ...
+               /BL= Дисковод не готов ');
+    return_int := 1;
+  else
+    act    := r_bx and $FF;
+    name   := parse_str('/'  + str(r_ax and $FF)         + '=', data);
+    class  := parse_str('/C' + str((r_bx shr 8) and $FF) + '=', data);
+    sphere := parse_str('/S' + str((r_cx shr 8) and $FF) + '=', data);
+    if name   = '' then name   := 'неопределена'; end;
+    if class  = '' then class  := 'неопределен' ; end;
+    if sphere = '' then sphere := 'неопределена'; end;
+    if    (act = 1) or (act = 2) or (act = 3) or (act = 7) then act := 1;
+    elsif (act = 4) or (act = 5)                           then act := 2;
+    else                                                        act := 0;
+    end;
+    set_global_str('iparm_1', '/TP=10/L=1/C=2/T=Операция: ' + title);
+    set_global_str('iparm_2', '/TP=10/L=2/C=1/T=───────────────────────────────────────────────────────────────────');
+    set_global_str('iparm_3', '/TP=10/L=3/C=2/T=Ошибка  : ' + name);
+    set_global_str('iparm_4', '/TP=10/L=4/C=2/T=Класс   : ' + class);
+    set_global_str('iparm_5', '/TP=10/L=5/C=2/T=Сфера   : ' + sphere);
+    set_global_str('iparm_6', '/TP=10/L=6/C=1/T=───────────────────────────────────────────────────────────────────');
+    set_global_str('iparm_7', '/TP=12/L=7/C=9/T=Игнорировать ');
+    set_global_str('iparm_8', '/TP=12/L=7/C=29/T=Повторить ');
+    set_global_str('iparm_9', '/TP=12/L=7/C=46/T=Прекратить ');
+    set_global_int('iint_7',  0);
+    set_global_int('iint_8',  0);
+    set_global_int('iint_9',  0);
+    set_global_int('iint_' + str(act + 7), 1);
+    beep;
+    run_macro('userin^data_in /#=9/H=gsv_shel^dos_error/S=' + str(act + 7));
+    if return_int = 0 then
+      make_message('Операция прекращена');
+      return_int := 2;
+    elsif global_int('iint_7') = 1 then
+      make_message('');
+      return_int := 0;
+    elsif global_int('iint_8') = 1 then
+      make_message('Повторение операции');
+      return_int := 1;
+    elsif global_int('iint_9') = 1 then
+      make_message('Операция прекращена');
+      return_int := 2;
+    end;
+  end;
+  ret;
+
+del_dir: { удаление каталога }
+  r_ds := seg(name);
+  r_dx := ofs(name) + 4;
+  r_ax := $3A00;
+  intr($21);
+  if ((r_flags and 1) = 1) then
+    call error;
+  end; {if}
+  ret;
+
+copy_file: { копирование файла }
+  xb   := parse_int('/X=', mparm_str);
+  yb   := parse_int('/Y=', mparm_str);
+  lenb := parse_int('/L=', mparm_str);
+  hans := -1;
+  hand := -1;
+  make_message(lower(name) + ' -> ' + lower(dest));
+  if first_file(name) = 0 then
+    attr := last_file_attr;
+    lenf := last_file_size;
+    if (lenf and $7FF) then lenf := (lenf shr 11) + 1;
+    else                    lenf := (lenf shr 11);
+    end;
+    if (s_open_file(name, 0, hans) <> 0) then goto abort_copy; end;
+    if (s_create_file(dest,  hand) <> 0) then goto abort_copy; end;
+    if (lenf <> 0) then
+      if (lenb <> 0) then
+        draw_char(176, xb, yb, m_h_color, lenb);
+      end; {if}
+      bl := 1;
+      lenr := 2048;
+      while (bl <= lenf) do
+        r_ax := $3F00;  { чтение блока в буфер }
+        r_bx := hans;
+        r_ds := seg(buf);
+        r_dx := ofs(buf) + 4;
+        r_cx := lenr;
+        intr($21);
+        if ((r_flags and 1) = 1) then goto abort_copy; end;
+        lenr := r_ax;
+        r_ax := $4000;  { запись блока из буфера }
+        r_bx := hand;
+        r_ds := seg(buf);
+        r_dx := ofs(buf) + 4;
+        r_cx := lenr;
+        intr($21);
+        if ((r_flags and 1) = 1) then goto abort_copy; end;
+        if (lenr <> r_ax) then
+          beep;
+          run_macro('userin^verify /T= Нажмите любую клавишу ... /BL=
+                     Диск заполнен ');
+          return_int := 2;
+          goto abort_copy_1;
+        end;
+        if (lenb <> 0) then
+          draw_char(219, xb, yb, m_h_color, ((lenb * bl) / lenf));
+        end; {if}
+        ++bl;
+      end; {while}
+    end; {if}
+    if (s_close_file(hans) <> 0) then goto abort_copy; end;
+    if (s_close_file(hand) <> 0) then goto abort_copy; end;
+    set_file_attr(dest, attr);
+    return_int := 0;
+  else
+    goto abort_copy;
+  end;
+  ret;
+
+rename_file: { переименование файла }
+  make_message(lower(name) + ' -> ' + lower(dest));
+  r_ds := seg(name);
+  r_dx := ofs(name) + 4;
+  r_es := seg(dest);
+  r_di := ofs(dest) + 4;
+  r_ax := $5600;
+  intr($21);
+  if ((r_flags and 1) = 1) then
+    call error;
+  end; {if}
+  ret;
+
+start:
+  name := return_str;
+  dest := global_str('gsv_return_str');
+  poke(seg(name), ofs(name) + 4 + svl(name), 0); { 0 завершение строки }
+  poke(seg(dest), ofs(dest) + 4 + svl(dest), 0);
+  func := parse_int('/F=', mparm_str);
+  return_int := 0;
+  if (func = 1) then
+    title := 'Создание каталога ' + lower(name);
+    if (mkdir(name) <> 0) then
+      call error;
+    end; {if}
+  elsif (func = 2) then
+    title := 'Удаление каталога ' + lower(name);
+    call del_dir;
+  elsif (func = 3) then
+    title := 'Удаление файла ' + lower(name);
+    del_file(name);
+    if (error_level <> 0) then
+      call error;
+    end; {if}
+  elsif (func = 4) then
+    title := 'Копирование файла ' + lower(name);
+    call copy_file;
+  elsif (func = 5) then
+    title := 'Переименование файла ' + lower(name);
+    call rename_file;
+  else
+    return_int := 2;
+  end;
+  goto exit;
+
+abort_copy: { прекращение операции копирования }
+  call error;
+  abort_copy_1:
+  if (hans <> -1) then
+    s_close_file(hans);
+  end; {if}
+  if (hand <> -1) then
+    s_close_file(hand);
+    del_file(dest);
+  end; {if}
+
+exit:
+end_macro;
+

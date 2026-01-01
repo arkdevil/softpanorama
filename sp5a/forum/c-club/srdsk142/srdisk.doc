@@ -1,0 +1,413 @@
+
+                    ReSizeable RAMDisk version 1.42
+                          for XMS memory only
+
+                 Copyright (c) 1991,1992 Marko Kohtala
+
+
+
+CONTENTS
+
+  1. Disclaimer of warranty
+  2. License
+  3. Features included and recognised missing
+  4. Files in this release
+  5. Usage
+  5.1. Basic installation
+  5.2. Driver
+  5.3. SRDISK program
+  6. Technical data for further development
+  7. Troubleshooting
+  8. Last words
+
+
+
+                       1. DISCLAIMER OF WARRANTY
+
+THIS SOFTWARE AND MANUAL ARE PROVIDED "AS IS" AND WITHOUT WARRANTIES AS
+TO PERFORMANCE OF MERCHANTABILITY OR ANY OTHER WARRANTIES WHETHER
+EXPRESSED OR IMPLIED.  BECAUSE OF THE VARIOUS HARDWARE AND SOFTWARE
+ENVIRONMENTS INTO WHICH THIS PROGRAM MAY BE PUT, NO WARRANTY OF FITNESS
+FOR A PARTICULAR PURPOSE IS OFFERED.
+
+GOOD DATA PROCESSING PROCEDURE DICTATES THAT ANY PROGRAM BE THOROUGHLY
+TESTED WITH NON-CRITICAL DATA BEFORE RELYING ON IT.  THE USER MUST
+ASSUME THE ENTIRE RISK OF USING THE PROGRAM.  ANY LIABILITY OF THE
+SELLER WILL BE LIMITED EXCLUSIVELY TO PRODUCT REPLACEMENT OR REFUND OF
+PURCHASE PRICE.
+
+
+
+                               2. LICENSE
+
+This software is NOT public domain. It is copyrighted software
+distributed as shareware.
+
+The license terms are different depending if you are a corporate user or
+an individual, noncommercial user.
+
+Everybody has the right to copy and distribute this software as long as
+it is unmodified and includes all the original files. A fee of at most
+$7 may charged for the total expences of copying, in which case the
+receiver of this software must be made aware that he has no other rights
+to the software but the ones stated here.
+
+You may modify and recompile the sources for your own needs, but not
+distribute them as modified.
+
+Individual, noncommercial users are not required to pay for the use of
+SRDISK. You are licensed to use this version of SRDISK free of charge.
+
+Business and corporate users are required to pay. You are licensed to
+use this software for evaluation purposes only for a period of one
+month. Information about the payment in accompanied file PAYMENT.DOC.
+
+If you want to use my code in your programs or distribute is as
+modified, contact me and we can discuss the terms.
+
+
+
+              3. FEATURES INCLUDED AND RECOGNISED MISSING
+
+This RAM disk currently supports the following features:
+
+  * XMS (Extended memory on 286 and up with HIMEM or other XMS driver)
+    support - no other memory drivers - yet
+  * Device drivers may be chained to form larger disks using many
+    different kind memories.
+  * Resizeable/removable - destroys disk contents
+  * Supports 32-bit sector addressing introduced in DOS 4. Thus over 32M
+    RAM disks are possible. (Up to 63M disks tested.)
+  * Configurable
+      - sector size
+      - cluster size
+      - root directory entry count
+      - number of FATs
+  * Predefined DOS disk like formats (also size 1K, if you do not want
+    a drive not ready error when you do not really need any disk)
+  * Write protection
+  * Compatible with MS-DOS versions from 2.00 to 5.x
+    (tested with DOS 5.0, 3.30 and (casually) with DR-DOS 5 and 6)
+  * Stores last format time in volume label
+  * Can optionally set environment variables SRDISKn (n=1,2,...) to
+    the installed SRDISK drive letters.
+
+The future hopefully holds:
+
+  * Resizing of the disk without loosing disk contents (nearly written)
+  * EMS support (is coming in 2.0)
+  * UMB support as disk storage
+  * Bank-Switch memory support ("The Last Byte" by Key Software)
+  * Low memory support
+
+Users may find that the ability to resize is invaluable. Since some
+programs can take best use of XMS memory by directly using it while
+others need a fast disk for temporary files, you can now have optimal
+performance with both kinds of programs without the trouble of changing
+configuration and rebooting.
+
+The feature of being able to resize automagically when there is need for
+it is currently not in my reach.
+
+
+
+                        4. FILES IN THIS RELEASE
+
+The following material is distributed in this release:
+
+        SRDISK.DOC      this document
+        SRDISK.H        disk formatter source code for Borland C
+        SRDISK.C        "
+        CMDLINE.C       "
+        DISKINIT.C      "
+        DISKIO.C        "
+        ENV.C           "
+        FORMAT.C        "
+        DEFINE.INC      device driver defines (included)
+        XMSDISK.ASM     device driver XMS specific source (compiled)
+        RDISK.ASM       device driver source code (included)
+        SRDISK.SYS      compiled (TASM 3.0) device driver
+        SRDISK.EXE      compiled (BC++ 3.0) formatter program
+        PAYMENT.DOC     registering information
+        WHATSNEW.142    what is new in this release and history
+        FILE_ID.DIZ     short description of packet for BBS operators
+
+
+
+                                5. USAGE
+
+The SRDISK is basicly split into two parts:
+
+        1) a device driver to add the virtual drive into DOS and
+        2) a program to control the device driver
+
+The following explains the installation and how to use both of these
+parts.
+
+
+                        5.1. BASIC INSTALLATION
+
+The basic installation can be done following the below steps:
+
+1. Copy SRDISK.SYS into you root directory.
+
+2. Copy SRDISK.EXE into some directory in your PATH.
+
+3. Make sure you have HIMEM.SYS or some other XMS driver installed
+   in CONFIG.SYS before the following step.
+
+4. Add into your CONFIG.SYS line
+
+        DEVICE=SRDISK.SYS
+
+5. Add into your AUTOEXEC.BAT after the PATH command line
+
+        SRDISK <size>
+
+The <size> defines the disk size in Kbytes.
+
+
+The device driver adds into DOS a new disk drive. Before you run
+SRDISK.EXE or when you set the disk size to zero, the new disk drive
+behaves as if you have a floppy drive without a floppy inserted.
+
+
+                              5.2. DRIVER
+
+The driver can accept two parameters:
+
+        DEVICE=SRDISK.SYS [d:] [/A]
+
+The [] around the parameter mean it is optional; you must not type the
+brackets.
+
+Both of the options are usually useless. They are ment for chaining
+drivers to same virtual disk. Some use for them may be found, if drivers
+for other memories are made. The SRDISK.SYS in this release does not
+support the chaining - it may be recompiled to support it though by
+modifying equate CAPABLE in SRDISK.ASM.
+
+The 'd:' can be used to tell the driver at what letter it is assigned.
+It is mostly a cosmetic thing. If your version of DOS does not tell the
+drive letter to the device driver, and srdisk can not later determine
+it, you can use this to make it known.
+
+Another use for 'd:' is to define into what SRDISK drive the current
+driver is to be appended. This does not apply to this version of SRDISK.
+
+/A switch is another, more preferable way to append the driver into a
+previously installed driver. With it you need not worry about the drive
+letter DOS has given to the previous driver. The appending means that
+the devices will be chained into the same drive; different parts of the
+virtual disk can then use different drivers and different kinds of
+memory. All drivers may not allow other drivers to be appended to them.
+
+
+If you see error messages, you may have forgotten to install the XMS
+driver (eg. HIMEM.SYS) prior to the RDISK.SYS, or you have improper DOS
+version. If you are unable to fix the problem yourself and think I can
+help, you can contact me. My contacts are listed at the end of this
+document.
+
+Merely installing the driver gives you no RAM disk. It is as though you
+had installed a floppy driver without putting a disk in the drive. For
+that you need the SRDISK.EXE program.
+
+
+                          5.3. SRDISK PROGRAM
+
+The disk can be enabled by, for example, using command "SRDISK 1024"
+which will make first SRDISK a 1024K disk. It can be disabled by making
+it of size 0: "SRDISK 0".
+
+You should include the command to enable the RAM disk into your
+AUTOEXEC.BAT file.
+
+The SRDISK.EXE is self documented. You'll get the documentation by
+typing at the DOS prompt "SRDISK /?" and hitting enter. To get a hang of
+it better, some examples with explanations are given below.
+
+Command
+
+        SRDISK 1024
+
+creates or changes the old disk to a 1024K (= 1M) disk.
+
+More precisely it calculates various disk parameters as it best sees fit
+for most users needs. Those disk parameters can be defined by user on
+the command line if the calculated values do not meet his needs. After
+the parameters have been calculated, the memory (1024K = 1M) needed for
+the disk is allocated and a disk image is created into the memory.
+
+The calculated parameters include sector size, cluster size, number of
+FATs and root directory size.
+
+- Sector is the basic unit of storage. It's size does not mean much, but
+  it has to be a power of 2 and no larger than 512 bytes.
+
+- Cluster size tells in how large blocks the space is allocated. Larger
+  clusters mean smaller FAT (= File Allocation Table), but then even the
+  smallest file always takes at least that much space. Cluster can not
+  be smaller than one sector. A cluster is a collection of sectors.
+
+- FAT is the table that holds information about each allocation unit,
+  cluster, on the disk. The information can be indication that the
+  cluster is free, or where the next cluster of the file is or that the
+  cluster is unusable. A disk only needs one FAT - though multiple
+  copies of it can be specified. Note that the other FATs are only
+  copies of the first one.
+
+- Root directory is limited to hold only some predefined number of
+  files. If you get "Can not create file" errors while there is plenty
+  of free space on disk, you need to make the root directory larger.
+  Alternatively you should create a subdirectory and create the files
+  there. Subdirectories can be arbitrarily large.
+
+Command
+
+        SRDISK 1024 /O
+
+does the same as the command 'SRDISK 1024' except the various disk
+parameters are not calculated but instead the old parameters are used.
+
+Command
+
+        SRDISK /F:1440
+
+tries to create the disk to look like a real floppy disk. It also
+defines some parameters otherwise impossible to define, like media
+descriptor, number of heads and sectors per track. These parameters have
+no other function but to make it look like it is a real, physical disk -
+which it is not. Most disk copy programs can not access the RAM disk.
+
+Command
+
+        SRDISK /S:256 /C:1024 /D:64
+
+reformats the disk. The size is determined by the old size of the disk
+even without the use of /O. Sector size is changed to 256 bytes, cluster
+size to 1024 bytes (two sectors) and root directory will hold 64 entries
+(one of which is used for the volume label).
+
+Command
+
+        SRDISK E:
+
+tests if E is a SRDISK RAMdisk and, as no format is defined, display
+it's current configuration. The letter may not correspond to the letter
+known by DOS for the drive if the letter is defined wrong when
+installing the SRDISK.SYS device driver in CONFIG.SYS.
+
+Command
+
+        SRDISK
+
+without the drive letter specified tries to determine the drive by first
+trying the current drive and if it is not a SRDISK drive, then the first
+SRDISK drive loaded in CONFIG.SYS. As no change in the format is
+defined, the current configuration of the found drive are displayed.
+
+
+
+                6. TECHNICAL DATA FOR FURTHER DEVELOPMENT
+
+In case you are capable of writing 80x86 assembler and C, please feel
+free to examine the source code included in the distribution. The
+following is offered to help you understand how it works.
+
+The job is split between the device driver and the SRDISK program this
+way:
+
+Device driver does:
+
+  * What ever a RAM disk driver is expected by the DOS to do. That is:
+    transfer sectors between conventional memory and the disk.
+
+  * Support multiplex interrupt server (INT 2Fh) at AH=72h. Any program
+    may receive this way a pointer into a data structure that contains
+    the following data:
+      - BIOS parameter block for the drive.
+      - Disk size in K-bytes.
+      - Read/write access flags (read flag is actually enabled flag).
+      - Flag to tell if the media has changed (set by SRDISK).
+      - Number of open files on drive.
+      - Pointer to the sector read/write function in the driver.
+      - Pointer to the memory allocation routine in the driver or the
+        data SRDISK.EXE needs to do the allocation.
+      - Some information about what kind of memory can be used for the
+        disk.
+      - Pointers into next driver in the driver chain and into next
+        virtual SRDISK drive.
+
+SRDISK.EXE does:
+
+  * Modify the drivers internal structures and perform the memory
+    allocation for disk by either calling driver's memory allocation
+    routine or if possible doing it by itself.
+
+  * Format the new disk i.e. write the boot sector, FAT(s) and root
+    directory according to the format sent to driver.
+
+  * Carries the responsibitity that the drivers structures and the disk
+    is OK.
+
+The sources are somewhat documented. Also the used structures can be
+found there - naturally.
+
+Keep in mind, if you take advantage of this code, that the structures
+are likely to change. Version 1.42 has still beta version of the
+internal structures. The new features of version 2.0 under development
+will need some changes in the structures.
+
+Also remember that there is a copyright on the code. You'll though have
+good chanse of getting license to develop a new driver using the
+SRDISK.ASM as a base for your driver. Just contact me and tell me about
+it.
+
+
+
+                           7. TROUBLESHOOTING
+
+Causes of grief
+
+1. RAM disks loose their contents when power is turned off! Do not store
+anything valuable there.
+
+2. There is no XMS memory without a proper device driver. HIMEM.SYS or
+QEMM will do.
+
+3. Not all HIMEM.SYS support memory above 16M limit. HIMEM.SYS that came
+with MS-Windows 3.0 is reported be ok.
+
+4. Some programs swap themselves for a shell to the ramdisk. If you
+change the format of the disk or clear the disk from such program, the
+swapped program may not be able to recover and can crash your computer.
+
+5. SRDISK looses it's contents when the size or format is changed. You
+can not add a few Kbytes or few root directory entries without cleaning
+the disk.
+
+6. Newest versions of Microsofts SmardDrive disk caching program are
+reported to cache SRDISK too! This can cause a system crash and caching
+a RAM disk is anyway useless. If you use SmartDrive, please load it
+before SRDISK.SYS or tell it explicitly not to cache the SRDISK drive.
+
+
+
+                             8. LAST WORDS
+
+You can contact me by sending E-mail from
+
+        Internet, Bitnet etc. to 'Marko.Kohtala@hut.fi'
+        CompuServe to '>INTERNET:Marko.Kohtala@hut.fi'
+
+or by traditional mail to
+
+        Marko Kohtala
+        PL 115
+        SF-01451 Vantaa
+        FINLAND
+
+or by calling Airline QBBS, 24H, HST, V.32, V.42, MNP, +358-0-8725380
+and leaving mail to me, Marko Kohtala.
+

@@ -1,0 +1,176 @@
+
+Inside OS/2 
+
+   
+   
+   January 1995
+   
+             PROTECTING REXX PROGRAMS FROM UNINITIALIZED VARIABLES
+                                       
+   
+   
+   If you've written many programs using REXX, the programming language
+   that IBM ships with OS/2, you've probably spent some time tracking
+   down errors in your programs. One of the more common problems we've
+   seen (and experienced) comes from neglecting to set the value of a
+   variable.
+   
+   In other programming languages, variables have a specific type. REXX,
+   by contrast, interprets a variable's type as it uses the variable.
+   Unfortunately, if you don't set the value of a variable before you use
+   it, the REXX command interpreter will treat the variable name as a
+   simple text string--which frequently causes confusing errors.
+   
+   In this article, we'll show how you can add a simple error handling
+   routine to your REXX programs that will halt your program if it tries
+   to use a variable before you've set the variable's value. Before we do
+   that, let's review how the REXX command interpreter responds to error
+   conditions in general.
+   
+  SHOW STOPPERS
+  
+   
+   
+   When you run a typical REXX program, several things can cause the
+   program to stop prematurely. For example, the program may stop because
+   the REXX interpreter detects an error in the program. In other cases,
+   user actions or some hardware device may stop the program prematurely.
+   
+   
+   If the program stops because the REXX interpreter detects an error, it
+   may be due to one of several reasons: a structure or usage problem
+   (syntax error), a command or subroutine failure, or a logical mistake
+   in the design of the program. Of these errors, logical design errors
+   can be the most difficult to locate.
+   
+  PROGRAMS WITH NO VALUES
+  
+   
+   
+   One of the more common design errors involves using an uninitialized
+   variable. For example, if you begin a REXX program with the line
+   
+   PARSE ARGS paramOne paramTwo
+   
+   the program expects you to call it with two command-line parameters.
+   
+   If you pass only one parameter to the program, the program can't
+   initialize the second variable paramTwo. From that point, the REXX
+   interpreter will treat the variable as if you'd written
+   
+   paramTwo = "paramTwo"
+   
+   For example, if you write the following command
+   
+   SAY "The value is " paramTwo
+   
+   the output
+   
+   The value is paramTwo
+   
+   will appear on the command line.
+   
+  PUTTING ON ERRORS
+  
+   
+   
+   Fortunately, the REXX interpreter knows when you're using a variable
+   that you haven't initialized. However, unless you tell the REXX
+   interpreter to do something specific when it detects this type of
+   error, it will ignore the error and continue executing the program.
+   
+   To make the REXX interpreter respond to an uninitialized variable
+   error, you need to create an error-monitoring statement that tells the
+   interpreter to run a special subroutine when a NOVALUE error occurs.
+   This forces the interpreter to enable signal trapping--a mechanism
+   that catches special error signals.
+   
+   However, once you've told the interpreter to trap the NOVALUE error
+   signal, you have to create the NoValue error-handling subroutine as
+   well. The subroutine must be named NoValue for the interpreter to call
+   it properly.
+   
+  TURNING SIGNALS
+  
+   
+   
+   Once you've enabled signal trapping for the NOVALUE error and added
+   the NoValue subroutine, you'll want to display some information about
+   the error inside the subroutine. To help display this information, you
+   can use the REXX expressions shown in Table A on the next page. Now
+   let's write a simple REXX program that contains an uninitialized
+   variable and an appropriate error-handling subroutine for the NOVALUE
+   error.
+   
+  TRAP BLOCKING
+  
+    Table A - You can use these expressions to display error information.
+
+    CONDITION(D)    When a NOVALUE error occurs, you can call the
+                    CONDITION internal function with the D parameter
+                    Description) to display the name of the variable
+                    that hasn't been initialized.
+
+    SIGL            When any type of error occurs, the REXX interpreter
+                    stores the number of the line that contains the error
+                    in a special variable named SIGL. You can use this
+                    variable to display the line number itself, or you
+                    can use SIGL in conjunction with the SOURCELINE
+                    internal function.
+
+    SOURCELINE()    When you need to display a particular line of your
+                    source file, you can call the SOURCELINE internal
+                    function with the number of the line you want to
+                    display. If you call this function with the SIGL
+                    parameter, you can easily display a source line that
+                    contains an error.
+
+   
+   
+   To begin, open an OS/2 command-line by double-clicking on the OS/2
+   Full Screen icon in the Command Prompts folder. When the OS/2 command
+   prompt appears, enter EPM TRAPPER.CMD to launch the Enhanced Editor,
+   and then enter the program from Listing A.
+    Listing A - trapper.cmd
+
+    /* TRAPPER.CMD */
+
+    SIGNAL ON NOVALUE
+
+    /* Beginning of program */
+    SAY newVariable
+
+    EXIT
+    /* End of program */
+
+    NoValue:
+    SAY "Uninitialized variable " || CONDITION(D)
+    SAY SIGL || ":'" || SOURCELINE(SIGL) || "'"
+    EXIT /* End of NoValue subroutine */
+
+   
+   
+   When you finish entering the program, choose Save from the File menu.
+   Then choose Quit from the File menu to exit the Enhanced Editor.
+   
+   When the command prompt reappears, enter TRAPPER to execute the new
+   REXX program. When the program runs, you'll see the following output:
+Uninitialized variable NEWVARIABLE
+6:'SAY newVariable'
+
+   
+   
+   As you can see, the CONDITION(D) function displays the name of the
+   uninitialized variable, and the SOURCELINE function displays the line
+   that contains the error.
+     _________________________________________________________________
+   
+   
+   
+   [Back to Inside OS/2 | The Cobb Group Home Page]
+   
+   Copyright 1995 Ziff Davis Publishing Company All Rights Reserved. This
+   material may not be reproduced in any form without permission.
+   
+   
+    webmaster@ziff.com

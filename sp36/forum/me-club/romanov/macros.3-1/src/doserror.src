@@ -1,0 +1,67 @@
+$MACRO Doserror FROM ALL DUMP;
+ {					( Written by Alex Romanov, 1989 )						}
+ {			This macro verbalizes DOS Fn 59H error codes and				}
+ {			optionally creates a Retry-Abort menu.							}
+ {			Input parameters: /AX=, /BH=, /CH=return values from Fn 59H;	}
+ {							  /Menu -- the menu is needed.					}
+	Def_Int (maxlen, oldcursor, old_m_t_color, old_m_s_color);
+	Def_Str (error_codes[2048], error_classes[512], error_locus, error_message, info_message);
+
+	error_codes := '/1=Invalid function number/2=File not found/3=Path not found/4=Too many open files/5=Access denied/6=Invalid handle/7=Memory control block destroyed/8=Insufficient memory/9=Invalid memory block address'
+				+ '/A=Invalid environment/B=Invalid format/C=Invalid access code/D=Invalid data/F=Invalid drive specified/10=Attempt to remove current directory/11=Not same device/12=No more matching files/13=Attempted write on write-protected disk'
+				+ '/14=Unknown unit ID/15=Drive not ready/16=Unknown command/17=Disk data error (CRC)/18=Bad request structure length/19=Disk seek error/1A=Unknwon media type/1B=Sector not found/1C=Printer out of paper'
+				+ '/1D=Write fault error/1E=Read fault error/1F=General failure/20=File sharing violation/21=File locking violation/22=Invalid disk change/23=FCB unavailable (too many FCBs)/24=Sharing buffer overflow'
+				+ '/32=Network request not supported/33=Remote computer not listening/34=Duplicate name on network/35=Network name not found/36=Network busy/37=Network device no longer exists'
+				+ '/38=Network BIOS command limit exceeded/39=Network adapter hardware error/3A=Incorrect response from network/3B=Unexpected network error/3C=Incompatible remote adapter/3D=Print queue full'
+				+ '/3E=Not enough space to print file/3F=Print file was deleted/40=Network name was deleted/41=Network: Access denied/42=Incorrect network device type/43=Network name not found/44=Network name limit exceeded'
+				+ '/45=Network BIOS session limit exceeded/46=Temporarily paused/47=Network request not accepted/48=Print or disk redirection paused/50=File already exists/52=Cannot make directory entry/53=INT 24H Critical Error handler failed'
+				+ '/54=Too many redirections/55=Duplicate redirection/56=Invalid password/57=Invalid parameter/58=Network data fault';
+	error_classes := '/1=Out of resource/2=Temporary situation/3=Authorization problem/4=Internal DOS error/5=Hardware failure/6=System failure/7=Application program error/8=File//Item not found/9=File//Item bad format/A=File//Item locked'
+				+ '/B=Media error/C=File//Item already exists/D=Unknown error class';
+	error_locus := '/1=Unknown error source/2=Block device/3=Network/4=Character device/5=Memory';
+
+	Beep;
+	error_message := Parse_Str ('/' + Parse_Str ('/AX=', Mparm_Str) + '=', error_codes);
+	If (Dos_Version and $00FF) >= 3 Then     { DOS 3.x }
+		info_message := '(' + Parse_Str ('/' + Parse_Str ('/BH=', Mparm_Str) + '=', error_classes) + ' on ' + Parse_Str ('/' + Parse_Str ('/CH=', Mparm_Str) + '=', error_locus) + ')';
+	Else
+		info_message := '';
+	End;
+	maxlen := 23;
+	If Svl (error_message) > 23 Then
+		maxlen := Svl (error_message);
+	End;
+	If Svl (info_message) > maxlen Then
+		maxlen := Svl (info_message);
+	End;
+	Put_Box ((Screen_Width - maxlen) / 2 - 3,7,(Screen_Width + maxlen) / 2 + 3,14,0, Error_Color ,'ERROR',TRUE);
+	Write (error_message, (Screen_Width - Svl (error_message)) / 2,8,0,Error_Color);
+	Write (info_message, (Screen_Width - Svl (info_message)) / 2,9,0,Error_Color);
+	If XPos ('/Menu', Mparm_Str, 1) Then
+		Push_Labels;
+		R_AX := $0300;
+		R_BX := 0;
+		Intr ($10);			{ Save old cursor }
+		oldcursor := R_CX;
+		R_AX := $0100;
+		R_CX := $2000;
+		Intr ($10);			{ Turn the cursor off }
+		old_m_t_color := M_T_Color;
+		old_m_s_color := M_S_Color;
+		M_T_Color := Error_Color;
+		M_S_Color := Error_Color;
+		RM ('Userin^Xmenu /X=' + Str ((Screen_Width - 15) / 2) + '/Y=11/B=0/T=0/M= Retry (FIXEDMENU) Abort (FIXEDMENU)');
+		M_T_Color := old_m_t_color;
+		M_S_Color := old_m_s_color;
+		R_AX := $0100;
+		R_CX := oldcursor;
+		Intr ($10);			{ Turn the cursor on }
+		Pop_Labels;
+	Else
+		info_message := 'Hit any key to continue';
+		Write (info_message, (Screen_Width - Svl (info_message)) / 2,11,0,Error_Color);
+		Read_Key;
+	End;
+	Kill_Box;
+
+END_MACRO;

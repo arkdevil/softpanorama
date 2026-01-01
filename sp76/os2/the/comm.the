@@ -1,0 +1,66 @@
+/*
+$Header: C:\THE\RCS\comm.the 1.4 1993/09/01 16:27:20 MH Interim MH $
+*/
+/***********************************************************************/
+/* Description: REXX macro to comment lines.                           */
+/* Syntax:      comm [target]                                          */
+/* Notes:       This macro will comment lines based on the file        */
+/*              type or file name as per below:                        */
+/*               .c       - /* */                                      */
+/*               .h       - /* */                                      */
+/*               .rex     - /* */                                      */
+/*               .rexx    - /* */                                      */
+/*               .pas     - (* *)                                      */
+/*               .asm     - ;                                          */
+/*               makefile - #                                          */
+/*               Makefile - #                                          */
+/*              Full XEDIT/KEDIT/THE targets are supported.            */
+/***********************************************************************/
+trace o
+arg1 = Arg(1)
+noargs = Arg()
+If noargs = 0 Then arg1 = '1'               /* no args - assume 1 line */
+forward = 1                  /* assume direction is forward by default */
+'EXTRACT /LINE/TOF/EOF/SIZE/STAY/FTYPE/FNAME/'    /* get various stuff */
+current_line = line.1                   /* save current line for later */
+If tof.1 = 'ON' Then 'N'       /* if on 'top of file' move down 1 line */
+If eof.1 = 'ON' Then 'U'    /* if on 'bottom of file' move down 1 line */
+nolines = valid_target(arg1)               /* validate supplied target */
+If nolines = 0 Then Do            /* invalid target or target no found */
+   'CMSG comm' arg1                               /* redisplay command */
+   'EMSG Invalid target specified:' arg1           /* say its an error */
+   ':'||current_line                           /* restore current line */
+   Exit                                              /* go back to THE */
+End
+If nolines = 'ALL' Then Do                         /* if target is ALL */
+   ':1'                                              /* move to line 1 */
+   nolines = size.1                  /* nolines to act on - whole file */
+End
+If nolines < 0 Then Do                /* if target before current line */
+   forward = 0                    /* indicate direction to be backward */
+   nolines = nolines * -1                     /* make nolines positive */
+End
+totlines = 0                             /* reset changed line counter */
+Do nolines                              /* for each line to target ... */
+   'EXTRACT/CURLINE/'                     /* get current line contents */
+   Select                    /* add comment characters to current line */
+     When ftype.1 = 'c' Then 'REPLACE' '/*'||curline.3||'*/'
+     When ftype.1 = 'h' Then 'REPLACE' '/*'||curline.3||'*/'
+     When ftype.1 = 'rex' Then 'REPLACE' '/*'||curline.3||'*/'
+     When ftype.1 = 'rexx' Then 'REPLACE' '/*'||curline.3||'*/'
+     When ftype.1 = 'pas' Then 'REPLACE' '(*'||curline.3||'*)'
+     When ftype.1 = 'asm' Then 'REPLACE' ';'||curline.3
+     When ftype.1 = 'sql' Then 'REPLACE' 'rem '||curline.3
+     When ftype.1 = 'for' Then 'REPLACE' 'C '||curline.3
+     When fname.1 = 'makefile' Then 'REPLACE' '#'||curline.3
+     When fname.1 = 'Makefile' Then 'REPLACE' '#'||curline.3
+     Otherwise 'REPLACE' '/*'||curline.3||'*/'
+   End
+   totlines = totlines + 1
+   If forward = 1 Then 'N'         /* if going forward, get next line */
+   Else 'U'                  /* if going backwards, get previous line */
+   If rc \= 0 Then Leave                        /* shouldn't get here */
+End
+'EMSG' totlines 'lines commented'       /* say how many lines changed */
+If stay.1 = 'ON' Then ':'||current_line 
+Return                                              /* go back to THE */

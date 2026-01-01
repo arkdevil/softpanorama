@@ -1,0 +1,246 @@
+//////////////////////////////////////////////////////////////////////////////
+//
+//   H C O N F I G . S L T
+//
+//   Copyright (C) 1988 PTel and Colin Sampaleanu
+//
+//   This is a Host Mode configuration script for Telix.
+//   It reads form and saves parameters to the file HOST.CNF,
+//
+//////////////////////////////////////////////////////////////////////////////
+
+str pass1[8] = "pass1",
+    pass2[8] = "pass2",
+    shellpass[8] = "shell",
+    shutpass[8] = "shut",
+    host_downloads[64],
+    host_uploads[64];    
+int direct_connect = 0;
+
+//////////////////////////////////////////////////////////////////////////////
+
+main()
+
+{
+
+ read_host_config_file();
+ host_configure();
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+read_host_config_file()
+
+{
+ str s[80];
+ int f, stat;
+
+ s = _telix_dir;
+ strcat(s, "HOST.CNF");
+
+ f = fopen(s, "r");
+ if (!f)
+  {
+   printsc("Can't open ");
+   prints(s);
+   return -1;
+  }
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ pass1 = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ pass2 = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ shellpass = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ shutpass = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ host_downloads = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ host_uploads = s;
+
+ stat = fgets(s, 80, f);
+ if (stat == -1)
+  goto got_error;
+ direct_connect = (toupper(subchr(s, 0)) == 'D');
+
+ fclose(f);
+ return 1;
+
+// jump here if error
+
+ got_error:
+  fclose(f);
+  return -1;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+host_configure()
+
+{
+ str s[100];
+ int c, f, i, stat;
+
+ if (!host_downloads)
+  {
+   host_downloads = _telix_dir;
+   strcat(host_downloads, "HSTFILES\");
+  }
+
+ if (!host_uploads)
+  {
+   host_uploads = _telix_dir;
+   strcat(host_uploads, "HSTFILES\");
+  }
+
+ while (1)
+  {
+   prints("^M^JHCONFIG - Host Mode Configuration Script^M^J");
+   printsc("A: Level 1 password       : ");
+   prints(pass1);
+   printsc("B: Level 2 password       : ");
+   prints(pass2);
+   printsc("C: Remote Shell password  : ");
+   prints(shellpass);
+   printsc("D: Shut down host pass    : ");
+   prints(shutpass);
+   printsc("E: Host download directory: ");
+   prints(host_downloads);
+   printsc("F: Host upload directory  : ");
+   prints(host_uploads);
+   printsc("G: Connection type        : ");
+   if (direct_connect)
+    prints("Direct");
+   else
+    prints("Modem");
+
+   prints("^M^JH: Exit without saving changes.");
+   prints("I: Exit and save changes to disk.^M^J");
+
+   printsc("Which option? ");
+   gets(s, 1);
+   prints("");
+   c = toupper(subchr(s, 0));
+   if (c < 'A' || c > 'I')
+    continue;
+
+   if (c >= 'A' && c <= 'G')
+    printsc("Enter new value (Esc to abort): ");
+
+   if (c == 'A')
+    {
+     stat = gets(s, 8);
+     if (stat != -1)
+      pass1 = s;
+    }
+   else if (c == 'B')
+    {
+     stat = gets(s, 8);
+     if (stat != -1)
+      pass2 = s;
+    }
+   else if (c == 'C')
+    {
+     stat = gets(s, 8);
+     if (stat != -1)
+      shellpass = s;
+    }
+   else if (c == 'D')
+    {
+     stat = gets(s, 8);
+     if (stat != -1)
+      shutpass = s;
+    }
+   else if (c == 'E')
+    {
+     stat = gets(s, 48);
+     if (stat != -1)
+      {
+       host_downloads = s;
+       strupper(host_downloads);
+      }
+     if ((i = strlen(host_downloads)) != 0)       // add slash if needed
+      if (subchr(host_downloads, i - 1) != '\')
+       copystr("\", host_downloads, i, 1);
+    }
+   else if (c == 'F')
+    {
+     stat = gets(s, 48);
+     if (stat != -1)
+      {
+       host_uploads = s;
+       strupper(host_uploads);
+      }
+     if ((i = strlen(host_uploads)) != 0)
+      if (subchr(host_uploads, i - 1) != '\')
+       copystr("\", host_uploads, i, 1);
+    }
+   else if (c == 'G')
+    {
+     stat = gets(s, 7);
+     if (stat != -1)
+      direct_connect = (toupper(subchr(s, 0)) == 'D');
+    }
+
+   else if (c == 'H')
+    {
+     prints("^M^JHCONFIG done.^M^J");
+     return;
+    }
+   else if (c == 'I')
+    {
+     s = _telix_dir;
+     strcat(s, "HOST.CNF");
+     f = fopen(s, "w");
+
+     if (!f)
+      {
+       printsc("Error writing to ");
+       printsc(s);
+       prints("!");
+       continue;
+      }
+
+     fputs(pass1, f);
+     fputs("^M^J", f);
+     fputs(pass2, f);
+     fputs("^M^J", f);
+     fputs(shellpass, f);
+     fputs("^M^J", f);
+     fputs(shutpass, f);
+     fputs("^M^J", f);
+     fputs(host_downloads, f);
+     fputs("^M^J", f);
+     fputs(host_uploads, f);
+     fputs("^M^J", f);
+     if (direct_connect)
+      fputs("Direct^M^J", f);
+     else
+      fputs("Modem^M^J", f);
+
+     prints("^M^JHCONFIG done.^M^J");
+     fclose(f);
+     return;
+    }
+  }
+}

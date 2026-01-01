@@ -1,0 +1,454 @@
+```
+                        С O Ф Т П А Н О Р А М А
+                    Vol.4, No. 10 (34) - декабрь 1992 г.
+
+             ╔════════════════════════════════════════════╗
+             ║ Поддержите хороший бюллетень, постарайтесь ║
+             ║ оформить  подписку  от  Вашей  организации ║
+             ╚════════════════════════════════════════════╝
+
+                          С О Д Е Р Ж А Н И Е
+
+   contents.04a -- Содержание текущего выпуска СОФТПАНОРАМЫ
+   foreword.a4a -  Предисловие редактора бюллетеня
+   authors.1st, readme.1st, subscrip.1st - Условия распространения,
+                  цена подписки, информация для авторов
+
+                          СПЕЦИАЛЬНАЯ РУБРИКА
+CRISTMAS\ - Новогодние сюрпризы
+
+    \RABETS\ - В лесу родилась елочка в исполнении  В.С. Рабеца :-)
+                  !chrtree.exe, content, read.me
+       \SRC\ - Исходники на Паскале.
+                  !chrtree.pas, egavga.obj, mainutil.pas, source.doc,
+                  treegvar.pas, treeinit.pas, treemain.pas, treeutil.pas,
+                  tregraph.pas, tremusic.pas
+
+!!! \VOLKOV\ - Еще не перевелись в Киеве программисты !!!!!!!!!!!!!!!
+               Блестящая реконструкция Norton Commander,
+               выполненная В.Волковым
+                  sviridov.a4a, vc.com, vc.ext, vc.hlp, vc.ini, vc.mnu,
+                  vcedit.ext, vcview.ext
+
+ARTICLES\ -------------------------------- СТАТЬИ УЧАСТНИКОВ СЕМИНАРА
+
+    tkachen1.a4a - Б.Ткаченко. Современные методы промышленной разработки
+                               программного обеспечения
+    tkachen2.a4a - Б.Ткаченко. Есть ли будущее у AUTOCAD технологии ?
+    pascal70.txt - Borland Pascal 7.0
+
+\FEATURES\ ----------------------------------- ЕЖЕМЕСЯЧНЫЕ РУБРИКИ ...
+
+    news        - Новости
+    chronicl    - Хроника заседаний семинара "СОФТПАНОРАМА"
+    humor       - Юмор
+    reviews     - Панорама компьютерной прессы
+    views       - И хакеры с глазами кроликов "In FIDO veritas" кричат... :-)
+                  (перепечатки некоторых сообщений из конференций FIDO )
+
+
+FEEDBACK\ ------------------ ОБРАТНАЯ СВЯЗЬ С ЧИТАТЕЛЯМИ СОФТПАНОРАМЫ
+
+    intergra.a4a - Intergraf Ltd. Преобразование видеосигнала в видеофильм
+    rom2bez.let -- Тимофей Ромасловский. О двойной паковке SP
+
+FORUM\ ------- ИСХОДНЫЕ ТЕКСТЫ ПРОГРАММ И ЗАМЕТКИ УЧАСТНИКОВ СЕМИНАРА
+
+    berezin.a4a - Предложение о создании банка данных о программистах ???
+
+    \ASM-CLUB\ -- Клуб "Настоящие программисты предпочитают ассемблер"
+!!!    \MILUKOV.!!!\ -- Александp Милюков
+          \M_MOUS\ -- Редактор шрифтов в драйвере
+             mous.asm, mous.com
+          \M_RESEDA\ -- Набор утилит для захвата текста экрана,
+                        редактирования и демонстрации
+                    a_data.scr, b_data.scr, c_data.scr, edit.asm,
+                    edit.com, reseda.asm, reseda.com, vi.asm, vi.com,
+             \DEMO\ -- Демонстрация этого набора утилит
+    a_data.scr, b_data.scr, c_data.scr, demo.bat, d_data.scr, edit.com,
+    e_data.scr, f_data.scr, g_data.scr, h_data.scr, i_data.scr,
+    j_data.scr, k_data.scr, l_data.scr, reseda.com, vi.com
+
+       \TSIGANOK\ - Вадим Цыганок. FastAbort -- лучше чем RELEASE,
+                    а впрочем попробуйте сами !!!
+                    fa.com, fae.com, faold.asm, readme.1st, readme.fa
+
+       \VOLYNSKI\ - Евгений Волынский. Сохранение пути в неиспользуемом
+                                       участке  видеопамяти
+                    autodir.asm, autodir.com, readme.1st
+
+    \C-CLUB\ ----------------- Клуб программистов, использующих язык С
+!!!     \PCYACC - PCYACC version 2.0, release 2.18
+             pcyacc.exe, read.me
+            \ANSIC\ - Xing Liu. "... for ANSIC parser".
+                 ansic.h, ansic.y, global.h, lex.c, main.c, makefile,
+                 test1.ac,test2.ac
+            \BRIEF\ - Dave Nanian and Michael Strickman. Basic Reconfigurable
+                  Interactive Editing Facility
+                   errorfix.cm, errorfix.m, extended.cm, extended.m
+            \CPP\ - result of an internal Abraxas project for developing a
+                   C PLUS PLUS (CPP) [C++] preprocessor and compiler.
+                   aggr.c, const.h, cppcmain.h, err.c, fct.c, fmt.c, gen.c, global.h,
+                   gram.y, lex.c, link.c, main.c, makefile.mak, new.c, readme.doc,
+                   source.c, source.cpp, type.c, yyerr.h, yylex.h, yytab.c, yytab.h
+!           \DB3\ - A parser for DBASEIII/Plus programming languages.
+                   const.h, db3.h, db3.y, example.db3, lex.c, main.c, makefile.mak,
+                   readme.doc
+             \DB4\ - A parser for DBASE-IV programming languages.
+                   const.h, db4.h, db4.y, lex.c, main.c, makefile, test1.db4, test2.db4
+             \GRAMMAR\ - Xing Liu. PCYACC grammar description for C
+                     programming language.
+                   k&r_c.y, lex.y, yacc.y
+             \HYPTLK\ - Xing Liu. PCYACC grammar description file for HYPERTALK.
+                   global.h, ht.h, ht.y, lex.c, main.c, makefile, test1.ht, test2.ht
+             \INTOPOST\ - Транслятор выражений из инфиксной формы в постфиксную.
+                   infix.1, infix.2, intopost.c, intopost.exe, intopost.obj, intopost.y,
+                   makefile, postfix.txt, yy.lrt
+             \PASCAL\ - Анализатор текстов паскалевских программ.
+                   exam1.pas, exam2.pas, exam3.pas, global.h, lex.c, main.c, makefile,
+                   pascal.c, pascal.h, pascal.y, readme.doc
+             \PIC\ - A simple PICture drawing routine.
+                   defs.h, draw.c, linbox.pic, line.pic, main.c, makefile, parse.c,
+                   parse.y, pic.exe, random.pic, scan.c, yysub.c, yytab.c, yytab.h
+             \POSTSCR\ - Xing Liu. lexical analyzer for POSTSCRIPT parser.
+                   global.h, lex.c, main.c, makefile, pscript.c, pscript.h, pscript.y,    test1.ps, test2.ps
+             \PROLOG\ - Loren Cobb. PCYACC grammar description file for Prolog.
+                   makefile, prolog.c, prolog.y, readme.doc, test1.pro, test2.pro
+             \SACALC\ - A Simple Arithmetic Calculator.
+                   makefile, sacalc.ast, sacalc.c, sacalc.exe, sacalc.obj, sacalc.y
+             \SMLTLK\ - Xing Liu. SMALLTALK method parser.
+                   exam1.st, exam2.st, global.h, lex.c, main.c, makefile, st.c, st.h,
+                   st.y
+              \SQL\ - Xing Liu. SQL parser.
+                   exam1.sql, exam2.sql, global.h, lex.c, main.c, makefile, sql.h, sql.y
+              \SRC\ - некоторые исходники.
+                   errorlib.c, errorlib.h, yaccpar.c
+
+    \ME-CLUB\ --------------------------------- Клуб любителей MultiEdit
+       ru-me.txt - Из конференции RU.MultiEdit.
+
+       \KORZUN\ - Евгений Корзун. Сервисные макросы общего назначения
+                  k_dvmenu.s, k_new6.src, read.me, status.me
+          \ME-DECOD - Декодер .MAC файлов в .SRC для ME 5.00P
+                  dk5c_mac.key, dk5c_mac.tab, dkt5_mac.exe, read.me
+
+    \TP-CLUB\ ----------------------------- Клуб пользователей Turbo Pascal
+       \BONDAR\ - Евгений Бондарь. Утилиты на паскале для работы с DBase
+                  bdd.pas, bdfile.pas, bmake.pas, bmd.pas, bmultfil.pas,
+                  needclip.pas, readme.elb, update.doc, update.pas, zapi.pas,
+                  zapp.pas
+
+       \VOLYNSKI\ - Евгений Волынский. Несколько маленьких полезных утилиток
+                  backsp.exe, backsp.pas, codukrms.exe, codukrms.pas, delpage.exe,
+                  delpage.pas, gcopy.exe, gcopy.pas, posfile.exe, posfile.pas,
+                  prtukr.exe, prtukr.pas, read.me, readme.1st, textcont.exe,
+                  textcont.pas, textstat.exe, textstat.pas, ves.pas, vespager.exe,
+                  vespager.pas, vesstr.pas
+
+REPRINTS\  ------------------------------------------------ ПЕРЕПЕЧАТКИ
+    times.a4a - О разработке программного обеспечения в Японии
+
+
+                               Выпуск B
+                        КОММЕРЧЕСКОЕ ПРИЛОЖЕНИЕ
+               (скомпонован в виде отдельного файла SP49-B)
+
+                            С О Д Е Р Ж А Н И Е
+
+
+\CALENDAR\- Календарь конференций (редакция продолжает перепечатку сообщений
+           из Internet, в частности конференций ACM и Usenix)
+    acm1127.b4a - Third Annual Internet Programming Contest Final Results
+    cebit'93.b4a - Международная  выставка CeBIT'93.
+    vlsi.b4a - Special Issue on Hardware Accelerators for VLSI Design.
+
+\DEMO\--------------------------------------- ДЕМОНСТРАЦИОННЫЕ ВЕРСИИ ПРОГРАММ
+
+!!! \MILUKOV.!!!\ - Реклама, которая действительно рекламирует !!!!
+        reclama.com - High Technologies for Klush Only.
+
+    \SEDACH\ - В.В. Седач.
+        \SEDACH\ - GVision - модуль графики для Turbo Vision.
+            gvdemo.exe, gvdemo.pas, readme
+
+\BOOKS\ ---------------------------------------------------------------- Книги
+    money.b4a - Справочник банкнот СКВ.
+    newbook1.b4a \
+    newbook2.b4a  \
+    newbook3.b4a   - Книги, вышедшие из печати и поступившие в Российскую
+    newbook4.b4a  /  Государственную библиотеку.
+    newbook5.b4a /
+
+\CRIMELOG\ ---------------------------------------- "Черный список" СофтПанорамы
+    crime - Украли компьютеры.
+
+\HARD\ -------------------------------------------------------------- ЖЕЛЕЗО
+    ibm.b4a - АО ДиалогНаука предлагает PS/1, PS/2 и PS/VP 386 и 486.
+    sheriff.b4a -  SHERIFF  Программно-аппаратный комплекс защиты.
+    summit.b4a - АО ДиалогНаука предлагает компьютеры фирмы Summit Systems.
+    zyxel.b4a - ZyXEL U-1496 Ультраскоростной MODEM/FAX/VOICE.
+
+\LINGSOFT\ - ГОСПОДА, ИЗУЧАЙТЕ АHГЛИЙСКИЙ ЯЗЫК. ЕСЛИ HЕ В СОСТОЯHИИ САМИ,
+             ТО ХОТЬ HАУЧИТЕ ДЕТЕЙ.
+    ling4ik.txt "ЭКСПО ЛИНГВА МОСКВА-92". 1-ая международная образовательная
+         выставка по лингвистической
+          технологии.
+
+    \CASEDET\
+
+        \CASEDET\ - "Падежный" детектив.
+            canim.exe, casedet.bat, egac16.bin, palette, russ.fnt
+
+            \COMMON\
+                bab.lzb, back0.lzw, bad.lzb, blude.lzb, boom.lzb,
+                boxes.lzb, brdr.lzb, bullet.lzb, ccube.lzb, cube.lzb,
+                cube1.lzb, det.lzb, dollar.lzb, dollar2.lzb, dub.lzb,
+                f1.lzb, field.lzb, fire.lzb, grammer.lzb, hand.lzb,
+                hand1.lzb, high.lzb, hlp.lzb, house.lzb, iintro.lzb,
+                kolt.lzb, kuleb.lzb, kvad.lzb, letnbx.lzb, lupa.lzb,
+                menu.lzb, naz.lzb, nog.lzb, nulbox.lzb, otec.lzb,
+                phone.lzb, play.idx, play.txt, pluk1.lzb, pluk2.lzb,
+                point.lzb, point1.lzb, point2.lzb, rad.lzb, reget.lzb,
+                return.idx, return.txt, rum.lzb, scha.lzb, ser.lzb,
+                table.lzb, target.lzb, trash.lzb, vus.lzb, window.lzb
+
+            \LES02\
+                \COMMON\
+                    blackb.lzb, demo.lzb, hlp1.lzb, smoky.lzb, titl.lzw,
+                    titr.lzb
+                \EX1\
+                    ex1.gis, exe1.idx, exe1.txt
+                \EX2\
+                    area.lzb, ex2.gis, exe2.idx, exe2.txt, ruletka.lzb,
+                    ruletka1.lzb
+                \EX4\
+                    ex4.gis, exe4-5.idx, exe4-5.txt, exe4.idx, exe4.txt,
+                    helpkub.lzb
+                \EX5\
+                    boxes.lzb, ex5.gis, exe5.idx, exe5.txt, s1.lzb,
+                    verb.lzb
+                \EX6\
+                    ex6.gis, exe6.idx, exe6.txt
+                \EX7\
+                    ex7.gis, exe7.idx, exe7.txt
+                \EX8\
+                    ex8.gis, exe8-1.idx, exe8-1.txt, exe8.idx, exe8.txt,
+                    kart.lzb
+                \EXX\
+                    exx.gis, shem.lzb
+                \PRESENT\
+                    black.lzb, circ.lzb, grammer.idx, grammer.txt,
+                    hide.lzb, pl.lzb, pres1.gis, pres2.gis, ret.gis,
+                    s.lzb
+
+    \LANGTEXT\ - "LANGSOFT" - Лингвистические компьютерные курсы.
+        read.me
+
+        \LANGTEXT\
+            price.txt - Ценовой лист.
+            rek1.txt, rek_eng1.txt - Русский словарь в упражнениях.
+            rek2.txt, rek_eng2.txt - Лингвистические компьютерные курсы.
+
+        \LRLS\ - "Listen, Read, Look - Master!"
+            1.scr, 2.scr, 3.scr, 4.scr, install.exe, lrlm.cfg, lrls.exe,
+            lrls.txt, name, read!me, readme, readme.exe, russ.fnt,
+            start.bat, track
+
+\SERVICE\ ---------------------------------------------------------- УСЛУГИ
+    serkov.b4a - Serkov Vadim. "Выполняем ВСЕ ВИДЫ полиграфических работ.."
+
+\SOFT\ ----------------------------------------------- Программные продукты
+    ca-info.b4a - Info о Computer Associates.
+    ca-soft.b4a - Программные продукты фирмы Computer Associates.
+    cort.b4a - АO "ДиалогНаука". КОРТ - "Корректор текстов".
+    fulc.b4a - АO "ДиалогНаука". Сверхбыстрая программа машинного перевода.
+    homepric.b4a - АO "ДиалогНаука". Ценовой лист на 1 ноября 1992.
+    insight.b4a - "INSIGHT" - Ценовой лист.
+    kadet.b4a - Вадим Рульнов. Каталогизатор дискет КАДЕТ.
+    lw.b4a - О 1-й Международной конференции по многотерминальным комплексам КРАБ.
+    maksoft.b4a - Софт-группы "МАК". Каталог программных продуктов.
+    pick.b4a - О многопользовательской ОС PIC.
+    priclist.b4a - Ценовой лист фирмы NOOS Private Limited.
+    sc51.b4a - Реклама SuperCalc 5.1.
+    spell.b4a - АО "ДиалогНаука" предлагает пакет SPELLING.
+    sysprsr6.b4a - РSDРМТ - СИСТЕМА ЧАСТИЧНОГО ОБСЛУЖИВАНИЯ ДИСКОВЫХ ПАКЕТОВ
+                 И МАГНИТНЫХ ЛЕНТ ДЛЯ ОПЕРАЦИОННЫХ СИСТЕМ ТИПА ОС ЕС И ОS/360
+    textra.b4a - АО "ДиалогНаука". ТЕКСТРА - система для автоматизации ввода
+                текстов в компьютер.
+    topspeed.b4a - Фирма ИHСАЙТ. Ценовой лист.
+
+\SPLOG\ ---------------------------------------------------------- Оглавления
+    spcontnt.txt - Оглавления всех предыдущих выпусков Софт Панорамы.
+
+\SUBCRIPT\ ---------------------------------------------------------- Подписка
+    canews - Реклама журнала Computer Associates News.
+
+                                Выпуск С
+                     A Н А Л И З  П Р О Г Р А М М
+                                   И
+          К О М П Ь Ю Т Е Р Н А Я     В И Р У С О Л О Г И Я
+
+content.c4a - Cодержание выпуска C
+readme.c ---- Информация для авторов
+
+\ARTICLES\ ------------------------------------------------------------ СТАТЬИ
+    bezrukov.c4a - Н.Безруков. Круглый стол "ВИРУСЫ: реальность и
+                  опасность".
+    vir-faq.c4a  - Frequently Asked Questions on VIRUS-L/comp.virus.
+                  Last Updated: 18 November 1992, 7:45 AM EST
+
+
+ANALYZE\ ------------------------------------------------ АНАЛИЗАТОРЫ ПРОГРАММ
+!   SYSLIKOV\ - Евгений Сусликов. Версия 3.34 'гляделки' Hiew (Hacker's view).
+              hiew.exe,  hiewread.me
+
+\ANTIVIR\ --------------------------------------------- АНТИВИРУСНЫЕ ПРОГРАММЫ
+    adinfq&a.txt - ADinf - Вопросы и ответы.
+    readme.c
+
+    \LOZINSKI\ - Дмитрий Лозинский. Полифаг AIDSTEST версии 415
+        aidsread.me, aidstest.exe
+
+!   \KRUKOVSKI\ - Максим Круковский, Феликс Грушевский
+        lecar.exe - полифаг ЛЕКАРЬ отражает киевскую действительность
+                    гораздо точнее, чем Aidstest
+        \LECARSRC\ - исходники  !!!
+
+    \EMELANOV\ - Д.И. Емельянов.
+        !.bat,
+        antisis.com  - Антивирус на группу вирусов Sistor.
+        antisis.doc /
+        immun.com  - Иммунизатор EXE и COM программ.
+        immun.doc /
+    \MAKAROV\ - Д. Макаров. BOOTCHK - Diskette BootSector Checker. специальная
+             антивирусная программа для борьбы с бутовыми вирусами на дискетах.
+        bootchk.lib, bootchk.lst, bootread.me, mz.txt, tbasic.txt
+
+
+\FORUM\ --------------------------------------------------------------- ФОРУМ
+
+    bogdanov.c4a - Vadim Bogdanov. "Antiviral Toolkit Pro by 'doctor' Kaspersky"
+    cs-day.c4a   - Международный день защиты компьютеров.
+    mostovoy.c4a - Д. Мостовой. "Анти,анти,анти...".
+    skulason.c4a - Virus Scanner Reviews (PC).
+
+\CROSACM\ - Кросс ассемблер.
+
+    \OLIYNIK.SHR\ - Oleinik W.L. Кросс ассемблер для микропроцессрора Zilog 80.
+        readme.1st, z80as.doc, z80as.exe, z80deb.asm, z80ins.tab,
+        z80tst.asm
+
+\DEBUG\ ---------------------------------------------- ТРАССИРОВЩИКИ/ОТЛАДЧИКИ
+    \MILUKOV\ - А.В. Милюков.
+
+!!!      \M_DEBUG.!!!\ -  Собственный отладчик.
+                          deb.asm, deb.com
+
+!!!      \M_LINGV1.!!!\ - Info типа Norton-овского.
+                          info.asm, info.com
+
+\DISASM\ --------------------------------------------------- ДИЗАССЕМБЛЕРЫ
+
+    itpu.cfg, itpu.doc, itpu.exe - Turbo Pascal (tm) Unit Interface Utility.
+
+\DETRANS\ -------------------------------------------------- ДЕКОМПИЛЯТОРЫ
+
+!!! \MILUKOV\
+    relace.asm, relace.com - А.В. Милюков. Корректор Sourcer-овских LST-ингов
+
+\HARD\ ------------------------------------------------------------ ЖЕЛЕЗО
+    8272.doc - Floppy контроллер i8272. Описание.
+    8272cmd.doc -   --//-- система команд.
+    8272form.doc -  --//-- формат хранения данных на дискете.
+    8272stat.doc -  --//-- регистры состояния.
+
+\SECURITY\ --------------------------------------------------------- ЗАЩИТА
+
+    \ALICE\ - В.Р. Ивинских. "АНТИВИРУСНЫЙ  БАРЬЕР"
+        abootx.com, barrier.sys, barrier.txt, bootx.sec
+
+!!! \MILUKOV\ - А.В. Милюков. Усилитель Deskreet-овской защиты.
+               (диско-файлы становятся неудаляемыми)
+        look_rus.asm, look_rus.com
+    \EMELANOV\ - Д.И. Емельянов.
+        protect.com  - Защита EXE и COM программ (Кто хочет поразмяться ?)
+        protect.doc /
+        pwinst.com  - Парольная защита винчестера.
+        pwinst.doc /
+
+                                Выпуск D
+             БАЗЫ ДАННЫХ, ЛОКАЛЬНЫЕ СЕТИ И ТЕЛЕКОММУНИКАЦИИ
+
+
+readme.d ------- Информация для авторов
+contents.d4a --- Содержание данного выпуска
+
+\ARTICLES\ ---------------------------------------- CТАТЬИ УЧАСТНИКОВ СЕМИНАРА
+
+          aspen1      - CA-Clipper, CA-dBFast и будущее Xbase
+          aspen2.     - "Дорогой разработчик на XBase..."  :-)
+          fivensk1    - Д.Фивейский. Clipper : прошлое, настоящее, будущее.
+          fivensk2    - Д.Фивейский. Инструментальные средства для Clipper
+                         в настоящем и в будущем.
+          gozikovs     - Л.Годзиковский, Д.Фивейский. А ты записался в Clipper-клуб?
+          komarov      - Г.Комаров, И.Золотов. ИНСТРУМЕНТАЛЬНЫЕ СРЕДСТВА И ИХ
+                         ИСПОЛЬЗОВАНИЕ НА ПРИМЕРЕ FLINT
+          kuzmin.      - А.Кузьмин. ЕСТЬ ЛИ ПЕРСПЕКТИВЫ У СИСТЕМЫ CLIPPER В РОССИИ ?
+          rjitov.      - Алексей Рытов. Объектно-ориентированные расширения в
+                         Clipper 5.0
+
+\FORUM\ --------------- ИСХОДНЫЕ ТЕКСТЫ ПРОГРАММ И ЗАМЕТКИ УЧАСТНИКОВ СЕМИНАРА
+    \CLARION\ ---------------------------------- Клуб пользователей Clarion
+       CLA30TXT\ -
+          cla30_01     - Clarion Developers Conference. Technical Notes.
+          cla30_02     - Steve  Greiner. Clarion  Professional  Developer  3.0.
+          cla30_02.rus - --//-- то же но по русски.
+          cla30_03     - Scott Mace. Clarion' DBMS gets outside data.
+          cla_hist     - История Clarion Software Corporation и ее программных продуктов.
+          jpi          - Clarion software and jpi. announce merger plans (усталера,
+                         но представляет интерес)
+          clarion3.0   - Professional Developer 3.0.
+          relvers.txt  - Clarion Professional Developer v.2.1. Получение новых
+                         релизов (release) и патчей (patch) для зарегистрированных
+                         пользователей.
+       CLAART\
+          pr_list       - Фирма ИHСАЙТ. Ценовой лист.
+          files.bbs
+          2uplabel.cla
+          cla_est.doc   - Сравнение Clarion с другими базами данных.
+          common.doc    - Расширения пакета Clarion.
+          compress.doc  - Описание LEMа "Сжатие".
+          compute.doc   - Описание LEMа "Вычисления".
+          foto.doc      - ОПИСАНИЕ LEMа "Фотография".
+          graf.doc      - Описание LEMа "Графика".
+          my_model.doc  - Информационное сообщение о Модельном файле.
+          readme.doc
+          clarnoos.lst  - Clarion на BBS-ине.
+          cla_mem.txt   - Как бороться с памятью в Clarion-программах?
+          cnpolicy.txt  - Политика Upload/Download на BBS ClarioNoos.
+          err.txt       - Некорректные и ошибочные ситуации.
+          olem.txt      - О подключении объектных модулей к EXE программам
+                   на Clarion-е, "оверлейных LEM-ах" и ..
+          pack_lem.txt  - Проблемы работы с Memo-полями.
+
+    \FOX-CLUB\ --------------------------------- Клуб пользователей FoxPro
+       \BODICHEV\ - Бодичев Олег. Пpогpамма пpивязки базы данных CORR.PRG.
+                   (база данных SP91.DBF-содеpжит оглавление СОФТПАHОРАМ)
+                    за 1991 г.
+                   corr.prg, cor_sp91.prg, corr.doc, corrmac.fky, sp91.dbf,
+                   sp91.fpt, corrhelp.dbf, corrhelp.fpt, start.prg
+    \CLIPCLUB\-------------------------- Клуб пользователей системы CLIPPER
+        readme -  О киевском Clipper-клубе
+        fedorish - Cергей Федоришин. Значимые статьи покойного бюллтеня "Nantucket News"
+        \HANIN\ - Разработки А.Г. & С.Г. Ханина
+                  avtor.spr, dbloc.prg, dbloc.rmk, gorod.dbf, iterat.prg,
+                  iterat.rmk, macblock.txt, read.me
+
+BENEFIC\ ---------------------------------- СОФТПАНОРАМА ПРЕДСТАВЛЯЕТ ...
+    \KOCHKARE\ -  Александр Кочкарев. Вьювер DAT-файлов Clarion-а.
+        clarview.doc, clarview.exe, standard.chr, standard.fnt
+
+!   \MILUKOV.!!!\ - Александр Милюков. Загрузка слов в буфер клавиатуры
+                   из словаря
+                   insert.asm, insert.com
+```

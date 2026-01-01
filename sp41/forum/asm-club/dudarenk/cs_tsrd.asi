@@ -1,0 +1,407 @@
+
+;--------------------------------------------------------
+;
+;  Cs_TsrD.Bsi -- Compact Soft Interface with TSRs
+;  Version 1.5
+;
+;--------------------------------------------------------
+;
+;  Release history:
+;
+;	Version 1.5:
+;		-- adding more comments;
+;
+;		-- fixing bug in Int2fh                   
+;		(save/restore al in function 1)
+;
+;		-- fixing bug in FindCSMultiplexor
+;		(es := cs before int 2f, al=0)
+;
+;		-- fixing bug in TSRInstall
+;		(es := cs before int 2f, al=2)
+;
+;--------------------------------------------------------
+
+_Day		substr	??date, 2, 2
+_Month		substr	??date, 5, 2
+_Year		substr	??date, 8, 2
+
+ProcessBlockType struc
+	CSLabel		db	11h, 'CS', 10h
+	CSMultiplexor	db	?
+	ProcessHandle	dw	?
+	Version1	db	2 dup (?)	; filled by MakeProcessBlock
+	PSP		dw	?               ; set by InitProcessBlock
+	NamePtr		dd	?		; set by InitProcessBlock
+	Date		db	3 dup (?)	; filled by MakeProcessBlock
+	RunTime		db	3 dup (?)	; set by InitProcessBlock
+	RunDate		db	3 dup (?)	; set by InitProcessBlock
+ends
+
+MakeProcessBlock macro
+ProcessBlock ProcessBlockType <>
+org	$ - size ProcessBlockType + 7
+	db	_VerMinor, _VerMajor
+org	$ + 6
+	db	_Day, _Month, _Year
+org	$ + 6
+endm
+
+MakeProductLabel macro
+ProductLabel label byte
+	db	_Name, 0
+	db	' by Compact Soft v.'
+	db_Ver
+	db	0, '$', 1ah
+endm
+
+MakeInt2fh macro SaveInt2fh, ComProc
+; if ComProc isn't blank, it is name of proc to be called if al=3
+
+ERRIFB <SaveInt2fh>
+
+Int2fh proc far
+
+	pushf
+	cmp	ah, cs: ProcessBlock.CSMultiplexor
+	jNE	@@ToNextProcess
+
+;-------------------------------------------------------------------
+	or	al, al
+;	$IF	E
+	JNE	cs_tsrd$IF1
+		; Function 0 - Check Installation
+		; IN :  ds:si -> ProcessBlock.CSLabel
+		; OUT:  if CSProcess then al = ff, es:di -> my CSLabel
+		;       else al = 1
+
+		push	es di si
+
+		push	cs
+		pop	es
+		mov	di, offset cs:ProcessBlock.CSLabel
+		cld
+		cmpsw
+		jNE	@@NotCSProcess
+		cmpsw
+;		$IF	NE
+		JE	cs_tsrd$IF2
+@@NotCSProcess:
+			; "busy" status (not installed & not ok to install)
+			mov	al, 1
+			pop	si di es
+			popf
+			iret
+;		$ENDIF
+cs_tsrd$IF2:
+
+		; "ok" status (installed) -- given only to CS processes
+		mov	al, 0ffh
+		mov	di, offset cs:ProcessBlock.CSLabel
+
+		pop	si
+		add	sp, 4 + 2	; drop  di, es, flags
+		iret
+;	$ENDIF
+cs_tsrd$IF1:
+
+;-------------------------------------------------------------------
+	cmp	al, 1
+;	$IF	E
+	JNE	cs_tsrd$IF3
+		; Function 1 - Find product by name
+		; IN : ds:si -> ASCIZ name to search
+		; OUT: es:di -> ProcessBlock
+		;      bx = ProcessHandle or 0
+		;
+		push	es di si ax
+
+		les	di, dword ptr cs: ProcessBlock.NamePtr
+		cld
+;		$DO
+cs_tsrd$DO1:
+			lodsb
+			scasb
+;			$IF NE
+			JE	cs_tsrd$IF4
+				xor	bx, bx
+				pop	ax si di es
+				jmp	@@ToNextProcess
+;			$ENDIF
+cs_tsrd$IF4:
+			or	al, al
+;		$ENDDO	jNE
+		JNE	cs_tsrd$DO1
+
+		; Comparison successful -- it's a call to us
+		mov	bx, cs: ProcessBlock.ProcessHandle
+		push	cs
+		pop	es
+		mov	di, offset ProcessBlock
+
+		pop	ax si
+		add	sp, 4 + 2	; drop  di, es, flags
+		iret
+;	$ENDIF
+cs_tsrd$IF3:
+
+;-------------------------------------------------------------------
+	cmp	al, 2
+;	$IF	E
+	JNE	cs_tsrd$IF5
+		; Function 2 - Get process block by handle
+		; IN : bx = handle
+		; OUT: if bx = ProcessHandle then es:di -> ProcessBlock
+
+		cmp	bx, cs: ProcessBlock.ProcessHandle
+		jNE	@@ToNextProcess
+
+		push	cs
+		pop	es
+		mov	di, offset ProcessBlock
+
+		popf
+		iret
+;	$ENDIF
+cs_tsrd$IF5:
+
+IFNB	<ComProc>
+	cmp	al, 3
+;	$IF	E
+	JNE	cs_tsrd$IF6
+		; Function 3 - Call Communication Block
+		; IN : bx = handle
+		call	ComProc
+		popf
+		iret
+;	$ENDIF
+cs_tsrd$IF6:
+ENDIF
+
+;-------------------------------------------------------------------
+@@ToNextProcess:
+	popf
+	jmp_vect	SaveInt2fh
+Int2fh endp
+
+endm	; MakeInt2fh
+
+
+MakeTSR$ macro
+ErrorInstall$1	db 'Error, all multiplex handlers are busy.',13,10,'$'
+ErrorInstall$2	db 'Error, '
+		db _Name, ' already installed.', 13,10,'$'
+ErrorInstall$3	db 'Error, '
+		db _Name, ' not installed.', 13,10,'$'
+endm
+
+MakeInitProcessBlock macro
+InitProcessBlock proc near
+	mov	ProcessBlock.PSP, cs		;!!!
+	mov	ah, 2ch
+	int	21h		;get time
+	mov	ProcessBlock.RunTime[0], dh
+	mov	word ptr ProcessBlock.RunTime[1], cx
+	mov	ah, 2ah
+	int	21h		;get date
+	mov	word ptr ProcessBlock.RunDate[0], dx
+	sub	cx, 1900
+	mov	ProcessBlock.RunDate[2], cl
+	mov	word ptr ProcessBlock.NamePtr [0], offset ProductLabel
+	mov	word ptr ProcessBlock.NamePtr [2], cs
+	ret
+InitProcessBlock endp
+endm
+
+MakeFindCSMultiplexor macro
+FindCSMultiplexor proc near
+; IN:
+;	(none)
+; OUT:
+;	CF = 0 if success
+;	ah = CS multiplex handler
+;	es:di -> ProcessBlock of last loaded CS TSR
+
+	cld
+
+	mov	ax, 8000h
+;	$DO
+cs_tsrd$DO2:
+		mov	si, offset ProcessBlock
+		push	cs
+		pop	es
+		mov	di, offset ProcessBlock + 1
+		push	ax
+		int	2fh
+		cmp	al, 0ffh
+		pop	ax
+;		$IF	E
+		JNE	cs_tsrd$IF7
+			cmpsw
+			jNE	@@Continue
+			cmpsw
+			jNE	@@Continue
+                        clc
+			ret
+;		$ENDIF
+cs_tsrd$IF7:
+@@Continue:
+		inc	ah
+;	$ENDDO	jNE
+	JNE	cs_tsrd$DO2
+	stc
+	ret
+FindCSMultiplexor endp
+endm
+
+MakeFindFreeMultiplexor macro
+FindFreeMultiplexor proc near
+; IN:
+;	(none)
+; OUT:
+;	CF = 0 if success
+;	ah = free multiplexor handler
+
+	mov	ax, 8000h
+;	$DO
+cs_tsrd$DO3:
+		push	ax
+		int	2fh
+		or	al, al
+		pop	ax
+;		$IF	Z
+		JNZ	cs_tsrd$IF8
+			clc
+			ret
+;		$ENDIF
+cs_tsrd$IF8:
+		inc	ah
+;	$ENDDO	jNE
+	JNE	cs_tsrd$DO3
+	stc
+	ret
+FindFreeMultiplexor endp
+endm
+
+MakeFindTSR macro NoHalt
+FindTSR proc near
+; IN:
+;	(none)
+; OUT:
+;	CF = 0 if success
+;	bx = CS TSR handle
+
+	call	FindCSMultiplexor
+	jC	@@FindTSRError
+	push	ds
+	lds	si, dword ptr ProcessBlock.NamePtr
+	mov	al, 1
+	int	2fh
+	pop	ds
+	or	bx, bx
+
+	clc
+	IFB	<NoHalt>
+;		$IF	Z
+		JNZ	cs_tsrd$IF9
+@@FindTSRError:
+			mov	dx, offset ErrorInstall$3
+			mov	ah, 09h
+			int	21h
+			int	20h
+;		$ENDIF
+cs_tsrd$IF9:
+	ELSE
+;		$IF	Z
+		JNZ	cs_tsrd$IF10
+			stc
+;		$ENDIF
+cs_tsrd$IF10:
+@@FindTSRError:
+	ENDIF
+	ret
+FindTSR endp
+endm
+
+MakeNoRes macro
+.data
+MakeTSR$
+.code
+MakeInitProcessBlock
+MakeFindCSMultiplexor
+MakeFindFreeMultiplexor
+endm
+
+TSRInstall macro SaveInt2fh, AllowAlready
+	local	@@exit
+
+	ERRIFB	<SaveInt2fh>
+	call	FindCSMultiplexor
+;	$IF	C	; we are the first CS_TSR program
+	JNC	cs_tsrd$IF11
+		call	FindFreeMultiplexor
+;		$IF	C	; can't install -- no free multiplex handlers
+		JNC	cs_tsrd$IF12
+			mov	ah, 09h
+			mov	dx, offset ErrorInstall$1
+			int	21h
+			int	20h
+;		$ENDIF
+cs_tsrd$IF12:
+		mov	ProcessBlock.CSMultiplexor, ah
+		mov	ProcessBlock.ProcessHandle, 1
+;	$ELSE
+	JMP       cs_tsrd$IF13
+cs_tsrd$IF11:
+		mov	ProcessBlock.CSMultiplexor, ah
+
+		push	ds
+		lds	si, dword ptr ProcessBlock.NamePtr
+		mov	al, 1
+		int	2fh   	; get handle by name
+		pop	ds
+		or	bx, bx
+;		$IF	NE	; already installed
+		JE	cs_tsrd$IF14
+			IFB	<AllowAlready>
+				mov	ah, 09h
+				mov	dx, offset ErrorInstall$2
+				int	21h
+				int	20h
+			ELSE
+				stc
+				jmp	@@exit
+			ENDIF
+;		$ENDIF
+cs_tsrd$IF14:
+		xor	bx, bx
+		mov	al, 2
+;		$DO		; find free handler
+cs_tsrd$DO4:
+			inc	bx
+			mov	si, offset ProcessBlock
+			push	cs
+			pop	es
+			mov	di, offset ProcessBlock + 1
+			int	2fh
+			mov	cx, 2
+			cld
+			repe	cmpsw
+;		$ENDDO  jE
+		JE	cs_tsrd$DO4
+		mov	ProcessBlock.ProcessHandle, bx
+;	$ENDIF
+cs_tsrd$IF13:
+
+	mov	ax, 352fh
+	int	21h
+	mov	word ptr SaveInt2fh, bx
+	mov	word ptr SaveInt2fh + 2, es
+	mov	ax, 252fh
+	mov	dx, offset Int2fh
+	int	21h
+	clc
+@@exit:
+; CF = 1 if already installed
+;   in this case, bx = handle, es:di -> resident's ProcessBlock
+endm

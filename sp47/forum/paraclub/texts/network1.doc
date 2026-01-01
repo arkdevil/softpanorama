@@ -1,0 +1,306 @@
+Multi-user corner
+
+Multi-User Record Locking
+
+By Kevin Smith
+
+Softbite International
+
+33 N. Addison Rd., Suite 206
+
+Addison, IL  60101
+
+Ph: 708-833-0006
+
+Many times, people wonder when and how to code PAL record locks in a
+multi-user environment.  The question can be answered in many ways, as
+different developers have different ideas on when and how to lock (and
+more importantly, to unlock) records.  The approach described here is
+one I have used successfully.
+
+The code presented here does not treat "non-record-locking" issues - it
+is shown as an illustration of how the record locks are placed and
+released.  The code also does not handle KEY VIOLATIONS.
+
+When CoEditing a table, there are only three things the user can do to
+modify data:  Add new records, change existing records and delete
+existing records.  Each of these actions requires different
+locking/unlocking requirements.  Let's look at each individually:
+
+Add new records
+
+When the user (or PAL) presses INS (or appends a new record onto the end
+of a table), the screen appears to add a blank record to the table.
+Actually, the table is not modified until the user posts the record by
+leaving the record; prior to posting, this new blank record is shown
+only on the screen of the user adding the record.
+
+Since the new record is not yet in the table, there is no need to lock
+the record prior to the adding of the new data to the blank record.
+When the user is finished with the record and moves to a different
+record, the new record will be added to the table.
+
+When writing scripts to control the inserting process, the developer has
+two choices:
+
+	1.)	Let Paradox automatically post the new record when the user moves
+to a different record.
+
+		The disadvantage to this approach is that if the table is keyed, the
+new record will "fly away" to its proper place, leaving the user on a
+"strange" record.
+
+	2.)	Code the posting of the new record in PAL.
+
+		This posting is done when the user has indicated they are finished
+with the record (a function key, PgUp, PgDn, etc. in the UNTIL clause of
+the WAIT statement).
+
+		In a non-keyed table, this posting is done through the PAL command:
+
+			UNLOCKRECORD
+
+		This command will cause the new record to be added to the table.  It
+has the same effect as moving off the record, then moving back onto the
+record.
+
+		In a keyed table, this posting is done through the PAL commands:
+
+			LOCKRECORD
+
+			UNLOCKRECORD
+
+		The LOCKRECORD will cause the new record to be added to the table, but
+retaining cursor position on the record during the "fly-away" process.
+To fully complete the posting operation, the UNLOCKRECORD command is
+issued (to release the lock placed by the LOCKRECORD).
+
+CHANGE existing records
+
+When the user (or PAL) makes a change to an existing unlocked record,
+Paradox attempts to place a record lock on the record.  This assures
+that no other users can change or delete the record while the user is
+modifying the record.  The requirement for PAL coded record locking and
+unlocking depends on whether the PAL program is trying to modify the
+record through an assignment to one of the fields.
+
+In a single-user application, the following code will work just fine:
+
+WHILE TRUE
+
+   WAIT TABLE ; allow user to select which record to edit
+
+      PROMPT "Move to the record to modify then press F7"
+
+      UNTIL  "F7","F2"
+
+   IF retval = "F7" THEN ; the user wants to edit this record
+
+      FormKey   ; flip to a form
+
+      [DATE STAMP] = today()  ; stamp today's date in record
+
+      [TIME STAMP] = time()   ; stamp current time in record
+
+      WAIT RECORD ; user can make changes to this record only
+
+         PROMPT "Press F2 when done"
+
+         UNTIL  "F2"
+
+   ELSE
+
+      QUITLOOP
+
+   ENDIF
+
+ENDWHILE
+
+But in a multi-user environment, the user will encounter a script error
+if another user is making changes to the record at the time of the
+statement --> [DATE STAMP] = today().  This statement modifies data in
+the record, so Paradox attempts to place an automatic record lock prior
+to this modification.  If another user is modifying the record (they
+have locked the record), the automatic record lock cannot be placed and
+the statement cannot be executed (a script error will occur).
+
+This situation can be prevented by the following additions to the code:
+
+WHILE TRUE
+
+   WAIT TABLE ; allow user to select which record to edit
+
+      PROMPT "Move to the record to modify then press F7"
+
+      UNTIL  "F7","F2"
+
+   IF retval = "F7" THEN ; the user wants to edit this record
+
+      LOCKRECORD ; attempt to lock the record
+
+      IF retval = false THEN ; the lock failed
+
+         BEEP
+
+         MESSAGE "This record is locked by another user
+
+                   - Try again later"
+
+         SLEEP 1500 ; wait one second
+
+      ELSE
+
+         FormKey   ; flip to a form
+
+         [DATE STAMP] = today()  ; stamp today's date in record
+
+         [TIME STAMP] = time()   ; stamp current time in record
+
+         WAIT RECORD ; user can make changes to this record only
+
+            PROMPT "Press F2 when done"
+
+            UNTIL  "F2"
+
+         UNLOCKRECORD ; release the lock and post the changes
+
+      ENDIF
+
+   ELSE
+
+      QUITLOOP
+
+   ENDIF
+
+ENDWHILE
+
+After the LOCKRECORD command, the variable retval will be set to true or
+false, depending on whether the lock worked or failed, respectively.  If
+the lock failed, the user is given a message, then returned to the WAIT
+TABLE.  If the lock worked, the user is allowed to modify the record.
+When finished, the UNLOCKRECORD will cause the posting of the changes to
+the table.
+
+DELETE existing records
+
+When the user (or PAL) deletes an existing unlocked record, Paradox
+attempts to place a record lock on the record.  This assures that no
+other users are making changes to the record that the user wants to
+delete.  The requirement for PAL coded record locking and unlocking
+depends on whether the PAL program is trying to delete the record with a
+DEL statement, or the user pressed the Del key on a WAIT TABLE that does
+not "trap" for "Del".  For example, the following code will work fine
+for the deleting of records in single-user and multi-user environments.
+
+WAIT TABLE ; allow user to make any changes
+
+   PROMPT "Make any changes necessary, then press F2"
+
+   UNTIL  "F2"
+
+DO_IT!
+
+Since there is no DEL statement ever executed (the user deletes records
+directly from the WAIT without program interaction), there is no record
+locking necessary.
+
+However, in most situations, there is a need for confirmation of delete
+operations.  In a single user application, the following code will work
+just fine:
+
+WHILE TRUE
+
+   WAIT TABLE ; allow user to select which record to delete
+
+      PROMPT "Move to the record to delete, then press Del"
+
+      UNTIL  "Del","F2"
+
+   IF retval = "Del" THEN ; the user wants to delete this record
+
+      SHOWMENU    ; give user change to "cancel" the delete
+
+         "Oops!" :"Do not delete the record",
+
+         "Delete":"Delete the record"
+
+      TO del_ok   ; store "Oops!","Delete" or "Esc" in del_ok
+
+      IF del_ok = "Delete" THEN
+
+         DEL  ; perform the delete operation on the record
+
+      ENDIF
+
+      RELEASE VARS  del_ok
+
+   ELSE ; F2 was pressed
+
+      QUITLOOP
+
+   ENDIF
+
+ENDWHILE
+
+But in a multi-user environment, the user will encounter a script error
+if another user is making changes to the record at the time of the
+statement --> DEL.  This statement deletes a record, so Paradox attempts
+to place an automatic record lock prior to this delete.  If another user
+is modifying the record (they have locked the record), the automatic
+record lock cannot be placed and the statement cannot be executed.
+
+This situation can be prevented by the following additions to the code:
+
+WHILE TRUE
+
+   WAIT TABLE ; allow user to select which record to delete
+
+      PROMPT "Move to the record to delete, then press Del"
+
+      UNTIL  "Del","F2"
+
+   IF retval = "Del" THEN ; the user wants to delete this record
+
+      LOCKRECORD ; attempt to lock the record
+
+      IF retval = false THEN ; the lock failed
+
+         BEEP
+
+         MESSAGE "This record is locked by another user
+
+                   - Try again later"
+
+         SLEEP 1500 ; wait one second
+
+      ELSE
+
+         SHOWMENU ; give user change to "cancel" the delete
+
+         "Oops!" :"Do not delete the record",
+
+         "Delete":"Delete the record"
+
+         TO del_ok ; store "Oops!","Delete" or "Esc" in del_ok
+
+         IF del_ok = "Delete" THEN
+
+            DEL  ; perform the delete operation on the record
+
+         ELSE
+
+            UNLOCKRECORD ; remove the record lock placed above
+
+         ENDIF
+
+         RELEASE VARS  del_ok
+
+      ENDIF
+
+   ELSE ; F2 was pressed
+
+      QUITLOOP
+
+   ENDIF
+
+ENDWHILE

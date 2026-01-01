@@ -1,0 +1,191 @@
+
+
+                       Oleg P. Pilipenko
+
+                      Objective: Windows
+
+        Object-oriented programming ( OOP ) is the leading edge
+of software development in the 90-th.  Experts predict that up
+to 80% of software that would be written to the end of century
+would be written by means of OOP.
+
+        Object-oriented programming ( or software design ) is
+"the construction of software systems as structured collections
+of abstract data-type implementations," according to Bertrand
+Meyer.  It is a programming paradigm in which the emphasis is on
+the thing to be manipulated rather than on the functions to be
+performed.
+
+        One most promissing applications of OOP is the user
+interface design.  I'd like to suggest a simple object-oriented
+windowing system.  It will be useful as an example of OOP, but
+can be used as a real windowing tool in your OOP applications.
+
+
+		Simpliest window object
+
+        Windowing is the single most common user interface tool
+and is especially important on personal computers, where users
+are often not computer experts.  Windows are used for data-entry
+screens, user prompts, status bars, light-bar menus,
+context-sensitive help screens - an endless list.
+
+        A window is an area on the screen, usually rectangular,
+that acts independently of the rest of the screen.  Standard
+Turbo Pascal unit CRT exports procedure Window.  Yet
+opportunities of this procedure are restricted.  You can't
+define frame and title for your window.  First OOP example in
+this paper fixes this omission.
+
+	Unit ObjWin defines window object:
+
+WinObj = object
+         Win        : WinState;
+         Border     : FrameChars;
+         BorderAttr : byte;
+         HeaderPtr  : ^TitleStr;
+         HeaderAttr : byte;
+         UserFlags  : byte;
+         constructor Init(LC, TR, RC, BR, WinAttr : byte;
+                     var Frame : FrameChars; FrameAttr : byte;
+                     Title : TitleStr; TitleAttr : byte;
+                     WinFlags : byte);
+         procedure Open; virtual;
+         end;
+
+	Types WinState, FrameChars and TitleStr are imported
+from Turbo Pascal 6 demo unit Win. 
+
+        To use window object in your application you must
+initialize it and then open.  This allows you to define all the
+windows that you will use in an application at the beginning of
+the program where they will be easy to find and maintain.  In
+this way, you can change the characteristics of a window without
+hunting down the section of code that opens it.
+
+	Constructor Init accepts arguments:
+
+	LC, TR, RC, BR - left column, top row, right column and
+bottom row of initializing window.  If you use frame you must
+specify coordinates of frame, not actual window;
+
+	WinAttr - text attribute that would be active after
+window opens;
+
+	Frame, FrameAttr - shape and text attributes of the
+frame;
+
+	Title, TitleAttr - window header and it's text
+attribute;
+
+        WinFlag - byte that specifies some characteristics of
+the window.  Each characteristic is represented by one bit in
+the byte.  Lowest bit determines whether or not the window will
+be cleared after it is displayed on the screen.  Setting second
+bit produces a frame around the window.  I've defined several
+constants in the interface section of the unit to assist you in
+building the WinFlag byte.  The DefaultFlag constant represents
+the most commonly used type of window.
+
+        At some point in the application, after you have defined
+a window, you will want to display it on the screen.  You can
+use the Open method for this purpose.  This method saves the
+screen space under the window, if specified, draws frame around
+window and title.  At last it sets appropriate viewport for
+subsequent output statements.
+
+	Unit provides also function Attr.  It takes two color
+parameters and returns an attribute byte.
+
+	Program ObjTest shows how to use simpliest window
+objects.
+
+        
+		Advanced window object
+
+        There are two major differences between a window and a
+box drawn on the screen.  First, when you open a window, all
+output to that window appears within the window's borders.  If a
+line is too long to fit in the window, it either wraps to the
+next line or is clipped at the window's edge.  If too many lines
+are displayed, the text in the window scrolls up to make room.
+Second, when you close a window, its borders and contents
+disappear from the screen, the text that had been there before
+you opened the window reappeares, the cursor returns to its
+previous position, and the active text attribute is reinstated.
+To support this features I wrote more advanced version of ObjWin
+unit.
+
+	In advanced version of unit I defined new object type,
+descendant of WinObj:
+
+PopUpWinObj = object(WinObj)
+              BufferPtr  : pointer;
+              constructor Init(LC, TR, RC, BR, WinAttr : byte;
+                          var Frame : FrameChars; FrameAttr : byte;
+                          Title : TitleStr; TitleAttr : byte;
+                          WinFlag : byte);
+              procedure Open; virtual;
+              procedure Close; virtual;
+              procedure Select; virtual
+              end;
+
+        Instances of that type can save underlying screen area
+on the heap.  I made this feature optional because it is memory
+consuming.  You may not specify this option if you don't want to
+restore, for example, original DOS screen.  Third bit of WinFlag
+determines whether or not the screen data under the window will
+be saved on the heap.  BufferPtr is the pointer to this data on
+the heap.
+
+	Constructor Init calls constructor of ancestor object
+and than sets BufferPtr to nil.
+
+        Open method is similar to the ancestor's method, but
+also saves underlying screen area.  Open method selects its
+master as currently active window.
+
+        You can use Close method to remove window from the
+screen.  If the screen area below the window was saved, method
+copies it back from the heap.  If the currently active window is
+the one that you are closing, Close selects FullScreen as a
+current window.
+
+        Most applications that use windows have more than one
+window open at a time.  Open method automatically selects the
+new window as the active window.  This means that all screen
+output statements affect that window.  When it becomes necessary
+to update another open window without closing the first, you
+must explicitly select the other window with it's Select method.
+
+        In a world characterized by popup windows, you
+frequently operate within time-space hierarchy.  For example,
+you pull down a menu, then pop up a dialog box, then display a
+message window.  These objects must be removed in the proper
+sequence, which suggests a LIFO stack.  My windowing unit
+doesn't provide a mechanism for managing the hierarchy; that's
+your responsibility. 
+
+        Advanced windowing unit contains two variables that are
+available to the application.  First is the CurrentWin - pointer
+to the active window object, and second - object that
+initialized as original DOS screen, FullScreen.
+
+        Advanced version of the demo program shows how to use
+new methods Select and Close.  Procedure PlayAll emulate
+parallel output to all opened windows.
+
+
+		How to use these units
+
+        These units are not more than examples of OOP technique,
+but you can use them in your OOP applications.  I think that you
+can produce descendants of the PopUpWinObj type with more
+versatile methods.  You can add support of window stack 
+to select new active window more intelligently after closing
+currently active window.  Also you can add methods that hide,
+relocate or resize window.
+
+	If you wish to make your applications look
+professionally, you need routines that controls the cursor size
+and color palette. 

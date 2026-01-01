@@ -1,0 +1,349 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>Chuck McManis. Just In Time Compilation</TITLE>
+<META NAME="Author" CONTENT="">
+<META NAME="GENERATOR" CONTENT="Mozilla/3.0Gold (WinNT; I) [Netscape]">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF">
+
+<CENTER><P><B><FONT SIZE=+3>Just In Time Compilation</FONT></B></P></CENTER>
+
+<CENTER><P><B><FONT SIZE=+1>A look at the technology that turbo charges
+Java applications.</FONT></B><BR>
+</P></CENTER>
+
+<CENTER><P><B>By Chuck McManis</B><BR>
+
+<HR WIDTH="100%"></P></CENTER>
+
+<UL>
+<P><B>Summary<BR>
+</B>The advent of Java has augmented the vocabulary of WWW developers
+and programmers with phrases such as &quot;executable content&quot;, &quot;applets&quot;,
+&quot;byte codes&quot;, and &quot;JIT compilers.&quot; In an effort to
+keep up with the current state of things, lets take a look at one of the
+most intriguing technologies in the Java suite, Just-in-Time (JIT) compilers.</P>
+
+<P><B>Java Compilation<BR></B>
+Java is known as an interpreted language, however, this
+is only half true. Java source code is in practice compiled into an intermediate
+form known as Java byte codes or J-code. In this way, a Java compiler is
+not unlike any other language compiler such as C or C++. The difference
+is that non-Java compilers typically write out the compiled code into an
+intermediate form that is proprietary to the compiler, which is then post
+processed by a compilation 'back end' into the object code that is later
+linked into libraries or executables. Java on the other hand defines an
+intermediate code that is amenable to on the spot interpretation and this
+code is interpreted by the Java virtual machine. </P>
+
+<P>What makes one intermediate code amenable to interpretation and another
+not? Any number of factors can contribute, however the areas where Java
+is specifically interpreter driven is in the format of the file structure,
+the class file layout.</P>
+
+<P>Class files are designed with exactly defined data sizes and organizations.
+This specification of binary precisions and byte orderings insures that
+any virtual machine that is properly constructed will be able to read and
+then execute J-code. Further, the pieces of the file are all indexed by
+a single data structure called the &quot;Constant Pool&quot; at the beginning
+of the file. This data structure is used to reference methods within the
+class by pointers that are filled in when the class file is loaded. Once
+loaded, the set of class files that make up the current Java application
+form an interconnected graph of class structures with their constant pools
+containing bound references (references that contain pointers to methods
+in other classes) between them. </P>
+
+<P>Java class files can also make a reasonable intermediate point for
+languages other than Java. Two such languages, Ada95 and NetREXX, have
+compilers available that generate j-code files as their output.</P>
+
+<P><B>Java Execution<BR>
+</B>Once the class files are loaded and the references in the constant pools
+resolved, some method is used to start the Java virtual machine in motion.
+For applications it is the static method 'main' in the first class that was
+loaded, in applets it is the method 'init' in the main applet class. In
+either event, the virtual machine starts its interpreter by pointing its
+execution environment vector at the first byte code of the first method and
+executing it.</P>
+
+<P>If you have the source code to Java (and you can get it for free by faxing
+a signed copy of the source license to Sun Microsystems) execution begins
+when the virtual machine calls the function <code>ExecuteJava()</code> in the
+<b>interpreter.c</b> module. </P>
+
+<P><B>Interposing on the Flow<BR>
+
+</B>So to summarize what happens when you run a Java program, the flow is
+something like this. (Well, its exactly like this in systems derived from the
+Sun source code.)</P>
+
+<P>Some application, which contains a copy of the Java virtual machine, loads
+an initial class file. In the case of a web browser the JVM is in a shared
+object or DLL that is loaded with the browser, in the case of the Sun Java
+Developers Kit (JDK) the JVM is part of the 'java' application. When loaded,
+the class file is scanned for references to other classes, which are also
+loaded. This occurs recursively until no more unresolved load references
+remain. Then the application starts the class by invoking the interpreter on
+a previously specified method (<FONT COLOR="#0000A0">main() </FONT>or <FONT
+COLOR="#0000A0">init()</FONT>). During execution, new references to unknown
+classes are resolved. Execution 'ends' when there are no more user threads in
+the system.</P>
+
+<P>Interposing a new capability into the system is most easily done at the
+stage where the class is loaded. During class loading, the system has the
+unprocessed byte codes and is in the process of creating a structure from
+which the interpreter will execute those byte codes. The typical JIT compiler
+is called here, when the class is about to be loaded, to replace the byte
+codes with a faster version of those codes. </P>
+
+<P><B>Just-in-time Compilation<BR>
+</B>&quot;So if I've already compiled my code, what does a JIT compiler buy
+me?&quot; The answer to this question has two parts, first in a regular
+compiler many optimizations are done on the intermediate code rather than on
+the source code and second the difference between code to emulate an
+instruction versus code to just do it, is significant.</P>
+
+<P>While it is possible to do just optimizations, most JIT compilers do both
+optimizations and wholesale code replacement. </P>
+
+<P>An optimization consists of rewriting the byte codes to eliminate
+redundancies. For example, the code of a for loop might be written:</P>
+
+<P><pre><FONT COLOR="#0000A0">for (int i = 0; i &lt; someString.length();
+i++) { // do something here }</FONT></pre></P>
+
+<P>The for loop would invoke the <i><FONT COLOR="#0000A0">length()</i></FONT>
+method on <code><FONT COLOR="#0000A0">someString</code></FONT> each time it
+iterated through the loop. However, as strings in Java are immutable, the
+value returned by <i><FONT COLOR="#0000A0">length()</i></FONT> is effectively
+a constant. That means that repeated calls to the method are unnecessary.</P>
+
+<P>An optimizer, detecting this condition, can rewrite the byte code to
+implement this code:</P>
+
+<P><pre><FONT COLOR="#0000A0">int temporaryValue = someString.length();
+for (int i = 0; i &lt; temporaryValue; i++) { // do something here } </FONT></pre></P>
+
+<P>The above code runs faster because the the number of method call
+invocations has been reduced to one. This is a very common optimization found
+on existing compilers. A similar optimization is to convert the code:</P>
+
+<P><pre><FONT COLOR="#0000A0">for (int i = 0; i &lt; 4; i++) { someArray[i]
+= i; }</FONT> </pre></P>
+
+<P>To something like:</P>
+
+<P><pre><FONT COLOR="#0000A0">someArray[0] = 0; someArray[1] = 1; someArray[2]
+= 2; someArray[3] = 3;</FONT> </pre></P>
+
+<P>This technique is known as loop unrolling, and it is primarily a speed
+optimization. It eliminates the initialization and testing of the <i>i</i>
+variable, reducing the total number of instructions executed at the cost
+of some increase in size.</P>
+
+<P>Another Java based optimization involves noting that to be truely object
+oriented sometimes means writing code that is not very efficient. Consider
+a class <b><FONT COLOR="#0000A0">Foo</b></FONT> which has the method <i><FONT COLOR="#0000A0">barValue()</i></FONT>
+and is implemented as follows:</P>
+
+<P><pre><FONT COLOR="#0000A0">class Foo { private int bar = 4;</FONT></P>
+
+<P><FONT COLOR="#0000A0">/** return bar's value */ public int barValue()
+{ return bar; } }</FONT> </pre></P>
+
+<P>This may seem like a contrived example until you realize that the
+<b>String</b> class in Java has a <i>length()</i> method that does exactly
+this.</P>
+
+<P>Now a reference in the code that was written like the following code.</P>
+
+<P><pre><FONT COLOR="#0000A0">Foo someFoo = new Foo(); int z = someFoo.barValue();</FONT>
+</pre></P>
+
+<P>Could be implemented as shown in the code below.</P>
+
+<P><pre><FONT COLOR="#0000A0">int z = someFoo.bar; </FONT></pre></P>
+
+<P>This version would be faster as there is no method reference but would
+only be valid if the instance variable <i>bar</i> wasn't private. If the
+Java compiler produced code that referenced <i>bar</i> directly (as it
+does when the -O flag is used with the <code>javac</code> command) then
+the byte codes would be rejected on loading by the byte code verifier because
+an object that wasn't <i>Foo</i> was referencing a private field inside
+of <i>Foo</i> which is strictly forbidden. Thus it is possible to do some
+of these optimizations only after the objects have been run through the
+verifier for integrity checking.</P>
+
+<P>But how much speed can be extracted from these optimizations? The answer
+is some, but not as much as we might like. For comparison the Java compiler
+in the Sun JDK can be instructed to do many of these optimizations by passing
+it the -O flag. This increases code speed by as much as 15% but it also
+generates code that will not pass the strict check of the bytecode verifier.
+Thus code compiled this way is only useful when loaded from the local disk
+where the verifier doesn't run, and not on applets where an applet class
+can be rejected for failing to follow the rules of the language.</P>
+
+<P><B>The Need for Speed<BR>
+</B>Of course, even with these optimizations the resulting Java code is still
+anywhere from 10 to 30 times slower than compiled C++ code. Obviously code
+that accesses normally slow parts of the system, such as the user interface,
+is not as affected as parts that are computationally based.</P>
+
+<P>To give you an example of how things can be changed, consider one of the
+most basic Java bytecodes <code>ALOAD</code> which loads an object reference
+an from a local variable and puts it on to the stack. The actual C
+implementation of this opcode goes something like the code shown below.</P>
+
+<P><pre><FONT COLOR="#0000A0">/* load the stack */ optop[offset +
+OPTOP_OFFSET] = vars[pc[1]]; pc += 2; optop += 1; continue </FONT></pre></P>
+
+<P>Further, this bit of code is wrapped in a switch statement whose outer
+parts are shown in the code below.</P>
+
+<P><pre><FONT COLOR="#0000A0">while (1) { opcode = *pc; switch (opcode)
+{ ... } }</FONT> </pre></P>
+
+<P>The ratio then is about seven C instructions per simple Java byte code.
+Thus if a string of ALOAD byte codes were replaced with the equivalent
+object code, the execution of the ALOAD instruction would be seven times
+faster. For more complicated byte codes such as the comparison op codes
+the increase can be greater still. </P>
+
+<P>The basic idea then is to take the method, as defined by Java byte codes,
+and replace them with compiled object code that performs the same function.
+At its simplest, the JIT compiler simply replaces the byte code with
+equivalent code that performs the same function. More complex JIT compilers
+can both optimize the byte codes and then compile them into object code. Once
+complete, the method then appears to the system as a native method rather
+than an interpreted method.</P>
+
+<P><B>Where Do We Go From Here<BR>
+</B>There are now several production JIT compilers deployed, among these are
+the Netscape JIT (produced by Borland), the Symantec Cafe JIT compiler, the
+Microsoft Internet Explorer JIT, and various JIT compilers in development
+environments for the Macintosh. </P>
+
+<P>It is impossible to tell exactly what these JIT compilers do without the
+source code and this has caused some concern among security experts. By
+necessity, these compilers act on the Java code after it has passed
+verification, however any code between the Java byte code and the actual
+execution of that code has the potential to introduce security holes. The
+risk is admittedly small, however the danger is that a wiley cracker might
+discover a way in which to corrupt the JIT compiler with legitimate Java byte
+code. As the JIT compiler is producing code that runs outside the protection
+boundary of the interpreted system, this code is not boxed in by the security
+mechanisms. A vulnerability in the JIT compiler would thus lead to a
+potential compromise of the complete Java runtime.</P>
+
+<P>One future then is to avoid second stage compilation completely and to
+instead build chips that execute Java byte code directly. Sun Microsystems
+has made progress in this area with its announcement of the 'picoJava' chips.
+These chips will be the basis for Java enabled appliances and can execute
+Java bytecode significantly faster than an interpreter. Further, certified
+Java chips would avoid the security concern as well as the implementation of
+the Java chip can be verified with chip test vectors.</P>
+
+<P>Eventually the first generation JIT compilers such as those available
+today will give way to second generation compilers. These first generation
+JIT compilers concentrate on replacing the body computation in method bodies
+with C equivalents and doing optimizations such as those described above.
+Second generation compilers will tackle some of the more complex parts of the
+system such as method invocation, class loading, and the base classes. The
+class file supports tags, known as attributes, that allow multiple method
+bodies to be stored in a single Java class. These alternate method bodies
+could concievably contain highly optimized machine code for popular computing
+platforms. The byte code would still be present, useful for portability, but
+the machine code would be available for fast execution. Other areas of
+refinement would involve removing or sidestepping the current virtual machine
+when executing natively, further enhancing the performance of the Java
+code.</P>
+
+<P>The key to the future is to remember that the base code is portable
+and easily mutable. The Java class files provide an intermediate code that
+can be interpreted directly, or compiled further into machine code as is
+the case in other languages such as C or C++. With second generation systems
+it should be possible to compile all of the required classes for an applet
+or application into a single shared object or executable. At that point
+there is no difference between executing a program or control written in
+Java and an application or control written in C.</P>
+
+<P><B>Wrapping Up<BR>
+
+</B>Java byte codes (j-code) are the intermediate representation of compiled
+programs. While these were commonly written in Java, they could have also
+been written in another language whose compiler compiles to the Java
+intermediate form. First generation &quot;Just-in-Time&quot; or JIT compilers
+operate by replacing the J-code with machine code that performs the
+equivalent function. This replacement can generate a speed up of 7 to 10x for
+most code. While still not quite as fast as completely native applications,
+other factors such as Java microprocessor chips and compilers that produce
+executables directly are rapidly closing the gap. Within the next 12 to 18
+months it should be possible to write an application in Java that performs as
+well or better than a similar application written in C++. When that occurs,
+Java will step up to take its place among the other programming languages.
+</P>
+
+<P><B>About the author<BR>
+
+</B>Chuck McManis is currently the director of system software at FreeGate
+Corp. FreeGate is a venture-funded start-up that is exploring opportunities
+in the Internet marketplace. Before joining FreeGate, McManis was a member of
+the Java group. He joined the Java group just after the formation of
+FirstPerson Inc. and was a member of the portable OS group (the group
+responsible for the OS portion of Java). Later, when FirstPerson was
+dissolved, he stayed with the group through the development of the alpha and
+beta versions of the Java platform. He created the first &quot;all Java&quot;
+home page on the Internet when he did the programming for the Java version of
+the Sun home page in May 1995. He also developed a cryptographic library for
+Java and versions of the Java class loader that could screen classes based on
+digital signatures. Before joining FirstPerson, Chuck worked in the operating
+systems area of SunSoft developing networking applications, where he did the
+initial design of NIS+. Reach him at <A
+HREF="mailto:cmcmanis@netcom.com">cmcmanis@netcom.com</A>. Or check out his
+<A HREF="http://www.professionals.com/~cmcmanis/index.html" TARGET="NEW
+LINK">home page</A>. <BR> </P>
+
+<P><CENTER><ADDRESS>Copyright (c)1996 Chuck McManis. All rights
+reserved.</ADDRESS></CENTER><BR> </UL>
+
+<HR>
+<! Template of bottom Info for English ---------------------------------------->
+<center>Last modified Monday, December 23, 1996 15:08:22 (GMT -08:00)<br></center>
+<!ssi-bottommenuUS.txt------------------------------------------------------------->
+<center>
+	<img src="/US/home/rule.gif" naturalsizeflag="0" height=2 width=400 align=bottom>
+	<br><br>
+	<a href="/US/home/"			>[Home]</a>
+	<a href="/US/search/"		>[Collection]</a>
+	<a href="/US/tools/"		>[Tools]</a>
+	<a href="/US/reference/"	>[Reference]</a>
+	<a href="/US/events/"		>[Events]</a>
+	<a href="/" target="_top"	>[Language]</a>
+	<a href="/US/Links/"		>[Links]</a>
+	<br>
+</center>
+<!------------------------------------------------------------------------------->
+
+<!ssi-bottominfo.txt--------------------------------------------------------------------------->
+<center>
+	<img src="/US/home/rule.gif" naturalsizeflag="0" height=2 width=400 align=bottom>
+	<p><i><font size=-1>
+		<a href="http://java.sun.com/trademarks.html" target="NEW LINK">
+			Java and all Java-based trademarks and logos are trademarks or registered<br>
+			trademarks of Sun Microsystems, Inc. in the U.S. and other countries.<br>
+		</a>
+		<br>
+		<a href="/US/copyright.html">
+			Copyright Notice: &copy; 1996 Digital Cat,LLC
+		</a>
+	</font></i></p>
+	<p><b><font face="arial" color="#808090" size=-2>
+		953 Industrial Ave., Suite 125 - Palo Alto, California 94303<br>
+		Tel: 415.555.1212 - Fax: 415.555.1212<br>
+		<a href="mailto:webmaster@javacats.com"><i>webmaster@javacats.com</i></a><br>
+	</font></b>
+</center>
+<!----------------------------------------------------------------------------->
+</BODY>
+</HTML>

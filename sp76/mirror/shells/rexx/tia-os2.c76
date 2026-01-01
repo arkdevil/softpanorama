@@ -1,0 +1,351 @@
+From: choiw1@iia.org
+Newsgroups: iia.general
+Subject: Re: TIA with OS/2
+Date: 10 Feb 1995 01:37:12 GMT
+Organization: International Internet Association
+
+In <3fuovu$ra7@iia.org>, siembor@iia.org (Robert Siemborski) writes:
+>Does anyone have an OS/2 "script" for loggint into IIA and starting up 
+>TIA for a slip session with the "Internet Connection for OS/2"?  I have OS/2
+>warp and it logs into IIA, but right after the password prompt it starts 
+>up SLIP, without invoking TIA.  There is a field for "script" but I can't 
+>find any help files on making a script file.
+>
+>Someone please help,
+>Rob
+>
+>-- 
+>=========Robert Siemborski (http://www.iia.org/~siembor/siembor.html)=========
+>	"If builders built buildings the way programmers write programs,
+>	 the first woodpecker that came along would destroy civilization!"
+>		-"The Cuckoo's Egg" -- by Clifford Stoll
+
+
+Here it is...  Disregard the comment statements about SLIP.CFG.  SLIP.CFG
+is for SLIP.EXE.  You don't need that if you are gonna use SLIPPM.EXE.
+Following *.cmd file is OK for IBM TCP/IP 2.0, as well as IAK SLIPPM.EXE
+and SLIP.EXE.
+
+If you need further help, send a mail to choiw1@intac.com.
+
+
+---------------------------- file iia.cmd begin -------------------------------
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*                OS/2 2.0 SLIP Driver for IBM TCP/IP version 2.0           */
+/*                                                                          */
+/*                                IIA.CMD                                */
+/*                                                                          */
+/*            ..................................................            */
+/*                                                                          */
+/* Sample attachment script for dialing into a Xylogics Annex terminal      */
+/* server in order to establish a SLIP connection.  This script should be   */
+/* specified using the "attachcmd" and "attachparm" elements in the SLIP    */
+/* configuration file SLIP.CFG.  For example:                               */
+/*                                                                          */
+/*              interface sl0 {                                             */
+/*                 attachcmd  = slipup                                      */
+/*                 attachparm = "dialcmd username password"                 */
+/*              }                                                           */
+/*                                                                          */
+/* The script parameters specify the command to send to the modem to dial   */
+/* the remote site and the username/password combination to use to log into */
+/* the terminal server.  If any of the parameters are omitted, or are       */
+/* specified as an asterix (*), the script will prompt for them.  This is   */
+/* most useful with the password parameter to avoid storing the password    */
+/* in a text file on the disk.                                              */
+/*                                                                          */
+/* For example, the following might be how I would set it up:               */
+/*                                                                          */
+/*              interface sl0 {                                             */
+/*                 attachcmd  = slipup                                      */
+/*                 attachparm = "atdt###-#### db3l *"                       */
+/*              }                                                           */
+/*                                                                          */
+/* which would cause slipup to initially prompt me for the password.  It    */
+/* would then feed the "atdt###-####" command to the modem, and when the    */
+/* Annex answered, it would use "db3l" as a username and the password I     */
+/* initially entered as the password.                                       */
+/*                                                                          */
+/*            - - - - - - - - - - - - - - - - - - - - - - - - -             */
+/*                                                                          */
+/* When the script runs, it is automatically passed the interface name for  */
+/* the interface it is running on as the first argument, and the user       */
+/* arguments (from SLIP.CFG) as the second argument.                        */
+/*                                                                          */
+/* The script sends the dial string to the modem and then logs into the     */
+/* terminal server using the username/password.  It then issues the SLIP    */
+/* command to start SLIP, and parses the resulting output to determine the  */
+/* appropriate addresses to use.  Lastly, it issues ifconfig and route      */
+/* commands to configure the OS/2 system appropriately.  Note that the      */
+/* configuration assumes a class C netmask for the SLIP interface.          */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+call RxFuncAdd 'SysLoadFuncs', 'RexxUtil', 'SysloadFuncs'
+call SysLoadFuncs
+
+parse arg interface , dialcmd username password
+
+/*--------------------------------------------------------------------------*/
+/*                   Initialization and Main Script Code                    */
+/*--------------------------------------------------------------------------*/
+
+/* Set some definitions for easier COM strings */
+cr='0d'x
+crlf='0d0a'x
+
+say ''
+say 'IIA - SLIP Script for IIA ',
+    '(interface' interface')'
+
+/* Prompt for missing information */
+if dialcmd = '' then do
+   call charout , 'Dial Command: '
+   parse pull dialcmd
+end
+if username = '' | username = '*' then do
+   call charout , 'User Name: '
+   parse pull username
+end
+else do
+   say 'User:' username
+end
+if password = '' | password = '*' then do
+   call charout , 'Password: '
+   password = readpass()
+end
+
+/* ZOOM VFP 14.4K v.32bis Internal FaxModem             */
+/* call send 'AT&FX4&C1&D2&K3&Q5&R0S11=55S95=35' || cr  */
+/* call flush_receive                                   */
+
+/* set comport speed */
+'mode com2: 57600,n,8,1,buffer=on,rts=hs'
+
+/* Flush any stuff left over from previous COM activity */
+call flush_receive
+
+/* ZOOM VFP 14.4K v.32bis Internal FaxModem             */
+/* call send 'AT&FX4&C1&D2&K3&Q5&R0S11=55S95=35' || cr  */
+
+/*  call send 'AT&FM0&C1&D2&K3&Q5&R0S11=55S95=35' || cr   */
+/*  call flush_receive     */
+
+/* Wait for connection */
+
+busy=1
+
+do forever until busy==1
+   /* Dial the remote server */
+   call charout , 'Now Dialing...'
+   call send dialcmd || cr
+   busy=waitfor('BUSY' , 10) ; call flush_receive 'echo'
+   if busy==0 then do
+      call SysSleep 5
+   end
+end
+
+call waitfor 'CONNECT'
+
+/* Handle login.  We wait for standard strings, and then flush anything */
+/* else to take care of trailing spaces, etc..                          */
+/* call send cr */
+call waitfor 'login:' ; call flush_receive 'echo'
+call send username || cr
+call waitfor 'Password:' ; call flush_receive 'echo'
+call send password || cr
+
+call waitfor 'NTINUE ========================='
+call flush_receive 'echo'
+call send cr
+call flush_receive 'echo'
+call waitfor 'list: '
+call flush_receive 'echo'
+call send cr
+
+
+/* Wait for the main prompt and then send the "slip" command */
+call waitfor '%' 
+call flush_receive 'echo'
+
+/* call send 'tia -address' || cr */
+
+
+/* Parse the results of the SLIP command to determine our address. */
+/* We use the "waitfor_buffer" variable from the waitfor routine   */
+/* to parse the stuff we get from the Annex after waiting for an   */
+/* appropriate point in the data stream.                           */
+
+/* call waitfor '%'   */
+/* parse var waitfor_buffer . 'Gateway address):' a '.' b '.' c '.' d (cr) . */
+/* annex_address = a||'.'||b||'.'||c||'.'||d  */
+
+annex_address = 198.4.75.9
+
+/* Now parse the remainder for our address */
+
+/*
+call waitfor crlf
+parse var waitfor_buffer a '.' b '.' c '.' d '.' .
+os2_address = a||'.'||b||'.'||c||'.'||d
+*/
+os2_address = 192.0.2.1
+
+/* Flush anything else */
+/* call flush_receive 'echo'  */
+
+/* say cr || 'Ready for TIA'  */
+/* call flush_receive 'echo'  */
+/* call waitfor 'choiw1%'  */
+call flush_receive 'echo'
+
+/* call send 'nice tia' || cr  */
+call send 'tia' || cr
+
+
+call waitfor 'SLIP software.'
+CALL flush_receive 'echo'
+
+/* Now configure this host for the appropriate address, */
+/* and for a default route through the Annex.           */
+
+say cr || 'SLIP Connection Established'
+say 'Configuring local address =' os2_address ', Annex =' annex_address
+
+'ifconfig sl0' os2_address annex_address 'netmask 255.255.255.0'
+'route -f add default' annex_address '1'
+
+/* All done */
+exit 0
+
+
+/*--------------------------------------------------------------------------*/
+/*                            send ( sendstring)                            */
+/*..........................................................................*/
+/*                                                                          */
+/* Routine to send a character string off to the modem.                     */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+send:
+
+   parse arg sendstring
+   call slip_com_output interface , sendstring
+
+   return
+
+
+/*--------------------------------------------------------------------------*/
+/*                    waitfor ( waitstring , [timeout] )                    */
+/*..........................................................................*/
+/*                                                                          */
+/* Waits for the supplied string to show up in the COM input.  All input    */
+/* from the time this function is called until the string shows up in the   */
+/* input is accumulated in the "waitfor_buffer" variable.                   */
+/*                                                                          */
+/* If timeout is specified, it says how long to wait if data stops showing  */
+/* up on the COM port (in seconds).                                                         */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+waitfor:
+
+   parse arg waitstring , timeout
+
+   if timeout = '' then
+     timeout = 5000    /* L O N G   delay if not specified */
+   waitfor_buffer = '' ; done = -1; curpos = 1
+   ORI_TIME=TIME('E')
+
+   if (remain_buffer = 'REMAIN_BUFFER') then do
+      remain_buffer = ''
+   end
+
+   do while (done = -1)
+      if (remain_buffer \= '') then do
+         line = remain_buffer
+         remain_buffer = ''
+       end
+       else do
+         line = slip_com_input(interface,,10)
+      end
+      waitfor_buffer = waitfor_buffer || line
+      index = pos(waitstring,waitfor_buffer)
+      if (index > 0) then do
+         remain_buffer = substr(waitfor_buffer,index+length(waitstring))
+         waitfor_buffer = delstr(waitfor_buffer,index+length(waitstring))
+         done = 0
+      end
+      call charout , substr(waitfor_buffer,curpos)
+      curpos = length(waitfor_buffer)+1
+      if ((done \= 0) & (TIME('E')>timeout)) then do
+        call lineout , ' WAITFOR: timed out '
+        done = 1
+       end
+   end
+   timeout=0
+   RC=done
+ return RC
+
+
+
+/*--------------------------------------------------------------------------*/
+/*                               readpass ()                                */
+/*..........................................................................*/
+/*                                                                          */
+/* Routine used to read a password from the user without echoing the        */
+/* password to the screen.                                                  */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+readpass:
+
+  answer = ''
+  do until key = cr
+    key = slip_getch()
+    if key \= cr then do
+      answer = answer || key
+    end
+  end
+  say ''
+  return answer
+
+
+/*--------------------------------------------------------------------------*/
+/*                             flush_receive ()                             */
+/*..........................................................................*/
+/*                                                                          */
+/* Routine to flush any pending characters to be read from the COM port.    */
+/* Reads everything it can until nothing new shows up for 100ms, at which   */
+/* point it returns.                                                        */
+/*                                                                          */
+/* The optional echo argument, if 1, says to echo flushed information.      */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+
+flush_receive:
+
+   parse arg echo
+
+   /* If echoing the flush - take care of waitfor remaining buffer */
+   if (echo \= '') & (length(remain_buffer) > 0) then do
+      call charout , remain_buffer
+      remain_buffer = ''
+   end
+
+   /* Eat anything left in the modem or COM buffers */
+   /* Stop when nothing new appears for 100ms.      */
+
+   do until line = ''
+     line = slip_com_input(interface,,100)
+     if echo \= '' then
+        call charout , line
+   end
+
+   returnall charout , line
+   end
+
+   return
+---------------------------- fine iia.cmd end -------------------------------
+

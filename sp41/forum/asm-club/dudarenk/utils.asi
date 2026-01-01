@@ -1,0 +1,272 @@
+
+;[]------------------------------------------------------------[]
+;|      UTILS.ASI -- Utility macros and equ's for assembler     |
+;|                                                              |
+;|      Copyright (C) 1989, 1990  by Compact Soft               |
+;|      Written by:  DK Hacker                                  |
+;[]------------------------------------------------------------[]
+
+Smart
+Locals
+Jumps
+Masm51
+
+FALSE		equ		0
+TRUE		equ		Not FALSE
+
+
+stdin	equ	0
+stdout	equ	1
+stderr	equ	2
+
+
+db_$ macro
+       db '$'
+endm
+
+db_line  macro string
+          ifb <string>
+            db 13, 10
+          else
+            db string, 13, 10
+          endif
+endm
+
+db_mesg  macro name, string
+           name       db string
+           lgth_&name equ $ - name
+endm
+
+lstring	macro	string
+		local	@@length
+		db	@@length-$-1
+		db	string
+@@length	label	near
+endm
+
+ProductName	macro	progname
+	ERRIFB	<progname>
+	_Name	equ progname
+endm
+
+Version macro maj, min
+        ERRIFB	<maj>
+        ERRIFB	<min>
+        _VerMajor equ maj
+        _VerMinor equ min
+endm
+
+db_Ver	macro
+	db  _VerMajor + '0', '.', _VerMinor / 10 + '0'
+	if	_VerMinor mod 10
+		db	_VerMinor mod 10 + '0'
+	endif
+endm
+
+db_Name	macro
+	db	'_Name'
+endm
+
+MakeCopyright$	macro	descr
+Copyright$	label	byte
+		IFB	<descr>
+			db	_Name
+		ELSE
+			db	descr
+		ENDIF
+		db	'   Version '
+		db_ver
+		db	'   (C)',0ffh,' 1990 Compact Soft',0dh,0ah,'$'
+endm
+
+
+BIOS segment at 40h
+
+BIOSdummy label far    ; this far non-relocative label is needed for
+                       ; macros call_vect and jmp_vect
+
+org 17h
+
+kbd_status	db	?	; Keyboard status bits
+kbd_status2	db	?	; secondary status
+		db	?	; "Alt-input" accumulator
+kbd_head	dw	?	; Keyboard buffer head
+kbd_tail	dw	?	; Keyboard buffer tail
+
+kbd_std_start	label	word
+		dw	16 dup (?)
+kbd_std_end	label	word
+
+org 80h
+
+kbd_start	dw	?	; Keyboard buffer start offset pointer
+kbd_end		dw	?	; Keyboard buffer end offset pointer
+
+org 49h
+VideoMode db ?
+
+org 4eh
+VideoPageOffset dw ?
+
+BIOS ends
+
+
+call_vect macro saveint
+    call BIOSdummy
+    org  $ - 4
+    saveint  dw 2 dup (?)
+endm
+
+jmp_vect macro saveint
+    jmp  BIOSdummy
+    org  $ - 4
+    saveint  dw 2 dup (?)
+endm
+
+$set_vector	macro	intnum, handler
+	local	@@inthandler
+	IFB	<handler>
+		@@inthandler = Int&intnum
+	ELSE
+		@@inthandler = handler
+	ENDIF
+        mov	word ptr es: [intnum * 4],     offset @@inthandler
+        mov	word ptr es: [intnum * 4 + 2], cs
+endm
+
+reset_vector	macro	intnum, address
+	ERRIFB	<intnum>
+
+	local	@@save
+	IFB	<address>
+		@@save = SaveInt&intnum
+	ELSE
+		@@save = address
+	ENDIF
+
+	push	ax es
+
+        xor	ax, ax
+        mov	es, ax
+
+        mov	ax,                   word ptr @@save [0]
+        mov	es: [intnum * 4],     ax
+        mov	ax,                   word ptr @@save [2]
+        mov	es: [intnum * 4 + 2], ax
+
+	pop	es ax
+endm
+
+$get_vector	macro intnum, address
+        mov	ax,		      es:[intnum * 4]
+        mov	word ptr address [0], ax
+        mov	ax,		      es:[intnum * 4 + 2]
+        mov	word ptr address [2], ax
+endm
+
+get_vector	macro	intnum, address
+	ERRIFB	<intnum>
+
+	local	@@save
+	IFB	<address>
+		@@save = SaveInt&intnum
+	ELSE
+		@@save = address
+	ENDIF
+
+	push	ax es
+
+        xor	ax, ax
+        mov	es, ax
+
+	$get_vector	intnum, @@save
+
+        pop	es ax
+endm
+
+get_set_vector macro intnum, address, handler
+	ERRIFB	<intnum>
+
+	local	@@save
+	IFB	<address>
+		@@save = SaveInt&intnum
+	ELSE
+		@@save = address
+	ENDIF
+
+	push	ax es
+
+        xor	ax, ax
+        mov	es, ax
+
+	$get_vector	intnum, @@save
+
+        $set_vector	intnum, handler
+
+        pop	es ax
+endm
+
+set_vector macro intnum, handler
+	ERRIFB	<intnum>
+	push	ax es
+
+	xor	ax, ax
+        mov	es, ax
+
+        $set_vector	intnum, handler
+
+        pop	es ax
+endm
+
+
+DOS	macro	func
+	mov	ah, func
+	int	21h
+endm
+
+print$ macro var
+    mov  dx, var
+    mov  ah, 9
+    int  21h
+endm
+
+skip	macro
+	jmp	short $+2
+endm
+
+clr	macro	reg
+	xor	reg, reg
+endm
+
+tst	macro	reg
+	or	reg, reg
+endm
+
+movit	macro	dest, src
+	push	src
+	pop	dest
+endm
+
+pushit	macro	list
+	irp	it, <list>
+		push	&it
+	endm
+endm
+
+popit	macro	list
+
+	_$popit	equ	<>
+
+	_popit	macro	list
+		irp	it, <list>
+			ifnb	<it>
+				pop	&it
+			endif
+		endm
+	endm
+
+	irp	it, <list>
+		_$popit	catstr	<it>, <,>, _$popit
+	endm
+	_popit	%_$popit
+endm

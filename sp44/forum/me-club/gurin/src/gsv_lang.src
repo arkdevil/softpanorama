@@ -1,0 +1,558 @@
+$macro_file gsv_lang;
+
+{ Альтернативный макрос компиляции. В отличие от стандартного language.mac
+  позволяет прямо указывать макросы обработки ошибок, контекстного help,
+  анализа парных конструкций и необязательной пред- и пост- обработки,
+  вызываемой до и после завершения компиляции. Макрос не использует таких
+  понятий, как тип языка. Отметим, что альтернативную компиляцию можно
+  использовать совместно со стандартной. Альтернативная компиляция вызывается
+  по назначенным клавишам, а стандартная - через основное меню:
+
+                          Main_Menu->Other->
+
+  Макрофайл включает 5 макросов:
+    gsv_compile   - компиляция файла.
+    gsv_cmperror  - анализ базы данных и вызов макроса для соответствующего
+                    расширения, который выполняет поиск и индикацию
+                    следующей ошибки компиляции
+    gsv_template  - анализ базы данных и вызов макроса для соответствующего
+                    расширения, который выполняет подстановку языковой
+                    конструкции
+    gsv_cont_help - анализ базы данных и вызов макроса для соответствующего
+                    расширения, который выполняет формирование контекстной
+                    подсказки по слову, на которое указывает маркер
+    gsv_match     - анализ базы данных и вызов макроса для соответствующего
+                    расширения, который выполняет поиск соответствующей
+                    парной скобки или языковой конструкции
+  Перекомпилировать этот файл нужно из командной строки DOS или вызовом
+  стандартного процесса компиляции Multi-Edit (через пункт основного меню
+  Main_Menu->Other->Execute Compiler or Program), чтобы не вызывать зависания
+  Multi-Edit и других неприятностей. Крайне нежелательно добавлять в этот
+  макрофайл другие макросы.
+}
+
+  { !!! Приводится текст только макроса подстановок языковых конструкций.
+    Остальные макросы предназначены для работы в интегрированной системе
+    объектно-ориентированного проектирования программ и не могут быть
+    использованы автономно.
+  }
+
+
+$macro gsv_template from EDIT;
+{ Основной макрос, запускаемый при создании текстовой подстановки.
+  Макрос выделяет короткую ссылку: от 1 до 5 символов перед маркером, и
+  пытается найти в базе данных подстановку, имеющую данную короткую ссылку.
+  Если таковая не найдена, то выполняется запрос подстановки через меню.
+  Опция макроса:
+    /NODEL=1 - не удалять файл базы данных из памяти
+}
+  def_str(fn[80],    { имя файла базы данных }
+          dpt[20],   { имя раздела в базе данных }
+          dptn[20],  { вспомогательное имя раздела в базе данных }
+          ext[3],    { расширение исходного файла }
+          qr[5],     { короткая ссылка}
+          par[50],   { строка базы данных (только первые 3 поля) }
+          mes[80],   { завершающее сообщение }
+          stack[400] { стек переходов по дереву меню }
+         );
+  def_int(cw,        { номер текущего окна }
+          bw,        { номер окна файла базы данных }
+          attrbw,    { атрибуты окна базы данных }
+          cur_pos,   { номер текущей позиции }
+          nodel,     { флаг удаления окна базы данных из памяти }
+          sp,        { указатель стека переходов по дереву }
+          p,         { вспомогательная позиция стека }
+          len,       { длина короткой ссылки }
+          reg_exp,   { текущий статус регулярных выражений }
+          ins_mode   { текущее значение текстовой моды }
+         );
+  { Инициализация переменных }
+  sp           := 1;
+  cw           := window_id;
+  bw           := -1;
+  mes          := '';
+  dpt          := 'Меню подстановок';
+  ext          := caps(get_extension(file_name));
+  nodel        := parse_int('/NODEL=', mparm_str);
+  stack        := '';
+  reg_exp      := reg_exp_stat;
+  ins_mode     := insert_mode;
+  insert_mode  := TRUE;
+  refresh      := FALSE;
+  reg_exp_stat := FALSE;
+  set_global_str('gsv_return_str', '');
+
+  fn  := caps(me_path + 'GSVT_' + ext + '.DB');
+  if switch_file(fn) = 1 then { файл базы данных уже загружен в окно }
+    bw := window_id;
+    attrbw := window_attr;
+    window_attr := $80; { окно становится скрытым и не записывается по autosave }
+    goto extract_qr;
+  end;
+
+  if not(file_exists(fn)) then { база данных не существует }
+    run_macro('userin^verify /H=gsv_lang^TP/BL= Нет базы данных ' +
+              '/T= Создать новую базу данных подстановок для расширения <' +
+              ext + '>? ');
+    refresh := FALSE;
+    if return_int = TRUE then
+      { Создание файла базы данных с основным разделом }
+      create_window;
+      if error_level <> 0 then
+        goto exit;
+      end;
+      down;
+      text('|12');
+      up; del_line;
+      text('Меню подстановок');
+      cr;
+      file_name := fn;
+      save_file;
+      if error_level <> 0 then
+        delete_window;
+        bw := -1;
+        goto exit;
+      end;
+      goto start;
+    else
+      goto exit_no_error;
+    end;
+  end;
+
+load_db: { база данных существует: загрузка ее файла }
+  create_window;
+  if error_level <> 0 then
+    goto exit;
+  end;
+  bw          := window_id;
+  window_attr := $80;
+  attrbw      := $80;
+  load_file(fn);
+  if error_level <> 0 then
+    delete_window;
+    bw := -1;
+    goto exit;
+  end;
+
+extract_qr: { выделение короткой ссылки }
+  switch_win_id(cw);
+  cur_pos := c_col;
+  if (c_col = 1) then { маркер в первой позиции: вызываем меню }
+    goto start;
+  end;
+  cur_pos := c_col;
+  left;
+  if (cur_char <= ' ') then { маркер после пробела: вызываем меню }
+    right;
+    goto start;
+  end;
+  right;
+  word_left; { определение начала короткой ссылки }
+  qr := '';
+  len := 0;  { получение строки короткой ссылки }
+  while c_col < cur_pos do
+    qr := qr + cur_char;
+    ++len;
+    right;
+  end;
+  if (len > 5) then
+    mes := 'Недопустимая ссылка: ' + qr;
+    goto exit_no_error;
+  end;
+
+  { короткая ссылка выделена: поиск в базе данных }
+  refresh := FALSE;
+  switch_win_id(bw);
+  return_str := qr;
+  run_macro('gsv_tmpl^gsvtp_search_qr');
+  if return_int = TRUE then { ссылка найдена: ее удаление }
+    switch_win_id(cw);
+    while ((len <> 0) and (c_col > 1)) do
+      back_space;
+      --len;
+    end;
+    par := global_str('gsv_return_str');
+    if parse_int('TYP=', par) = 1 then { ссылка указывает на меню }
+      dpt := parse_str('MNM=', par);   { получение имени раздела базы данных}
+      goto start;                       { переход к меню }
+    else                                { ссылка указывает на шаблон }
+      switch_win_id(cw);
+      run_macro('gsv_tmpl^gsvtp_interpret');    { интерпретируем его }
+      goto exit_no_error;
+    end;
+  else
+    mes := 'Ссылка не найдена: ' + qr;
+    goto exit_no_error;
+  end;
+
+start: { выбор подстановки по меню из начального раздела, или из раздела, }
+       { найденного по короткой ссылке }
+  refresh := FALSE;
+  run_macro('userin^db /F=' + fn + '/DPT=' + dpt +
+            '/LT= GSVT_' + ext + '.DB ' +
+            '/HF=' + caps(me_path) + 'MECONFIG.DB/HPT=TEMPLATE.DB' +
+            '/X=1/Y=3/NOALPHA=1/2TOP=0/LO=1/NDF=1/NDH=1' +
+            '/H=gsv_lang^TP/PRE=gsvtp/GLO=gsv_return_str' +
+            '/MACRO=gsv_tmpl^gsvtp_modify'
+           );
+  refresh := FALSE;
+  if return_int <> 0 then { нажата клавиша Enter }
+    par := global_str('gsv_return_str');
+    if (parse_int('TYP=', par) = 1) then { выбранный пункт меню - это подменю }
+      dptn := parse_str('MNM=', par);
+      if svl(dptn) = 0 then { меню не содержит имени раздела }
+        return_str := 'Меню подстановок не имеет мнемоники!';
+        run_macro('gsv_stat^gsv_message /W=1');
+      else { поиск раздела в базе данных }
+        if ((svl(stack) + 5 + svl(dpt)) < 400) then { защита от переполнения }
+          stack := stack + 'S' + str(sp) + '=' + dpt;
+          ++sp;
+        end;
+        dpt := dptn;
+        switch_win_id(bw);
+        tof;  { поиск раздела }
+        if search_fwd('|12' + dpt, 0) = 0 then { раздел не найден }
+          eof; cr; goto_col(1);                { создаем его }
+          text('|12' + dpt); cr;
+        end;
+      end;
+      goto start; { повторное обращение к базе данных}
+    else { выбранный пункт - шаблон, интерпретируем его }
+      switch_win_id(cw);
+      run_macro('gsv_tmpl^gsvtp_interpret');
+      goto exit_no_error;
+    end;
+  else { нажата клавиша Esc }
+    if (sp <> 1) then { стек непуст }
+      --sp;
+      dpt := parse_str('S' + str(sp) + '=', stack); { извлечение }
+      p   := xpos('S' + str(sp) + '=', stack, 1);
+      str_del(stack, p, (svl(stack) - p + 1)); { удаление }
+      goto start; { повторное обращение к базе данных}
+    end;
+  end;
+
+exit: { удаление окна файла базы данных и завершающие действия }
+  if error_level <> 0 then
+    run_macro('meerror');
+  end;
+exit_no_error:
+  refresh := FALSE;
+  if (bw <> (-1)) then
+    switch_win_id(bw);
+    if file_changed then
+      save_file;
+      if (error_level <> 0) then
+        run_macro('meerror');
+      end;
+    end;
+    if (attrbw = $80) then
+      if (nodel <> TRUE) then
+        delete_window;
+      end;
+    else
+      window_attr := attrbw;
+    end;
+  end;
+  switch_win_id(cw);
+  refresh      := TRUE;
+  insert_mode  := ins_mode;
+  reg_exp_stat := reg_exp;
+  set_global_str('gsv_return_str', '');
+  make_message(mes);
+end_macro;
+
+
+$macro gsvtp_search_qr from EDIT;
+{ Поиск в файле базы данных короткой ссылки, которая передается через
+  return_str.
+  Опции: /T=0 - обычный поиск,
+         /T=1 - поиск повторного определения при модификации.
+  Если тип поиска - 0, то найденная строка передается через глобальную
+  переменную gsv_return_str. Если короткая ссылка не найдена, то в
+  return_int возвращается FALSE. При вызове этого макроса текущим файлом
+  должна быть база данных.
+}
+  def_int(type,   { тип поиска }
+          lin     { номер текущей строки в базе данных }
+         );
+  def_str(qr);    { короткая ссылка }
+
+  qr     := return_str;
+  type   := parse_int('/T=', mparm_str);
+  lin    := c_line;
+  mark_pos;
+  tof;
+
+search: { цикл поиска }
+  if search_fwd('QR=' + qr + '', 0) then
+    if (type = 1) then
+      if c_line = lin then
+        eol;
+        goto search;
+      end;
+    else
+      set_global_str('gsv_return_str', get_line);
+    end;
+    return_int := TRUE;
+  else
+    return_int := FALSE;
+  end;
+  goto_mark;
+end_macro;
+
+
+$macro gsvtp_modify from EDIT;
+{ Этот макрос вызывается автоматически макросом userin^db при попытке
+  модификации записи базы данных. Макрос анализирует только завершающую
+  стадию модификации.
+  Цели анализа:
+    - проверка переопределенности короткой ссылки,
+    - проверка наличия мнемоники у подменю
+}
+  def_str(par[50], qr[5]);
+  def_int(type, len);
+  if parse_int('/P=', mparm_str) = 1 then { завершение модификации }
+    par := global_str('gsv_return_str');
+    qr  := parse_str('QR=', par);
+    return_str := qr;
+    run_macro('gsv_tmpl^gsvtp_search_qr /T=1');
+    if return_int <> FALSE then
+      return_str := 'Короткая ссылка "' + qr + '" уже определена';
+      run_macro('gsv_stat^gsv_message /W=1');
+    end;
+    type := parse_int('TYP=', par);
+    len  := length(parse_str('MNM=', par));
+    if ((type = 1) and (len = 0)) then
+      return_str := 'Меню обязательно должно иметь мнемонику';
+      run_macro('gsv_stat^gsv_message /W=1');
+    end;
+  end;
+end_macro;
+
+
+$macro gsvtp_interpret from EDIT;
+{ Этот макрос интерпретирует форматную метастроку, выполняет ее вывод в
+  текст, который находится в текущем окне, выполняет запросы и замены
+  переменных и метаподстановок. Полная строка параметров передается через
+  глобальную переменную gsv_return_str.
+}
+  def_str(par[2048],    { полная строка параметров }
+          head[64],     { заголовок переменной }
+          line[200],    { значение строки параметра }
+          xm[400],      { строка вертикального меню }
+          format[400]   { форматная метастрока }
+         );
+  def_int(lenform,      { длина строки формата }
+          ipos,         { исходная позиция в тексте }
+          lpos, cpos,   { отмеченная позиция в тексте }
+          x, y, lb,     { координаты и длина окон-боксов }
+          i, nx, lp     { вспомогательные переменные }
+         );
+  def_char(s,           { текущий символ }
+           type         { тип параметра }
+          );
+
+  par      := global_str('gsv_return_str');
+  ipos     := c_col;
+  format   := parse_str('FRM=', par);
+  lenform  := svl(format);
+  lpos     := 0;
+  refresh  := TRUE;
+  push_undo;
+  i := 1;
+  while i <= 9 do { очистка глобальных переменных - параметров }
+    set_global_str('gsvtmp' + str(i), '');
+    ++i;
+  end;
+  i := 1;
+  goto loop;
+
+s_menu: { запрос строки }
+  return_str := line;
+  lb := svl(head);
+  if lb < 32 then { защита по минимальной длине строки }
+    lb := 32;
+  end;
+  { вычисление координат окна из текущей позиции маркера }
+  if (wherex + lb + 8) > screen_width then x := screen_width - lb - 8;
+  else                                     x := wherex;
+  end;
+  if ((wherey + 7) > screen_length) then y := wherey - 6;
+  else                                   y := wherey + 1;
+  end;
+  run_macro('userin^querybox /C=' + str(x) + '/L=' + str(y) +
+            '/W=' + str(lb) + '/ML=80/T= ' + head +
+            ' /H=gsv_tmpl^template');
+  if return_int = 0 then
+    return_str := line;
+  end;
+  ret;
+
+k_menu: { запрос клавиши }
+  lb := svl(head) + 5;
+  { вычисление координат окна из текущей позиции маркера }
+  if (wherex + lb + 1) > screen_width then x := screen_width - lb - 1;
+  else                                     x := wherex;
+  end;
+  if ((wherey + 5) > screen_length) then y := wherey - 4;
+  else                                   y := wherey + 1;
+  end;
+  put_box(x, y, x + lb, y + 3, 0, m_b_color, '', 1);
+  write(head, x + 2, y + 1, 0, m_t_color);
+  read_key;
+  kill_box;
+  ret;
+
+x_menu: { вертикальное меню выбора }
+  nx := 1;
+  lb := svl(head);
+  xm := '';
+  x  := 1;
+  lp := svl(line);
+  y  := xpos('(', line, x);
+  { определение числа подстрок вида a(b) в строке параметров меню line
+    и формирование форматной строки меню xm вида a()...
+  }
+  if ((lp <> 0) and (y <> 0)) then { защита от неправильной строки меню }
+    while ((x < lp) and (y <> 0)) do
+      xm := xm + copy(line, x, y - x) + '()';
+      if ((y - x) > lb) then { определение ширины вертикального меню }
+        lb := y - x;
+      end;
+      ++nx;
+      x := y + 1;
+      y := xpos(')', line, x);
+      if (y = 0) then { защита от подстрок типа a(b }
+        x := lp;
+      else
+        x := y + 1;
+        y := xpos('(', line, x);
+      end;
+    end;
+  end;
+  { вычисление координат окна из текущей позиции маркера }
+  if (wherex + lb + 5) > screen_width then x := screen_width - lb - 5;
+  else                                     x := wherex;
+  end;
+  if ((wherey + 2 + nx) > screen_length) then y := wherey - 2 - nx;
+  else                                        y := wherey + 1;
+  end;
+  if (y < 3) then { защита при большом числе вариантов }
+    y := 3;
+  end;
+  run_macro('userin^xmenu /X=' + str(x) + '/Y=' + str(y) + '/B=1/T=1' +
+            '/L=' + head + '/M=' + xm);
+  return_str := '';
+  { выделение значения, соответствующего выбранному пункту меню }
+  nx := 1;
+  x  := 1;
+  y  := xpos('(', line, x);
+  while ((nx < return_int) and (y <> 0)) do
+    ++nx;
+    x := y + 1;
+    y := xpos('(', line, x);
+  end;
+  if (y <> 0) then { защита от подстрок вида a }
+    x := y + 1;
+    y := xpos(')', line, x);
+    if (y > x) then { защита от подстрок вида a() и a(b }
+      return_str := copy(line, x, y - x);
+    end;
+  end;
+  ret;
+
+get_variable: { интерактивный запрос переменной }
+  if global_str('gsvtmp' + s) <> '' then
+    return_str := global_str('gsvtmp' + s);
+  else
+    type := parse_str('T' + s + '=', par);
+    head := parse_str('Z' + s + '=', par);
+    line := parse_str('S' + s + '=', par);
+    if type = '' then
+      type := 'S';
+    end;
+    if (head = '') then { защита от неопределенного заголовка запроса }
+      if ((type = 'K') or (type = 'C') or (type = 'E')) then
+        head := 'Нажмите нужную клавишу';
+      elsif (type = 'S') then
+        head := 'Введите строку';
+      elsif (type = 'M') then
+        head := 'Выберите вариант';
+      end;
+    end;
+    if    type = 'S' then { строка }
+      call s_menu;
+    elsif type = 'M' then { вертикальное меню }
+      call x_menu;
+    elsif type = 'K' then { имя клавиши }
+      call k_menu;
+      run_macro('setup^makekey /K1=' + str(key1) + '/K2=' + str(key2));
+    elsif type = 'C' then { код клавиши }
+      call k_menu;
+      return_str := str(key1);
+    elsif type = 'E' then { расширенный код клавиши }
+      call k_menu;
+      return_str := str(key2);
+    end;
+  end;
+  set_global_str('gsvtmp' + s, return_str);
+  text(return_str);
+  ret;
+
+loop:
+  while (i <= lenform) do
+    s := str_char(format, i);
+    ++i;
+    if (s <> '$') then
+      text(s);
+    else
+      s := str_char(format, i);
+      ++i;
+      if    (s = '$') then { собственно символ $                        }
+        text(s);
+      elsif (s = '.') then { позиция маркер после вывода шаблона        }
+        lpos := c_line; cpos := c_col;
+      elsif (s = '/') then { переход на новую строку в исходную позицию }
+        cr; goto_col(ipos);
+      elsif (s = '!') then { переход на новую строку в первую позицию   }
+        cr; goto_col(1);
+      elsif (s = ':') then { переход в конец строки                     }
+        eol;
+      elsif (s = '@') then { перевод формата (символ новой страницы)    }
+        text('|12');
+      elsif (s = 'F') then { полное имя текущего файла                  }
+        text(lower(file_name));
+      elsif (s = 'N') then { имя текущего файла без пути и расширения   }
+        text(lower(truncate_extension(truncate_path(file_name))));
+      elsif (s = 'E') then { расширение имени текущего файла            }
+        text(lower(get_extension(file_name)));
+      elsif (s = 'P') then { путь имени текущего файла                  }
+        text(lower(get_path(file_name)));
+      elsif (s = 'D') then { дата                                       }
+        run_macro('gsv_text^gsv_datetime /ONLYD=1');
+      elsif (s = 'T') then { время                                      }
+        run_macro('gsv_text^gsv_datetime /ONLYT=1');
+      elsif (s = 'L') then { номер текущей строки                       }
+        text(str(c_line));
+      elsif (s = 'C') then { номер текущей позиции                      }
+        text(str(c_col));
+      elsif (s >= '1') and (s <= '9') then { переменные                 }
+        call get_variable;
+      else
+        text(s);
+      end;
+    end;
+  end;
+  pop_undo;
+  i := 1;
+  while i <= 9 do { удаление глобальных переменных - параметров }
+    set_global_str('gsvtmp' + str(i), '');
+    ++i;
+  end;
+  if lpos <> 0 then
+    goto_line(lpos);
+    goto_col(cpos);
+  end;
+  refresh := FALSE;
+end_macro;

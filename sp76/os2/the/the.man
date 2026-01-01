@@ -1,0 +1,4369 @@
+                           THE - The Hessling Editor
+     
+     OVERVIEW
+     ========
+     
+     THE is a text editor that uses both command line commands and key bindings
+     to operate. It is intended to be similar to the VM/CMS System Product 
+     Editor, XEDIT and to Mansfield Software's, KEDIT.
+     
+     The screen display consists of several windows:
+        - a main body window which displays the contents of the file being
+          editted,
+        - a command line from which commands may be issued,
+        - an optional prefix window which shows line numbers and from
+          which prefix commands can be issued
+        - an id window which displays the file name, row/col etc. for the
+          current file and
+        - a status line which indicates global status info like number of files
+          being editted, time etc.
+     
+     An important distinction must be made between what is called the current
+     line and the focus line. The focus line is that line in the main body in
+     which the cursor is displayed. All commands bound to function keys use the
+     focus line as the initial line from which to begin executing the command.
+     Commands issued from the command line use the current line as the starting
+     line for execution of commands. The current line is the line in the main
+     body that is highlighted; by default line 7.
+     
+     To move between the command line and the main body the 'tabcmd' command is
+     used. By default it is bound to the Home key (on PCs), the Do key
+     (on vt220s) and F12 (on xterms). If you prefer the XEDIT feel for arrow
+     keys, issue the 'set CMDArrow TAB TAB TAB' command from the command line.
+     
+     To determine what keys are bound to what commands, type 'show' followed 
+     by Return on the command line, then follow the directions displayed.
+     Key bindings may be changed for the current session by using the 'define'
+     command.
+     
+     PROFILE FILE
+     ============
+     
+     Various session defaults may be changed on startup for an individual by
+     using a profile file. This file contains various commands that set the
+     current environment, including key bindings. This profile file can also be
+     used to process commands in batch mode. For example, to change all
+     occurrences of 'alligator' to 'crocodile' in the file file.ext in batch
+     mode, a profile file (prf.prf) with the following commands would be used:
+     
+          'c/alligator/crocodile/ * *'
+          'file'
+     
+     and the command
+     
+          the -p prf.prf file.ext
+     
+     would be issued.
+     
+     This changes the first string enclosed in delimiters (either /,\ or @) to
+     the second string for every line (*) starting at the current line
+     (0 initially) changing each occurrence on a line (*).
+     Maybe you only want to change a string after the first line that contains
+     the string 'donkey', but only change the second occurrence of that string.
+     The profile commands would then be:
+     
+          '/donkey/'
+          'c/alligator/crocodile/ * 1 2'
+          'file'
+     
+     The change command uses a 'target' specification as its first parameter
+     after the string details. A target can be a number of lines, an absolute
+     line number or a string.
+     Number of line targets consist of either a positive integer, for
+     referencing lines toward the end of the file, negative for referencing
+     toward the start of the file or '*', which is all the remaining lines in
+     the file or '-*' which is all lines toward the start of the file.
+     An absolute line number in the form of ':n' is the line number in a file,
+     starting with line number 1.
+     A target is any string within the allowable target delimiters.
+     
+     For more information on default key bindings see the *.hlp files. Detailed
+     documentation of each command is present in each of the comm*.c files.
+     
+     --------------------------------------------------------------------------
+     
+     
+     ========================================================================
+     COMMAND REFERENCE
+     ========================================================================
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          add - add blank line
+     
+     SYNTAX
+          ADD [n]
+     
+     DESCRIPTION
+          The ADD command inserts the specified number of blank lines after
+          the current_line (if issued from the command line) or after the
+          focus_line (if issued in the main of prefix windows).
+          The cursor is positioned in the column corresponding to the first
+          column not containing a space in the line above.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          With no parameters, 1 line is added.
+     
+     SEE ALSO
+          SOS ADDLINE
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          all - select and display restricted set of lines
+     
+     SYNTAX
+          ALL [string target]
+     
+     DESCRIPTION
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+     
+     SEE ALSO
+     
+     STATUS
+          Not Started
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          backward - scroll backwards one screen
+     
+     SYNTAX
+          BAckward [n|*]
+     
+     DESCRIPTION
+          The BACKWARD command scrolls the file contents backwards through
+          the file [n|*] screens.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Does not support HALF or Lines options.
+     
+     DEFAULT
+          With no parameters, 1 screen is scrolled.
+     
+     SEE ALSO
+          forward,top
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          bottom - move to the bottom of the file
+     
+     SYNTAX
+          BOTtom
+     
+     DESCRIPTION
+          The BOTTOM command moves to the very end of the current file.
+          The last line of the file is set to the current_line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          forward,top
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          cancel - quickly exit from THE
+     
+     SYNTAX
+          CANcel
+     
+     DESCRIPTION
+          The CANCEL command exits from THE quickly by QQUITting out of all
+          files currently in the ring that do not have any outstanding
+          alterations.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          ccancel
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          ccancel - quickly exit from THE
+     
+     SYNTAX
+          CCancel
+     
+     DESCRIPTION
+          The CCANCEL command exits from THE quickly by QQUITting out of all
+          files currently in the ring. Any changes made to any of the files
+          will be lost.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          cancel
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          change - change file text
+     
+     SYNTAX
+          Change /string1/string2/ [target] [n] [m]
+     
+     DESCRIPTION
+          The CHANGE command changes one string of text to another.
+     
+          The first parameter to the change command is the old and new
+          string values, seperated by delimiters.
+          The allowable delimiters are '/' '\' and '@'.
+     
+          The second parameter is the target; how many lines are to be
+          searched for occurrences of the first string to be changed.
+     
+          The third parameter determines how many occurrences of 'string1'
+          are to be changed on each line.
+     
+          The fourth parameter determines at which occurrences of 'string1'
+          on the line are changes to commence.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          1 1 1
+     
+     SEE ALSO
+          schange
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          cmatch - find matching bracket character
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The CMATCH command searches for the matching bracket character to
+          the character under the cursor.
+     
+          It handles nested sets of matching pairs.
+          The matching character pairs are '[]{}<>()'.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          cmsg - display text on command line
+     
+     SYNTAX
+          CMSG [text]
+     
+     DESCRIPTION
+          The CMSG command, primarily used in macros, displays text on the
+          command line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          EMSG, MSG
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          command - execute a command without synonym translation
+     
+     SYNTAX
+          COMMAND command [options]
+     
+     DESCRIPTION
+          The COMMAND command executes the specified command without
+          synonym translation. THE does not attempt to execute the command
+          as a macro even if IMPMACRO is ON. The command will be passed
+          to the operating system if IMPOS is ON.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          control_char - allow control characters to be entered
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The CONTROL_CHAR command prompts the user to enter a control character.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          copy - copies text from one position to another
+     
+     SYNTAX
+          COPY target1 target2
+           or
+          COPY BLOCK [RESET]
+     
+     DESCRIPTION
+          With the first form of the COPY command, text is copied from the
+          first target area to the line specified by target2. Text can
+          only be copied within the same view of the file.
+     
+          The second form of the COPY command copies text within the
+          currently marked block to the current cursor position.
+          The text can be in the same file or a different file.
+     
+     COMPATIBILITY
+          The first form of the COPY command has not yet been implemented.
+          XEDIT: Not implemented.
+          KEDIT: Adds extra functionality with [RESET] option.
+                 With the cursor in the marked block this command in KEDIT
+                 acts like DUPLICATE BLOCK.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          define - assign one or many commands to a key
+     
+     SYNTAX
+          DEFine key-name [command [args] [[#command [args]...]]]
+     
+     DESCRIPTION
+          The DEFINE command allows the user to assign one or many 
+          commands and optional parameter(s) to a key. 
+     
+          Commands may be abbreviated.
+     
+          If multiple commands are assigned, then the LINEND setting
+          must be ON and the LINEND character must match the character
+          that delimits the commands at the time that the DEFINE command
+          is executed and at the time the key is pressed.
+     
+          With no arguments, any existing definition for that key is
+          removed and the key reverts back to its default assignation (if
+          it had any).
+     
+          key-names correspond to the key name shown with the SHOW command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Minimal. No support for in-memory macro commands.
+                 KEDIT does not allow multiple commands except as KEXX
+                 macros.
+     
+     SEE ALSO
+          SHOW
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          delete - delete lines from a file
+     
+     SYNTAX
+          DELete [target|BLOCK]
+     
+     DESCRIPTION
+          The DELETE command allows the user remove lines from the current
+          file. The number of lines removed depends on the target specified.
+          Lines are removed starting with the current_line.
+     
+     COMPATIBILITY
+          XEDIT: BLOCK option not supported in XEDIT.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          1 (the current line)
+     
+     SEE ALSO
+          SOS DELETE
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          directory - list the specified directory
+     
+     SYNTAX
+          DIRectory [directory]
+     
+     DESCRIPTION
+          The DIRECTORY command displays all files in the specified directory.
+          When no parameter is supplied, the current directory is displayed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          down_arrow - move the cursor down one line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The down_arrow command moves the cursor down one line in the main
+          window. Scrolling of the window occurs if the cursor is on the last
+          line of the window and CMDARROWS ... SCROLL is set (the default),
+          otherwise the cursor returns to the command line.
+     
+          When on the command line, this command moves forward through the
+          list of previous command line commands if CMDARROWS RETRIEVE ...
+          is set or tabs to the first line of the main window if 
+          CMDARROWS TAB ... is set.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of CURSOR DOWN.
+     
+     SEE ALSO
+          Up_arrow
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          duplicate - duplicate lines
+     
+     SYNTAX
+          DUPlicate [n [target|BLOCK]]
+     
+     DESCRIPTION
+          The DUPLICATE command copies the number of lines extrapolated from
+          target, n times.
+     
+     COMPATIBILITY
+          XEDIT: Equivalent of DUPLICAT command.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          emsg - display error message
+     
+     SYNTAX
+          EMSG [message]
+     
+     DESCRIPTION
+          The EMSG command displays an error message on the error line.
+          This command is usually issued from a macro file.
+     
+     COMPATIBILITY
+          XEDIT: Does not support [mmmnnns text] option
+          KEDIT: Compatible
+     
+     SEE ALSO
+          EMSG
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          enter - execute a command
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The ENTER command executes the command currently displayed on the
+          command line, if the cursor is currently displayed there.
+          If the key associated with ENTER is pressed while in the main or
+          prefix window, then the cursor will move to the first column of the
+          next line. If the mode is currently in 'insert', then a new line
+          is added and the cursor placed at the first column of the new line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          expand - expand tab characters to spaces
+     
+     SYNTAX
+          EXPand [target]
+     
+     DESCRIPTION
+          The EXPAND command converts all tab characters to spaces depending
+          on the size of a tab determined by [SET] TABS command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          extract - obtain setting information from THE
+     
+     SYNTAX
+          EXTract /item/[...]
+     
+     DESCRIPTION
+          The EXTRACT command is used to relay information about settings
+          within the from within a REXX macro. EXTRACT is only valid within
+          a REXX macro.
+     
+     COMPATIBILITY
+          XEDIT: Only allows '/' as delimiter.
+          KEDIT: Only allows '/' as delimiter.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          ffile - force file the current file to disk
+     
+     SYNTAX
+          FFile  [filename]
+     
+     DESCRIPTION
+          The FFILE command writes the current file to disk to the current
+          file name or to the supplied filename.
+          Unlike the FILE command, if the optional filename exists, this
+          command will overwrite the file.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          With no parameters, the current file is written.
+     
+     SEE ALSO
+          file,save,ssave
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          file - file the current file to disk
+     
+     SYNTAX
+          FILE  [filename]
+     
+     DESCRIPTION
+          The FILE command writes the current file to disk to the current
+          file name or to the supplied filename.
+          Unlike the FFILE command, if the optional filename exists, this
+          command will not overwrite the file.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          With no parameters, the current file is written.
+     
+     SEE ALSO
+          ffile,save,ssave
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          fillbox - fill the marked box block with a character
+     
+     SYNTAX
+          FILLbox [c]
+     
+     DESCRIPTION
+          The FILLBOX command fills the marked block with the specified
+          character. If no parameters are supplied and the command is run
+          from the command line, then the box will be filled with spaces.
+          If the command is not run from the command line, the user is
+          prompted for a character to fill the box.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          forward - scroll forwards a number of screens
+     
+     SYNTAX
+          FOrward [n]
+     
+     DESCRIPTION
+          The FORWARD command scrolls the file contents forwards the number
+          of screens specified.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Does not support HALF or Lines options.
+     
+     DEFAULT
+          With no parameters, 1 screen is scrolled.
+     
+     SEE ALSO
+          backward,top
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          get - read another file into current file
+     
+     SYNTAX
+          GET [fileid]
+     
+     DESCRIPTION
+          The GET command reads a file into the current file, inserting
+          lines after the current line.
+          When no fileid is supplied the temporary file is used.
+     
+     COMPATIBILITY
+          XEDIT: Does not support optional firstrec - numrecs
+          KEDIT: Does not support optional fromlines - forlines.
+     
+     SEE ALSO
+          put,putd
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          help - display help for the editor
+     
+     SYNTAX
+          HELP
+     
+     DESCRIPTION
+          The HELP command displays help for the editor.
+          Uses THE_HELP environment variable to point to the help file.
+     
+     COMPATIBILITY
+          XEDIT: Similar in concept.
+          KEDIT: Similar in concept.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          input - insert the command line contents into the file
+     
+     SYNTAX
+          Input [line contents]
+     
+     DESCRIPTION
+          The INPUT command inserts the remainder of the command line into the
+          file after the current line.
+     
+     COMPATIBILITY
+          XEDIT: Does not provide full input mode option.
+          KEDIT: Does not provide full input mode option.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          join - join a line with the line following
+     
+     SYNTAX
+          Join [ALigned]
+     
+     DESCRIPTION
+          The JOIN command makes one line out of the focus line and the
+          line following.
+          If aligned is specified, any leading spaces in the following line
+          are ignored. If aligned is not specified, all characters, including
+          spaces are added.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          left_arrow - move the cursor left one column
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The left_arrow command moves the cursor left one column in the
+          current window. Scrolling of the main window horizontally, occurs
+          if the cursor is at the left-most column and the left-most column
+          is not the first column of the line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of CURSOR LEFT
+     
+     SEE ALSO
+          Right_arrow
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          locate - make line identified by target become the current line
+     
+     SYNTAX
+          [Locate] target
+     
+     DESCRIPTION
+          The LOCATE command looks for the next or previous occurrence of the
+          specified target.  If no parameter is supplied, LOCATE
+          searches for the string that was used as the last string target, if
+          such a string target exists.
+     
+     COMPATIBILITY
+          XEDIT: Does not support [subcommand] option.
+          KEDIT: Compatible. (See bleow)
+          Does not support not,and,or combinations of string targets.
+          ie ~,& and | not supported.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          lowercase - change uppercase characters to lowercase
+     
+     SYNTAX
+          LOWercase [target]
+     
+     DESCRIPTION
+          The LOWERCASE command changes all uppercase characters in the target
+          to lowercase. All other characters remain untouched.
+     
+     COMPATIBILITY
+          XEDIT: Equivalent of LOWERCAS command.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          macro - execute a macro command file
+     
+     SYNTAX
+          MACRO filename [arguments]
+     
+     DESCRIPTION
+          The MACRO command executes the contents of the specified file
+          as command line commands.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+          Only those systems that support REXX, support argument passing
+          to the macro file.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          mark - mark a portion of text
+     
+     SYNTAX
+          MARK Line|Box|Stream
+     
+     DESCRIPTION
+          The MARK command marks a portion of text for later processing
+          by a COPY, MOVE or DELETE command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Does not implement Stream.
+     
+     STATUS
+          Complete...LINE and BOX options are anyway.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          modify - alter a setting
+     
+     SYNTAX
+          MODify set-command
+     
+     DESCRIPTION
+          The MODIFY command displays the current setting of a set command
+          on the command line to make changing that setting easy.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SET,QUERY
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          move - move a portion of text
+     
+     SYNTAX
+          MOVE target1 target2
+           or
+          MOVE BLOCK [RESET]
+     
+     DESCRIPTION
+          The MOVE command copies the contents of the marked block to the
+          current cursor position and deletes the characters/lines from the
+          original position of the marked block.
+     
+     COMPATIBILITY
+          The first form of the MOVE command has not yet been implemented.
+          XEDIT: Not implemented.
+          KEDIT: Adds extra functionality with [RESET] option.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          msg - display message
+     
+     SYNTAX
+          MSG [message]
+     
+     DESCRIPTION
+          The MSG command displays an error message on the error line.
+          This command is usually issued from a macro file.
+          This is similar to EMSG, but MSG does not sound the bell if SET
+          BELL is on.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          EMSG
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          next - move forward in the file a number of lines
+     
+     SYNTAX
+          Next [target]
+     
+     DESCRIPTION
+          The NEXT command moves the current_line forwards the number of
+          lines specified by the target. Negative targets move backwards
+          through the file.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          Up
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          nextwindow - switch focus of editing session to other window
+     
+     SYNTAX
+          NEXTWindow
+     
+     DESCRIPTION
+          The NEXTWINDOW command moves the focus of the editing session to
+          the other window (if more than one window is currently displayed)
+          or to the next file in the ring.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          Edit,Screen
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          nomsg - execute a command suppressing any messages 
+     
+     SYNTAX
+          NOMSG command [parameters]
+     
+     DESCRIPTION
+          The NOMSG command executes the supplied command but suppresses
+          messages that may normally be displayed as a result of the command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          nop - no operation command
+     
+     SYNTAX
+          NOP
+     
+     DESCRIPTION
+          The NOP command doesn't do anything. It is used as a means of
+          setting a key to do nothing.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          Define.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          os - execute an operating system command
+     
+     SYNTAX
+          OS|DOS|! [command]
+     
+     DESCRIPTION
+          The OS command executes the supplied os command or runs an
+          interactive shell if no command is supplied.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of DOS command.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          osnowait - execute an operating system command - no wait
+     
+     SYNTAX
+          OSNowait|DOSNowait command
+     
+     DESCRIPTION
+          The OSNOWAIT command executes the supplied os command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of DOSNOWAIT command.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          osquiet - execute an operating system command quietly
+     
+     SYNTAX
+          OSQuiet|DOSQuiet command
+     
+     DESCRIPTION
+          The OSQUIET command executes the supplied os command as quietly
+          as possible.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of DOSQUIET command.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          overlaybox - overlay marked box block on current position
+     
+     SYNTAX
+          OVERLAYBox
+     
+     DESCRIPTION
+          The OVERLAYBOX copies the contents of the marked box block over the
+          characters at the current cursor position or to column 1 of the
+          current line if issued from the command line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          move block, copy block
+     
+     STATUS
+          Incomplete. Bug with overlaying text on top of itself.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          print - send text to default printer or print spooler
+     
+     SYNTAX
+          PRint [target] [n]
+          PRint LINE [text]
+          PRint STRING [text]
+          PRint FORMfeed
+          PRint CLOSE
+     
+     DESCRIPTION
+          The PRINT command writes a portion of the current file to the default
+          printer or print spooler, or text entered on the command line.
+       
+          PRINT [target] [n]
+             Sends text from the file contents up to the target to the printer
+             followed by a CR/LF (DOS) or LF(UNIX) after each line.
+             When [n] is specified, this sends a formfeed after [n] successive
+             lines of text.
+          PRINT LINE [text]
+             Sends the remainder of the text on the command line to the printer
+             followed by a CR/LF (DOS) or LF(UNIX).
+          PRINT STRING [text]
+             Sends the remainder of the text on the command line to the printer
+             without any trailing line terminator.
+          PRINT FORMFEED
+              Sends a formfeed (^L) character to the printer.
+          PRINT CLOSE
+              Closes the printer spooler.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          printer
+     
+     STATUS
+          Incomplete. OS/2 version does not work.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          put - write part of a file to another
+     
+     SYNTAX
+          PUT [target] [fileid]
+     
+     DESCRIPTION
+          The PUT command writes a portion of the current file to another
+          file, either explicit or temporary.
+          When no fileid is supplied the temporary file is overwritten.
+          When a fileid is supplied the portion of the file written out
+          is appended to the specified file.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          putd,get
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          putd - write part of a file to another and delete
+     
+     SYNTAX
+          PUTD [target] [fileid]
+     
+     DESCRIPTION
+          The PUTD command writes a portion of the current file to another
+          file, either explicit or temporary and deletes those lines written.
+          When no fileid is supplied the temporary file is overwritten.
+          When a fileid is supplied the portion of the file written out
+          is appended to the specified file.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          put,get
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          query - display various option settings
+     
+     SYNTAX
+          Query item
+     
+     DESCRIPTION
+          The QUERY command displays the various settings for options set
+          by THE.
+     
+     COMPATIBILITY
+          XEDIT: Compatible functionality, but not all options.
+          KEDIT: Compatible functionality, but not all options.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          quit - exit from the current file
+     
+     SYNTAX
+          QUIT
+     
+     DESCRIPTION
+          The QUIT command exits the user from the current file, provided
+          no changes have been made to the file. An error message will be
+          displayed if changes have been made.
+          The previous file in the ring then becomes the current file.
+          If the current file is the only file in the ring, the user is
+          returned to the Operating System.
+     
+     COMPATIBILITY
+          XEDIT: Does not support return code option.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          qquit
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          qquit - exit from the current file
+     
+     SYNTAX
+          QQuit
+     
+     DESCRIPTION
+          The QQUIT command exits the user from the current file, whether
+          changes have been made to the file or not.
+          The previous file in the ring then becomes the current file.
+          If the current file is the only file in the ring, the user is
+          returned to the Operating System.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          quit
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          recover - recover changed or deleted lines
+     
+     SYNTAX
+          RECover [n|*]
+     
+     DESCRIPTION
+          The RECOVER command restores the last n changed or deleted lines
+          back into the body of the file.
+     
+     COMPATIBILITY
+          XEDIT: Also recovers changes to lines, not just lines deleted.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          redraw - redraw the current screen
+     
+     SYNTAX
+          REDRAW
+     
+     DESCRIPTION
+          The REDRAW command redraws the current contents of the screen.
+          This is usually used when some outside influence has stuffed the
+          display up.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          REFRESH
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          refresh - refresh the contents of the current screen
+     
+     SYNTAX
+          REFRESH
+     
+     DESCRIPTION
+          The REFRESH command refreshes what is being displayed on the screen.
+          This is usually used from within a macro to indicate the progress
+          of the macro.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          replace - replace the current line with supplied text
+     
+     SYNTAX
+          Replace [text]
+     
+     DESCRIPTION
+          The REPLACE command replaces the current line with the supplied
+          text.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          reset - cancel the marked block or prefix commands or both
+     
+     SYNTAX
+          RESet ALL|Block|Prefix
+     
+     DESCRIPTION
+          The RESET command unmarks any marked block or outstanding prefix
+          commands or both.
+     
+     COMPATIBILITY
+          XEDIT: Adds Block and All options.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          right_arrow - move the cursor to the right
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The right_arrow key causes the cursor to move one column to the
+          right. If the cursor is on the right most column of the main
+          window, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent to CURSOR RIGHT.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          save - save changes to current file
+     
+     SYNTAX
+          SAVE [fileid]
+     
+     DESCRIPTION
+          The save command writes the current file to disk. If a fileid is
+          supplied, the current file is saved in that file, unless the file
+          already exists when an error is displayed.
+          The 'Alterations' counter on the heading line is reset to zero.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          ssave, file, ffile
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          schange - selectively change strings
+     
+     SYNTAX
+          SCHange /string1/string2/ [target] [n] [m]
+     
+     DESCRIPTION
+          The CHANGE command changes one string of text to another.
+     
+          The first parameter to the change command is the old and new
+          string values, seperated by delimiters.
+          The allowable delimiters are '/' '\' and '@'.
+     
+          The second parameter is the target; how many lines are to be
+          searched for occurrences of the first string to be changed.
+     
+          The third parameter determines how many occurrences of 'string1'
+          are to be changed on each line.
+     
+          The fourth parameter determines at which occurrences of 'string1'
+          on the line are changes to commence.
+     
+     COMPATIBILITY
+          XEDIT: Functionally compatible, but syntax different.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          1 1 1
+     
+     SEE ALSO
+          change
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          set - execute various set commands
+     
+     SYNTAX
+          SET set_command [set_command parameter(s) ...]
+     
+     DESCRIPTION
+          The SET command is a front end to existing 'set' commands. It treats
+          the first parameter it receives as a command and executes it.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          shift - move text left or right
+     
+     SYNTAX
+          SHift Left|Right [n] [target]
+     
+     DESCRIPTION
+          The SHIFT command moves text in the direction specified the number
+          of columns [n] for the specified target lines.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          showkey - display current key value and command assignation
+     
+     SYNTAX
+          SHOWKey 
+     
+     DESCRIPTION
+          The SHOWKEY command prompts the user to enter a key and responds
+          with the key name and associated command (if applicable).
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sort - sort selected lines in a file
+     
+     SYNTAX
+          SORT target [[[Ascending|Descending] left_col right_col] [...]]
+     
+     DESCRIPTION
+          The SORT command sort a portion of a file based on the sort field
+          specifications.
+          target can be any valid target including ALL, *, -*, and BLOCK.
+          Each sort field specification consists of an optional ordering
+          flag and a left and right column.
+     
+          Only 10 sort fields are allowed.
+     
+     COMPATIBILITY
+          XEDIT: XEDIT only allows ordering flag for all fields
+          KEDIT: Compatible.
+     
+     BUGS
+          Does not handle string targets with embedded blanks.
+     
+     STATUS
+          Incomplete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          sos - execute various sos commands
+     
+     SYNTAX
+          SOS sos_command [sos_command ...]
+     
+     DESCRIPTION
+          The SOS command is a front end to existing 'sos' commands. It treats
+          each parameter it receives as a command and executes it.
+     
+     COMPATIBILITY
+          XEDIT: XEDIT only permits 1 command
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          split - split a line
+     
+     SYNTAX
+          SPlit [ALigned]
+     
+     DESCRIPTION
+          The SPLIT command splits the focus line into two lines.
+          If aligned is specified, the first non-blank character of the new
+          line is positioned under the first non-blank character of the
+          focus line. If aligned is not specified, the text of the new line
+          starts in column 1.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          spltjoin - split/join two lines
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SPLTJOIN command splits the focus line into two or joins the
+          focus line with the next line depending on the position of the
+          cursor. If the cursor is after the last column of a line, a 'join'
+          is executed, otherwise a 'split' is executed.
+          The text in the new line is aligned with the text in the focus line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          ssave - save changes to current file
+     
+     SYNTAX
+          SSave [fileid]
+     
+     DESCRIPTION
+          The ssave command writes the current file to disk. If a fileid is
+          supplied, the current file is saved in that file, otherwise the
+          current name of the file is used.
+          If a fileid is supplied and that fileid already exists, the previous
+          contents of that fileid will be replaced with the current file.
+          The 'Alterations' counter on the heading line is reset to zero.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          save, file, ffile
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          status - display current settings of various variables
+     
+     SYNTAX
+          STATus [filename]
+     
+     DESCRIPTION
+          The STATUS command, without the optional filename, displays a full
+          screen of current settings for various variables. With the filename,
+          the STATUS command creates a file containing a series of SET commands
+          with the current values of these settings.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible. KEDIT does not support [filename] option.
+     
+     SEE ALSO
+          QUERY, EXTRACT, MODIFY
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          suspend - suspend THE and return to operating system
+     
+     SYNTAX
+          SUSPend
+     
+     DESCRIPTION
+          The SUSPEND command suspends the current editing session and 
+          returns control to the operating system. Under DOS and OS/2 this
+          is the equivalent of OSNowait. Under UNIX, the process gets placed
+          in the background until it is brought to the foreground.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          OSQUIET
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          tabcmd - switch windows (main/prefix command) for the current file
+     
+     SYNTAX
+          TABCmd
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The TABCMD command switches the focus of the editor from the
+          main or prefix windows to the command line and vice versa, depending
+          on which window is currently active.
+     
+     COMPATIBILITY
+          XEDIT: Equivalent of CURSOR HOME.
+          KEDIT: Equivalent of CURSOR HOME.
+     
+     SEE ALSO
+          tabpre
+     
+     STATUS
+          Complete. Will be replaced by CURSOR HOME in the future.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          tabpre - switch windows (main/prefix) for the current file
+     
+     SYNTAX
+          TABPre
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The TABPRE command switches the focus of the editor from the
+          main window to the prefix window and vice versa, depending
+          on which window is currently active.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of SOS LEFTEDGE and SOS PREFIX
+     
+     SEE ALSO
+          tabcmd
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          text - simulate keyboard entry of characters
+     
+     SYNTAX
+          TEXT text
+     
+     DESCRIPTION
+          The TEXT command simulates the entry of characters from the
+          keyboard. This command is actually called when you enter text
+          from the keyboard.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+                 Does not allow leading or trailing spaces in text (at the
+                 moment)
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          top - move to the top of the file
+     
+     SYNTAX
+          TOP
+     
+     DESCRIPTION
+          The TOP command moves to the very start of the current file.
+          The "Top-of-file" line is set to the current_line.
+     
+          "TOP" is equivalent to "BACKWARD *".
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          backward,bottom
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          up - move backward in the file a number of lines
+     
+     SYNTAX
+          Up [n|*]
+     
+     DESCRIPTION
+          The UP command moves the current_line backwards the number of
+          lines specified by 'n'. Negative values of 'n' move forwards
+          through the file.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          Next
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          up_arrow - move the cursor up one line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The up_arrow command moves the cursor up one line in the main
+          window. Scrolling of the window occurs if the cursor is on the first
+          line of the window.
+     
+          When on the command line, this command moves backward through the
+          list of previous command line commands or tabs to the last line of
+          the main window depending on the value set by the function
+          cmdarrows. (default is the former)
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Equivalent of CURSOR UP
+     
+     SEE ALSO
+          Down_arrow
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          uppercase - change lowercase characters to uppercase
+     
+     SYNTAX
+          UPPercase [target]
+     
+     DESCRIPTION
+          The UPPERCASE command changes all lowercase characters in the target
+          to uppercase. All other characters remain untouched.
+     
+     COMPATIBILITY
+          XEDIT: Equivalent of UPPERCAS
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          lowercase
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          xedit - edit another file
+     
+     SYNTAX
+          Xedit [filename]
+          THE   [filename]
+          Edit  [filename]
+     
+     DESCRIPTION
+          The EDIT command allows the user to edit another file. The new file
+          is placed in the file ring. The previous file being edited remains
+          in memory and can be returned to by issuing an EDIT command without
+          any parameters. Several files can be edited at once, and all files
+          are arranged in a ring, with subsequent EDIT commands moving through
+          the ring, one file at a time.
+     
+     COMPATIBILITY
+          XEDIT: Does not provide options switches.
+          KEDIT: Does not provide options switches.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          retrieve - return the next/prior command
+     
+     SYNTAX
+          ?[+]
+     
+     DESCRIPTION
+          The ? command returns the next or prior command from the command
+          line stack and displays it on the command line.
+          With no parameters, the most recent command entered on the command
+          line is retrieved.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: See below..
+          Does not support multiple '?' as in ??? to retrieve the third last
+          command.
+          This command is bound to the up and down arrows when on the
+          command line depending on the setting of CMDARROWS.
+     
+     SEE ALSO
+          cmdarrows
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          = re-execute the last command issued on the command line
+     
+     SYNTAX
+          =
+     
+     DESCRIPTION
+          The = command retrieves the most recently issued command from
+          the command line and re-executes it.
+     
+     COMPATIBILITY
+          XEDIT: Does not support optional [subcommand] option.
+          KEDIT: Does not support optional [command] option.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     
+     
+     
+     ========================================================================
+     SOS COMMAND REFERENCE
+     ========================================================================
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS ADDline - add blank line after focus line
+          SOS LINEAdd - add blank line after focus line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS ADDLINE command inserts a blank line in the file following
+          the focus line. The cursor is placed in the column under the first
+          non-blank in the focus line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SOS DELLINE
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS CURSORAdj - move first non-blank character to cursor
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS CURSORADJ command moves text in the focus line so that
+          the first non-blank character appears under the cursor position.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS DELBAck - delete the character to the left of the cursor
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS DELBACK command moves the cursor one character to the left
+          and deletes the character now under the cursor.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SOS DELCHAR
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS DELChar - delete character under cursor
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS DELCHAR command deletes the character under the cursor.
+          Text to the right is shifted to the left.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS DELEnd - delete to end of line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS DELEND command deletes all characters from the current
+          column to the end of line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS DELLine - delete focus line
+          SOS LINEDel - delete focus line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS DELLINE command deletes the focus line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SOS ADDLINE
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS DELWord - delete word at or right of cursor
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS DELWORD command deletes the word at or to the right
+          of the current cursor position.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS DOPREfix - execute any pending prefix commands
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS DOPREFIX command executes any pending prefix commands.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS EDIT - edit a file from directory list
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS EDIT command allows the user to edit a file, chosen from
+          a directory list.(the file DIR.DIR).
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible with default definition for Alt-X key.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS ENDChar - move cursor to end/start of focus line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS ENDCHAR command moves the cursor to the first character
+          displayed in the current window, if the cursor is after the last
+          character displayed in the current window, or to the position after
+          the last character displayed in the current window, if the cursor is
+          anywhere else.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible. See below.
+          The possible combinations of VERIFY etc. make mimicing KEDIT very
+          difficult. The command is, on the surface, compatible.
+     
+     STATUS
+          incomplete-problem determining exactly where the cursor should go
+          when a verify end is in place and we are going to the end of line
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS EXecute - move cursor to command line and execute command
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS EXECUTE command moves the cursor to the command line
+          and executes any command that is on the command line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible
+     
+     STATUS
+          Complete...but because of potential infinite recursion, this function
+          has been suspended.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS MAKECURR - make focus line the current line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS MAKECURR command set the current line to the current focus
+          line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS TABf - move cursor to next tab stop
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS TABF command causes the cursor to move to the next tab column
+          as set by the TABS command. (The default is 8).
+          If the resulting column is beyond the right hand edge of the main
+          window, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: Does not allow arguments.
+          KEDIT: Compatible. See below.
+          Does not line tab to next line if after the right hand tab column.
+     
+     SEE ALSO
+          tabs
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS TABWORDB - move cursor to beginning of previous word
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS TABWORDB command causes the cursor to move to the first character
+          of the word to the left or to the start of the line if no more
+          words precede.
+          If the resulting column is beyond the left hand edge of the main
+          window, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SOS TABWORDF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS TABWORDf - move cursor to start of next word
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS TABWORDF command causes the cursor to move to the first character
+          of the next word to the right or to the end of the line if no more
+          words follow.
+          If the resulting column is beyond the right hand edge of the main
+          window, the window will scroll half a window.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SOS TABWORDB
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          SOS UNDO - undo changes to the current line
+     
+     SYNTAX
+          ** effective only if bound to a key **
+     
+     DESCRIPTION
+          The SOS UNDO command causes the contents of the focus line (or the
+          command line) to be reset to the contents before the cursor was
+          positioned there.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible. See below.
+          Basically compatible. Doesn't restore the cursor to the original
+          column position.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     
+     
+     
+     ========================================================================
+     SET COMMAND REFERENCE
+     ========================================================================
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          arbchar - set arbitrary character for change commands
+     
+     SYNTAX
+          [SET] ARBchar ON|OFF [char]
+     
+     DESCRIPTION
+          Set the character to use as an 'arbitrary character' when using
+          change commands. When on the character specified no longer matches
+          itself in locating a character to change but matches all characters.
+     
+     COMPATIBILITY
+          XEDIT: See below
+          KEDIT: See below
+          Only allows for single character matching, not multiple strings.
+     
+     DEFAULT
+          OFF ?
+     
+     SEE ALSO
+          Change,Schange and Locate
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          autosave - set autosave period
+     
+     SYNTAX
+          [SET] AUtosave n|OFF
+     
+     DESCRIPTION
+          The AUTOSAVE command sets the interval between automatic saves
+          of the file, or turns it off altogether.
+     
+     COMPATIBILITY
+          XEDIT: Does not support [mode] option.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          backup - indicate if a backup copy of the file is to be kept
+     
+     SYNTAX
+          [SET] BACKup ON|OFF
+     
+     DESCRIPTION
+          The BACKUP command allows the user to determine if a backup copy
+          of the original file is to be kept when the file being edited is
+          saved or filed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Does not support TEMP or KEEP options.
+     
+     DEFAULT
+          ON - a backup file is kept
+     
+     SEE ALSO
+          file,ffile,save,ssave
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          beep - turn on or off the audible alarm when displaying errors
+     
+     SYNTAX
+          [SET] BEEP ON|OFF
+     
+     DESCRIPTION
+          The BEEP command allows the user to determine if an audible alarm
+          is sounded when an error is displayed.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          case - set case sensitivity parameters
+     
+     SYNTAX
+          [SET] CASE Mixed|Lower|Upper [Respect|Ignore] [Respect|Ignore]
+                                       [Respect|Ignore]
+     
+     DESCRIPTION
+          The CASE command sets the editor's handling of the case of text.
+     
+          The first option (which is mandatory) controls how text is entered
+          by the user. When LOWER or UPPER are in effect, the shift or caps
+          lock keys have no effect on the text being entered. When MIXED is
+          in effect, text is entered in the case set by the use of the shift
+          and caps lock keys.
+     
+          The second option determines how the editor determines if a string
+          target matches text in the file when the target is used in a LOCATE
+          command.  With IGNORE in effect, a match is
+          found irrespective of the case of the target or the found text.
+          The following strings are treated as equivalent: the THE The ThE...
+          With RESPECT in effect, the target and text must be the same case.
+          Therefore a target of 'The' only matches text containing 'The', not
+          'THE' or 'ThE' etc.
+     
+          The third option determines how the editor determines if a string
+          target matches text in the file when the target is used in a CHANGE
+          command.  With IGNORE in effect, a match is
+          found irrespective of the case of the target or the found text.
+          The following strings are treated as equivalent: the THE The ThE...
+          With RESPECT in effect, the target and text must be the same case.
+          Therefore a target of 'The' only matches text containing 'The', not
+          'THE' or 'ThE' etc.
+     
+          The fourth option determines how the editor determines the sort 
+          order of upper and lower case with the SORT command.
+          With IGNORE in effect, upper and lower case letters are treated as
+          equivalent.
+          With RESPECT in effect, upper and lower case letters are treated as
+          different values and uppercase characters will sort before lowercase
+          characters.
+     
+     COMPATIBILITY
+          XEDIT: Adds support for case significance in CHANGE commands.
+          KEDIT: Adds support for LOWER option.
+          Both:  Adds support for case significance in SORT command.
+     
+     DEFAULT
+          MIXED IGNORE RESPECT RESPECT
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          clearscreen - indicate if the screen is to be cleared on exit
+     
+     SYNTAX
+          [SET] CLEARScreen ON|OFF
+     
+     DESCRIPTION
+          The CLEARSCREEN command allows the user to request that the screen be
+          cleared on exit from THE.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          OFF - a clear screen does not occur.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          clock - turn on or display of time on status line
+     
+     SYNTAX
+          [SET] CLOCK ON|OFF
+     
+     DESCRIPTION
+          The CLOCK command turns on or off the display of the time on the
+          status line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON - the time is displayed.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          cmdarrows - sets the functionality of the arrows keys
+     
+     SYNTAX
+          [SET] CMDArrows Retrieve|Tab Scroll|Tab Scroll|Tab
+     
+     DESCRIPTION
+          The CMDARROWS command determines the action that occurs when the
+          arrows keys are hit.
+     
+          CMDARROWS RETRIEVE SCROLL SCROLL (the default) will set the up and 
+          down arrows to retrieve the last or next command entered on the command 
+          line and to scroll the screen when at the top or bottom of the main
+          text window. The left and right arrows will cause the main text window 
+          to scroll if appropriate.
+     
+          CMDARROWS TAB TAB TAB will set the up and down arrows to move to the
+          last or first line respectively of the main window and to return to 
+          the command line when the top or bottom of the main text window is 
+          reached. The left and right arrows will wrap around the window if on
+          the command line or no prefix is on or to move between the prefix area.
+          This behaviour is more like XEDIT.
+     
+     DEFAULT
+          RETRIEVE SCROLL SCROLL
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          cmdline - sets the position of the command line.
+     
+     SYNTAX
+          [SET] CMDline Top|Bottom
+     
+     DESCRIPTION
+          The CMDLINE command sets the position of the command line, either
+          at the top of the screen or at the bottom of the screen.
+     
+     COMPATIBILITY
+          XEDIT: Does not allow CMDLINE to be turned OFF.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          colour - set colours for display
+     
+     SYNTAX
+          [SET] COLOUR|COLOR area [modifier] [foreground background]
+     
+     DESCRIPTION
+          The COLOUR command changes the colours or display attributes of
+          various display areas in THE.
+     
+          Valid values for 'area':
+            filearea - area containing file lines
+            curline  - the current line
+            block    - marked block
+            cblock   - current line if in marked block
+            cmdline  - command line
+            idline   - line containing file specific info
+            msgline  - error messages
+            arrow    - command line prompt
+            prefix   - prefix area
+            pending  - pending commands in prefix
+            scale    - line showing scale line (N/A)
+            tofeof   - *** Top of File *** and *** Bottom of File *** lines
+            ctofeof  - as above if the same as current line
+            tabline  - line showing tab positions (N/A)
+            shadow   - hidden line marker lines (N/A)
+            statarea - line showing status of editing session
+            divider  - dividing line between vertical split screens (N/A)
+            reserved - any reserved lines
+     
+          Valid values for 'foreground' and 'background':
+            black,blue,green,cyan,red,magenta,yellow,white
+     
+          Valid values for 'modifier':
+            normal,blink,bold,bright,high,reverse,underline
+     
+          It is an error to attempt to set a colour on a mono display.
+     
+     COMPATIBILITY
+          XEDIT: Functionally compatible. See below.
+          KEDIT: Functionally compatible. See below.
+          Does not implement all modifiers.
+     
+     STATUS  
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          curline - set position of current line on screen
+     
+     SYNTAX
+          [SET] CURLine M[+n|-n] | [+|-]n
+     
+     DESCRIPTION
+          The CURLINE command sets the position of the current line to
+          the physical screen line specified by supplied arguments.
+     
+          The two forms of parameters are:
+          M[+n|-n] - this sets the current line to be relative to the
+                     middle of the screen. A positvie value adds to the
+                     middle line number, a negative subtracts from it.
+                     eg. M+3 on a 24 line screen will be line 15
+                         M-5 on a 24 line screen will be line 7
+     
+          [+|-]n   - this sets the current line to be relative to the
+                     top of the screen (if positive or no sign) or
+                     relative to the bottom of the screen if negative.
+                     eg. +3 or 3 will set current line to line 3
+                         -3 on a 24 line screen will be line 21
+     
+          If the resulting line is outside the bounds of the screen
+          the position of the current line will become the middle line
+          on the screen.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          dirinclude - set the file mask for directory command
+     
+     SYNTAX
+          [SET] DIRInclude * 
+          [SET] DIRInclude [Normal] [Readonly] [System] [Hidden] [Directory]
+     
+     DESCRIPTION
+          The DIRINCLUDE command sets the file mask for files that will be
+          displayed on subsequent DIRECTORY commands.
+          * will set the mask to all files, the other options will set the
+          mask to include those options specified together with "normal"
+          files eg.
+     
+           DIRINCLUDE R S
+     
+          will display readonly and system files together with "normal" files
+          the next time the DIRECTORY command is issued.
+     
+          The effects of DIRINCLUDE are ignored in the Unix version.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     SEE ALSO
+          directory
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          display - specify which level of lines to display
+     
+     SYNTAX
+          [SET] DISPlay n [m|*]
+     
+     DESCRIPTION
+          The DISPLAY command sets the selection level for lines to be
+          displayed on the screen.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SET SCOPE, SET SELECT, ALL
+     
+     STATUS
+          Not started.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          eolout - set end of line terminator
+     
+     SYNTAX
+          [SET] EOLout CRLF|LF
+     
+     DESCRIPTION
+          The EOLOUT command allows the user to specify the combination of
+          characters that terminate a line. Lines of text in U*ix files are
+          usually terminated with a LF, whereas in DOS they usually end with
+          a CR and LF combination.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          etmode - indicate if extended display mode is possible
+     
+     SYNTAX
+          [SET] ETMODE ON|OFF
+     
+     DESCRIPTION
+          The ETMODE command allows the user to specify if extended ASCII
+          codes ( > 127) are to be displayed or should be displayed as
+          the NONDISP character.
+     
+     COMPATIBILITY
+          XEDIT: Similar function but deals with Double-Byte characters
+          KEDIT: N/A
+     
+     DEFAULT
+          ON  - for DOS and OS/2 platforms
+          OFF - for other platforms
+     
+     SEE ALSO
+          [SET] NONDisp
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          hex - set how hexidecimal strings are treated in string operands
+     
+     SYNTAX
+          [SET] HEX ON|OFF
+     
+     DESCRIPTION
+          The HEX set command determines whether hexidecimal strings are
+          treated as such in string operands.
+          With HEX ON, any string operand of the form
+             /x'31 32 33'/ or
+             /d'49 50 51'/
+          will be converted to /123/ before the command is executed.
+          With HEX OFF, no conversion is done.
+     
+          This conversion should work wherever a string operand is used
+          in any command.
+     
+     COMPATIBILITY
+          XEDIT: Adds support for decimal representation. See below.
+          KEDIT: Compatible. See below.
+          Spaces must seperate each character representation.
+     
+     DEFAULT
+          HEX OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          hexdisplay - turn on or display of character under cursor
+     
+     SYNTAX
+          [SET] HEXDISPlay ON|OFF
+     
+     DESCRIPTION
+          The HEXDISPLAY command turns on or off the display of the character under
+          the cursor on the status line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON - the current character is displayed.
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          impmacro - set implied macro command processing
+     
+     SYNTAX
+          [SET] IMPMACro ON|OFF
+     
+     DESCRIPTION
+          The IMPMACRO command is used to toggle implied macro processing
+          from the command line. By turning this feature on you can then
+          issue a macro command without the need to prefix the macro name
+          with the MACRO command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          Macro,Macropath
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          impos - set implied operating system command processing
+     
+     SYNTAX
+          [SET] IMPOS ON|OFF
+          [SET] IMPcmscp ON|OFF
+     
+     DESCRIPTION
+          The IMPMOS command is used to toggle implied operating system
+          command processing from the command line. By turning this feature 
+          on you can then issue an operating system command without the need 
+          to prefix the operating system command with the OS command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          insertmode - put editor into insert mode
+     
+     SYNTAX
+          [SET] INSERTMode ON|OFF|TOGGLE
+     
+     DESCRIPTION
+          The INSERTMODE command toggles the insert mode within THE.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          TOGGLE
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          linend - allow/disallow multiple commands on command line
+     
+     SYNTAX
+          [SET] LINENd ON|OFF [char]
+     
+     DESCRIPTION
+          The LINEND command allows or disallows the execution of multiple
+          commands on the command line. When setting LINEND ON, a character
+          is specified as the LINEND character which delimits each command.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF #
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          macroext - set default macro extension value
+     
+     SYNTAX
+          [SET] MACROExt [ext]
+     
+     DESCRIPTION
+          The MACROEXT command sets the value of the file extension to be
+          used for macro files. When a macro file name is specified on the
+          command line, a fullstop '.' then this value will be appended.
+          If no value is specified for ext, then THE assumes that the
+          supplied macro file name is the fully specified name for a macro.
+     
+          The length of ext must be 10 characters or less.
+     
+          The macro extension is only appended to a file if that file does
+          not include any path specifiers.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          the
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          macropath - set up default path for macro commands
+     
+     SYNTAX
+          [SET] MACROPath path[s]
+     
+     DESCRIPTION
+          The MACROPATH command sets up the search path from which macro
+          command files are executed. Each directory is seperated by a
+          colon (Unix) or semi-colon (DOS & OS/2).
+          No check is done at this stage to validate the supplied path.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Incompatible.
+     
+     DEFAULT
+          Path specified by env variable THE_MACRO_PATH or directory
+          specified in THE_HOME_DIR followed by the current directory
+          if THE_MACRO_PATH not defined.
+     
+     SEE ALSO
+          Macro,Impmacro.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          margins - set left and right margins
+     
+     SYNTAX
+          [SET] MARgins left right [[+|-]indent]
+     
+     DESCRIPTION
+          The MARGINS command sets the left and right margins and the
+          number of columns to indent a paragraph.
+          These values are used with the WORDWRAP option.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          1 72 0
+     
+     SEE ALSO
+          [SET] WORDWRAP.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          msgmode - set display of messages on or off
+     
+     SYNTAX
+          [SET] MSGMode ON|OFF
+     
+     DESCRIPTION
+          The MSGMODE set command determines whether error messages will be 
+          displayed or suppressed.
+     
+     COMPATIBILITY
+          XEDIT: Does not support [Short|Long] options.
+          KEDIT: Compatible
+     
+     DEFAULT
+          ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          newlines - set behaviour of adding new lines
+     
+     SYNTAX
+          [SET] NEWLines Aligned|Left
+     
+     DESCRIPTION
+          The NEWLINES set command determines where the cursor displays after
+          a new line is added to the file.
+          With ALIGNED, the cursor will display in the column of the new line
+          immediately underneath the first non-blank character in the line
+          above.
+          With LEFT, the cursor will display in the first column of the new line.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Same command, different functionality.
+     
+     DEFAULT
+          NEWLINES ALIGNED
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          nodisp - set the character that displays for non-displaying characters
+     
+     SYNTAX
+          [SET] NONDisp char
+     
+     DESCRIPTION
+          The NONDISP command allows the user to change the character that 
+          is displayed for non-displaying commands when [SET] ETMODE is OFF.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: N/A
+     
+     DEFAULT
+          #
+     
+     SEE ALSO
+          [SET] ETMODE
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          number - turn prefix numbers on or off
+     
+     SYNTAX
+          [SET] NUMber ON|OFF
+     
+     DESCRIPTION
+          The NUMBER command allows the user to toggle the display of numbers
+          in the prefix area.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          ON
+     
+     SEE ALSO
+          Prefix
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          pending - set status of pending prefix commands
+     
+     SYNTAX
+          [SET] PENDing ON string
+          [SET] PENDing OFF
+          [SET] PENDing BLOCK string
+     
+     DESCRIPTION
+          The PENDING command allows the user to insert or remove commands
+          from the pending prefix list.
+     
+          [SET] PENDing ON 'string', simulates the user typing 'string'
+          in the prefix area of the focus line.
+     
+          [SET] PENDing OFF, removes any pending prefix command from the
+          focus line.
+     
+          [SET] PENDing BLOCK 'string', simulates the user typing 'string'
+          in the prefix area of the focus line and identifies the prefix 
+          command to be a BLOCK command.
+     
+     COMPATIBILITY
+          XEDIT: Does not support ERROR option.
+          KEDIT: N/A
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          point - give a name to the current line
+     
+     SYNTAX
+          [SET] Point .name [OFF]
+     
+     DESCRIPTION
+          The POINT command assignes the specified name to the current
+          line, or removes the name from the line with the specified name.
+          A valid line name must start with a '.' followed by an alphabetic
+          character. eg. .a .fred and .GG are valid names; fred and .3 are
+          invalid line names.
+     
+          When a line is moved within the same file, its line name stays
+          with the line.
+     
+     COMPATIBILITY
+          XEDIT: Compatible. See below.
+          KEDIT: Compatible. See below.
+          Does not allow for multiple names for the same line.
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          prefix - set prefix area attributes
+     
+     SYNTAX
+          [SET] PREfix ON [Left|Right]
+          [SET] PREfix OFF
+          [SET] PREfix Synonym newname oldname
+     
+     DESCRIPTION
+          The first form of the PREFIX allows the user to display the
+          prefix area and optionally to select the position the prefix
+          should be displayed at.
+          The second form, turns the display of the prefix area off.
+          Executed from within the profile, the only effect is that the
+          defaults for all files is changed.
+          Executed from the command line, the PREFIX command changes the
+          current window displays to reflect the required options.
+     
+          The third form of the PREFIX command allows the users to specify
+          a synonym for a prefix command or REXX prefix macro. The 'newname' 
+          is the command entered in the prefix area and 'oldname' corresponds 
+          to an existing prefix command or a REXX macro file in the MACROPATH 
+          ending in .the or whatever the value of MACROEXT is at the time the 
+          prefix command is executed. The 'oldname' can also be the fully 
+          qualified filename of a REXX macro.
+     
+     COMPATIBILITY
+          XEDIT: Compatible. See below.
+          KEDIT: Compatible. See below.
+          Does not support PREFIX NULLS.
+     
+     DEFAULT
+          PREFIX ON LEFT
+     
+     STATUS
+          Strange display behaviour occurs when you have multiple files with
+          mixed prefix settings.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          printer - define printer spooler name
+     
+     SYNTAX
+          [SET] PRINTER spooler
+     
+     DESCRIPTION
+          The PRINTER command sets up the print spooler name to determine
+          where output from the PRINT command goes.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          print
+     
+     STATUS
+          Incomplete. This command does nothing in the DOS version.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          reprofile - indicate if profile file to be executed for all files
+     
+     SYNTAX
+          [SET] REPROFile ON|OFF
+     
+     DESCRIPTION
+          The REPROFILE command allows the user to determine if the profile 
+          file is to reexecuted for files subsequenlty edited.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          OFF
+     
+     SEE ALSO
+          xedit
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          reserved - reserve a line
+     
+     SYNTAX
+          [SET] RESERved +|-n text|OFF
+     
+     DESCRIPTION
+          The RESERVED command reseves a line for the display of arbitrary
+          text by the user. The position is determined by +|-n.
+          This number, if positive, specifies the line relative from the
+          top of the display. A negative number is relative from the
+          bottom of the display.
+     
+          By specifying a line, say +3, then THREE lines from the top will
+          be reserved, with the supplied text being displayed in line 3.
+     
+          The idline of a file will always be displayed after any reserved
+          lines.
+     
+          The status area will always be displayed on the very last line
+          of the screen and any reserved lines will display above that.
+          The status area then is effectively line -0;
+     
+     COMPATIBILITY
+          XEDIT: Compatible. See below.
+          KEDIT: Compatible. See below.
+          Does not allow a colour to be specified. Use SET COLOUR instead.
+     
+     STATUS
+          Not implemented.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          rexxoutput - indicate where REXX output is to go
+     
+     SYNTAX
+          [SET] REXXOUTput File|Display n
+     
+     DESCRIPTION
+          The REXXOUTPUT command indicates where output from the REXX
+          interpreter is to go; either captured to a file in the ring
+          or displayed in a scrolling fashion on the screen.
+     
+          Also specified is the maximum number of lines from the REXX
+          interpreter that are to be displayed or captured. This is
+          particularly useful when a REXX macro gets into an infinite
+          loop.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          Display 1000
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          scope - sets which lines are to be excluded from commands
+     
+     SYNTAX
+          [SET] SCOPE All|Display
+     
+     DESCRIPTION
+          The SCOPE command indicates whether lines not displayed as
+          the result of a SET DISPLAY or ALL command are included in
+          the scope of lines to be acted upon by other THE commands.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          Display
+     
+     SEE ALSO
+          SET DISPLAY, SET SELECT, ALL
+     
+     STATUS
+          Not started.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          screen - specifiy number of screens displayed
+     
+     SYNTAX
+          [SET] SCReen n [Horizontal|Vertical]
+     
+     DESCRIPTION
+          The SCREEN command specifies the number of views of file(s) to
+          display on screen at once. If the number of views specified is 2
+          and only one file is currently in the ring, two views of the
+          same file are displayed.
+     
+     COMPATIBILITY
+          XEDIT: Does not support Size,Width or Define options.
+          KEDIT: Does not support Size option.
+          Only 2 views are supported.
+     
+     STATUS
+          Not complete. (Unavailable)
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          select - sets the selection level for the specified lines
+     
+     SYNTAX
+          [SET] SELect [+|-]n target
+     
+     DESCRIPTION
+          The SELECT command sets the selection level for the indicated
+          lines equal to n (if no signs are specified) or adds or subtracts
+          n from the selection level currently set for the lines in the
+          target.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          SET SCOPE, SET SELECT, ALL
+     
+     STATUS
+          Not started.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          stay - set condition of cursor position after CHANGE/LOCATE commands
+     
+     SYNTAX
+          [SET] STAY ON|OFF
+     
+     DESCRIPTION
+          The STAY set command determines what line is displayed as the current
+          line after an unsuccessful LOCATE command or after a CHANGE command.
+          With STAY ON, the current line remains where it currently is. With
+          STAY OFF, after an unsuccessful LOCATE, the current line is "Bottom
+          of File". After a successful CHANGE, the current line is the last
+          line affected by the CHANGE command.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     DEFAULT
+          STAY ON
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          tabkey - set characteristics of the tab key
+     
+     SYNTAX
+          [SET] TABKey Tab|Character Tab|Character
+     
+     DESCRIPTION
+          The TABKEY sets the action to be taken when the tab key is hit.
+          Depending on the insert mode, the tab key will either display
+          a raw tab character or will move to the next tab column.
+          The first operand refers to the behaviour of the TAB key when
+          INSERTMODE is OFF; the second operand specifies the behaviour
+          when the TAB key is hit when INSERTMODE is ON.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: N/A
+     
+     DEFAULT
+          TAB CHARACTER
+     
+     STATUS
+          Complete
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          tabs - set tab length for TAB key
+     
+     SYNTAX
+          [SET] TABS INCR n
+     
+     DESCRIPTION
+          The TABS command determines the position of tab columns when the
+          TAB key is pressed.
+     
+     COMPATIBILITY
+          XEDIT: Does not support specification of actual tab columns.
+          KEDIT: Does not support specification of actual tab columns.
+     
+     SEE ALSO
+          SOS TABF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          tabsin - set tab processing on file input
+     
+     SYNTAX
+          [SET] TABSIn ON|OFF [n]
+     
+     DESCRIPTION
+          The TABSIN command determines if tabs read from a file are to be
+          expanded to spaces and if so how many spaces.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Does not support TABQUOTE option.
+     
+     SEE ALSO
+          tabsout
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          tabsout - set tab processing on file output
+     
+     SYNTAX
+          [SET] TABSOut ON n
+          [SET] TABSOut OFF
+     
+     DESCRIPTION
+          The TABSOUT command determines if spaces written to a file are to be
+          compressed to tabs and if so how many spaces.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          tabsin
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          verify - set column display limits
+     
+     SYNTAX
+          [SET] Verify first [last]
+     
+     DESCRIPTION
+          The VERIFY command sets the column limits for the display of the
+          current file. 'first' specifies the first column to be displayed
+          and 'last' specifies the last column to be displayed.
+     
+          If no 'last' option is specified '*' is assumed.
+     
+     COMPATIBILITY
+          XEDIT: Does not implement HEX display nor multiple column pairs.
+          KEDIT: Does not implement HEX display nor multiple column pairs.
+     
+     SEE ALSO
+          Zone
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          wordwrap - set wordwrap feature on or off
+     
+     SYNTAX
+          [SET] WORDWrap ON|OFF
+     
+     DESCRIPTION
+          The WORDWRAP set command determines whether wordwrap occurs when
+          the cursor moves past the right margin (as set my [SET] MARGINS 
+          command).
+          With WORDWRAP ON, the line, from the beginning of the word that
+          exceeds the right margin, is wrapped onto the next line. The cursor
+          position stays in the same position relative to the current word.
+          WIth WORDWRAP OFF, no word wrap occurs.
+     
+     COMPATIBILITY
+          XEDIT: N/A
+          KEDIT: Compatible.
+     
+     DEFAULT
+          WORDWRAP OFF
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     COMMAND
+          zone - set column limits for editing
+     
+     SYNTAX
+          [SET] Zone first [last]
+     
+     DESCRIPTION
+          The ZONE command sets the column limits for various other editor
+          commands, such as 'locate' and 'change'. It effectively restricts
+          to the specified columns those parts of the file which can be
+          acted upon.
+     
+          If no 'last' option is specified '*' is assumed.
+     
+     COMPATIBILITY
+          XEDIT: Compatible.
+          KEDIT: Compatible.
+     
+     SEE ALSO
+          Verify
+     
+     STATUS
+          Complete.
+
+
+
+     --------------------------------------------------------------------------
+     
+     
+     ========================================================================
+     QUERY, EXTRACT and STATUS
+     ========================================================================
+     
+          The following lists the valid variables that can be queried and
+          also shows what values are returned. For both QUERY and STATUS,
+          the values are concatenated together and displayed as a single
+          line. For EXTRACT the REXX variables that are set are defined.
+          The capitalised portion of the variable is the minimum abbreviation
+          recognised.
+          The bracketed text at the end of the description indicates from
+          which commands a valid response will be supplied (Q-Query,E-Extract
+          and S-Status).
+     
+     ALT
+          The number of alterations to the current file since the last SAVE
+          or AUTOSAVE.
+          (QES)
+     
+          alt.0           - 2
+          alt.1           - Number of alterations since last SAVE or AUTOSAVE
+          alt.2           - Number of alterations since last SAVE
+     
+     ARBchar
+          The status of ARBCHAR and the ARBCHAR character.
+          (QES)
+     
+          arbchar.0       - 2
+          arbchar.1       - ON|OFF
+          arbchar.2       - ARBCHAR character
+     
+     AUtosave
+          The status of AUTOSAVE and/or the frequency setting.
+          (QES)
+     
+          autosave.0      - 1
+          autosave.1      - OFF|n
+     
+     BACKup
+          Indicates if a .bak file is kept after editing.
+          (QES)
+     
+          backup.0        - 1
+          backup.1        - ON|OFF
+     
+     BEEP
+          Indicates if the bell is sounded on display of error messages.
+          (QES)
+     
+          beep.0          - 1
+          beep.1          - ON|OFF
+     
+     BLOCK
+          Returns information about the marked block, if any.
+          (E)
+     
+          block.0         - 6 if a marked block exists, or 1 for NONE
+          block.1         - type of marked block (LINE|BOX|NONE)
+          block.2         - line number of start of block
+          block.3         - column number of start of block
+          block.4         - line number of end of block
+          block.5         - column number of end of block
+          block.6         - file name containing marked block
+     
+     CASE
+          The settings related to the CASE of characters entered, searched
+          for, changed and sorted.
+          (QES)
+     
+          case.0          - 4
+          case.1          - MIXED|UPPER|LOWER
+          case.2          - RESPECT|IGNORE
+          case.3          - RESPECT|IGNORE
+          case.4          - RESPECT|IGNORE
+     
+     CLEARScreen
+          Indicates if the screen is cleared on exit from THE.
+          (QES)
+     
+          clearscreen.0   - 1
+          clearscreen.1   - ON|OFF
+     
+     CLOCK
+          Indicates if the time is displayed on the status line.
+          (QES)
+     
+          clock.0         - 1
+          clock.1         - ON|OFF
+     
+     CMDArrows
+          Returns the settings for arrow key behaviour.
+          (QES)
+     
+          cmdarrows.0     - 3
+          cmdarrows.1     - RETRIEVE|TAB
+          cmdarrows.2     - SCROLL|TAB
+          cmdarrows.3     - SCROLL|TAB
+     
+     CMDline
+          The settings for the command line.
+          (QES)
+     
+          cmdline.0       - 3
+          cmdline.1       - TOP|BOTTOM
+          cmdline.2 *     - line number within window of command line
+          cmdline.3 *     - contents of command line
+                    * these values are only returned with EXTRACT
+     
+     CURline
+          The value and position of the current line within the current file.
+          (E)
+     
+          curline.0       - 3
+          curline.1       - -1
+          curline.2       - line number within window of current line
+          curline.3       - contents of current line
+     
+     DIRFILEID
+          The value of the path and filename of the focus line in a DIR.DIR
+          file.
+          (E)
+     
+          dirfileid.0     - 2
+          dirfileid.1     - full path of directory
+          dirfileid.2     - file name at focus line
+     
+     EOF
+          Indicates if the current line is on the *** Bottom of file *** line.
+          (QES)
+     
+          eof.0           - 1
+          eof.2           - ON|OFF
+     
+     EOLout
+          Returns the value of the end-of-line character(s).
+          (QES)
+     
+          eolout.0        - 1
+          eolout.1        - LF|CRLF
+     
+     ETMODE
+          Indicates if extended display mode is set.
+          (QES)
+     
+          etmode.0        - 1
+          etmode.1        - ON|OFF
+     
+     FNAME
+          The file name of the current file.
+          (E)
+     
+          fname.0         - 1
+          fname.1         - File name.
+     
+     FPATH
+          The path name of the current file. This includes a trailing
+          directory seperator.
+          (E)
+     
+          fpath.0         - 1
+          fpath.1         - File path.
+     
+     FTYPE
+          The extension of the current file. The characters following
+          the trailing '.' character.
+          (E)
+     
+          ftype.0         - 1
+          ftype.1         - File extension.
+     
+     GETENV variable
+          The value of the supplied environment variable or ***invalid***
+          if the variable does not exist.
+          (E)
+     
+          getenv.0        - 1
+          getenv.1        - value of variable
+     
+     HEX
+          Indicates if HEX is on or off.
+          (QES)
+     
+          hex.0           - 1
+          hex.1           - ON|OFF
+     
+     HEXDISPlay
+          Indicates if the current character is displayed on the status line.
+          (QES)
+     
+          hexdisplay.0    - 1
+          hexdisplay.1    - ON|OFF
+     
+     IMPMACro
+          Indicates if implied macro processing is on or off.
+          (QES)
+     
+          impmacro.0      - 1
+          impmacro.1      - ON|OFF
+     
+     IMPOS
+          Indicates if implied operating system command processing is on 
+          or off.
+          (QES)
+     
+          impos.0         - 1
+          impos.1         - ON|OFF
+     
+     INSERTmode
+          Indicates if currently in insert mode or overstrike mode.
+          (QES)
+     
+          insertmode.1    - 1
+          insertmode.1    - ON|OFF
+     
+     LASTmsg
+          Return the text of the last error message generated.
+          (E)
+     
+          lastmsg.0       - 1
+          lastmsg.1       - text of last message.
+     
+     LASTRC
+          Return code from last command issued from command line.
+          (QES)
+     
+          lastrc.0        - 1
+          lastrc.1        - Last return code.
+     
+     LENgth
+          Length of the current line.
+          (QES)
+     
+          length.0        - 1
+          length.1        - Length of current line.
+     
+     LIne
+          Line number of current line in current file.
+          (QES)
+     
+          line.0          - 1
+          line.1          - Line number
+     
+     LINENd
+          Indicates if multiple commands allowed on command line
+          and the delimiter.
+          (QES)
+     
+          linend.0        - 2
+          linend.1        - ON|OFF
+          linend.2        - delimiter
+     
+     MACROExt
+          The current setting for a macro's file extension.
+          (QES)
+     
+          macroext.0      - 1
+          macroext.1      - Default file extension
+     
+     MACROPath
+          The path that THE looks for by default for macro files.
+          (E)
+     
+          macropath.0     - 1
+          macropath.1     - Path for macro files.
+     
+     MARgins
+          The settings for left and right margins and paragraph indent.
+          (QES)
+     
+          margins.0       - 3
+          margins.1       - left column
+          margins.2       - right column
+          margins.3       - indent value (column or offset from left margin)
+     
+     MONITOR
+          Indicates if the combination of monitor and the curses package
+          supports colour. If the curses package supports colour, then
+          monitor.3 is set to COLOR and monitor.2 can be COLOR or MONO
+          depending on whether the monitor supports colour. If monitor.3
+          is MONO then monitor.2 will also be set to MONO.
+          (QES)
+     
+          monitor.0       - 2
+          monitor.1       - COLOR|MONO
+          monitor.2       - COLOR|MONO
+     
+     MSGMode
+          Indicates if MSGMODE setting is on or off.
+          (QES)
+     
+          msgmode.0       - 1
+          msgmode.1       - ON|OFF
+     
+     NBFile
+          Returns with the number of files currently in the ring.
+          (QES)
+     
+          nbfile.0        - 1
+          nbfile.1        - Number of files in ring
+     
+     NEWLines
+          Indicates if NEWLINES variable is set to LEFT or ALIGNED.
+          (QES)
+     
+          newlines.0      - 1
+          newlines.1      - ALIGNED|LEFT
+     
+     NONDisp
+          Returns the character that is displayed for extended characters
+          that are not displayed.
+          (QES)
+     
+          nondisp.0       - 1
+          nondisp.1       - char
+     
+     NUMber
+          Indicates if line numbers are displayed in the prefix area.
+          (QES)
+     
+          number.0        - 1
+          number.1        - ON|OFF
+     
+     PENDing [BLOCK] [OLDNAME] name|*
+          Returns information about pening prefix commands.
+          (E)
+     
+          pending.0       - 4
+          pending.1       - line number in file
+          pending.2       - newname - actual name entered in prefix area
+          pending.3       - oldname - original name of macro after
+                                      synonym resolution
+          pending.4       - BLOCK or null
+     
+     Point [*]
+          Returns the name and line number of the focus line, or names and
+          line numbers of all lines in a file if '*' is specified.
+          (E)
+     
+          When 'EXTract /Point' is specified:
+     
+          point.0         - 0 or 1       (0 if focus line not named)
+          point.1         - line number and name of line (if line is named)
+     
+          When 'EXTract /Point *' is specified:
+     
+          point.0         - number of named lines in the file
+          point.1         - line number and name for first named line
+          point.n         - line number and name for nth named line
+     
+     PREfix [Synonym name|*]
+          Indicates if prefix is displayed for the view and if displayed
+          where is is displayed.
+          (QES)
+     
+          prefix.0        - 1 or 2     (1 if prefix.1 is OFF, 2 otherwise)
+          prefix.1        - ON|OFF
+          prefix.2        - LEFT|RIGHT                 (if prefix.1 is ON)
+     
+          With [Synonym name] option, the name of the macrofile (oldname) 
+          is returned that is associated with the synonym, name. If name 
+          is not a synonym then name is returned.
+          (E)
+     
+          prefix.0        - 1
+          prefix.1        - oldname
+     
+          With [Synonym *] option, all prefix synonyms are returned.
+          (E)
+     
+          prefix.0        - number of prefix synonyms
+          prefix.1        - newname oldname
+          prefix.n        - newname oldname
+     
+     PRINTER
+          Returns the value of the printer port or spooler.
+          (QES)
+     
+          printer.0       - 1
+          printer.1       - port or spooler name
+     
+     REPROFile
+          Indicates if the profile file is to be re-executed for each
+          subsequent file to be edited.
+          (QES)
+     
+          reprofile.0     - 1
+          reprofile.1     - ON|OFF
+     
+     REXXOUTput
+          Indicates if REXX output is captured to a file or not and the
+          line number limit of lines to be displayed.
+          (QES)
+     
+          rexxoutput.0    - 2
+          rexxoutput.1    - FILE|DISPLAY
+          rexxoutput.2    - line number limit
+     
+     SIze
+          Returns the number of lines in the current file.
+          (QES)
+     
+          size.0          - 1
+          size.1          - Lines in current file.
+     
+     STAY
+          Indicates if STAY is on or off.
+          (QES)
+     
+          stay.0          - 1
+          stay.1          - ON|OFF
+     
+     TABKey
+          Returns settings about behaviour of TAB key.
+          tabkey.1 is behaviour while in insert mode
+          tabkey.2 is behaviour while not in insert mode
+          (QES)
+     
+          tabkey.0        - 2
+          tabkey.1        - TAB|CHARACTER
+          tabkey.2        - TAB|CHARACTER
+     
+     TABS
+          Returns settings about tab columns.
+          (QES)
+     
+          tabs.0          - 2
+          tabs.1          - INCR
+          tabs.2          - size of tab
+     
+     TABSIn
+          Indicates if TABSIN processing is on or off and the size of the
+          tabs setting.
+          (QES)
+     
+          tabsin.0        - 2
+          tabsin.1        - ON|OFF
+          tabsin.2        - size of tabs
+     
+     TABSOut
+          Indicates if TABSOUT processing is on or off and the size of the
+          tabs setting.
+          (QES)
+     
+          tabsout.0       - 2
+          tabsout.1       - ON|OFF
+          tabsout.2       - size of tabs
+     
+     TERMinal
+          Identifies the terminal type currently being used.
+          (QES)
+     
+          terminal.0      - 1
+          terminal.1      - DOS|OS2|$TERM value under Unix
+     
+     TOF
+          Indicates if the current line is on the *** Top of file *** line.
+          (QES)
+     
+          tof.0           - 1
+          tof.2           - ON|OFF
+     
+     Verify
+          Returns verify column settings.
+          (QES)
+     
+          verify.0        - 1
+          verify.1        - Column pair of verify start and end columns.
+     
+     VERSION
+          Returns information about name of application (THE) and version
+          information.
+          (QES)
+     
+          version.0       - 4
+          version.1       - THE
+          version.3       - version string eg. 1.5
+          version.3       - platform version (DOS,OS2,UNIX)
+          version.4       - version status information eg. beta
+     
+     Width
+          Returns maximum line width setting.
+          (QES)
+     
+          width.0         - 1
+          width.1         - Maximum line width value.
+     
+     WORDWrap
+          Indicates if WORDWARP is on or off.
+          (QES)
+     
+          wordwrap.0      - 1
+          wordwrap.1      - ON|OFF
+     
+     Zone
+          Returns zone column settings.
+          (QES)
+     
+          zone.0          - 2
+          zone.1          - Zone start column
+          zone.2          - Zone end column
+     
+     
+     
+     ========================================================================
+     IMPLIED EXTRACT, BOOLEAN and OTHER FUNCTIONS
+     ========================================================================
+     
+     IMPLIED EXTRACT
+     
+          The above REXX variables set above by the EXTRACT command may also
+          be obtained by a REXX macro as an implied EXTRACT. Each variable
+          above that may be set by an explicit EXTRACT command may also be
+          used as an external function to REXX to obtain the same information.
+          eg. The REXX commands:
+     
+              'EXTRACT /SIZE/CURLINE/'
+              Say size.1 curline.1
+     
+          may be substituted with:
+     
+              Say size.1() curline.1()
+     
+     BOOLEAN FUNCTIONS
+     
+          THE also provides other information to the REXX interpreter via
+          boolean functions. These functions return either '1' or '0'
+          depending on the information queried.
+     
+       after()
+          Returns '1' if the cursor is currently after the last non-blank
+          character on the line, or if the line is blank.
+     
+       blank()
+          Returns '1' if the line the cursor is on is completely blank.
+     
+       block()
+          Returns '1' if the marked block is within the current view.
+     
+       before()
+          Returns '1' if the cursor is currently before the first non-blank
+          character on the line, or if the line is blank.
+     
+       bottomedge()
+          Returns '1' if the cursor is on the bottom edge of the filearea
+          or prefix area.
+     
+       command()
+          Returns '1' if the cursor is on the command line.
+     
+       current()
+          Returns '1' if the cursor is on the current line.
+     
+       dir()
+          Returns '1' if the current file is the special DIR.DIR file.
+     
+       end()
+          Returns '1' if the cursor is on the last non-blank character on
+          the line.
+     
+       eof()
+          Returns '1' if the cursor is on the '*** Bottom of file ***' line
+          and the cursor is not on the command line.
+     
+       first()
+          Returns '1' if the cursor is in column 1 of the current window.
+     
+       focuseof()
+          Returns '1' if the focus line is the '*** Bottom of file ***' line
+          whether the cursor is on it or not.
+     
+       focustof()
+          Returns '1' if the focus line is the '*** Top of file ***' line
+          whether the cursor is on it or not.
+     
+       inblock()
+          Returns '1' if the cursor is in the marked block.
+     
+       initial()
+          Returns '1' if the function is called from the profile file.
+     
+       inprefix()
+          Returns '1' if the cursor is located in the prefix area.
+     
+       leftedge()
+          Returns '1' if the cursor is on the left edge of the file area.
+     
+       modifiable()
+          Returns '1' if the cursor is located in an area that can be changed.
+          ie. not on '*** Top of File ***' or '*** Bottom of File ***' lines.
+     
+       rightedge()
+          Returns '1' if the cursor is on the right edge of the file area.
+     
+       spacechar()
+          Returns '1' if the cursor is on a space character.
+     
+       tof()
+          Returns '1' if the cursor is on the '*** Top of file ***' line
+          and the cursor is not on the command line.
+     
+       topedge()
+          Returns '1' if the cursor is on the top edge of the file area.
+     
+       verone()
+          Returns '1' if the column 1 of the file is being displayed in
+          column 1.
+     
+     OTHER FUNCTIONS
+     
+        The following functions provide functions to simplify THE macros
+        written in REXX.
+     
+       valid_target(target)
+          Returns 0 if the supplied 'target' is invalid.
+          Returns 'ALL' if the supplied 'target' is 'ALL'.
+          If a valid target, returns the number of lines from the focus
+          line to the 'target', either positive if the target is toward the
+          end of file or negative if the target is toward the top of file.
+     
+
+
+
+     --------------------------------------------------------------------------
+     
+     
+     ========================================================================
+     APPENDIX 1 - ENVIRONMENT VARIABLES
+     ========================================================================
+     
+     THE uses the following environment variables:
+     
+             THE_HOME_DIR     - the directory in which THE looks for its help
+                                file(s) and macro(s);
+             THE_HELP_FILE    - the fully qualified file name containing help
+                                information.
+             THE_PROFILE_FILE - the fully qualified file name for the default
+                                profile file.
+             THE_MACRO_PATH   - a list of all directories in which THE is to 
+                                look for macro files.
+     
+     The following defines how these environment variables are used under UNIX.
+     
+     If no environment variable; THE_HOME_DIR, is set prior to starting THE,
+     THE uses /usr/local/THE/ (or /opt/THE/ if SYSVR4 is defined when compiling)
+     as the default value for ${THE_HOME_DIR}. 
+     This can be changed in the.c if necessary.
+     
+     The default value of THE_HELP_FILE is ${THE_HOME_DIR}${TERM}.hlp
+     eg. with no environment variables set and $TERM set to vt220, the help 
+     file to be looked for will be /usr/local/THE/vt220.hlp (or 
+     /opt/THE/vt220.hlp if SYSVR4 is defined when compiling).
+     If THE_HOME_DIR environment variable was set to /usr/opt/etc or changed in
+     the.c, the help file will be /usr/opt/etc/vt220.hlp. If no $TERM 
+     environment variable is set, "default" is used.
+     
+     The name of the default profile file is $HOME/.therc.
+     
+     The default value of THE_MACRO_PATH is ${THE_HOME_DIR}:. THE will look for 
+     a macro file first in ${THE_HOME_DIR} and then in the current directory. 
+     So with no environment variables set, THE looks for macros in 
+     $(THE_HOME_DIR} first and if no file exists in that directory, THE will 
+     look in the current directory. If the file does not exist in either of 
+     these places, an error message will be displayed.
+     The format of THE_MACRO_PATH is dir1:dir2:dir3 Each directory is seperated 
+     by colons. By default, up to 20 directories may be specified. This can be 
+     changed in the.h.
+     
+     The following defines how these environment variables are used under DOS 
+     and OS/2.
+     
+     By default THE_HOME_DIR is set to the directory from which THE was 
+     invoked. Assuming THE.EXE resides in d:\tools, THE_HOME_DIR will equate 
+     to d:\tools\.
+     
+     The default value of THE_HELP_FILE is ${THE_HOME_DIR}dos.hlp for DOS and
+     ${THE_HOME_DIR}os2.hlp for OS/2.
+     
+     The name of the default profile file is ${THE_HOME_DIR}profile.the.
+     
+     The default value of THE_MACRO_PATH is ${THE_HOME_DIR};. THE will look for
+     a macro file first in THE_HOME_DIR and then in the current directory. So 
+     with no environment variables set, THE first looks for macros in the 
+     directory from which THE was invoked and then in the current directory. 
+     If the file does not exist in either directory, an error message is displayed.
+     The format of THE_MACRO_PATH is dir1;dir2;dir3 Each directory is seperated 
+     by semi-colons. By default up to 20 directories may be specified. This can 
+     be changed in the.h.
+     
+
+
+
+     --------------------------------------------------------------------------
+
+
+
+
+

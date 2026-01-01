@@ -1,0 +1,442 @@
+GLOBAL DATA AREA & DOS2OS2 API
+by Karly Court Software
+
+Contents
+License Agreement....................1
+Introduction.........................2
+Installation and Sample Files........2
+Global Data Area Description.........3
+GDA Virtual Device Driver............3
+Global Data Area Functions...........3
+	Send Data to GDA................3
+	Receive Data from GDA...........3
+	Update Data in GDA..............4
+	Read Data From GDA..............4
+	Reset Update/Read Semaphores....5
+	Dos Sleep.......................5
+Dos API Description..................6
+Dos API Functions....................6
+	Start OS2/DOS/WIN Session.......6
+	Create Event Semaphore..........7
+	Open Event Semaphore............7
+	Close Event Semaphore...........8
+	Post Event Semaphore............8
+	Reset Event Semaphore...........8
+	Query Event Semaphore...........9
+	Wait Event Semaphore............9
+Coming Soon!.........................9
+
+License Agreement
+You may use the software contained in this package for evaluation purposes
+free of charge.  However, if you use the software libraries for commercial or
+in-house development you must register the software with Karly Court
+Software.  Registering the software entitles you to install the device driver
+on an unlimited number of systems in your company.  You may also modify
+the source code with no restrictions.  Karly Court Software is not responsible
+for any damages resulting from the use of this product.  The price of the
+product is $59.00 US.  This product is offered to help Dos and Windows
+developers migrate their systems to the OS/2 platform and the registration
+fee is requested to help offset costs incurred in its development.  When you
+register, you will receive the latest version of the software, printed documen-
+tation, and all source code.
+
+Introduction
+One of the benefits of OS/2 is the ability to not only run true 32-bit programs
+in a multithreaded environment, but to also run older 16-bit DOS and
+Windows programs.  This is quite an accomplishment given the fact that DOS
+was not designed as a multitasking environment and that Windows is a
+"cooperative" rather than pre-emptive multitasker.  Being able to operate
+programs from three different platforms at the same time is great, but one
+shortcoming of OS/2 is the lack of interprocess facilities for the DOS and
+Windows environment.  IBM's direction is for DOS programs to use named
+pipes, but that requires an OS/2 program to initially create the pipe.
+Windows and OS/2 programs can communicate using DDE and other
+clipboard related functions but at considerable overhead.  This is where the
+Global Data Area and Dos API functions help.  They allow DOS, Windows,
+and OS/2 programs to read and write to a small 1K data area that is common
+to all programs.  Often a programmer may only want to set a flag that other
+sessions can check or to pass messages between a group of programs.  By
+using a very small virtual device driver and a set of "undocumented" DOS
+interrupt calls this can now be done.
+
+Installation and Sample Files
+To install the files on your system perform these steps.
+Create a directory DOS2OS2.
+	md DOS2OS2
+
+Copy this file to the DOS2OS2 directory where sdrive is the source drive
+and ddrive is the destination drive that contains the DOS2OS2 directory.
+	copy sdrive:\DOS2OS2.ZIP ddrive:\DOS2OS2\DOS2OS2.ZIP
+
+Unzip this file in the DOS2OS2 directory.
+	cd DOS2OS2
+	pkunzip -do DOS2OS2.ZIP
+
+Add the following line to the end of your OS/2 config.sys file 
+where drive is the drive letter that the files were installed.
+	device=drive:\DOS2OS2\VDOSAPI.SYS
+
+Your are now ready to use the GDA functions!
+
+Included in this package are the following samples file:
+	VDOSAPI.SYS GDA Virtual Device Driver
+	TESTAPIL.EXE    Dos large model test program
+	TESTAPIS.EXE    Dos small model test program
+	TESTOS2.EXE OS/2 character mode test program
+	WINAPI.EXE      Windows menu driven test program
+	DOSAPI.H        Header file for Dos/Windows libraries
+	DOSAPI_L.LIB    Dos large model library
+	DOSAPI_S.LIB    Dos small model library
+	OS2API.H        Header file for OS/2 library
+	OS2API.LIB      OS/2 library
+
+Registered users of this package will receive source code to the device
+driver, source code to the libraries and test programs, and a stub program
+with documentation that allows OS/2 programs to execute in a VDM.
+
+Global Data Area Description
+As mentioned, named pipes are recommended by IBM for interprocess
+communications between Dos applications and OS/2.  Named pipes can only
+be created at this time by an OS/2 program.  Also, a named pipe can only be
+used between one set of programs at a time.  Named pipes are not
+persistent; when the pipe is closed the data is gone.  By using a permanent
+1K global data area that all platforms can access these limitations are
+overcomed.  This data area is controlled by a virtual device driver using the
+following functions:
+
+Global Data Area Functions
+
+-----------------------------------------------------------------------
+DosApi_Send         [OS/2, DOS, Windows]
+
+Function:   Sets GDA to a range of bytes starting at a given offset.
+
+Syntax:   include "dosapi.h"
+		unsigned int DosApi_Send(char far *pBuffer,
+			short ByteRange, short BuffOffSet);
+
+Remarks:  DosApi_Send copies the range of bytes pointed to by
+		pBuffer for ByteRange number of bytes starting at the GDA
+		offset BuffOffSet.
+
+Returns:  If the sum of ByteRange and BuffOffSet exceed the length
+		of the GDA (1024 bytes) decimal 11 is returned.
+		If the VDOSAPI driver is not loaded decimal 127 is returned.
+
+-----------------------------------------------------------------------
+DosApi_Recv         [OS/2, DOS, Windows]
+
+Function: Returns a range of bytes from the GDA starting at a given
+		offset.
+
+Syntax:   include "dosapi.h"
+		unsigned int DosApi_Recv(char far *pBuffer,
+			short ByteRange, short BuffOffSet);
+
+Remarks:  DosApi_Recv copies from the GDA ByteRange number of
+		bytes starting at the offset BuffOffSet to the address pointed
+		to by pBuffer.
+
+Returns:  If the sum of ByteRange and BuffOffSet exceed the length
+		of the GDA (1024 bytes) decimal 11 is returned.
+		If the VDOSAPI driver is not loaded decimal 127 is returned.
+
+-----------------------------------------------------------------------
+DosApi_Update          [OS/2, DOS, Windows]
+
+Function: Sets GDA to a range of bytes starting at a given offset if
+		the update semaphore is posted.
+
+Syntax:   include "dosapi.h"
+		unsigned int DosApi_Update(char far *pBuffer,
+			short ByteRange, short BuffOffSet);
+
+Remarks:  DosApi_Update copies the range of bytes pointed to by
+		pBuffer for ByteRange number of bytes starting at the GDA
+		offset BuffOffSet.  This function is identical to the
+		DosApi_Send function with one difference: No data is
+		copied if the update semaphore is set.  The DosApi_Read
+		function posts the update semaphore to allow the GDA to be
+		updated again.  This function teamed with the DosApi_Read
+		function is designed for serialized transfer of large amounts
+		of data similar to a named pipe without the overhead. One
+		process updates the GDA while another reads it.  The
+		update and read semaphores prevent two successive
+		updates without a read and vice versa.
+		The DosApi_Send and DosApi_Recv functions have no
+		effect on the semaphores used by these functions and may
+		be used as desired.
+
+Returns:  If the sum of ByteRange and BuffOffSet exceed the length
+		of the GDA (1024 bytes) decimal 11 is returned.
+		If the no DosApi_Read or DosApi_Reset has occurred since
+		the last DosApi_Update call decimal 12 is returned.
+		If the VDOSAPI driver is not loaded decimal 127 is returned.
+
+-----------------------------------------------------------------------
+DosApi_Read         [OS/2, DOS, Windows]
+
+Function: Returns a range of bytes from the GDA starting at a given
+		offset if the read semaphore is posted..
+
+Syntax:   include "dosapi.h"
+		unsigned int DosApi_Read(char far *pBuffer,
+			short ByteRange, short BuffOffSet);
+
+Remarks:  DosApi_Read copies from the GDA ByteRange number of
+		bytes starting at the offset BuffOffSet to the address pointed
+		to by pBuffer.  This function is identical to the
+		DosApi_Recv function with one difference: No data is
+		copied if the read semaphore is set.  The DosApi_Update
+		function posts the update semaphore to allow the GDA to be
+		read again.  Refer to the DosApi_Update Remarks: for
+		more details.
+
+Returns:  If the sum of ByteRange and BuffOffSet exceed the length
+		If the no DosApi_Update or DosApi_Reset has occurred
+		since the last DosApi_Update call decimal 13 is returned.
+		of the GDA (1024 bytes) decimal 11 is returned.
+		If the VDOSAPI driver is not loaded decimal 127 is returned.
+
+-----------------------------------------------------------------------
+DosApi_Reset            [OS/2, DOS, Windows]
+
+Function: Resets the update and read semaphores prior to a
+		serialized transfer using the DosApi_Update and
+		DosApi_Read functions.
+
+Syntax:   include "dosapi.h"
+		unsigned int DosApi_Reset( void);
+
+Remarks:  Prior to transferring data between processes using the
+		DosApi_Update and DosApi_Read combination, call
+		the DosApi_Reset function to insure a valid initial
+		semaphore state.
+
+Returns:  If the VDOSAPI driver is not loaded decimal 127 is returned.
+
+-----------------------------------------------------------------------
+DosAPI_Sleep            [DOS, Windows]
+
+Function: Yields the VDM session for a specified length of time
+
+Syntax:   include "dosapi.h"
+		unsigned int DosApi_Sleep( short SleepHths );
+
+Remarks:  DosAPI_Sleep surrenders the current VDM session for the
+		length of time specified by SleepHths.  This period of time
+		is in hundredths of a second.  This function is useful when
+		using the update and read functions in a VDM to prevent
+		"burning up a loop" while checking for the update or read
+		semaphore to be posted.  OS/2 has its own DosSleep
+		function and it should be used instead of this one.  Also, VDM
+		processing is blocked during the sleep period.  For this
+		reason, it is better to use Windows timers to emulate this
+		function or the Yield() function.  Using the DosAPI_Sleep
+		function in Windows would block ALL applications in a full
+		screen session.  Another alternative in a VDM session is to
+		call interrupt 0x2F function 0x1680 (Dos idle function).
+
+
+Returns:  Always returns zero.
+
+Dos API Description
+Another technique that can be used to implement interprocess
+communication is the use of semaphores.  Although not as powerful as the
+GDA routines, semaphores can be used when simple coordination between
+tasks is required.  The semaphore routines included with this package are
+event semaphores which are the most common.  Also included in this
+package are routines to start other OS/2, DOS, or Windows sessions from
+within a VDM.
+
+Dos API Functions
+
+-----------------------------------------------------------------------
+DosStartSession         [DOS, Windows]
+
+Function: Starts a new OS/2, DOS, or Windows session.
+
+Syntax:   include "dosapi.h"
+		unsigned int DosStartSession( Session_Data far *SessData );
+
+Remarks:  Following are the parameters of the SessData structure:
+		typedef struct {
+			unsigned int Sess_Struct_Len; 
+			/* Must be 0x18,0x1E,0x20,0x32, or 0x3C */
+			unsigned int Sess_Relation;
+			/* 00 independent, 01 child */
+			unsigned int Sess_Fore_Back;
+			/* 00 foreground, 01 background */
+			unsigned int Sess_Trace;
+			/* 00-02, 00 = no trace */
+			char far *Sess_Program_Title;
+			/* max 62 chars or 0000:0000 */
+			char far *Sess_Program_Name;
+			/* max 128 chars or 0000:0000 */
+			char far *Sess_Program_Args;
+			/* max 144 chars or 0000:0000 */
+			unsigned long Sess_Term_Queue;
+			/* reserved, must be 00000000 */
+			char far *Sess_Environment;
+			/* max 486 bytes or 0000:0000 */
+			unsigned int Sess_Inheritance;
+			/* 00 or 01 */
+			unsigned int Sess_Type;
+			/* 00 OS/2 session manager determines type */
+			/* 01 OS/2 full-screen */
+			/* 02 OS/2 window */
+			/* 03 PM */
+			/* 04 VDM full-screen */
+			/* 07 VDM window */
+			char far *Sess_Icon_Filename;
+			/* max 128 chars or 0000:0000 */
+			unsigned long Sess_Pgm_Handle;
+			/* reserved, must be 00000000 */
+			unsigned int Sess_Pgm_Control;
+			unsigned int Sess_Column;
+			unsigned int Sess_Row;
+			unsigned int Sess_Width;
+			unsigned int Sess_Height;
+			unsigned int Sess_Reserved; /* 0x00 */
+			unsigned long Sess_Object_Buffer;
+			/* reserved, must be 00000000 */
+			unsigned long Sess_Object_BufferLen;
+			/* reserved, must be 00000000 */
+		} Session_Data;
+
+Returns:  If Session_Data is set incorrectly decimal 418 is returned.
+
+-----------------------------------------------------------------------
+Dos32CreateEventSem     [DOS, Windows]
+
+Function: Creates an event semaphore.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32CreateEventSem( char far *SemName,
+			unsigned long far *SemHandle,
+			unsigned long SemFlags, unsigned char SemState);
+
+Remarks:  Creates an event semaphore with the name SemName.
+		The semaphore name must start with the prefix "\SEM32\".
+		The parameter SemHandle is a pointer to the handle of the
+		semaphore.  Refer to the OS/2 documentation regarding the
+		meaning of the SemFlags and SemState parameters or use
+		zero as a default for most uses.
+
+Returns:  If an invalid parameter is passed decimal 87 is returned.
+		If an invalid name is passed decimal 123 is returned.
+		If a duplicate name is passed 285 is returned.
+
+-----------------------------------------------------------------------
+Dos32OpenEventSem       [ DOS, Windows]
+
+Function: Opens an event semaphore.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32OpenEventSem( char far *SemName,
+			unsigned long far *SemHandle);
+
+Remarks:  Opens an event semaphore with the name SemName.
+		The semaphore name must start with the prefix "\SEM32\".
+		The parameter SemHandle is a pointer to the handle of the
+		semaphore.
+
+Returns:  If an invalid parameter is passed decimal 87 is returned.
+		If an invalid name is passed decimal 123 is returned.
+		If a duplicate name is passed decimal 285 is returned.
+		If the semaphore is not found decimal 187 is returned.
+
+-----------------------------------------------------------------------
+Dos32CloseEventSem      [ DOS, Windows]
+
+Function: Closes an event semaphore.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32CloseEventSem( unsigned long
+			SemHandle);
+
+Remarks:  Closes an event semaphore with the handle SemHandle.
+
+Returns:  If an invalid handle is passed decimal 6 is returned.
+		If the semaphore is busy decimal 301 is returned.
+
+-----------------------------------------------------------------------
+Dos32PostEventSem       [ DOS, Windows]
+
+Function: Posts an event semaphore.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32PostEventSem( unsigned long SemHandle);
+
+Remarks:  Posts an event semaphore with the handle SemHandle.
+
+Returns:  If an invalid handle is passed decimal 6 is returned.
+		If too many posts to this semaphore decimal 298 is returned.
+		If the semaphore is already posted 299 is returned
+
+-----------------------------------------------------------------------
+Dos32ResetEventSem      [ DOS, Windows]
+
+Function: Resets an event semaphore.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32ResetEventSem( unsigned long
+			SemHandle, unsigned int far *SemPostCount);
+
+Remarks:  Posts an event semaphore with the handle SemHandle. The
+		number of times the semaphore was posted since the last reset
+		is pointed to by SemPostCount.
+
+Returns:  If an invalid handle is passed decimal 6 is returned.
+		If the semaphore is already reset decimal 300 is returned
+
+-----------------------------------------------------------------------
+Dos32QueryEventSem     [ DOS, Windows]
+
+Function: Queries an event semaphore for the post count.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32QueryEventSem( unsigned long
+			SemHandle, unsigned int far *SemPostCount);
+
+Remarks:  Queries an event semaphore with the handle SemHandle. The
+		number of times the semaphore was posted since the last reset
+		is pointed to by SemPostCount.
+
+Returns:  If an invalid handle is passed decimal 6 is returned.
+		If an invalid parameter is passed decimal 87 is returned.
+
+-----------------------------------------------------------------------
+Dos32WaitEventSem       [ DOS, Windows]
+
+Function: Waits for an event semaphore to be posted.
+
+Syntax:   include "dosapi.h"
+		unsigned int Dos32WaitEventSem( unsigned long SemHandle,
+			unsigned char SemWaitSec);
+
+Remarks:  Waits for an event semaphore with the handle SemHandle to
+		be posted.. The number of seconds to wait is determined the
+		SemWaitSec parameter.
+
+Returns:  If an invalid handle is passed decimal 6 is returned.
+		If the semaphore wait period times out decimal 640 is returned.
+
+Coming Soon!
+Enhancements to the product are already underway!  New features for the next release are:
+
+	Local Data Area Support - In addition to a global data area, a local
+		data area will be included.  This area is visible only to programs
+		running in the current session.  Useful for passing data between
+		programs in batch or command files, etc.
+
+	Dos/Windows Access to OS/2 API's - By expanding the functionality
+		of the GDA virtual device driver, API's currently only accessible
+		in OS/2 sessions may be called by Dos/Windows sessions.
+
+	Popup Messages - Background programs can send popup messages
+		regardless of the GUI of the foreground process.
+
+
+
+

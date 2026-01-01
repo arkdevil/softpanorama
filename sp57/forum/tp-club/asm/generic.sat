@@ -1,0 +1,123 @@
+*
+* ! Simple Text Fonter !
+* Copyright (C) 1991, 1992 by Tony Systems Co.
+*
+..model large
+
+..Code
+
+Public ChangeSymbol, ReadRAMChar
+
+*
+(Proc EgaFontPointer
+*
+* Возвращает в DX:AX
+* Портит BX
+*
+(asm
+        push    bx
+        push    es
+        mov     ax, 1130h
+        xor     bl, bl
+        mov     bh, 2
+        push    bp
+        int     10h
+        mov     ax, bp
+        pop     bp
+        mov     dx, es
+        pop     es
+        pop     bx
+        ret
+asm)
+End EgaFontPointer)
+
+
+(Proc SetAdapter
+* al=Index
+* ah=Register
+* Портит DX
+  dx=03C4h; .out dx,al;
+  al=ah; dx=+1; .out dx,al
+  return
+End SetAdapter)
+
+
+
+(Proc SetGraphController
+* al=Index
+* ah=Register
+* Портит DX
+  dx=03CEh; .out dx,al;
+  al=ah; dx=+1; .out dx,al
+  return
+End SetGraphController)
+
+
+(Proc OpenEgaOutput
+* Портит AX, DX
+  * Регистр маски (2); Разрешен доступ к плоскости 2 (4)
+  ax=0402H; SetAdapter
+  * Регистр режима памяти (4);
+  * Выбран текстовый режим (1+), использ. расш. память (2+),
+  *  последовательный доступ к данным в битовой плоскости (4+=7)
+  ax=0704H; SetAdapter
+  * Регистр режима (5); 0
+  ax=0005H; SetGraphController
+  * Смешаный регистр (6); Разрешена адресация к знакоген, адрес A000
+  * для 64 K (4)
+  ax=0406H; SetGraphController
+  * Регистр выбора карты чтения (4); Плоскость 2 (?)
+  ax=0204H; SetGraphController
+  return
+End OpenEgaOutput)
+
+
+(Proc CloseEgaOutput
+* Портит AX, BX, DX
+  * Разрешен доступ к плоскостям 0, 1
+  ax=0302H; SetAdapter
+  * Четные / нечетные, как в CGA
+  ax=0304H; SetAdapter
+  ax=1005H; SetGraphController
+  ax=0E06H; SetGraphController
+  ax=0004H; SetGraphController
+  return
+End CloseEgaOutput)
+
+
+(Proc ChangeSymbol Far (Char, BSegm, BOffs)
+  (save ds, es, si, di
+*    ax=0403H; SetAdapter; * ++++++++
+    OpenEgaOutput
+    ax=Char; ah=0;
+    cl=5; di=ax<cl;
+    es=ax=0A000H;
+*    cx=10H;
+    si=.lds.BOffs;
+    cx=10H; .rep movsb;
+*    cx=>1; .repnz movsw;
+*    cx=.adc.cx; .repnz movsb;
+    CloseEgaOutput
+  save)
+  RetArg
+End ChangeSymbol)
+
+
+(Proc ReadRAMChar Far (Char, BSegm, BOffs)
+*
+* bx-InLo_Char
+* ds:dx-Buffer
+*
+  (save ds, es, si, di
+    OpenEgaOutput
+    ax=Char; ah=0;
+    cl=5; si=ax<cl;
+    ds=ax=0A000H;
+    di=.les.BOffs;
+    cx=10H;
+    cx=>1;  .repnz movsw
+    cx=+cx; .repnz movsb
+    CloseEgaOutput
+  save)
+  RetArg
+End ReadRAMChar)

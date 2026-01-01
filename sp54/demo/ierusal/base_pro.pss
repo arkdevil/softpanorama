@@ -1,0 +1,274 @@
+(********************************************)
+(*        Демонстрационная программа        *)
+(*                                          *)
+(* Для проверки диалога, созданного         *)
+(* программой CRD                           *)
+(*                                          *)
+(*                                          *)
+(********************************************)
+program DemoCr;
+{$X+}
+uses Objects, Drivers, Views, Menus, App, StdDlg,
+ Dialogs , Crt,Dos, MsgBox, AuxItem ,
+ $$$;
+(*
+ Если при трансляции здесь будет обнаружена
+ ошибка - укажите правильно, где  находятся
+ эти модули
+*)
+(********************************************************
+   Обратите внимание на объекты TRealNumb и TIntNumb.
+   Если в эти поля ввнесены неправильные по формату данные,
+   то закрыть окно нельзя
+ ********************************************************)
+const
+  WinCount: Integer =   0;
+  cmNewWinExe          = 100; {модальный диалог }
+  cmNewWinIns          = 101; {обычный диалог   }
+  cmRestore            = 102; {восстановить     }
+  cmSave               = 103; {сохранить        }
+
+  ExtCrd               ='dst'; {расирение сохраненного файла}
+
+  type
+    TMyApp = object(TApplication)
+      procedure HandleEvent(var Event: TEvent); virtual;
+      procedure InitMenuBar; virtual;
+      procedure InitStatusLine; virtual;
+    end;
+
+{ TMyApp }
+procedure TMyApp.HandleEvent(var Event: TEvent);
+const
+ P : PView = nil;
+
+(*******************************)
+(*                             *)
+(*      Получить имя файла     *)
+(*                             *)
+(*******************************)
+  function GetFName(S : string) : string;
+  var
+   c : word;
+   D : PFileDialog;
+   F : File;
+   FileName: PathStr;
+   Dir: DirStr;
+   Name: NameStr;
+   Ext: ExtStr;
+
+   begin
+     GetFName :='';
+     D := New(PFileDialog, Init('*.' + ExtCrd, S,
+             '~N~ame', fdOpenButton,  200));
+     if ValidView(D) <> nil then
+      begin
+      if Desktop^.ExecView(D) = cmCancel  then
+        begin
+         Dispose(D, Done);
+         Exit;
+        end;
+
+      D^.GetFileName(FileName);
+      Dispose(D, Done);
+
+      FSplit(FileName, Dir, Name, Ext);
+
+      GetFName := Dir + Name ;
+     end;
+   end;
+
+ (***************************)
+ (*                         *)
+ (*                         *)
+ (*       Восстановить      *)
+ (*        диалог           *)
+ (*                         *)
+ (***************************)
+ procedure Restore;
+  var
+   S : PBufStream;
+  S0 : string;
+   FileName: PathStr;
+begin
+  FileName := GetFName('Восстановить' );
+  if FileName = '' then Exit;
+
+  S := New(PBufStream, Init(FileName +'.'+ ExtCrd, stOpen, 1024));
+  if (S^.Status = stOk) then
+   begin
+    P := New(PDialog, Load(S^));
+
+    if S^.Status <> stOk then
+     begin
+       Str(S^.Status:0,S0);
+       MessageBox('Не могу загрузить поток ' +
+                  #13#3 + Filename + '.' + ExtCrd +
+                  #13#3 + 'Status = ' + S0,
+                   nil, mfOkButton + mfError);
+       Dispose(S, Done);
+       Exit;
+    end {S^.Status <> stOk при записи}
+       else  DeskTop^.Insert(P);
+
+   end  {S^.Status <> stOk при сохранении}
+                        else
+  begin
+       Str(S^.Status:0,S0);
+       MessageBox( #3'Не могу открыть' +
+                   #13#3 + Filename + '.' + ExtCrd +
+                   #13#3 + 'Status = ' + S0,
+                   nil, mfOkButton + mfError);
+       Dispose(S, Done);
+       Exit;
+  end;
+
+  Dispose(S, Done);
+ end;
+
+ (***************************)
+ (*                         *)
+ (*                         *)
+ (*       Сохранить         *)
+ (*        диалог           *)
+ (*                         *)
+ (***************************)
+ procedure Save;
+  var
+   c : word;
+   S : PBufStream;
+  FileName: PathStr;
+  S0 : string;
+  F  : text;
+begin
+
+  FileName := GetFName('Сохранить');
+  if FileName = '' then Exit;
+
+   S := New(PBufStream, Init(FileName +'.'+ ExtCrd, stCreate, 1024));
+
+  if (S^.Status = stOk) then
+   begin
+    HelpCtx :=  HCNOCONTEXT;
+    if ( P <> nil) then
+     begin
+      PDialog(P)^.Store(S^);
+      S^.Flush;
+     end;
+
+    if S^.Status <> stOk then
+     begin
+       Str(S^.Status:0,S0);
+       MessageBox('Не могу создать поток' +
+                  #13#3 + Filename + '.' + ExtCrd +
+                  #13#3 + 'Status = ' + S0,
+                   nil, mfOkButton + mfError);
+       {$I-}
+       Dispose(S, Done);
+       Assign(F, Filename + '.' + ExtCrd);
+       Erase(F);
+       Exit;
+    end; {S^.Status <> stOk при записи}
+   end  {S^.Status <> stOk при сохранении}
+                        else
+  begin
+       Str(S^.Status:0,S0);
+       MessageBox( #3'Не могу открыть поток' +
+                   #13#3 + Filename + '.' + ExtCrd +
+                   #13#3 + 'Status = ' + S0,
+                   nil, mfOkButton + mfError);
+       Dispose(S, Done);
+{$i-}
+       Assign(F, Filename +'.' + ExtCrd);
+       Erase(F);
+{$i+}
+       Exit;
+  end;
+
+  Dispose(S, Done);
+ end;
+
+begin
+  TApplication.HandleEvent(Event);
+  if Event.What = evCommand then
+  begin
+    case Event.Command of
+      cmNewWinIns:
+       begin
+        MessageBox(
+          'Если в диалоге есть поля TRealNumb и TIntNumb,'        +
+          'то при неправильном формате данных в этих полях,'      +
+          ' закрыть окно в этом режиме нельзя.',nil,mfInformation +
+                                                      mfOkButton);
+
+        $$1(P);    {вызываем созданную процедуру}
+        {активизировать объект                  }
+        DeskTop^.Insert(P);
+       end;
+     cmSave      :Save;
+     cmRestore   : Restore;
+     cmNewWinExe :
+       begin
+        $$1(P);     {вызываем созданную процедуру     }
+        {активизировать объект в модальном режиме     }
+        DeskTop^.ExecView(P);
+       end;
+    else
+      Exit;
+    end;
+    ClearEvent(Event);
+  end;
+end;
+
+procedure TMyApp.InitMenuBar;
+var R: TRect;
+begin
+  GetExtent(R);
+  R.B.Y := R.A.Y + 1;
+  MenuBar := New(PMenuBar, Init(R, NewMenu(
+    NewSubMenu('~T~est', hcNoContext, NewMenu(
+      NewItem('~I~nsert', 'F3', kbF3,  cmNewWinIns, hcNoContext,
+      NewItem('~E~xec',   'F4', kbF4,  cmNewWinExe, hcNoContext,
+      NewLine(
+      NewItem('~S~ave',    'F7', kbF7,  cmSave,    hcNoContext,
+      NewItem('~R~estore', 'F8', kbF8,  cmRestore, hcNoContext,
+      NewLine(
+      NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
+      nil)))))))),
+    NewSubMenu('~W~indow', hcNoContext, NewMenu(
+      NewItem('~N~ext', 'F6', kbF6, cmNext, hcNoContext,
+      NewItem('~Z~oom', 'F5', kbF5, cmZoom, hcNoContext,
+      nil))),
+    nil))
+  )));
+end;
+procedure TMyApp.InitStatusLine;
+var R: TRect;
+begin
+  GetExtent(R);
+  R.A.Y := R.B.Y - 1;
+  StatusLine := New(PStatusLine, Init(R,
+    NewStatusDef(0, $FFFF,
+      NewStatusKey('', kbF10, cmMenu,
+      NewStatusKey('~Alt-X~ Exit', kbAltX, cmQuit,
+      NewStatusKey('~Alt-F3~ Close', kbAltF3, cmClose,
+      nil))),
+    nil)
+  ));
+end;
+
+var
+  MyApp: TMyApp;
+
+begin
+
+  RegisterDialogs;
+  RegisterObjects;
+  RegisterViews;
+  RegistRealNumb;
+  RegistIntNumb;
+
+  MyApp.Init;
+  MyApp.Run;
+  MyApp.Done;
+end.*

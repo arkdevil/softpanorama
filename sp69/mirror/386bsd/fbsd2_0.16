@@ -1,0 +1,78 @@
+From: hosokawa@mt.cs.keio.ac.jp (HOSOKAWA Tatsumi)
+Newsgroups: comp.os.386bsd.bugs
+Subject: FreeBSD 2.0 if_ze on Cirrus Logic's PCIC
+Date: 27 Nov 1994 15:47:14 GMT
+Organization: Tokoro Laboratory, Keio University, Yokohama Japan.
+Message-ID: <3ba9m2$8i6@kogwy.cc.keio.ac.jp>
+
+To FreeBSD nomads:
+
+My subnote has Cirrus Logic's PCIC.  On this machine, ze driver of
+FreeBSD sometimes fails in initializing IBM PCMCIA Ethernet card
+(especially, on IBM Ethernet card II.)  This always occurs when I used
+card manager from DOS before bootstraping FreeBSD.
+
+This is indeed a problem on installing FreeBSD via anonymous FTP.  On
+1.1.5.1, this bug is not a critical problem, but on 2.0, it sometimes
+results in kernel page fault and the machine hangs up.
+
+I found that following patch solves this problem, but I can't explain
+why it works (sorry! :-p) and I don't know following patch works
+correctly on other PCICs such as i82365SL and other Intel clones.
+
+Does anyone have same problem?  Is this solution correct?
+
+Cheers,
+
+hosokawa
+
+*** sys.org/i386/isa/if_ze.c	Sun Oct 23 21:27:25 1994
+--- sys/i386/isa/if_ze.c	Sat Nov 26 21:47:28 1994
+***************
+*** 611,617 ****
+  	struct isa_device *isa_dev;
+  {
+  	struct ze_softc *sc = &ze_softc[isa_dev->id_unit];
+! 	int i, x;
+  	u_int memsize;
+  	u_char iptr, memwidth, sum, tmp;
+  	int slot;
+--- 611,617 ----
+  	struct isa_device *isa_dev;
+  {
+  	struct ze_softc *sc = &ze_softc[isa_dev->id_unit];
+! 	int i, x, re_init_flag;
+  	u_int memsize;
+  	u_char iptr, memwidth, sum, tmp;
+  	int slot;
+***************
+*** 652,657 ****
+--- 652,659 ----
+  	enet_addr[5] = PEEK(isa_dev->id_maddr+0xffa);
+  	pcic_unmap_memory (slot, 0);
+  
++ 	re_init_flag = 0;
++ re_init:
+  	/*
+  	 * (2) map card configuration registers.  these are offset
+  	 * in card memory space by 0x20000.  normally we could get
+***************
+*** 753,758 ****
+--- 755,764 ----
+  	 * query MAM bit in misc register for 10base2
+  	 */
+  	tmp = inb (isa_dev->id_iobase + ZE_MISC);
++ 	if (!tmp && !re_init_flag) {
++ 		re_init_flag++;
++ 		goto re_init;
++ 	}
+  	sc->mau = tmp & 0x09 ? "10base2" : "10baseT";
+  
+  	/* set width/size */
+
+---
+     -----------------------------------------------------------
+     HOSOKAWA, Tatsumi               (hosokawa@mt.cs.keio.ac.jp)
+     Dept. of Computer Science, Keio University, Yokohama, Japan
+     -----------------------------------------------------------
+

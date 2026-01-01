@@ -1,0 +1,74 @@
+$Macro_File TFMKit;
+{
+  Меню текстового форматтера (Л.З.Альперович) -- Л.Г.Бунич -- Multi-Edit 5.00P
+
+  TFMKIT - меню форматтера и настройка среды
+}
+
+$Macro TFMKit;
+
+  Def_Int(k,BG,FG,X1,Y1,X2,Y2);
+  Def_Int(l,r,a,rs := 66);
+
+Open:
+  BG := M_T_Color shr 4;
+  FG := M_T_Color and $0F;
+  X1 := 14; Y1 := 8; X2 := 70; Y2 := 19;
+
+  Mark_Pos;
+  Put_Box(X1,Y1,X2,Y2,BG,FG,' T e x t   F o r m a t t e r ',1);
+  Write('Adjust margins to current paragraph',      X1+3,Y1+2,BG,FG);
+  Write('Change formatter margins',                 X1+3,Y1+3,BG,FG);
+  Write('Free style formatting',                    X1+3,Y1+4,BG,FG);
+  Write('Global formatting (set cursor at indent!)',X1+3,Y1+5,BG,FG);
+  Write('Information about current margins',        X1+3,Y1+6,BG,FG);
+  Write('Reject formatting',                        X1+3,Y1+7,BG,FG);
+  Write('Standard style formatting',                X1+3,Y1+8,BG,FG);
+
+  Write(' Press a key to select (ESC - exit) ',X1+10,Y2-1,
+        M_S_Color shr 4, M_S_Color and $0F);
+
+  k := Y1+2; While k < (Y2-2) do;
+    Draw_Attr(X1+3,k,M_H_Color,1); ++k;
+  end;
+  GoToXY(X1+3,Y1+2);
+  Read_Key; Kill_Box; GoTo_Mark;
+
+  if KEY2 = 1 then goto Finish; end;
+  if Inq_Macro('TFM') = FALSE then
+     Load_Macro_File('TFM');                 {Загружаем TFM}
+     if Error_Level <> 0 then goto Finish; end;
+  end;
+  Macro_To_Key(<CtrlF11>,'abz_blo',edit);
+  Macro_To_Key(<CtrlF12>,'abz_go',edit);
+
+
+  if KEY2 = 30 then                          {Adjust}
+    Mark_Pos;
+    EOL; Home; l := C_Col;
+AdjLoop:
+    Up; EOL; Home;
+    if (C_Col = l) and (C_Line > 1) then goto AdjLoop; end;
+    a := C_Col; EOL; r := C_Col - 1;
+    RM('TFM /a=' + str(a) + '/l=' + str(l) + '/r=' + str(r));
+    RM('TI');  GoTo_Mark;
+  elsif KEY2 = 46 then                       {Change}
+    RM ('TFM^TP');
+  elsif KEY2 = 33 then                       {Free style}
+    RM ('TFM /a=0/l=0/r=' + str(rs)); RM('ti');
+  elsif KEY2 = 34 then                       {Global}
+    RM ('TFM^TG /n=1');
+  elsif KEY2 = 23 then                       {Info}
+    RM ('TFM^TI');
+  elsif KEY2 = 19 then                       {Reject}
+    RM ('TFM^TU');
+  elsif KEY2 = 31 then                       {Standard style}
+    RM ('TFM /a=4/l=1/r=' + str(rs));
+    RM('ti');  EOL;
+  else GoTo Open;
+  end;
+  rs := GLOBAL_INT('rightpoint' + get_extension(file_name) + str(window_id));
+  Right_Margin := rs;   Doc_Mode := 1; 
+Finish:
+  Error_Level := 0;
+End_Macro;

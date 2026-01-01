@@ -1,0 +1,53 @@
+From: boogyman@xs4all.nl (Boogyman)
+Newsgroups: alt.comp.periphs.mainboard.asus
+Subject: Re: PVI-SP3 slow PCI-BUS?????????
+Date: 26 Apr 1995 17:37:22 GMT
+Organization: XS4ALL, networking for the masses
+
+Thomas van Kuipers <tjwhkuip@cs.ruu.nl> writes:
+>On 26 Apr 1995, David King wrote:
+>> : About the performance penalty with this board - isn't the VESA tied to the
+>> : PCI rather than the other way round?  I thought that the new SiS chips
+>> : achieved this, resulting in only a minimal performance loss compared to a
+>> : fully PCI system.
+>
+>With all ASUS board, they use a chipset with a Bus-bridge-device, in 
+>other words: VLB hanged down on PCI. So there is minimal performance loss.
+
+I think it's impossible to describe PCI boards with a slave local bus
+slot such as the PVI-486AP4 and PVI-486SP3 as "bridging" VLB to PCI
+or vice versa.
+
+For the Intel Aries chipset used in the AP4, which is very much optimized
+for PCI performance, the following happens during a CPU memory cycle
+not claimed by cache/memory:
+
+- If the local bus slave slot is enabled, check if it responds to the
+  memory access. This is a one cycle penalty.
+- If not, put the memory access on the PCI bus (these are 
+  buffered for better performance and "burst" detection, a very
+  essential feature of the PCI bus).
+- If no PCI device responds within a number of cycles, the request
+  is forwarded to the ISA bus (this can be described as a PCI-to-ISA
+  bridge).
+
+The one cycle slave VLB slot wait, and the PCI to ISA delay,
+are examples of "subtractive decoding".
+
+Note that even with the one cycle penalty, the Aries still gets
+decent PCI performance due to an excellent CPU-to-PCI buffer
+with burst detection (the max rate from the CPU is about 44 MB/s
+at 33 MHz, without the penalty it would be 66 MB/s). Curiously
+the latest board and BIOS revision of the AP4 always leave the
+VLB decoding enabled, thus hampering PCI bus performance a bit
+(although still very good).
+
+The PVI-486SP3 with SiS chipset probably works similarly. However,
+from what I've seen reported it seems early (current?) revisions
+are somehow configured with disabled PCI buffers or a very large
+VLB slot decoding penalty, severely crippling PCI performance
+(at least in DOS framebuffer; it was reported that enabling a BIOS PCI
+buffering option had no effect). Maybe it works better in a 
+PCI-configured memory aperture with chipset-assigned base address
+(which GUI drivers would normally use). 
+

@@ -1,0 +1,460 @@
+#!/usr/local/bin/perl
+
+# dosmap a unix directory hierarchy (v2.1a)
+#
+# (C) Afzal Ballim, 1993,1994
+# Please send any bug reports, etc., to:
+# Afzal Ballim, <afzal@divsun.unige.ch>
+# ISSCO, University of Geneva, Switzerland
+#
+# This program is FREEWARE. You may distribute it in what ever
+# form you wish as long as long as this notice and the copyright
+# notice (above) are kept intact.
+#
+# BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
+#FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN
+#OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
+#PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
+#OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS
+#TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE
+#PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,
+#REPAIR OR CORRECTION.
+# IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+#WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
+#REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,
+#INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING
+#OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED
+#TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY
+#YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER
+#PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE
+#POSSIBILITY OF SUCH DAMAGES.
+#
+# two arguments: 1) what to dosmap
+#		 2) where to put it
+#
+# one optional argument: -i interactive name change
+#
+# Stages:
+#	1: Identify filenames to change
+#	2: Copy original to new with new names
+#	3: Change references in new files to reflect 
+#	   the name changes
+#
+# A filename can stay as it is if
+#	a) it only uses lowercase letters
+# and	b) it has a form ?[8].?[3] (i.e., 8 characters max,
+#	   followed by 3 characters max separated by a point)
+#    or b1) max 8 characters, no ``.''
+#
+# otherwise it must be changed
+# Note that directories must also have their names checked
+
+# simplify process name
+$0 =~ s@^.*/@@;
+
+;#############################################################################
+;# library requirements
+
+require "getopts.pl";
+require "pwd.pl";
+
+&initpwd;
+&Getopts('h:iu');
+
+if (@ARGV != 2) {
+ print "Usage: $0 [-i -h <hfile>] <hierarchy to $0> <where to place result>\n";
+ print "Also: $0 -u -h <hfile> <mapped hierarchy is here> <unmap to here>\n";
+ print "If the optional argument -i is given, then you will be prompted for\n";
+ print "replacement names (with a suggested name, selectable by <CR>).\n";
+ print "-h <hfile> stores the history of changes made in a file for undoing\n";
+ print "with the -u option.\n";
+ exit(1);
+}
+
+if ($opt_i) {
+  $Interactive = 1;
+  print STDERR "You will be prompted for replacement names\n";
+};
+
+if ($opt_u && !$opt_h) {
+ print "ERROR: must specify history file to undo with!\n";
+ exit(100);
+}
+
+if ($opt_h) {
+ if (!$opt_u) {
+  open(HFILE,">$opt_h") || die "couldn't make history file $opt_h\n";}
+ else {
+  open(HFILE,"<$opt_h") || die "couldn't find history file $opt_h\n";}
+}
+
+$Start=shift(@ARGV);
+$Destn=shift(@ARGV);
+$xcounter=0;
+
+if ($opt_u) {
+ &undoit;
+ exit;
+}
+
+&organise_directories;
+
+print "Dosmap-ing $Start and putting result in $Destn\n";
+print "===========","=" x length($Start);
+print "=======================","=" x length($Destn), "\n";
+print "\nChecking names...\n";
+
+# find non-conforming files
+open(FIND,"find $Start -print |") || die "$0: find - not available\n";
+
+
+# 1 - read file/directory names, note bad ones
+
+while ($file=<FIND>) {
+	chop $file;
+	@bd = split(m@/@,$file); # split into components
+	if (! &good_dos($bd[$#bd])) {
+		push(@BNames,$bd[$#bd]);
+	};
+	push(@hierarch,$file);
+}
+close(FIND);
+
+# 2 - sort bad names, eliminate duplicates, generate replacements
+@to_replace = &uniq(sort @BNames);
+foreach $badname (@to_replace) {
+ push(@replacements,($badname,&make_repl($badname)));
+ print "$badname will be replaced by $replacements[$#replacements]\n";
+}
+
+# 2a - make up a "program" of replacements
+while (@replacements) {
+	$pat = &protectspec(shift(@replacements));
+	$rpc = shift(@replacements);
+	# need two patterns, one for start of line, other for
+	# non-start of line, can't use \b because of patterns
+	# starting with .
+	push(@rep,join('/',
+			("s", '^' . $pat . '\b',
+			 $rpc,"og")));
+}
+# Now, we want to sort them longest to shortest pattern
+# so that the most specific (longest) are searched for first
+@rep=sort bylongest @rep;
+
+while (@rep){
+	$pat=shift(@rep);
+	$rpc=$pat;
+	$rpc =~ s/\^/([^A-Za-z0-9_-])/;
+        $rpc =~ s/\\b\//\\b\/\$\{1\}/;
+	push(@replacements,$pat);
+	push(@replacements,$rpc);
+}
+@rep=@replacements;
+$rep_prog = join(";\n",@rep) . ";\n";
+
+if ($opt_h) {
+ print HFILE $rep_prog;
+ print HFILE "=======END OF REPLACEMENT PROGRAMS=========\n";
+}
+
+# 2b - make replacements in hierarchy names
+print "Generating new hierarchy, wait...\n";
+
+foreach $s (@hierarch) {
+	$_ = $s;
+	eval $rep_prog;
+	local ($d) = $Destn . "/" . $_;
+	local ($dbase) = $_;
+	$d =~ s/\/\//\//og;
+	if (-l $s) { #symbolic link
+	 print "Ignoring symbolic link $s\n";
+        }
+	elsif (-d $s) {
+	 print "Making directory ",$d," for ",$s,"\n";
+	 if ($opt_h) {
+	  print HFILE "dir: $s ==> $dbase\n";
+	 }
+	 if (-e $d) {
+	  die "$0: $d already exists! Probable filename change error\n";
+	 }
+	 mkdir($d,0xFFF) || die "$0: Couldn't make $d\n";
+	}
+	else { # file, perform changes
+	 print "copying ",$s," to ",$d," with changes\n";
+	 if ($opt_h) {
+	  print HFILE "file: $s ==> $dbase\n";
+	 }
+	 if (-e $d) {
+	  die "$0: $d already exists! Probable filename change error\n";
+	 }
+	 open(FIN,$s)|| die "$0: couldn't open $s\n";
+	 open(FOUT,"> $d")||die "$0: couldn't open $d\n";
+	# am I recompiling the program for each line of each file?
+	 while (<FIN>) {
+		 eval $rep_prog;
+		 print FOUT;
+	 }
+	 close(FIN);
+	 close(FOUT);
+	}
+}
+print HFILE "=======END FILE NAME MAPPING============\n";
+print "done\n";
+&reorganise_directories;
+
+############################################################
+#
+# Subroutines
+#
+############################################################
+
+
+# is it a good dos name?
+sub good_dos {
+	$_=@_[0];
+	/^[^A-Z]*$/o && /^[^.]{1,8}$|^[^.]{1,8}\.[^.]{1,3}$/o;
+}
+
+# remove duplicates from a sorted list
+sub uniq {
+	local (@duplic) = @_;
+	local ($this);
+	local (@res);
+
+	while (@duplic) {
+		$this=shift(@duplic);
+		while (@duplic && $this eq $duplic[0]) {shift(@duplic);}
+		push(@res,$this);
+	}
+	return @res;
+}
+
+# protect special characters
+sub protectspec {
+	local ($pat) = @_;
+	local (@p) = split('',$pat);
+	local (@p2);
+	foreach $c (@p) {
+		if ($c =~ /(\.\-\_)/) {
+			$c = $1;
+		}
+		push(@p2,$c);
+	}
+	join('',@p2);
+}
+
+# make a replacement name for a bad one
+sub make_repl {
+ local ($badname) = @_;
+ local ($sug) = &gena_repl($badname);
+ if ($Interactive) {
+	local ($grp) = 0;
+	while (!$grp) {
+	 print STDERR "Replacement for  ",$badname,"[$sug]:";
+	 chop($_ = <STDIN>);
+	 if ($_ ne "") {$sug = $_}
+	 if (! &good_dos($sug)) {
+		 print "$sug is not a valid dos name\n";
+	 } else {
+		 $grp=1;
+	 }
+	}
+ }
+ return $sug;
+}
+
+# generate a replacement name automagically
+sub gena_repl {
+ local ($thename) = @_;
+ local (@field1,@field2);
+  # how can we generate a name?
+  # convert special trailing suffix sequences in a simpler form
+  # E.g., .tar.Z becomes .trz while .tar.gz becomes .tgz
+  $thename =~ s/tar\.Z$/taz/;
+  $thename =~ s/tar\.gz$/tgz/;
+  # 1: convert to lowercase, delete all but 1 "." get rid of all space
+  $thename=~ s/ //g;
+  $thename=~ tr/A-Z/a-z/;
+  local (@tmp) = reverse split('',$thename);
+  while (@tmp && $tmp[0] ne ".") {
+   unshift(@field2,shift(@tmp));
+  }
+  if (@tmp) { shift(@tmp) }
+  while (@tmp) {
+   if ($tmp[0] eq ".") {
+    shift(@tmp);
+   }
+   else {
+    unshift(@field1,shift(@tmp));
+   }
+  }
+  # if there is no field1, make field2 field1
+  if (!@field1) {
+	  @field1 = @field2;
+	  @field2 = ();
+  }
+  # 2: reduce fields that are too big
+  @field1 = &reducefield(8,@field1);
+  @field2 = &reducefield(3,@field2);
+  # 3: increase first field if zero sized
+  @field1 = &nonzerofield(@field1);
+ if (@field2) { 
+  return join('.',join('',@field1),join('',@field2));
+ }
+ else {
+  return join('',@field1);
+ }
+}
+
+# reducefield
+sub reducefield {
+  local ($lim,@f) = @_;
+  local ($to_del) = $#f-$lim+1;
+  if ($#f < $lim) {
+	  return @f;
+  }
+  # 2a: get rid of all vowels,-,_, except 1st letter vowel
+  # 2b: if still too long, cut from middle (hoping start and end
+  #     are more important).
+  local (@res) = shift(@f);
+  while (@f) {
+   if ($f[0] =~ /[aeiou_-]/o && $to_del) {
+	   $to_del--;
+	   shift(@f);
+   }
+   else {
+	   push(@res,shift(@f));
+   }
+  }
+  if ($#res < $lim) {
+	  return @res;
+  } 
+  else {
+	  return (@res[0 .. int($lim/2)+$lim%2-1],
+		  @res[$#res+1-int($lim/2) .. $#res])
+  }
+}
+
+# nonzerofield, if field has zero size, return a number
+sub nonzerofield {
+ local (@field) = @_;
+ if ($#field) {
+	return @field
+  } else
+  { return split('',sprintf("%08.d",$xcounter++));}
+}
+
+# bylength - a subroutine to compare the lengths of two strings
+
+sub bylongest { length($b) <=> length($a) }
+
+sub organise_directories {
+ # this subroutine checks the directory names against
+ # the current directory. The names given can be relative 
+ # or absolute.
+ # An absolute path begins with the character '/'
+ # while a relative path does not.
+ # As a side effect, it sets $Ibase for the benefit of
+ # the history file
+ local ($TStart);
+
+ if (! -e $Start) {
+	die "$0: $Start does not exist!\n";
+ }
+
+ $Initial_dir=$ENV{'PWD'};
+ $Ibase=$Destn;
+
+ # if the destination directory is relative, make it absolute
+ if ($Destn !~ /^\//) {
+	$Destn = $Initial_dir . '/' . $Destn;
+ }
+
+ # create the destination directory
+ if (! -e $Destn) {
+	 mkdir($Destn,0xFFF);
+ }
+
+ # if the star directory is relative, make it absolute
+ if ($Start !~ /^\//) {
+	$Start = $Initial_dir . '/' . $Start;
+ }
+
+ # now, cd to the parent of the start directory
+ # and abbreviate it to the last component
+ @Start_x = split('/',$Start);
+ $Start=pop(@Start_x);
+ chdir('/' . join('/',@Start_x));
+
+}
+
+sub reorganise_directories {
+	chdir($Initial_dir);
+}
+
+############################################################
+#
+#
+
+sub undoit {
+ #logically, $Start is no where we undo to, while $Destn
+ # is where we undo from.
+ # First, read the history file
+ local ($rprog);
+ local (@dirs,@files); # don't use associate arrarys because order
+		       # is important
+ local ($src,$trg);
+ local ($ow);
+
+ while (($_=<HFILE>) !~ /END OF REP/) {
+  $rprog=$rprog . $_;
+ }
+ while (($_=<HFILE>) !~ /END FILE/) {
+  chop;
+  if (/^dir: (.*) ==> (.*)$/) {
+	   push(@dirs,$1,$2);
+  } elsif (/^file: (.*) ==> (.*)$/) {
+	   push(@files,$1,$2);
+  }
+ }
+ $rprog =~ s#s/\^([^\\]*)\\b/([^\n]*)/og;\n#s/^${2}\\b/${1}/og;\n#og;
+ $rprog =~ s#s/\(\[\^A-Za-z0-9_-\]\)(.*)\\b/\$\{1\}([^\n]*)/og;\n#s/([^A-Za-z0-9_-])$2\\b/\${1}$1/og;\n#og;
+
+ $Start=$Start . '/' . $dirs[1];
+ $AStart=$Start;
+ &organise_directories;
+ print "UnDosmap-ing from $AStart and putting result in $Destn\n";
+ print "==================","=" x length($Start);
+ print "=======================","=" x length($Destn), "\n";
+ while (@dirs) {
+  $trg=shift(@dirs);$src=shift(@dirs);
+  if (!-d "$src") {
+   die "CANNOT FIND $Start/$src\n";
+  }
+  if (!-d "$Destn/$trg") {
+	print "Making directory $Destn/$trg\n";
+	mkdir("$Destn/$trg",0777);
+  } elsif ($ow ne "yes") {
+	print "Should I Overwrite $Destn/$trg [y/n]";
+	chop($_=<STDIN>);
+	if (/n/) {die "Exiting without unmapping\n";} else {$ow="yes";}
+  }
+ }
+
+ while (@files) {
+  $trg=shift(@files);$src=shift(@files);
+  print "Unmapping $Destn/$trg from $src\n";
+  open(FIN,"<$src")||die "Could not open $src\n";
+  open(FOUT,">$Destn/$trg")||die "Could not make $Destn/$trg\n";
+  while (<FIN>) {
+	eval $rprog;
+	print FOUT;
+  }
+  close(FOUT);
+  close(FIN);
+ }
+ &reorganise_directories;
+}
+

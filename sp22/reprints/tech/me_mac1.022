@@ -1,0 +1,1248 @@
+Софтпанорама, No.2, 1990                Составитель Н.Н. Безруков
+*****************************************************************
+
+
+
+                MULTI-EDIT 4.0 MACRO LANGUAGE REFERENCE GUIDE
+
+
+
+
+                            ┌───────────────────┐
+                            │  A. INTRODUCTION  │
+ ┌──────────────────────────┴─────────┬─────────┴───────────────────────────┐
+ │B. COMPILING A MACRO                │ M. REAL NUMBER EXPRESSIONS          │
+ │C. MACRO STRUCTURE                  │ N. UNCONDITIONAL BRANCHING          │
+ │D. EXECUTING A MACRO                │ O. CONDITIONAL BRANCHING            │
+ │E. LABELS                           │ P. PARAMETER PASSING / RETURN VALUES│
+ │F. COMMENTS                         │ Q. KEY CODE SYNTAX AND LISTING      │
+ │G. DATA TYPES                       │ R. PROCEDURES AND FUNCTIONS         │
+ │H. DEFINING LOCAL VARIABLES         │ S. SYSTEM VARIABLES                 │
+ │I. DATA CONSTANTS                   │ T. ERROR HANDLING                   │
+ │J. DEFINING GLOBAL VARIABLES        │ U. COMPILER ERRORS                  │
+ │K. INTEGER EXPRESSIONS              │ V. RUN-TIME ERRORS                  │
+ │L. STRING EXPRESSIONS               │                                     │
+ └───────────┬────────────────────────┴─────────────────────────┬───────────┘
+             │ 1. FUNCTIONS AND OPERATIONS BY CATEGORY          │
+             │ 2. USER INTERFACE SYSTEM MACROS                  │
+             └──────────────────┬───────────┬───────────────────┘
+                                │ X. INDEX  │
+                                └───────────┘
+
+
+╔═══╗
+║ A ║
+╚═══╝
+                                INTRODUCTION
+
+The Multi-Edit macro language is a compiled programming language similar in
+syntax to Pascal or Modula-2.  It allows the user to customize and add
+complex, specialized functions to Multi-Edit. Though not as sophisticated as
+a full fledged structured programming language like C, Pascal or Modula-2,
+the Multi-Edit macro language does have:
+
+        o       IF THEN, and WHILE DO constructs.
+        o       String, integer, character and floating point variable types.
+        o       User definable local and global variables.
+        o       Parameter passing and return values
+        o       Complex nested expression evaluation.
+        o       Overlay capabilities.
+        o       Full access to all Multi-Edit functions.
+        o       Easy access to the screen and keyboard.
+
+
+
+
+
+
+╔═══╗                 ========================
+║ B ║                 =   COMPILING A MACRO  =
+╚═══╝                 ========================
+
+A macro is compiled via the 'MEMAC.EXE' macro compiler program supplied with
+Multi-Edit.  The compiler is fully integrated with Multi-Edit.  To compile a
+macro, invoke the COMPILE command from within Multi-Edit (assigned to
+<CtrlF8> by default, or you can use the Support menu).
+
+When a macro is compiled it's executable (by Multi-Edit) code is
+automatically saved to disk using the name of the first macro in the source
+file, with a '.MAC' extension.  A $MACRO_FILE statement may be used to
+override the filename.  The .MAC file will be saved to the same directory
+that the rest of the ME files reside in unless the $MACRO_FILE override is
+used.
+
+You may also compile a macro from the DOS command line.  This is sometimes
+required due to the memory constraints of some systems. The format for
+compiling from the command line is:
+
+        MEMAC <filename> -P<path> -D<debug pc and macro name>
+
+The -P option lets you specify the directory that the resulting .MAC file
+will be written to.  The -D debugging option is explained under RUN-TIME
+ERRORS.
+
+        EXAMPLE:
+
+                MEMAC PASCAL -Pc:\me
+
+The above example would compile the file PASCAL.SRC to \ME\PASCAL.MAC.
+
+
+
+
+╔═══╗               ===========================
+║ C ║               =     MACRO STRUCTURE     =
+╚═══╝               ===========================
+
+A macro source file may contain any number of macros.  Each macro is defined
+as follows:
+        $MACRO name [TO key] [FROM mode] [attributes];
+              <body of macro>
+        END_MACRO;
+
+The name of a macro may be up to 16 characters long.
+
+Everything in braces ('[]') is optional.  'TO key' defines a key that the
+macro will be assigned to.  'FROM' mode specifies the Multi-Edit mode that
+the macro may be invoked from.  The currently available modes are:  EDIT,
+DOS_SHELL, TERM and ALL.  If no 'FROM' is specified, then EDIT is used by
+default.
+
+The attributes may be any combination of 'TRANS', 'DUMP' and 'PERM'.
+
+'TRANS' specifies a transient macro.  A transient macro only brings its code
+in from disk when it is run.  Upon completion, the bulk of it is dumped out
+of memory, until it is run again. This allows for a great many macros to be
+loaded, while hogging very little memory.
+
+'DUMP' specifies that the macro is to be completely dumped from memory after
+it is run.
+
+'PERM' specifies that a macro may NOT be loaded over by another macro of the
+same name.
+
+NOTES:
+        A. The Multi-Edit macro language is NOT case sensitive.
+        B. The assumed file name extension for a macro source file is .SRC.
+        C. The assumed file name extension for a compiled macro is .MAC.
+
+The following example macro would count the number of mismatched C braces
+('{' and '}') in a source file:
+
+        $MACRO Bracecnt TO <AltB> FROM Edit TRANS;
+           DEF_INT( count );                  { Declare integer variable }
+           Tof;                               { Goto top of file }
+           Count := 0;                        { Initialize variable }
+           WHILE Search_Fwd( '[{}]', 0 ) DO   { Look for '{' or '}' }
+             IF Cur_Char = '{' THEN           { Determine which char found }
+               ++Count := Count;              { Inc count if char is '{' }
+             ELSE
+               --Count;                       { Else Decrement count }
+             END;
+           END;
+                                              { Display result }
+           Make_Message( 'Excess { count = ' + Str( Count ) );
+        END_MACRO;
+
+As indicated above, a macro source file may contain any number of macros.
+When compiled, all the macros in the source file will be included in one
+.MAC file.  Normally the name of the .MAC file that is created during
+compilation is taken from the name of the first macro in the file.  If you
+wish to give the .MAC file a different name or compile to a specific
+directory, then you must use the $MACRO_FILE command before any macros are
+defined in the source file.
+
+        EXAMPLE:
+                $MACRO_FILE \PROJ1\SOURCE\PASCAL;
+                           {Pascal indent macro}
+                $MACRO Pas_Ind;
+                   <body>...
+                END_MACRO;
+                           {Pascal BEGIN/END match macro}
+                $MACRO Pas_Find;
+                   <body>...
+                END_MACRO;
+
+NOTES:  Lines of text in a macro file are limited to 254 characters.
+
+
+╔═══╗                    ============================
+║ D ║                    =    EXECUTING A MACRO     =
+╚═══╝                    ============================
+
+A macro may be executed as follows:
+
+1.      The 'Run Macro' function can be invoked and the full name of the
+        macro entered.
+
+2.      If the macro has been assigned to a key, then pressing that key
+        (while the editor is in the macros assigned mode) will execute the
+        macro.
+
+3.      A macro may be invoked from another macro with the RUN_MACRO
+        statement.
+
+4.      A macro may be executed automatically when Multi-Edit is invoked
+        from the DOS command line with the '/R' option. EXAMPLE:
+
+                        C:ME /R SETUP
+
+        NOTE:  The space between the /R and the macro filename is required.
+
+5.      When Multi-Edit is started, the macro file STARTUP.MAC is searched
+        for, first in the current directory, and (if not found) in the
+        Multi-Edit directory.  If STARTUP.MAC is found, then it is executed.
+        STARTUP.MAC may contain whatever custom initialization code,
+        including loading and running other macros, that is required by the
+        user's specific needs.
+
+
+╔═══╗                          ======================
+║ E ║                          =      LABELS        =
+╚═══╝                          ======================
+
+A label is used to define a specific location in a macro program. A label is
+a string of characters in the set of [a-z,A-Z,_,0-9] with a maximum length
+of 20 characters, and ending with a ':'.  When a label is referenced, the
+':' is left off.  NOTE: A label is local to the macro it is declared in.
+Identical labels may be declared in different macros that reside in the same
+source file.
+
+        EXAMPLE:
+
+                $MACRO TEST_MAC;
+                    {Let's just sit here and loop forever}
+                    TEST_LABEL:
+                       GOTO TEST_LABEL;
+                END_MACRO;
+
+
+╔═══╗                              ==================
+║ F ║                              =    COMMENTS    =
+╚═══╝                              ==================
+
+Comments may be embedded between curly braces and may be nested.
+
+        EXAMPLE:
+                {This line will be ignored by the compiler}
+
+                {This is an example of nested commenting.
+                 The following block of code will be ignored
+
+                   {Check the value of JX}
+                   IF JX <> 0 THEN
+                      {JX doesn't equal 0 so go ahead}
+                      Call KILL_LINES;
+                   ELSE
+                        {JX = 0 so print error}
+                      Make_Message( 'ERROR' );
+                   END:
+
+                }
+
+
+
+╔═══╗                             ====================
+║ G ║                             =    DATA TYPES    =
+╚═══╝                             ====================
+
+There are four variables types in the macro language:
+
+                      ┌───────────┐
+                      │ Integer   │
+                      │ String    │
+                      │ Character │
+                      │ Real      │
+                      └───────────┘
+
+Type checking is strongly enforced, except between character and string
+types.  For example, attempting to assign an integer to a string would
+generate a compiler error.
+
+NOTE: Boolean variables may be simulated.
+
+
+               INTEGERS
+         ------------------
+
+Integers are always 32 bit and may be any value between -2147483648 and
+2147483647.
+
+
+              STRINGS
+         ------------------
+
+A string is an array of 8 bit characters.  The maximum length of a string is
+2048 characters.  When referencing a character position in a string (with,
+for example, the COPY operation), the integer value 1 corresponds to the
+first character in the string.
+
+If a string variable is assigned a value that has a length greater than its
+defined maximum length (see DEFINING LOCAL VARIABLES) then the value will
+be truncated.
+
+Strings are stored in the following format:
+
+        Word 1( bytes 1 and 2 ) contain the length of the string.
+        Word 2( bytes 3 and 4 ) contain the maximum length.
+        Bytes 5..max_length contains the text of the string.
+
+
+            CHARACTER VARIABLES
+         ---------------------------
+
+A character or 'Char' occupies a single byte and is fully compatible with
+string types.  Characters are treated as strings of length 1.  If you assign
+a string whose length is greater than 1, to a Char variable, then only the
+first byte or character of the string will be used.  If you assign an empty
+string (a string whose length is 0) to a char variable, then a value of 0
+(ASCII NULL) will be assigned to it.
+
+
+
+             REAL NUMBERS
+        ----------------------
+
+The range of a Real number is 1E-38 through 1E+38 with a mantissa of up to
+11 significant digits.
+
+
+           BOOLEAN VARIABLES
+        ----------------------
+
+There is not a separate BOOLEAN (True or False) type.  Instead true or false
+evaluations and variables return integer results where a non-zero value
+represents TRUE and a zero value is FALSE.
+
+
+╔═══╗                  ================================
+║ H ║                  =   DEFINING LOCAL VARIABLES   =
+╚═══╝                  ================================
+The macro programmer may define variables of the STRING, INTEGER, CHAR and
+REAL types with names up to 20 characters long.  Variable names follow
+the same character set convention as labels.
+
+Local variables are restricted to the scope of the macro they are defined
+in.  In other words, they may only be accessed from within the macro they
+are created in.
+
+You MUST define a variable before using it.  If you attempt to use a
+variable without defining it you will get a compiler error.
+
+Variables are defined with the following statements:
+
+                DEF_STR( var_name1, var_name2, ... );
+
+                DEF_INT( var_name1, var_name2, ... );
+
+                DEF_CHAR( var_name1, var_name2, ... );
+
+                DEF_REAL( var_name1, var_name2, ... );
+
+STRING VARIABLE DEFINITIONS
+
+String variable definitions may also contain an optional length in the
+form:
+        DEF_STR( var_name1[length], var_name2[length], ... );
+
+The length may be from 1 to 2048.  If no length is specified, then 254
+is used.
+
+EXAMPLES:
+
+                DEF_STR( Test_String,
+                         Output_String[20],
+                         Input_String[1000]
+                        );
+                DEF_INT( BCount );
+                DEF_CHAR( Char1, Char2, Code);
+                DEF_REAL( RX, RY );
+
+
+
+
+╔═══╗                     ========================
+║ I ║                     =    DATA CONSTANTS    =
+╚═══╝                     ========================
+
+Integer constants are simply entered in their decimal format.
+
+        EXAMPLE:        Test_Integer := 27;
+                        IF Test_Integer = -346 THEN
+                           Test_Integer := 346;
+                        END;
+
+Hex constants are preceded with a '$'.  Note that the maximum number of
+digits in a hex constant is 4.
+
+Real constants are entered in their decimal format, however they must
+contain at least one digit left and one digit right of the decimal point.
+
+        EXAMPLE:        Test_Real := 123.0;
+                        If Test_Real = 0.2343 THEN
+                           Test_Real := 9.0134;
+                        END;
+
+        EXAMPLE:        Test_Integer := $A9F7;
+
+A string constant must be surrounded by single quotes.
+
+        EXAMPLE:        'This is a string constant'
+
+Any ASCII character may be embedded in a string via the '|' character.  This
+is used to embed non-printable or control codes into a string.
+
+        EXAMPLES:
+                        '|13' would be a carriage return.
+                        '|12|10' would be a form feed followed by a line feed.
+                        '||' would be a '|' character.
+
+A single quote character ( ' ) may be inserted into a string constant by
+using two single quotes.
+
+NOTE: Currently Multi-Edit does not support user defined named constants (it
+is coming however).
+
+See also PREDEFINED CONSTANTS and DATA TYPES
+
+                        ===============================
+                        =    PREDEFINED CONSTANTS     =
+                        ===============================
+
+The following is a list of predefined named constants:
+
+        TRUE = 1                EDIT = 0
+        FALSE = 0               DOS_SHELL = 1
+        BLACK = 0               ALL = 255
+        BLUE = 1                DARKGRAY = 8
+        GREEN = 2               LIGHTBLUE = 9
+        CYAN = 3                LIGHTGREEN = 10
+        RED = 4                 LIGHTCYAN = 11
+        MAGENTA = 5             LIGHTRED = 12
+        BROWN = 6               LIGHTMAGENTA = 13
+        LIGHTGRAY = 7           YELLOW = 14
+        WHITE = 15              TERM = 3
+
+
+
+╔═══╗               ===================================
+║ J ║               =    DEFINING GLOBAL VARIABLES    =
+╚═══╝               ===================================
+
+Multi-Edit supports string and integer variables that may be shared between
+macros.  These global variables are not accessed like local variables, but
+with the following set of procedures and functions.
+
+GLOBAL_STR( Name_String )  string function
+
+    RETURNS:    The string value for the global string indicated by
+                Name_string.  Note that if the variable has not been set in
+                the editor environment, then an empty string is returned.
+
+    EXAMPLE:    Str_Var := GLOBAL_STR( 'Search_Str' );
+
+GLOBAL_INT( Name_string )  integer function
+
+    RETURNS:    The integer value for the global integer indicated by
+                Name_string.  Note that if the variable has not been set in
+                the editor environment, then 0 is returned.
+
+    EXAMPLE:    Int_Var := GLOBAL_INT( 'Common_Line' ) + 234;
+
+SET_GLOBAL_STR( Name_string, String_value )  procedure
+
+    ACTION:     Sets the global variable indicated by Name_string to
+                String_value.  If the global variable does not yet exist,
+                then it is created.
+
+    EXAMPLE:    SET_GLOBAL_STR( 'Search_Str', 'END;' );
+
+SET_GLOBAL_INT( Name_string, Integer_value )  procedure
+
+    ACTION:     Sets the global variable indicated by Name_string to
+                Integer_value.  If the global variable does not yet exist,
+                then it is created.
+
+    EXAMPLE:    SET_GLOBAL_INT( 'Common_Line', 234 );
+
+FIRST_GLOBAL( local int_variable )  string function
+
+    RETURNS:    The name of the first global that is in memory.
+                Int_Variable (which must be a user defined local variable)
+                will be set to 1 if the global is an integer, 0 if the
+                global is a string. This initiates calls to NEXT_GLOBAL,
+                allow access to the entire list of all globals in memory.
+
+NEXT_GLOBAL( local int_variable )  string function
+
+    RETURNS:    The name of the next global in memory.  Returns a NULL
+                string if there are no more globals to list.  Int_variable
+                will be set to 1 if the global is an integer, 0 if it is a
+                string.
+
+NOTE: Global variable names are not case sensitive.
+
+
+
+
+╔═══╗                    ============================
+║ K ║                    =   INTEGER EXPRESSIONS    =
+╚═══╝                    ============================
+
+Assignments to integer variables are made as follows:
+
+        Int_Var := Int_expression;
+
+Int_expression may be an integer function, variable or arithmetic
+expression.
+
+The following arithmetic operators are available for integers:
+
+        +               Addition
+        -               Subtraction
+        *               Multiplication
+        /               Division
+        AND             Logical and bitwise ANDing.
+        OR              Logical and bitwise ORing.
+        SHL             Bitwise shift left.     EXAMPLE: ( JX := JX SHL 4)
+        SHR             Bitwise shift right.
+        MOD             Modulus operator.
+
+The following relational operators are available for integers:
+
+        =               Is equal to
+        >               Is greater than
+        <               Is less than
+        >=              Is greater than or equal to
+        <=              Is less than or equal to
+        <>              Is NOT equal to
+
+A relational expression returns a 1 for true, and a 0 for false.
+
+        EXAMPLE:
+                        INT_VAR := 1 > 2;
+
+        { INT_VAR would be assigned the value of 0 (FALSE) }
+
+Parentheses may be used to force the order of evaluation.
+
+        EXAMPLE:
+                        INT_VAR := ((A + B) * C) / D;
+
+See also INTEGERS
+
+
+
+╔═══╗                    ==========================
+║ L ║                    =   STRING EXPRESSIONS   =
+╚═══╝                    ==========================
+
+Assignments to string variables are made as follows:
+
+                Str_Var := Str_expression;
+
+Str_expression may be a string function, variable or expression.
+
+The + operator is used for string concatenation.  EXAMPLE:
+
+                Str_Var := 'This is a test' + Str_Var2 + File_Name;
+
+The following relational operators are available for strings:
+
+                =               Is equal to
+                <>              Is NOT equal to
+
+A relational expression returns an integer value of 1 for true, and a 0 for
+false.
+
+NOTE:  String comparisons ARE case sensitive.
+
+        EXAMPLE:
+
+        IF Str_Var = 'ON' THEN
+          Make_Message( 'ON');
+        ELSE
+          IF Str_Var <> 'OFF' THEN
+            Make_Message( 'UNKNOWN' );
+          ELSE
+            Make_Message( 'OFF' );
+          END;
+        END;
+
+See also STRINGS
+
+
+╔═══╗                   ===============================
+║ M ║                   =   REAL NUMBER EXPRESSIONS   =
+╚═══╝                   ===============================
+
+Assignments to real variables are made as follows:
+
+        Real_Var := Real_expression;
+
+Real_expression may be a real function, variable or arithmetic expression.
+
+The following arithmetic operators are available for reals:
+
+        +               Addition
+        -               Subtraction
+        *               Multiplication
+        /               Division
+
+The following relational operators are available for reals:
+
+        =               Is equal to
+        >               Is greater than
+        <               Is less than
+        >=              Is greater than or equal to
+        <=              Is less than or equal to
+        <>              Is NOT equal to
+
+Parentheses may be used to force the order of evaluation.
+
+        EXAMPLE:
+
+                REAL_VAR := ((A + B) * C) / D;
+
+See also REAL NUMBERS and REAL NUMBER OPERATIONS
+
+
+
+╔═══╗                        ==============================
+║ N ║                        =   UNCONDITIONAL BRANCHING  =
+╚═══╝                        ==============================
+
+CALL label;
+                Runs a subroutine.
+
+RET;
+                Exits from subroutine.  Note that there should be a RET
+                executed for every CALL executed.
+
+GOTO label;
+                Branches directly to a label.
+
+See also CONDITIONAL BRANCHING
+
+
+╔═══╗                   ==============================
+║ O ║                   =   CONDITIONAL BRANCHING    =
+╚═══╝                   ==============================
+
+                WHILE expression DO
+                   statement;
+                   statement; ...
+                END;
+
+                IF expression THEN
+                   statement;
+                   statement; ...
+                END;
+
+                IF expression THEN
+                   statement;
+                   statement; ...
+                ELSE
+                   statement;
+                   statement; ...
+                END;
+
+Expressions may be simple or complex evaluations.  All evaluations return
+integer (TRUE = 1 or FALSE = 0) results.  The following are the basic
+evaluation constructs.
+
+        x = y,          x <> y, x < y,          x > y,          x <= y,
+        x >= y,         x AND y,                x OR y
+
+Examples:
+        {A useless example of WHILE}
+        JX := 12;
+        WHILE JX <= JY DO
+          JX := JX + 1;
+          IF JX > JY THEN
+            Make_Message( 'THIS IS THE LAST TIME!' );
+          END;
+        END;
+
+        IF Our_String = 'This is a test.' THEN
+          Make_Message( Our_String );
+        ELSE
+          IF Our_String = 'This is not a test.' THEN
+            Make_Message( 'Why isn't it?' );
+          END;
+        END;
+
+        IF ((JX + 1) > 4) AND ((Our_String + Your_String) <> 'WHAT?') THEN
+          Text('It WORKS!');
+        END;
+
+
+
+╔═══╗             ==========================================
+║ P ║             =   PARAMETER PASSING AND RETURN VALUES  =
+╚═══╝             ==========================================
+
+Parameters may be passed to a macro, in text form, in the string parameter
+passed to the RUN_MACRO procedure.  The form is:
+
+        Run_Macro( 'macro_name parameter_string');
+
+The combined length of macro_name and parameter_string must be <= 254
+characters.  Parameter_string need only be separated from macro_name by a
+space.  The parameter_string may be accessed by the called macro via the
+function MPARM_STRING.
+
+Integer values should be returned by the called macro in the system variable
+RETURN_INT.  String values should be returned in RETURN_STR.  Remember that
+RETURN_INT and RETURN_STR are globally accessible, and should only be
+assigned at the end of a macro.
+
+The functions PARSE_STR and PARSE_INT may be used by the called macro to
+parse strings and integer values from the passed parameter string.
+
+MPARM_STR  string function
+
+    RETURNS:    The parameter string passed to the macro.
+
+PARSE_STR( str1, str2 )  string function
+
+    RETURNS:    Returns a string parsed from str2 with str1.  Str1 is
+                usually in the form "/name=" where name is any text.
+                Returns a NUL string if str1 was not found in str2.  NOTE
+                that this function IS case sensitive.
+
+PARSE_INT( str1, str2 )  integer function
+
+    RETURNS:    An integer value parsed from str2 with str1.  Works
+                identically to PARSE_STR except that the string that is
+                parsed is expected to be an numeric string, and is converted
+                to an integer.
+
+RETURN_STR  string variable
+
+        Used to return string values from a macro.
+
+RETURN_INT  integer variable
+
+        Used to return integer values from a macro.
+
+EXAMPLE MACRO USING PARAMETER PASSING:
+
+        {***********************************************************
+          This macro will create a new window and load a specified
+          file into it.
+          PARAMETERS:   /FN=filename
+                        /X1=upper left column of window
+                        /Y1=upper left row of window
+                        /X2=lower right column of window
+                        /Y2=lower right row of window
+          RETURNS:  Return_Int = 0, succeeded, <> 0, failed
+        ************************************************************}
+        $MACRO GETFILE;
+          Def_Str( File_Spec );
+          Def_Int( X1, Y1, X2, Y2, Error_Stat );
+          Error_Stat := 0;
+                       {Parse the parameters}
+          File_Spec := Parse_Str( '/FN=', MParm_Str );
+          X1 := Parse_Int( '/X1=', MParm_Str );
+          X2 := Parse_Int( '/X2=', MParm_Str );
+          Y1 := Parse_Int( '/Y1=', MParm_Str );
+          Y2 := Parse_Int( '/Y2=', MParm_Str );
+          Create_Window;
+          {If all the size parameters existed (X1 can be left out),
+                 then Size the window}
+          IF (X2 and Y1 and Y2) then
+            Size_Window( X1, Y1, X2, Y2 );
+          END;
+          {If there was a filename parameter then try to load the file}
+          IF ( File_Spec <> '' ) THEN
+            Load_File( File_Spec );
+            Error_Stat := Error_Level;
+          END;
+          Return_Int := Error_Stat;
+        END_MACRO;
+
+        $MACRO TEST;
+          Run_Macro( 'GETFILE /FN=TEST.DOC/X1=1/Y1=3/X2=80/Y2=25' );
+          IF (Return_Int <> 0) THEN
+             Make_Message( 'Error occurred retrieving file.');
+          END;
+        END_MACRO;
+
+╔═══╗                     ==========================
+║ Q ║                     =   EXTENDED KEY SYNTAX  =
+╚═══╝                     ==========================
+
+Key code names are created by taking the key name and adding the
+appropriate Shft, Ctrl or Alt prefix.  For example:
+
+        <F1>  <ShftF1> <CtrlF1> <AltF1>
+        a     <ShftA>  <CtrlA>  <AltA>
+
+Key names are NOT case sensitive.  For example:  If you want to assign a
+macro or command to upper case "A" then you must use <ShftA>.
+╔═══════════════╦════════════╤═════════════════╤══════════════╤════════════╗
+║Name           ║  Code      │     <Shft..>    │   <Ctrl..>   │    <Alt..> ║
+╠═══════════════╬════════════╪═════════════════╪══════════════╪════════════╣
+║<F1>           ║   0, 59    │      0, 84      │    0, 94     │     0, 104 ║
+║<F2>           ║   0, 60    │      0, 85      │    0, 95     │     0, 106 ║
+║<F3>           ║   0, 61    │      0, 86      │    0, 96     │     0, 106 ║
+║<F4>           ║   0, 62    │      0, 87      │    0, 97     │     0, 107 ║
+║<F5>           ║   0, 63    │      0, 88      │    0, 98     │     0, 108 ║
+║<F6>           ║   0, 64    │      0, 89      │    0, 99     │     0, 109 ║
+║<F7>           ║   0, 65    │      0, 90      │    0, 100    │     0, 110 ║
+║<F8>           ║   0, 66    │      0, 91      │    0, 101    │     0, 111 ║
+║<F9>           ║   0, 67    │      0, 92      │    0, 102    │     0, 112 ║
+║<F10>          ║   0, 68    │      0, 93      │    0, 103    │     0, 113 ║
+║<F11>          ║   0, 133   │      0, 135     │    0, 137    │     0, 139 ║
+║<F12>          ║   0, 134   │      0, 136     │    0, 138    │     0, 140 ║
+║<ENTER>        ║  13, 28    │     ------      │   10, 28     │     0, 28  ║
+║<TAB>          ║   9, 15    │      0, 15      │    0, 148    │     0, 165 ║
+║<ESC>          ║  27, 1     │     ------      │   ------     │     0, 1   ║
+║<BS>           ║   8, 14    │     ------      │  127, 14     │     0, 14  ║
+║<UP>           ║   0, 72    │     56, 72      │    0, 141    │    ------  ║
+║<DN>           ║   0, 80    │     50, 80      │    0, 145    │    ------  ║
+║<LF>           ║   0, 75    │     52, 75      │    0, 115    │    ------  ║
+║<RT>           ║   0, 77    │     54, 77      │    0, 116    │    ------  ║
+║<PGUP>         ║   0, 73    │     57, 73      │    0, 132    │    ------  ║
+║<PGDN>         ║   0, 81    │     51, 81      │    0, 118    │    ------  ║
+║<INS>          ║   0, 82    │     48, 82      │    0, 146    │    ------  ║
+║<DEL>          ║   0, 83    │     46, 83      │    0, 147    │    ------  ║
+║               ║            │                 │              │            ║
+║<Grey->        ║  45, 74    │     ------      │    0, 142    │     0, 74  ║
+║<Grey+>        ║  43, 78    │     ------      │    0, 144    │     0, 78  ║
+║<Grey*>        ║  42, 55    │     ------      │    0, 150    │     0, 55  ║
+║<Grey/>        ║  47, 224   │     ------      │    0, 149    │     0, 164 ║
+║<GreyENTER>    ║  13, 224   │     ------      │   10, 224    │     0, 166 ║
+║<ScrollLockOn> ║   0, 238   │     ------      │   -------    │    ------- ║
+║<ScrollLockOff>║   0, 239   │     ------      │   -------    │    ------- ║
+╚═══════════════╩════════════╧═════════════════╧══════════════╧════════════╝
+
+
+╔═══════════════╦════════════╤═════════════════╤══════════════╤════════════╗
+║Name           ║  Code      │     <Shft..>    │   <Ctrl..>   │    <Alt..> ║
+╠═══════════════╬════════════╪═════════════════╪══════════════╪════════════╣
+║<a>            ║  97, 30    │     65, 30      │    1, 30     │     0, 30  ║
+║<b>            ║  98, 48    │     66, 48      │    2, 48     │     0, 48  ║
+║<c>            ║  99, 46    │     67, 46      │    3, 46     │     0, 46  ║
+║<d>            ║ 100, 32    │     68, 32      │    4, 32     │     0, 32  ║
+║<e>            ║ 101, 18    │     69, 18      │    5, 18     │     0, 18  ║
+║<f>            ║ 102, 33    │     70, 33      │    6, 33     │     0, 33  ║
+║<g>            ║ 103, 34    │     71, 34      │    7, 34     │     0, 34  ║
+║<h>            ║ 104, 35    │     72, 35      │    8, 35     │     0, 35  ║
+║<i>            ║ 105, 23    │     73, 23      │    9, 23     │     0, 23  ║
+║<j>            ║ 106, 36    │     74, 36      │   10, 36     │     0, 36  ║
+║<k>            ║ 107, 37    │     75, 37      │   11, 37     │     0, 37  ║
+║<l>            ║ 108, 38    │     76, 38      │   12, 38     │     0, 38  ║
+║<m>            ║ 109, 50    │     77, 50      │   13, 50     │     0, 50  ║
+║<o>            ║ 111, 24    │     79, 24      │   15, 24     │     0, 24  ║
+║<p>            ║ 112, 25    │     80, 25      │   16, 25     │     0, 25  ║
+║<q>            ║ 113, 16    │     81, 16      │   17, 16     │     0, 16  ║
+║<r>            ║ 114, 19    │     82, 19      │   18, 19     │     0, 19  ║
+║<s>            ║ 115, 31    │     83, 31      │   19, 31     │     0, 31  ║
+║<t>            ║ 116, 20    │     84, 20      │   20, 20     │     0, 20  ║
+║<u>            ║ 117, 22    │     85, 22      │   21, 22     │     0, 22  ║
+║<v>            ║ 118, 47    │     86, 47      │   22, 47     │     0, 47  ║
+║<w>            ║ 119, 17    │     87, 17      │   23, 17     │     0, 17  ║
+║<x>            ║ 120, 45    │     88, 45      │   24, 45     │     0, 45  ║
+║<y>            ║ 121, 21    │     89, 21      │   25, 21     │     0, 21  ║
+║<z>            ║ 122, 44    │     90, 44      │   26, 44     │     0, 44  ║
+║<`>            ║  96, 41    │ <~>126, 41      │   ------     │     0, 41  ║
+║<1>            ║  49, 2     │ <!> 33, 2       │   ------     │     0, 120 ║
+║<2>            ║  50, 3     │ <@> 64, 3       │    0, 3      │     0, 121 ║
+║<3>            ║  51, 4     │ <#> 35, 4       │   ------     │     0, 122 ║
+║<4>            ║  52, 5     │ <$> 36, 5       │   ------     │     0, 123 ║
+║<5>            ║  53, 6     │ <%> 37, 6       │   ------     │     0, 124 ║
+║<6>            ║  54, 7     │ <^> 94, 7       │   30, 7      │     0, 125 ║
+║<7>            ║  55, 8     │ <&> 38, 8       │   ------     │     0, 126 ║
+║<8>            ║  56, 9     │ <*> 42, 9       │   ------     │     0, 127 ║
+║<9>            ║  57, 10    │ <(> 40, 10      │   ------     │     0, 128 ║
+║<0>            ║  48, 11    │ <)> 41, 11      │   ------     │     0, 129 ║
+║<->            ║  45, 12    │ <_> 95, 12      │   31, 12     │     0, 130 ║
+║<=>            ║  61, 13    │ <+> 43, 13      │   ------     │     0, 131 ║
+║<\>            ║  92, 43    │ <|>124, 43      │   28, 43     │     0, 43  ║
+║<[>            ║  91, 26    │ <{>123, 26      │   27, 26     │     0, 26  ║
+║<]>            ║  93, 27    │ <}>125, 27      │   29, 27     │     0, 27  ║
+║<;>            ║  59, 39    │ <:> 58, 39      │   ------     │     0, 40  ║
+║<,>            ║  44, 51    │ <"> 60, 51      │   ------     │     0, 51  ║
+║<.>            ║  46, 52    │ <<> 62, 52      │   ------     │     0, 52  ║
+║</>            ║  47, 53    │ <>> 63, 53      │   ------     │     0, 53  ║
+║               ║            │                 │              │            ║
+╚═══════════════╩════════════╧═════════════════╧══════════════╧════════════╝
+
+This mouse is also mapped to key codes.  The following keycodes correspond
+to mouse operations:
+
+ <MsUP> { mouse up }                    0, 240
+ <MsDN> { mouse down }                  0, 241
+ <MsLF> { mouse left }                  0, 242
+ <MsRT> { mouse right }                 0, 243
+ <Btn0> { left mouse button }           0, 244
+ <Btn1> { right mouse button }          0, 245
+ <Btn2> { middle mouse button }         0, 246
+
+
+╔═══╗                  ================================
+║ R ║                  =   PROCEDURES AND FUNCTIONS   =
+╚═══╝                  ================================
+
+Procedures are simply executed and do NOT return values.
+
+        EXAMPLE:    Create_Window;  {Execute the Create_Window procedure}
+                    IF Error_Level <> 0 then
+                      Run_Macro('MEERROR');
+                    END;
+
+Function return results when they are executed.  The cannot just be
+executed stand-alone (like a procedure).
+
+        EXAMPLE:      {Switch to Window_Id 1 if it exists}
+                    IF Switch_Win_Id( 1 ) THEN
+                      Goto Do_More;
+                    ELSE
+                      Goto Exit;
+                    END;
+
+                    JX := Window_Id;    {Store the current window id}
+
+See also SYSTEM VARIABLES.
+
+
+
+
+╔═══╗                           ========================
+║ S ║                           =   SYSTEM VARIABLES   =
+╚═══╝                           ========================
+
+System variables are used like local variables, in that they may be
+examined and changed.  However, unlike local variables, system variables
+may actually perform operations when they are used.
+
+System variables may NOT be used as a parameter to any procedure or function
+that requires a local variable data type.
+
+See also DEFINING LOCAL VARIABLES, PROCEDURES AND FUNCTIONS and DATA TYPES
+
+
+╔═══╗                      ======================
+║ T ║                      =   ERROR HANDLING   =
+╚═══╝                      ======================
+
+Many operations, particularly file operations, may generate errors (like
+'File not found' or 'Device not ready').  These operations set the
+ERROR_LEVEL variable to an error number (this is strictly a Multi-Edit
+variable, and has no relation to the DOS ERRORLEVEL batch function).  Error
+number 0 means that no error occurred.  NOTE that any operation that sets
+the ERROR_LEVEL variable has a notation to that effect in it's description.
+
+Whenever an operation that has the potential to generate an error
+(particularly if the macro is dependant on the success of that operation) is
+invoked, the ERROR_LEVEL variable should be checked for a non-zero value.
+If it contains a non-zero value then the macro should process the error in
+some recoverable manner, and then set the ERROR_LEVEL variable back to zero.
+If all that is necessary is to display an error message, then the ME-ERROR
+macro may be run.
+
+    EXAMPLE:
+        {Load a file}
+        Load_File('C:\ME\INIT.SRC');
+        {If an error occurred then run the ME-ERROR macro and exit}
+        IF Error_Level <> 0 THEN
+          Run_Macro('MEERROR');
+          Goto EXIT;
+        END;
+
+ERROR_LEVEL  integer variable
+        An integer containing the error number of the last error that took
+        place.
+
+                     MULTI-EDIT ERROR CODES
+
+1001    No windows left.  CREATE_WINDOW was invoked when 100 Windows already
+        exist.
+
+1002    Insufficient memory to complete operation.
+
+1003    Maximum line length reached.
+                An insertion of text went beyond the 2048 character limit.
+
+1004    Operation not yet support.
+
+1006    Invalid numeric input.
+                An invalid character (non-numeric) was typed at a numeric
+                prompt, or the number was out of range.
+
+1007    ME.HLP not found.
+        The HELP operation was invoked, but Multi-Edit can't find the ME.HLP
+        file.
+
+1010    Invalid search string.
+                SEARCH_FWD or SEARCH_BWD was invoke with invalid regular
+                expression syntax.  The most common problem is unbalanced
+                braces around groups.
+
+1011    Input file not found.
+                A SAVE_FILE was performed while in disk swapping mode, but
+                the original file can't be found.  This could happen if the
+                file has been deleted from the DOS shell.
+
+1012    File is marked read-only.
+                You tried to save a file that was marked as read-only.
+
+1013    Save aborted by user.
+                Only occurs when an out-of-disk-space error has occurred
+                and the user has chosen to abort the operation.
+
+1015    Operation aborted by user.
+                Occurs when, for example, a search is aborted with
+                <CtrlBREAK>.
+
+
+1016    No memory left for UNDO buffer.
+                May occur when Multi-Edit cannot free up enough memory to
+                save text changes to the undo buffer.
+
+1017    Error saving backup file.
+                This commonly occurs because the directory that was chosen
+                to store backup files does not exist.
+
+1030    Invalid DIR Window Number.
+                This error occurs if a DOS Directory Shell operation was
+                executed with an invalid directory window number.
+
+1031    DIR Window not open.
+                Occurs if a DOS Directory shell operation is performed on a
+                directory window that has not yet been opened.
+
+2002    Printer not ready.
+                Attempt was made to output to a printer that was not ready or
+                off line.
+
+3002    File not found.  LOAD_FILE can generate this error.
+
+3003    Path not found.
+
+3005    Access Denied.
+
+3007    DOS Memory Control blocks destroyed.
+
+3008    Insufficient memory.
+                SHELL_TO_DOS can generate this error.
+
+3010    Invalid environment.
+
+3015    Invalid drive.  Most people do not have a drive Z.
+
+3018    No more files.
+                FIRST_FILE and NEXT_FILE may generated this.
+3021    Drive not ready.
+
+3031    General failure.
+
+3150    Write protect error.
+
+3152    Device not ready.
+
+3153    Unknown command (DOS Error).
+
+3154    Data error.
+
+3158    Sector not found.
+
+3159    Printer out of paper.
+
+3160    Write fault.
+
+3161    Read fault.
+
+3162    General failure.
+
+3241    Disk full.
+                SAVE_FILE can generate this error.
+
+5001    Macro not found.
+                An attempt was made to load or run a macro, but Multi-Edit
+                could not find the .MAC file.
+
+5005    Macro being loaded is an incompatible version.
+                Will happen if an attempt is made to load a macro that was
+                compiled with an earlier version of the macro compiler.
+
+
+╔═══╗                        =========================
+║ U ║                        =   COMPILER ERRORS     =
+╚═══╝                        =========================
+
+The format for compiler errors is:
+
+                filename(line num,col num): ERROR errornum: message
+
+    EXAMPLE:
+                LANGUAGE.SRC(92,22): ERROR 1: Syntax Error: 'THIN'
+
+                      COMPILER ERROR CODES
+
+01      Syntax Error: <statement>.
+                The compiler does not recognize the displayed statement.
+
+02      <delimiter> expected.
+                The displayed delimiter (a parenthesis, comma, etc.) was expec
+                but not found.
+
+04      ; expected.
+                A semicolon was expected, but not found.
+
+05      Label to long.
+                A label with more than 20 characters was defined.
+
+06      Too many labels.
+                More than 500 labels where defined within a macro.
+
+07      '(' expected.
+                A left parenthesis was expected.
+
+08      ',' expected.
+                A comma was expected.
+
+09      ')' expected.
+                A right parenthesis was expected.
+
+10      Duplicate label.
+                Labels within a macro must be unique.
+
+13      Variable expected.
+                An actual variable (not a constant, literal or expression) was
+                expected.
+
+14      Label <label name> not found.
+                A label was referenced but never defined.
+
+15      Type mismatch or syntax error.
+                The constant, literal, expression or variable is either or the
+                type, or contains a syntax error.
+
+16      Macro name must be <= 16 characters long.
+                The name of the macro is too long.
+
+17      Out of variables.
+                Too many local variables have been defined.  The maximum
+                number of local variables is 200.
+
+18      String variable expected.
+                The compiler was expecting a user defined, local string
+                variable.
+
+24      Keycode expected.
+                A proper keycode string was expected.
+                See KEYSTROKE MACROS.
+
+25      Mode expected.
+                A Multi-Edit mode was expected.
+
+
+27      END statement not found.
+                There are not enough end statements to match IF and WHILE
+                statements in the macro.
+
+28      $command expected.
+                Either a $MACRO or $MACRO_FILE was expected.
+
+29      Out of memory for compiler.
+                Not enough memory to compile macro.  You probably need to exit
+                the editor and compile the macro from the command line.
+
+30      $MACRO_FILE already defined.
+                Only ONE $MACRO_FILE definition is allowed per macro source
+                file.
+
+31      String constant too long.
+                A string constant must be <= 254 characters long.
+
+32      Multi-Edit command expected.
+                Attempt to assign an illegal command to a key.  See
+                COMMANDS THAT ARE DIRECTLY ASSIGNABLE TO A KEY.
+
+33      Operator expected.
+                A ";" or an arithmetic operator was expected.
+
+34      Maximum string length is 2048 character.
+                Will occur when you try to define a string > 2048
+                characters long.
+
+35      Invalid hex constant.
+                A hexadecimal number must only contain the characters
+                "0123456789ABCDEF"
+
+100     Premature end of file.
+                The file ended before an END_MACRO statement was
+                encountered.
+
+101     File not found.
+                Source file was not found.
+
+102     Output file error.
+                An error occurred writing the output file.
+
+103     Invalid debugging PC.
+                The program counter specified in the -D command was invalid.
+                See RUN-TIME ERRORS.
+
+104     Macro name needed for debugging.
+                When using the -D switch, the macro name is required.
+
+200     Run time error found.
+                The run error specified by -D command was found.
+                See RUN-TIME ERRORS.
+
+
+╔═══╗                        ======================
+║ V ║                        =   RUN-TIME ERRORS  =
+╚═══╝                        ======================
+
+A macro run-time error may be generated under several circumstances.  If
+such an error occurs, a window will appear telling the macro name and
+program counter (in hex) where the error occurred.  This information should
+immediately be written down, so that the position of the error can be found
+in the source code.
+
+To find the position of a run-time error you must invoke the compiler from
+the DOS command line as follows:
+
+                MEMAC filename -Dpc macro_name
+
+    EXAMPLE:
+                MEMAC LANGUAGE -D002A TEMPLATE
+
+The above example would find a run time error at program counter 002A hex in
+the macro TEMPLATE which is in the macro source file LANGUAGE.SRC.
+
+                      RUN-TIME ERROR CODES
+
+02      Attempt to RET without matching CALL.
+                Happens when the CALL stack is empty.  Could happen if a
+                macro performed a GOTO to a subroutine that terminates with
+                a RET.
+
+03      Divide by zero.
+                "1234 / 0" is a no-no.
+
+04      Real to Integer conversion out of range.
+                The result of an R_INT function in which the passed real
+                number value was outside of the range of -32768 to 32767.
+
+05      Attempt to nest more than 10 keystroke macros.
+                Would happen if a Key_In statement invoke a macro which in
+                turn invoked a Key_In statement, and so on, passed ten
+                levels of nesting.
+
+07      Corrupt macro code.
+                Should never happen.  If it does, CALL US!
+
+101     Error loading transient macro.
+                A disk error occurred trying to pull a macro off disk.
+102,103,104
+        Insufficient memory.
+
+
+
+

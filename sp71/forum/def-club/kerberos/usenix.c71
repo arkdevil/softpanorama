@@ -1,0 +1,1782 @@
+
+
+
+
+
+
+
+
+
+        _K_e_r_b_e_r_o_s: An Authentication Service for Open
+                      Network Systems
+
+
+
+                    Jennifer G. Steiner
+
+                       Project Athena
+           Massachusetts Institute of Technology
+                    Cambridge, MA  02139
+                   steiner@ATHENA.MIT.EDU
+
+
+                      Clifford Neuman|-
+
+           Department of Computer Science, FR-35
+                  University of Washington
+                     Seattle, WA  98195
+                   bcn@CS.WASHINGTON.EDU
+
+
+                    Jeffrey I. Schiller
+
+                       Project Athena
+           Massachusetts Institute of Technology
+                    Cambridge, MA  02139
+                     jis@ATHENA.MIT.EDU
+
+
+                          _A_B_S_T_R_A_C_T
+
+          In an open network computing  environment,  a
+     workstation  cannot  be  trusted  to  identify its
+     users correctly  to  network  services.   _K_e_r_b_e_r_o_s
+     provides an alternative approach whereby a trusted
+     third-party authentication service is used to ver-
+     ify  users' identities.  This paper gives an over-
+     view  of  the  _K_e_r_b_e_r_o_s  authentication  model  as
+     implemented   for   MIT's   Project   Athena.   It
+     describes the protocols used by clients,  servers,
+     and  _K_e_r_b_e_r_o_s  to achieve authentication.  It also
+     describes the management and  replication  of  the
+     database  required.  The views of _K_e_r_b_e_r_o_s as seen
+     by the user,  programmer,  and  administrator  are
+     described.   Finally,  the role of _K_e_r_b_e_r_o_s in the
+     larger Athena picture is given, along with a  list
+__________________________
+|- Clifford Neuman was a member of  the  Project  Athena
+staff  during  the  design  and  initial implementation
+phase of _K_e_r_b_e_r_o_s.
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 2 -
+
+
+     of  applications  that  presently use _K_e_r_b_e_r_o_s for
+     user authentication.  We describe the addition  of
+     _K_e_r_b_e_r_o_s  authentication  to  the Sun Network File
+     System as a case study  for  integrating  _K_e_r_b_e_r_o_s
+     with an existing application.
+
+
+
+
+_I_n_t_r_o_d_u_c_t_i_o_n
+
+     This paper gives an overview of _K_e_r_b_e_r_o_s, an  authenti-
+cation system designed by Miller and Neuman[1] for open net-
+work computing environments, and  describes  our  experience
+using it at MIT's Project Athena.[2] In the first section of
+the paper, we explain why  a  new  authentication  model  is
+needed  for  open  networks,  and what its requirements are.
+The second section lists  the  components  of  the  _K_e_r_b_e_r_o_s
+software  and  describes  how they interact in providing the
+authentication service.  In Section 3, we describe the  _K_e_r_-
+_b_e_r_o_s naming scheme.
+
+     Section 4 presents  the  building  blocks  of  _K_e_r_b_e_r_o_s
+authentication  -  the  _t_i_c_k_e_t  and the _a_u_t_h_e_n_t_i_c_a_t_o_r.  This
+leads to a discussion of the two  authentication  protocols:
+the  initial authentication of a user to _K_e_r_b_e_r_o_s (analogous
+to logging in), and the protocol for  mutual  authentication
+of  a  potential consumer and a potential producer of a net-
+work service.
+
+     _K_e_r_b_e_r_o_s requires a database of information  about  its
+clients;  Section  5 describes the database, its management,
+and the protocol for its modification.  Section 6  describes
+the  _K_e_r_b_e_r_o_s  interface to its users, applications program-
+mers, and administrators.  In Section 7, we describe how the
+Project  Athena  _K_e_r_b_e_r_o_s  fits  into the rest of the Athena
+environment.  We also describe the interaction of  different
+_K_e_r_b_e_r_o_s authentication domains, or _r_e_a_l_m_s; in our case, the
+relation between the Project Athena _K_e_r_b_e_r_o_s  and  the  _K_e_r_-
+_b_e_r_o_s running at MIT's Laboratory for Computer Science.
+
+     In Section 8, we mention open issues  and  problems  as
+yet  unsolved.  The last section gives the current status of
+_K_e_r_b_e_r_o_s at Project Athena.  In the appendix, we describe in
+detail  how _K_e_r_b_e_r_o_s is applied to a network file service to
+authenticate users who wish to gain access  to  remote  file
+systems.
+
+     _C_o_n_v_e_n_t_i_o_n_s.  Throughout this paper we use  terms  that
+may  be  ambiguous,  new  to the reader, or used differently
+elsewhere.  Below we state our use of those terms.
+
+     _U_s_e_r, _C_l_i_e_n_t, _S_e_r_v_e_r.  By _u_s_e_r, we mean a  human  being
+who   uses  a  program  or  service.   A  _c_l_i_e_n_t  also  uses
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 3 -
+
+
+something, but is not necessarily a person; it can be a pro-
+gram.   Often network applications consist of two parts; one
+program which runs on one machine and requests a remote ser-
+vice,  and  another program which runs on the remote machine
+and performs that service.  We call those  the  _c_l_i_e_n_t  side
+and  _s_e_r_v_e_r side of the application, respectively.  Often, a
+_c_l_i_e_n_t will contact a _s_e_r_v_e_r on behalf of a _u_s_e_r.
+
+     Each entity that uses the _K_e_r_b_e_r_o_s system, be it a user
+or a network server, is in one sense a client, since it uses
+the _K_e_r_b_e_r_o_s service.  So to  distinguish  _K_e_r_b_e_r_o_s  clients
+from clients of other services, we use the term _p_r_i_n_c_i_p_a_l to
+indicate such an entity.  Note that a _K_e_r_b_e_r_o_s principal can
+be  either  a  user or a server.  (We describe the naming of
+_K_e_r_b_e_r_o_s principals in a later section.)
+
+     _S_e_r_v_i_c_e _v_s. _S_e_r_v_e_r.  We  use  _s_e_r_v_i_c_e  as  an  abstract
+specification  of  some  actions to be performed.  A process
+which performs those actions is called a _s_e_r_v_e_r.  At a given
+time,  there may be several _s_e_r_v_e_r_s (usually running on dif-
+ferent machines) performing a given _s_e_r_v_i_c_e.   For  example,
+at  Athena  there  is  one BSD UNIX _r_l_o_g_i_n server running on
+each of our timesharing machines.
+
+     _K_e_y, _P_r_i_v_a_t_e _K_e_y, _P_a_s_s_w_o_r_d.  _K_e_r_b_e_r_o_s uses private  key
+encryption.   Each  _K_e_r_b_e_r_o_s  principal  is assigned a large
+number, its private key, known only to  that  principal  and
+_K_e_r_b_e_r_o_s.   In  the  case  of a user, the private key is the
+result of a one-way function applied to the user's _p_a_s_s_w_o_r_d.
+We use _k_e_y as shorthand for _p_r_i_v_a_t_e _k_e_y.
+
+     _C_r_e_d_e_n_t_i_a_l_s.  Unfortunately, this word  has  a  special
+meaning  for  both  the Sun Network File System and the _K_e_r_-
+_b_e_r_o_s system.  We  explicitly  state  whether  we  mean  NFS
+credentials  or  _K_e_r_b_e_r_o_s credentials, otherwise the term is
+used in the normal English language sense.
+
+     _M_a_s_t_e_r _a_n_d _S_l_a_v_e.   It  is  possible  to  run  _K_e_r_b_e_r_o_s
+authentication  software on more than one machine.  However,
+there is always only one definitive  copy  of  the  _K_e_r_b_e_r_o_s
+database.   The machine which houses this database is called
+the _m_a_s_t_e_r machine, or just the _m_a_s_t_e_r.  Other machines  may
+possess read-only copies of the _K_e_r_b_e_r_o_s database, and these
+are called _s_l_a_v_e_s.
+
+_1.  _M_o_t_i_v_a_t_i_o_n
+
+     In  a  non-networked  personal  computing  environment,
+resources  and  information  can  be protected by physically
+securing the personal computer.  In a timesharing  computing
+environment,  the  operating  system protects users from one
+another and controls resources.  In order to determine  what
+each user is able to read or modify, it is necessary for the
+timesharing  system  to  identify  each   user.    This   is
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 4 -
+
+
+accomplished when the user logs in.
+
+     In a network of  users  requiring  services  from  many
+separate  computers, there are three approaches one can take
+to access control:  One  can  do  nothing,  relying  on  the
+machine  to which the user is logged in to prevent unauthor-
+ized access; one can require the host to prove its identity,
+but  trust the host's word as to who the user is; or one can
+require the user to prove her/his identity for each required
+service.
+
+     In a closed environment  where  all  the  machines  are
+under  strict control, one can use the first approach.  When
+the organization controls all the hosts  communicating  over
+the network, this is a reasonable approach.
+
+     In a more open environment, one might selectively trust
+only  those  hosts  under  organizational  control.  In this
+case, each host must be required to prove its identity.  The
+_r_l_o_g_i_n  and _r_s_h programs use this approach.  In those proto-
+cols,  authentication  is  done  by  checking  the  Internet
+address from which a connection has been established.
+
+     In the Athena environment, we must  be  able  to  honor
+requests  from  hosts that are not under organizational con-
+trol.  Users have complete control  of  their  workstations:
+they can reboot them, bring them up standalone, or even boot
+off their own tapes.  As such, the third  approach  must  be
+taken; the user must prove her/his identity for each desired
+service.  The server must also prove its  identity.   It  is
+not  sufficient to physically secure the host running a net-
+work  server;  someone  elsewhere  on  the  network  may  be
+masquerading as the given server.
+
+     Our environment places several requirements on an iden-
+tification  mechanism.   First,  it must be secure.  Circum-
+venting  it  must  be  difficult  enough  that  a  potential
+attacker  does  not  find the authentication mechanism to be
+the weak link.  Someone watching the network should  not  be
+able  to  obtain  the  information  necessary to impersonate
+another user.  Second, it must be reliable.  Access to  many
+services  will  depend on the authentication service.  If it
+is not reliable, the system of services as a whole will  not
+be.   Third,  it  should  be transparent.  Ideally, the user
+should  not  be  aware  of  authentication   taking   place.
+Finally,  it  should be scalable.  Many systems can communi-
+cate with Athena hosts.  Not all of these will  support  our
+mechanism, but software should not break if they did.
+
+     _K_e_r_b_e_r_o_s is the result of our work to satisfy the above
+requirements.   When  a  user walks up to a workstation s/he
+``logs in''.  As far as the  user  can  tell,  this  initial
+identification  is  sufficient  to prove her/his identity to
+all the required network servers for  the  duration  of  the
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 5 -
+
+
+login session.  The security of _K_e_r_b_e_r_o_s relies on the secu-
+rity of several authentication servers, but not on the  sys-
+tem  from which users log in, nor on the security of the end
+servers that will be used.  The authentication  server  pro-
+vides  a  properly  authenticated  user  with a way to prove
+her/his identity to servers scattered across the network.
+
+     Authentication is a fundamental building  block  for  a
+secure  networked  environment.   If,  for example, a server
+knows for certain the identity of a client,  it  can  decide
+whether  to  provide the service, whether the user should be
+given special privileges, who should receive  the  bill  for
+the  service,  and  so forth.  In other words, authorization
+and accounting schemes can be built on top of the  authenti-
+cation that _K_e_r_b_e_r_o_s provides, resulting in equivalent secu-
+rity to the lone personal computer or the  timesharing  sys-
+tem.
+
+_2.  _W_h_a_t _i_s _K_e_r_b_e_r_o_s?
+
+     _K_e_r_b_e_r_o_s is a trusted third-party  authentication  ser-
+vice   based   on   the   model  presented  by  Needham  and
+Schroeder.[3] It is trusted in the sense that  each  of  its
+clients  believes  _K_e_r_b_e_r_o_s' judgement as to the identity of
+each of its other clients to be accurate.  Timestamps (large
+numbers  representing  the  current date and time) have been
+added to the original model  to  aid  in  the  detection  of
+_r_e_p_l_a_y.  Replay occurs when a message is stolen off the net-
+work and resent later.  For a more complete  description  of
+replay,  and other issues of authentication, see Voydock and
+Kent.[4]
+
+_2._1.  _W_h_a_t _D_o_e_s _I_t _D_o?
+
+     _K_e_r_b_e_r_o_s keeps a database  of  its  clients  and  their
+_p_r_i_v_a_t_e  _k_e_y_s.  The private key is a large number known only
+to _K_e_r_b_e_r_o_s and the client it belongs to.  In the case  that
+the  client is a user, it is an encrypted password.  Network
+services requiring authentication register with _K_e_r_b_e_r_o_s, as
+do  clients wishing to use those services.  The private keys
+are negotiated at registration.
+
+     Because _K_e_r_b_e_r_o_s  knows  these  private  keys,  it  can
+create  messages  which  convince one client that another is
+really who it claims to be.  _K_e_r_b_e_r_o_s  also  generates  tem-
+porary private keys, called _s_e_s_s_i_o_n _k_e_y_s, which are given to
+two clients and no one else.  A session key can be  used  to
+encrypt messages between two parties.
+
+     _K_e_r_b_e_r_o_s provides three distinct levels of  protection.
+The  application programmer determines which is appropriate,
+according to the requirements of the application.  For exam-
+ple,  some  applications  require  only that authenticity be
+established at the initiation of a network  connection,  and
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 6 -
+
+
+can  assume  that  further  messages  from  a  given network
+address originate from the authenticated party.  Our authen-
+ticated network file system uses this level of security.
+
+     Other applications require authentication of each  mes-
+sage,  but do not care whether the content of the message is
+disclosed or not.  For these, _K_e_r_b_e_r_o_s  provides  _s_a_f_e  _m_e_s_-
+_s_a_g_e_s.   Yet  a  higher  level  of  security  is provided by
+_p_r_i_v_a_t_e _m_e_s_s_a_g_e_s, where each message is not  only  authenti-
+cated,  but  also encrypted.  Private messages are used, for
+example, by the _K_e_r_b_e_r_o_s server itself for sending passwords
+over the network.
+
+_2._2.  _S_o_f_t_w_a_r_e _C_o_m_p_o_n_e_n_t_s
+
+     The Athena  implementation  comprises  several  modules
+(see  Figure 1).  The _K_e_r_b_e_r_o_s applications library provides
+an  interface  for  application  clients   and   application
+servers.   It  contains, among others, routines for creating
+or reading authentication requests,  and  the  routines  for
+creating safe or private messages.
+
+
+             o+ _K_e_r_b_e_r_o_s applications library
+             o+ encryption library
+             o+ database library
+             o+ database administration programs
+             o+ administration server
+             o+ authentication server
+             o+ db propagation software
+             o+ user programs
+             o+ applications
+
+          Figure 1.  _K_e_r_b_e_r_o_s Software Components.
+
+
+     Encryption in  _K_e_r_b_e_r_o_s  is  based  on  DES,  the  Data
+Encryption  Standard.[5]  The  encryption library implements
+those routines.  Several methods of encryption are provided,
+with  tradeoffs between speed and security.  An extension to
+the DES Cypher Block Chaining (CBC) mode,  called  the  Pro-
+pagating  CBC  mode,  is also provided.  In CBC, an error is
+propagated only through the current  block  of  the  cipher,
+whereas in PCBC, the error is propagated throughout the mes-
+sage.  This renders the entire message useless if  an  error
+occurs,  rather  than  just a portion of it.  The encryption
+library is an independent module, and may be  replaced  with
+other DES implementations or a different encryption library.
+
+     Another replaceable module is the  database  management
+system.   The  current Athena implementation of the database
+library uses _n_d_b_m,  although  Ingres  was  originally  used.
+Other database management libraries could be used as well.
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 7 -
+
+
+     The _K_e_r_b_e_r_o_s  database  needs  are  straightforward;  a
+record  is  held  for  each  principal, containing the name,
+private key, and expiration date  of  the  principal,  along
+with  some administrative information.  (The expiration date
+is the date after which an entry is no longer valid.  It  is
+usually set to a few years into the future at registration.)
+
+     Other  user  information,  such  as  real  name,  phone
+number,  and so forth, is kept by another server, the _H_e_s_i_o_d
+nameserver.[6] This way, sensitive information, namely pass-
+words,  can  be handled by _K_e_r_b_e_r_o_s, using fairly high secu-
+rity measures; while the non-sensitive information  kept  by
+_H_e_s_i_o_d  is  dealt  with differently; it can, for example, be
+sent unencrypted over the network.
+
+     The _K_e_r_b_e_r_o_s servers use the database  library,  as  do
+the tools for administering the database.
+
+     The _a_d_m_i_n_i_s_t_r_a_t_i_o_n _s_e_r_v_e_r (or KDBM server)  provides  a
+read-write  network  interface  to the database.  The client
+side of the program may be run on any machine  on  the  net-
+work.   The  server  side,  however, must run on the machine
+housing the _K_e_r_b_e_r_o_s database in order to  make  changes  to
+the database.
+
+     The _a_u_t_h_e_n_t_i_c_a_t_i_o_n _s_e_r_v_e_r (or _K_e_r_b_e_r_o_s server), on  the
+other  hand,  performs  read-only operations on the _K_e_r_b_e_r_o_s
+database, namely, the authentication of principals, and gen-
+eration  of session keys.  Since this server does not modify
+the _K_e_r_b_e_r_o_s database, it may run on  a  machine  housing  a
+read-only copy of the master _K_e_r_b_e_r_o_s database.
+
+     Database propagation software  manages  replication  of
+the _K_e_r_b_e_r_o_s database.  It is possible to have copies of the
+database on several different machines, with a copy  of  the
+authentication  server  running  on  each  machine.  Each of
+these _s_l_a_v_e machines receives  an  update  of  the  _K_e_r_b_e_r_o_s
+database from the _m_a_s_t_e_r machine at given intervals.
+
+     Finally, there are end-user programs for logging in  to
+_K_e_r_b_e_r_o_s,  changing  a  _K_e_r_b_e_r_o_s password, and displaying or
+destroying _K_e_r_b_e_r_o_s _t_i_c_k_e_t_s  (tickets  are  explained  later
+on).
+
+_3.  _K_e_r_b_e_r_o_s Names
+
+     Part of authenticating an entity  is  naming  it.   The
+process  of  authentication  is  the  verification  that the
+client is the one named in a request.  What does a name con-
+sist of?  In _K_e_r_b_e_r_o_s, both users and servers are named.  As
+far as the authentication  server  is  concerned,  they  are
+equivalent.  A name consists of a primary name, an instance,
+and a realm, expressed as  _n_a_m_e._i_n_s_t_a_n_c_e@_r_e_a_l_m  (see  Figure
+2).
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 8 -
+
+
+
+
+                            bcn
+                        treese.root
+                      jis@LCS.MIT.EDU
+                rlogin.priam@ATHENA.MIT.EDU
+
+                 Figure 2.  _K_e_r_b_e_r_o_s Names.
+
+
+     The _p_r_i_m_a_r_y _n_a_m_e is the name of the user  or  the  ser-
+vice.   The _i_n_s_t_a_n_c_e is used to distinguish among variations
+on the primary name.  For users, an instance may entail spe-
+cial   privileges,   such   as  the  ``root''  or  ``admin''
+instances.  For services  in  the  Athena  environment,  the
+instance  is  usually  the  name of the machine on which the
+server runs.  For example, the _r_l_o_g_i_n service has  different
+instances  on  different  hosts:  _r_l_o_g_i_n._p_r_i_a_m is the _r_l_o_g_i_n
+server on the host named priam.  A _K_e_r_b_e_r_o_s ticket  is  only
+good  for a single named server.  As such, a separate ticket
+is required to gain access to  different  instances  of  the
+same  service.   The  _r_e_a_l_m is the name of an administrative
+entity that maintains  authentication  data.   For  example,
+different  institutions  may  each  have  their own _K_e_r_b_e_r_o_s
+machine, housing a different database.  They have  different
+_K_e_r_b_e_r_o_s  realms.   (Realms are discussed further in section
+8.2.)
+
+_4.  _H_o_w _I_t _W_o_r_k_s
+
+     This section describes the _K_e_r_b_e_r_o_s authentication pro-
+tocols.   The  following  abbreviations are used in the fig-
+ures.
+
+
+               c          ->   client
+               s          ->   server
+               addr       ->   client's network address
+               life       ->   lifetime of ticket
+               tgs, TGS   ->   ticket-granting server
+               Kerberos   ->   authentication server
+               KDBM       ->   administration server
+               Kx         ->   x's private key
+               Kx,y       ->   session key for x and y
+               {abc}Kx    ->   abc encrypted in x's key
+               Tx,y       ->   x's ticket to use y
+               Ax         ->   authenticator for x
+               WS         ->   workstation
+
+
+
+As mentioned above, the  _K_e_r_b_e_r_o_s  authentication  model  is
+based  on  the Needham and Schroeder key distribution proto-
+col.  When a user requests a service, her/his identity  must
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 9 -
+
+
+be  established.   To  do this, a ticket is presented to the
+server, along with proof  that  the  ticket  was  originally
+issued  to  the user, not stolen.  There are three phases to
+authentication through _K_e_r_b_e_r_o_s.  In the  first  phase,  the
+user  obtains  credentials  to  be used to request access to
+other services.  In the  second  phase,  the  user  requests
+authentication  for a specific service.  In the final phase,
+the user presents those credentials to the end server.
+
+_4._1.  _C_r_e_d_e_n_t_i_a_l_s
+
+     There are two types of credentials used in the _K_e_r_b_e_r_o_s
+authentication  model: _t_i_c_k_e_t_s and _a_u_t_h_e_n_t_i_c_a_t_o_r_s.  Both are
+based on private key  encryption,  but  they  are  encrypted
+using different keys.  A ticket is used to securely pass the
+identity of the person to whom the ticket was issued between
+the authentication server and the end server.  A ticket also
+passes information that can be used to make  sure  that  the
+person  using  the ticket is the same person to which it was
+issued.  The authenticator contains the additional  informa-
+tion  which, when compared against that in the ticket proves
+that the client presenting the ticket is  the  same  one  to
+which the ticket was issued.
+
+     A ticket is good for  a  single  server  and  a  single
+client.  It contains the name of the server, the name of the
+client, the Internet address of the client, a  timestamp,  a
+lifetime,  and  a  random  session key.  This information is
+encrypted using the key of the server for which  the  ticket
+will  be  used.   Once the ticket has been issued, it may be
+used multiple times by the named client to  gain  access  to
+the  named  server,  until  the  ticket  expires.  Note that
+because the ticket is encrypted in the key of the server, it
+is  safe  to  allow  the  user  to pass the ticket on to the
+server without having to worry about the user modifying  the
+ticket (see Figure 3).
+
+
+           {s, c, addr, timestamp, life, Ks,c}Ks
+
+               Figure 3.  A _K_e_r_b_e_r_o_s Ticket.
+
+
+     Unlike the ticket, the authenticator can only  be  used
+once.   A new one must be generated each time a client wants
+to use a service.  This does not present a  problem  because
+the  client  is  able to build the authenticator itself.  An
+authenticator  contains  the  name  of   the   client,   the
+workstation's  IP address, and the current workstation time.
+The authenticator is encrypted in the session  key  that  is
+part of the ticket (see Figure 4).
+
+
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 10 -
+
+
+
+
+                  {c, addr, timestamp}Ks,c
+
+            Figure 4.  A _K_e_r_b_e_r_o_s Authenticator.
+
+
+_4._2.  _G_e_t_t_i_n_g _t_h_e _I_n_i_t_i_a_l _T_i_c_k_e_t
+
+     When the user walks up to a workstation, only one piece
+of  information can prove her/his identity: the user's pass-
+word.  The initial exchange with the  authentication  server
+is designed to minimize the chance that the password will be
+compromised, while at the same time not allowing a  user  to
+properly  authenticate her/himself without knowledge of that
+password.  The process of logging in appears to the user  to
+be  the  same as logging in to a timesharing system.  Behind
+the scenes, though, it is quite different (see Figure 5).
+
+     linewid = 1.5i
+     ellipsewid = .7i
+     ellipse "Client"
+     arrow "c, tgs" ""
+     ellipse "Kerberos"
+     linewid = 1.5i
+     ellipsewid = .7i
+     ellipse "Client"
+     line <- "" "{Kc,tgs,{Tc,tgs} Ktgs}Kc"
+     ellipse "Kerberos"
+
+                Figure 5.  Getting the Initial Ticket.
+
+
+     The user is prompted for her/his username.  Once it has
+been entered, a request is sent to the authentication server
+containing the user's name and the name of a special service
+known as the _t_i_c_k_e_t-_g_r_a_n_t_i_n_g _s_e_r_v_i_c_e.
+
+     The authentication server checks that  it  knows  about
+the  client.  If so, it generates a random session key which
+will later be  used  between  the  client  and  the  ticket-
+granting  server.   It then creates a ticket for the ticket-
+granting server which contains the client's name,  the  name
+of  the ticket-granting server, the current time, a lifetime
+for the ticket, the client's IP address, and the random ses-
+sion key just created.  This is all encrypted in a key known
+only to the ticket-granting server  and  the  authentication
+server.
+
+     The authentication server then sends the ticket,  along
+with  a  copy  of the random session key and some additional
+information, back to the client.  This response is encrypted
+in  the client's private key, known only to _K_e_r_b_e_r_o_s and the
+client, which is derived from the user's password.
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 11 -
+
+
+     Once the response has been received by the client,  the
+user  is  asked  for her/his password.  The password is con-
+verted to a DES key and used to decrypt  the  response  from
+the  authentication server.  The ticket and the session key,
+along with some of the other  information,  are  stored  for
+future  use,  and the user's password and DES key are erased
+from memory.
+
+     Once the exchange has been completed,  the  workstation
+possesses  information that it can use to prove the identity
+of its user for the lifetime of the ticket-granting  ticket.
+As long as the software on the workstation had not been pre-
+viously tampered with, no information exists that will allow
+someone  else to impersonate the user beyond the life of the
+ticket.
+
+_4._3.  _R_e_q_u_e_s_t_i_n_g _a _S_e_r_v_i_c_e
+
+     For the moment, let us pretend that  the  user  already
+has  a  ticket  for  the  desired  server.  In order to gain
+access to the server, the application builds an  authentica-
+tor  containing  the  client's  name and IP address, and the
+current time.  The authenticator is then  encrypted  in  the
+session  key  that  was  received  with  the  ticket for the
+server.  The client then sends the authenticator along  with
+the  ticket to the server in a manner defined by the indivi-
+dual application.
+
+     Once the authenticator and ticket have been received by
+the server, the server decrypts the ticket, uses the session
+key included in the ticket  to  decrypt  the  authenticator,
+compares  the  information  in  the  ticket with that in the
+authenticator, the IP address from  which  the  request  was
+received,  and  the present time.  If everything matches, it
+allows the request to proceed (see Figure 6).
+
+       linewid = 1.5i
+       ellipsewid = .7i
+       ellipse "Client"
+       arrow "{Ac}Kc,s, {Tc,s}Ks" ""
+       ellipse "Server"
+                     Figure 6.  Requesting a Service.
+
+
+     It is assumed that clocks are  synchronized  to  within
+several  minutes.   If the time in the request is too far in
+the future or the past, the server treats the request as  an
+attempt  to  replay  a previous request.  The server is also
+allowed to keep track of all past requests  with  timestamps
+that  are  still  valid.   In  order  to further foil replay
+attacks, a request received with the same ticket  and  time-
+stamp as one already received can be discarded.
+
+     Finally, if the client  specifies  that  it  wants  the
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 12 -
+
+
+server to prove its identity too, the server adds one to the
+timestamp the client sent in the authenticator, encrypts the
+result  in the session key, and sends the result back to the
+client (see Figure 7).
+
+       linewid = 1.5i
+       ellipsewid = .7i
+       ellipse "Client"
+       line <- "" "{timestamp + 1} Kc,s"
+       ellipse "Server"
+                    Figure 7.  Mutual Authentication.
+
+
+     At the end of this  exchange,  the  server  is  certain
+that,  according  to  _K_e_r_b_e_r_o_s, the client is who it says it
+is.  If mutual authentication occurs,  the  client  is  also
+convinced  that  the  server  is  authentic.   Moreover, the
+client and server share a key which no one else  knows,  and
+can safely assume that a reasonably recent message encrypted
+in that key originated with the other party.
+
+_4._4.  _G_e_t_t_i_n_g _S_e_r_v_e_r _T_i_c_k_e_t_s
+
+     Recall that a ticket is only good for a single  server.
+As  such,  it  is  necessary to obtain a separate ticket for
+each service the client wants to use.  Tickets  for  indivi-
+dual  servers  can be obtained from the ticket-granting ser-
+vice.  Since the ticket-granting service is  itself  a  ser-
+vice,  it makes use of the service access protocol described
+in the previous section.
+
+     When a program requires a ticket that has  not  already
+been  requested,  it  sends a request to the ticket-granting
+server (see Figure 8).  The request contains the name of the
+server  for  which  a  ticket  is  requested, along with the
+ticket-granting  ticket  and  an  authenticator   built   as
+described in the previous section.
+
+      linewid = 1.7i
+      ellipsewid = .7i
+      ellipse "Client"
+      arrow "s,{Tc,tgs}Ktgs,{Ac}Kc,tgs" ""
+      ellipse "TGS"
+      linewid = 1.7i
+      ellipsewid = .7i
+      ellipse "Client"
+      line <- "" "{{Tc,s}Ks,Kc,s}Kc,tgs"
+      ellipse "TGS"
+
+                  Figure 8.  Getting a Server Ticket.
+
+
+     The ticket-granting server then checks the  authentica-
+tor  and  ticket-granting  ticket  as  described  above.  If
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 13 -
+
+
+valid, the ticket-granting server  generates  a  new  random
+session  key  to  be  used  between  the  client and the new
+server.  It then builds a ticket for the new server contain-
+ing  the  client's  name, the server name, the current time,
+the client's IP address and the new session key it just gen-
+erated.   The  lifetime  of the new ticket is the minimum of
+the remaining life for the ticket-granting  ticket  and  the
+default for the service.
+
+     The ticket-granting server then sends the ticket, along
+with  the  session  key  and  other information, back to the
+client.  This time, however, the reply is encrypted  in  the
+session  key  that  was  part of the ticket-granting ticket.
+This way, there is no need for the  user  to  enter  her/his
+password again.  Figure 9 summarizes the authentication pro-
+tocols.
+
+    circlerad = .32i
+    Kerbie:
+    circle at -1,1 "Kerberos"
+    Client:
+    circle at 0,0 "User/" "Client"
+    TGS:
+    circle at 1,1 "TGS"
+    Server:
+    circle at 1.75,0 "Server"
+    arrow from Client.w to Kerbie.s "1 " below
+    arrow from Kerbie.e to Client.n " 2" above
+    arrow from Client.n to TGS.w "3" above
+    arrow from TGS.s to Client.e "4" above
+    arrow from Client.e to Server.w "5" above
+       1.  Request for TGS ticket
+       2.  Ticket for TGS
+       3.  Request for Server ticket
+       4.  Ticket for Server
+       5.  Request for service
+
+           Figure 9.  Kerberos Authentication Protocols.
+
+
+_5.  _T_h_e _K_e_r_b_e_r_o_s Database
+
+     Up to this point, we have discussed operations  requir-
+ing read-only access to the _K_e_r_b_e_r_o_s database.  These opera-
+tions are performed by the authentication service, which can
+run on both master and slave machines (see Figure 10).
+
+
+
+
+
+
+
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 14 -
+
+
+
+
+      boxwid = .5i
+      WS1:
+      box
+      move right
+      WS2:
+      box
+      move right
+      WS3:
+      box
+      move right
+      Box1:
+      box invis with .n at WS1.s-(0,.5i)
+      Slave:
+      box
+      move right
+      Master:
+      box
+      Titles:
+      "WS" at WS1.n above
+      "WS" at WS2.n above
+      "WS" at WS3.n above
+      "Slave" at Slave.s below
+      "Master" at Master.s below
+      Arrows:
+      arrow from WS1.s to Slave.n
+      arrow from WS2.s to Slave.n
+      arrow from WS3.s to Slave.n
+      arrow from WS1.s to Master.n
+      arrow from WS2.s to Master.n
+      arrow from WS3.s to Master.n
+
+
+                  Figure 10.  Authentication Requests.
+
+
+     In this section, we  discuss  operations  that  require
+write  access  to  the  database.  These operations are per-
+formed by the administration service,  called  the  _K_e_r_b_e_r_o_s
+Database Management Service (_K_D_B_M).  The current implementa-
+tion stipulates that changes may only be made to the  master
+_K_e_r_b_e_r_o_s  database;  slave copies are read-only.  Therefore,
+the KDBM server may only run on the master _K_e_r_b_e_r_o_s  machine
+(see Figure 11).
+
+
+
+
+
+
+
+
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 15 -
+
+
+
+
+      boxwid = .5i
+      WS1:
+      box
+      move right
+      WS2:
+      box
+      move right
+      WS3:
+      box
+      move right
+      Box1:
+      box invis with .n at WS1.s-(0,.5i)
+      Slave:
+      box dashed
+      move right
+      Master:
+      box
+      Titles:
+      "WS" at WS1.n above
+      "WS" at WS2.n above
+      "WS" at WS3.n above
+      "Slave" at Slave.s below
+      "Master" at Master.s below
+      Arrows:
+      arrow from WS1.s to Master.n
+      arrow from WS2.s to Master.n
+      arrow from WS3.s to Master.n
+
+
+                  Figure 11.  Administration Requests.
+
+Note that, while authentication can still occur (on slaves),
+administration  requests  cannot  be  serviced if the master
+machine is down.  In our experience, this has not  presented
+a problem, as administration requests are infrequent.
+
+     The KDBM handles requests from users  to  change  their
+passwords.   The  client  side  of this program, which sends
+requests to the KDBM over the network, is the  _k_p_a_s_s_w_d  pro-
+gram.  The KDBM also accepts requests from _K_e_r_b_e_r_o_s adminis-
+trators, who may add principals to the database, as well  as
+change  passwords  for existing principals.  The client side
+of the administration program, which also sends requests  to
+the KDBM over the network, is the _k_a_d_m_i_n program.
+
+_5._1.  _T_h_e _K_D_B_M _S_e_r_v_e_r
+
+     The KDBM server accepts requests to add  principals  to
+the  database  or  change the passwords for existing princi-
+pals.  This service is unique in  that  the  ticket-granting
+service will not issue tickets for it.  Instead, the authen-
+tication service itself must be used (the same service  that
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 16 -
+
+
+is  used  to  get a ticket-granting ticket).  The purpose of
+this is to require the user to enter a  password.   If  this
+were  not  so, then if a user left her/his workstation unat-
+tended, a passerby could walk up and change her/his password
+for them, something which should be prevented.  Likewise, if
+an  administrator  left  her/his  workstation  unguarded,  a
+passerby could change any password in the system.
+
+     When the KDBM server receives a request, it  authorizes
+it  by  comparing  the  authenticated  principal name of the
+requester of the change to the principal name of the  target
+of  the  request.  If they are the same, the request is per-
+mitted.  If they are not the same, the KDBM server  consults
+an  access control list (stored in a file on the master _K_e_r_-
+_b_e_r_o_s system).  If the requester's principal name  is  found
+in  this  file,  the  request  is permitted, otherwise it is
+denied.
+
+     By convention, names with a _N_U_L_L instance (the  default
+instance)  do  not  appear  in the access control list file;
+instead, an admin instance is used.  Therefore, for  a  user
+to become an administrator of _K_e_r_b_e_r_o_s an admin instance for
+that username must be created, and added to the access  con-
+trol list.  This convention allows an administrator to use a
+different password for  _K_e_r_b_e_r_o_s  administration  then  s/he
+would use for normal login.
+
+     All requests to the KDBM program, whether permitted  or
+denied, are logged.
+
+_5._2.  _T_h_e _k_a_d_m_i_n and _k_p_a_s_s_w_d Programs
+
+     Administrators of _K_e_r_b_e_r_o_s use the  _k_a_d_m_i_n  program  to
+add  principals  to the database, or change the passwords of
+existing principals.  An administrator is required to  enter
+the  password for their _a_d_m_i_n instance name when they invoke
+the _k_a_d_m_i_n program.  This password is used to fetch a ticket
+for the KDBM server (see Figure 12).
+
+    Kerbie:
+    circle at -1,1 "Kerberos"
+    Client:
+    circle at 0,0 "User/" "Admin"
+    KDBM:
+    circle at 1,1 "KDBM"
+    arrow from Client.w to Kerbie.s "1 " below
+    arrow from Kerbie.e to Client.n " 2" above
+    arrow from Client.ne to KDBM.sw "3" above
+       1.  Request for KDBM ticket
+       2.  Ticket for KDBM
+       3.  _k_a_d_m_i_n or _k_p_a_s_s_w_d request
+
+           Figure 12.  Kerberos Administration Protocol.
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 17 -
+
+
+     Users may change their  _K_e_r_b_e_r_o_s  passwords  using  the
+_k_p_a_s_s_w_d program.  They are required to enter their old pass-
+word when they invoke the program.  This password is used to
+fetch a ticket for the KDBM server.
+
+_5._3.  _D_a_t_a_b_a_s_e _R_e_p_l_i_c_a_t_i_o_n
+
+     Each _K_e_r_b_e_r_o_s realm  has  a  _m_a_s_t_e_r  _K_e_r_b_e_r_o_s  machine,
+which houses the master copy of the authentication database.
+It is possible (although not necessary) to have  additional,
+read-only copies of the database on _s_l_a_v_e machines elsewhere
+in the system.  The advantages of having multiple copies  of
+the  database  are  those  usually  cited  for  replication:
+higher availability and better performance.  If  the  master
+machine is down, authentication can still be achieved on one
+of the slave machines.  The ability to  perform  authentica-
+tion  on any one of several machines reduces the probability
+of a bottleneck at the master machine.
+
+     Keeping multiple copies of the database introduces  the
+problem of data consistency.  We have found that very simple
+methods suffice for dealing with inconsistency.  The  master
+database is dumped every hour.  The database is sent, in its
+entirety, to the slave machines, which then update their own
+databases.   A  program  on  the  master host, called _k_p_r_o_p,
+sends the update to a peer program, called  _k_p_r_o_p_d,  running
+on  each of the slave machines (see Figure 13).  First _k_p_r_o_p
+sends a checksum of the new database it is  about  to  send.
+The  checksum  is  encrypted in the _K_e_r_b_e_r_o_s master database
+key, which both the master and slave _K_e_r_b_e_r_o_s machines  pos-
+sess.   The data is then transferred over the network to the
+_k_p_r_o_p_d on the slave machine.  The slave  propagation  server
+calculates a checksum of the data it has received, and if it
+matches the checksum sent by the master, the new information
+is used to update the slave's database.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 18 -
+
+
+
+
+       boxwid = .75i
+       Box1:
+       box invis
+       move right
+       Master:
+       box "" "kprop"
+       move right
+       Box3:
+       box invis
+       Slave1:
+       box "kpropd" "" with .nw at Box1.sw-(0,.5i)
+       move right
+       Slave2:
+       box "kpropd" ""
+       move right
+       Slave3:
+       box "kpropd" ""
+       Titles:
+       "Master" at Master.n above
+       "Slave" at Slave1.s below
+       "Slave" at Slave2.s below
+       "Slave" at Slave3.s below
+       Arrows:
+       arrow from Master.s to Slave1.n
+       arrow from Master.s to Slave2.n
+       arrow from Master.s to Slave3.n
+
+
+                    Figure 13.  Database Propagation.
+
+
+     All passwords in the _K_e_r_b_e_r_o_s database are encrypted in
+the  master  database  key Therefore, the information passed
+from master to slave over the network is not  useful  to  an
+eavesdropper.   However,  it is essential that only informa-
+tion from the master host be accepted  by  the  slaves,  and
+that tampering of data be detected, thus the checksum.
+
+_6.  _K_e_r_b_e_r_o_s From the Outside Looking In
+
+     The section will describe _K_e_r_b_e_r_o_s from  the  practical
+point  of  view,  first  as  seen by the user, then from the
+application programmer's viewpoint, and finally, through the
+tasks of the _K_e_r_b_e_r_o_s administrator.
+
+_6._1.  _U_s_e_r'_s _E_y_e _V_i_e_w
+
+     If all goes well, the user will hardly notice that _K_e_r_-
+_b_e_r_o_s  is  present.  In our UNIX implementation, the ticket-
+granting ticket is obtained from _K_e_r_b_e_r_o_s  as  part  of  the
+_l_o_g_i_n  process.   The changing of a user's _K_e_r_b_e_r_o_s password
+is part of the _p_a_s_s_w_d program.   And  _K_e_r_b_e_r_o_s  tickets  are
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 19 -
+
+
+automatically destroyed when a user logs out.
+
+     If the user's login session lasts longer than the life-
+time  of the ticket-granting ticket (currently 8 hours), the
+user will notice _K_e_r_b_e_r_o_s' presence because the next time  a
+_K_e_r_b_e_r_o_s-authenticated  application  is  executed,  it  will
+fail.  The _K_e_r_b_e_r_o_s ticket for it  will  have  expired.   At
+that  point,  the user can run the _k_i_n_i_t program to obtain a
+new ticket for the ticket-granting server.  As when  logging
+in,  a password must be provided in order to get it.  A user
+executing  the  _k_l_i_s_t  command  out  of  curiosity  may   be
+surprised  at  all  the  tickets  which  have  silently been
+obtained on her/his behalf for services which  require  _K_e_r_-
+_b_e_r_o_s authentication.
+
+_6._2.  _F_r_o_m _t_h_e _P_r_o_g_r_a_m_m_e_r'_s _V_i_e_w_p_o_i_n_t
+
+     A programmer writing a _K_e_r_b_e_r_o_s application will  often
+be  adding  authentication  to  an  already existing network
+application consisting of a client and server side.  We call
+this process ``Kerberizing'' a program.  Kerberizing usually
+involves making a call to the _K_e_r_b_e_r_o_s library in  order  to
+perform  authentication  at the initial request for service.
+It may also involve calls to the DES library to encrypt mes-
+sages  and data which are subsequently sent between applica-
+tion client and application server.
+
+     The most commonly used library functions are _k_r_b__m_k__r_e_q
+on  the client side, and _k_r_b__r_d__r_e_q on the server side.  The
+_k_r_b__m_k__r_e_q routine takes as parameters the  name,  instance,
+and realm of the target server, which will be requested, and
+possibly a checksum of the data to be sent.  The client then
+sends  the  message returned by the _k_r_b__m_k__r_e_q call over the
+network to the server side of  the  application.   When  the
+server receives this message, it makes a call to the library
+routine _k_r_b__r_d__r_e_q.  The routine returns a  judgement  about
+the authenticity of the sender's alleged identity.
+
+     If the application requires that messages sent  between
+client  and server be secret, then library calls can be made
+to _k_r_b__m_k__p_r_i_v (_k_r_b__r_d__p_r_i_v) to encrypt  (decrypt)  messages
+in the session key which both sides now share.[7]
+
+_6._3.  _T_h_e _K_e_r_b_e_r_o_s Administrator's Job
+
+     The _K_e_r_b_e_r_o_s administrator's job begins with running  a
+program to initialize the database.  Another program must be
+run to register essential principals in the  database,  such
+as the _K_e_r_b_e_r_o_s administrator's name with an _a_d_m_i_n instance.
+The _K_e_r_b_e_r_o_s authentication server  and  the  administration
+server  must  be  started up.  If there are slave databases,
+the administrator must arrange that  the  programs  to  pro-
+pagate  database updates from master to slaves be kicked off
+periodically.
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 20 -
+
+
+     After these initial steps have been taken, the adminis-
+trator  manipulates the database over the network, using the
+_k_a_d_m_i_n program.  Through that program, new principals can be
+added, and passwords can be changed.
+
+     In particular, when a new _K_e_r_b_e_r_o_s application is added
+to  the  system,  the _K_e_r_b_e_r_o_s administrator must take a few
+steps to get it working.  The server must be  registered  in
+the database, and assigned a private key (usually this is an
+automatically  generated  random  key).   Then,  some   data
+(including  the  server's  key)  must  be extracted from the
+database and installed in a file on  the  server's  machine.
+The  default  file  is  /_e_t_c/_s_r_v_t_a_b.  The _k_r_b__r_d__r_e_q library
+routine called by the server (see the previous section) uses
+the  information  in  that  file  to  decrypt  messages sent
+encrypted in the server's private key.  The /_e_t_c/_s_r_v_t_a_b file
+authenticates  the  server as a password typed at a terminal
+authenticates the user.
+
+     The _K_e_r_b_e_r_o_s administrator must also ensure  that  _K_e_r_-
+_b_e_r_o_s machines are physically secure, and would also be wise
+to maintain backups of the Master database.[8]
+
+_7.  _T_h_e _B_i_g_g_e_r _P_i_c_t_u_r_e
+
+     In this section, we describe how _K_e_r_b_e_r_o_s fits into the
+Athena  environment, including its use by other network ser-
+vices and applications, and how  it  interacts  with  remote
+_K_e_r_b_e_r_o_s  realms.   For  a  more complete description of the
+Athena environment, please see G. W. Treese.[9]
+
+_7._1.  _O_t_h_e_r _N_e_t_w_o_r_k _S_e_r_v_i_c_e_s' _U_s_e _o_f _K_e_r_b_e_r_o_s
+
+     Several network applications have been modified to  use
+_K_e_r_b_e_r_o_s.   The _r_l_o_g_i_n and _r_s_h commands first try to authen-
+ticate using _K_e_r_b_e_r_o_s.  A user with valid  _K_e_r_b_e_r_o_s  tickets
+can  rlogin  to another Athena machine without having to set
+up ._r_h_o_s_t_s files.  If the _K_e_r_b_e_r_o_s authentication fails, the
+programs  fall back on their usual methods of authorization,
+in this case, the ._r_h_o_s_t_s files.
+
+     We have modified the Post Office Protocol to  use  _K_e_r_-
+_b_e_r_o_s  for  authenticating  users who wish to retrieve their
+electronic  mail  from  the  ``post  office''.   A   message
+delivery program, called _Z_e_p_h_y_r, has been recently developed
+at Athena,  and  it  uses  _K_e_r_b_e_r_o_s  for  authentication  as
+well.[10]
+
+     The program for signing up new users, called  _r_e_g_i_s_t_e_r,
+uses  both  the Service Management System (SMS)[11] and _K_e_r_-
+_b_e_r_o_s.  From SMS,  it  determines  whether  the  information
+entered  by  the  would-be new Athena user, such as name and
+MIT identification number, is valid.  It  then  checks  with
+_K_e_r_b_e_r_o_s to see if the requested username is unique.  If all
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 21 -
+
+
+goes well, a new entry is made  to  the  _K_e_r_b_e_r_o_s  database,
+containing the username and password.
+
+     For a detailed discussion of the  use  of  _K_e_r_b_e_r_o_s  to
+secure Sun's Network File System, please refer to the appen-
+dix.
+
+_7._2.  _I_n_t_e_r_a_c_t_i_o_n _w_i_t_h _O_t_h_e_r _K_e_r_b_e_r_i
+
+     It is expected that different administrative  organiza-
+tions will want to use _K_e_r_b_e_r_o_s for user authentication.  It
+is also expected that in many cases, users in one  organiza-
+tion  will  want  to use services in another.  _K_e_r_b_e_r_o_s sup-
+ports multiple administrative domains.  The specification of
+names  in  _K_e_r_b_e_r_o_s includes a field called the _r_e_a_l_m.  This
+field contains the name of the administrative domain  within
+which the user is to be authenticated.
+
+     Services are usually registered in a single  realm  and
+will  only  accept  credentials  issued by an authentication
+server for that realm.  A user is usually  registered  in  a
+single  realm  (the  local  realm),  but  it is possible for
+her/him to obtain credentials issued by another  realm  (the
+remote  realm),  on  the strength of the authentication pro-
+vided by the local realm.  Credentials  valid  in  a  remote
+realm  indicate  the  realm in which the user was originally
+authenticated.  Services in  the  remote  realm  can  choose
+whether  to honor those credentials, depending on the degree
+of security required and the level of  trust  in  the  realm
+that initially authenticated the user.
+
+     In order to perform cross-realm authentication,  it  is
+necessary  that  the  administrators  of each pair of realms
+select a key to be shared between their realms.  A  user  in
+the  local  realm  can then request a ticket-granting ticket
+from the local authentication server for the ticket-granting
+server  in  the remote realm.  When that ticket is used, the
+remote ticket-granting server recognizes that the request is
+not from its own realm, and it uses the previously exchanged
+key to decrypt the ticket-granting ticket.  It then issues a
+ticket as it normally would, except that the realm field for
+the client contains the name  of  the  realm  in  which  the
+client was originally authenticated.
+
+     This approach could be extended to allow one to authen-
+ticate oneself through a series of realms until reaching the
+realm with the  desired  service.   In  order  to  do  this,
+though, it would be necessary to record the entire path that
+was taken, and not just the name of  the  initial  realm  in
+which  the user was authenticated.  In such a situation, all
+that is known by the server is that A says that B says  that
+C  says that the user is so-and-so.  This statement can only
+be trusted if everyone along the path is also trusted.
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 22 -
+
+
+_8.  _I_s_s_u_e_s _a_n_d _O_p_e_n _P_r_o_b_l_e_m_s
+
+     There are a number of issues and open problems  associ-
+ated with the _K_e_r_b_e_r_o_s authentication mechanism.   Among the
+issues are how to decide the correct lifetime for a  ticket,
+how  to  allow  proxies,  and  how  to guarantee workstation
+integrity.
+
+     The ticket lifetime problem is a matter of choosing the
+proper  tradeoff  between  security and convenience.  If the
+life of a ticket is long, then if a ticket and  its  associ-
+ated  session  key are stolen or misplaced, they can be used
+for a longer period of time.  Such information can be stolen
+if  a  user  forgets  to  log  out  of a public workstation.
+Alternatively, if a user has been authenticated on a  system
+that allows multiple users, another user with access to root
+might be able to find the information needed to  use  stolen
+tickets.  The problem with giving a ticket a short lifetime,
+however, is that when it expires,  the  user  will  have  to
+obtain  a new one which requires the user to enter the pass-
+word again.
+
+     An open problem is  the  proxy  problem.   How  can  an
+authenticated  user  allow a server to acquire other network
+services on her/his behalf?  An example where this would  be
+important  is  the use of a service that will gain access to
+protected files directly from a fileserver.  Another example
+of  this  problem is what we call _a_u_t_h_e_n_t_i_c_a_t_i_o_n _f_o_r_w_a_r_d_i_n_g.
+If a user is logged into a workstation  and  logs  in  to  a
+remote  host, it would be nice if the user had access to the
+same services available locally, while running a program  on
+the remote host.  What makes this difficult is that the user
+might not trust the remote host,  thus  authentication  for-
+warding  is not desirable in all cases.  We do not presently
+have a solution to this problem.
+
+     Another problem, and  one  that  is  important  in  the
+Athena environment, is how to guarantee the integrity of the
+software running on a workstation.  This is not so much of a
+problem  on private workstations since the user that will be
+using it has control over it.  On public workstations,  how-
+ever,  someone  might have come along and modified the _l_o_g_i_n
+program to save the  user's  password.   The  only  solution
+presently  available in our environment is to make it diffi-
+cult for people to modify software  running  on  the  public
+workstations.   A  better  solution  would  require that the
+user's key never leave a system that the user knows  can  be
+trusted.   One  way  this could be done would be if the user
+possessed a  _s_m_a_r_t_c_a_r_d  capable  of  doing  the  encryptions
+required in the authentication protocol.
+
+
+
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 23 -
+
+
+_9.  _S_t_a_t_u_s
+
+     A prototype version of _K_e_r_b_e_r_o_s went into production in
+September of 1986.  Since January of 1987, _K_e_r_b_e_r_o_s has been
+Project Athena's sole  means  of  authenticating  its  5,000
+users,  650 workstations, and 65 servers.  In addition, _K_e_r_-
+_b_e_r_o_s is now being used in place of ._r_h_o_s_t_s files  for  con-
+trolling access in several of Athena's timesharing systems.
+
+_1_0.  _A_c_k_n_o_w_l_e_d_g_e_m_e_n_t_s
+
+     _K_e_r_b_e_r_o_s was initially designed  by  Steve  Miller  and
+Clifford  Neuman  with  suggestions  from  Jeff Schiller and
+Jerry Saltzer.  Since that time, numerous other people  have
+been  involved with the project.  Among them are Jim Aspnes,
+Bob Baldwin, John Barba,  Richard  Basch,  Jim  Bloom,  Bill
+Bryant,  Mark  Colan,  Rob French, Dan Geer, John Kohl, John
+Kubiatowicz, Bob Mckie, Brian Murphy, John Ostlund Ken  Rae-
+burn,  Chris  Reed,  Jon Rochlis, Mike Shanzer, Bill Sommer-
+feld, Ted T'so, Win Treese, and Stan Zanarotti.
+
+     We are grateful to Dan Geer, Kathy Lieben, Josh Lubarr,
+Ken Raeburn, Jerry Saltzer, Ed Steiner, Robbert van Renesse,
+and Win  Treese  whose  suggestions  much  improved  earlier
+drafts of this paper.
+
+     The illustration on the title page is by  Betsy  Bruem-
+mer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                       March 30, 1988
+
+
+
+
+
+
+                           - 24 -
+
+
+                          _A_p_p_e_n_d_i_x
+
+
+  _K_e_r_b_e_r_o_s Application to SUN's Network File System (NFS)
+
+
+
+     A key component of the Project Athena workstation  sys-
+tem  is  the  interposing  of the network between the user's
+workstation and her/his private file  storage  (home  direc-
+tory).   All  private  storage resides on a set of computers
+(currently VAX 11/750s) that are dedicated to this  purpose.
+This  allows us to offer services on publicly available UNIX
+workstations.  When a user logs in to one of these  publicly
+available  workstations,  rather  then validate her/his name
+and password against a locally resident  password  file,  we
+use  _K_e_r_b_e_r_o_s  to determine her/his authenticity.  The _l_o_g_i_n
+program prompts for a username  (as  on  any  UNIX  system).
+This  username  is  used to fetch a _K_e_r_b_e_r_o_s ticket-granting
+ticket.  The _l_o_g_i_n program uses the password to  generate  a
+DES  key  for  decrypting the ticket.  If decryption is suc-
+cessful, the user's home directory is located by  consulting
+the  _H_e_s_i_o_d  naming  service  and  mounted through NFS.  The
+_l_o_g_i_n program then turns control over to the  user's  shell,
+which  then  can  run the traditional per-user customization
+files because the home directory is now ``attached'' to  the
+workstation.   The  _H_e_s_i_o_d service is also used to construct
+an entry in the local password file.  (This is for the bene-
+fit of programs that look up information in /_e_t_c/_p_a_s_s_w_d.)
+
+     From several options for delivery of remote  file  ser-
+vice, we chose SUN's Network File System.  However this sys-
+tem fails to mesh with our needs  in  a  crucial  way.   NFS
+assumes  that  all workstations fall into two categories (as
+viewed from a file server's point  of  view):   trusted  and
+untrusted.   Untrusted  systems  cannot  access any files at
+all, trusted can.  Trusted systems are  completely  trusted.
+It  is  assumed that a trusted system is managed by friendly
+management.  Specifically, it is  possible  from  a  trusted
+workstation to masquerade as any valid user of the file ser-
+vice system and thus gain access to just about every file on
+the system.  (Only files owned by ``root'' are exempted.)
+
+     In our environment, the management of a workstation (in
+the  traditional  sense of UNIX system management) is in the
+hands of the user currently using it.  We make no secret  of
+the  root password on our workstations, as we realize that a
+truly unfriendly user can break in by  the  very  fact  that
+s/he is sitting in the same physical location as the machine
+and has access to all console functions.  Therefore we  can-
+not  truly  trust our workstations in the NFS interpretation
+of trust.  To allow proper access controls in  our  environ-
+ment  we  had  to  make  some  modifications to the base NFS
+
+
+
+                       March 30, 1988
+software, and integrate _K_e_r_b_e_r_o_s into the scheme.
+
+
+
+
+
+                           - 25 -
+
+
+_U_n_m_o_d_i_f_i_e_d _N_F_S
+
+     In the implementation of NFS that we started with (from
+the University of Wisconsin), authentication was provided in
+the form of a piece of data included  in  each  NFS  request
+(called  a ``credential'' in NFS terminology).  This creden-
+tial contains information about the unique  user  identifier
+(UID)  of  the requester and a list of the group identifiers
+(GIDs) of the requester's membership.  This  information  is
+then  used  by  the  NFS  server  for  access checking.  The
+difference between a trusted and a  non-trusted  workstation
+is  whether  or  not its credentials are accepted by the NFS
+server.[12]
+
+_M_o_d_i_f_i_e_d _N_F_S
+
+     In our environment, NFS servers must accept credentials
+from  a  workstation if and only if the credentials indicate
+the UID of the workstation's user, and no other.
+
+     One obvious solution would be to change the  nature  of
+credentials  from  mere  indicators  of UID and GIDs to full
+blown _K_e_r_b_e_r_o_s authenticated data.   However  a  significant
+performance  penalty  would  be  paid  if this solution were
+adopted.  Credentials are exchanged on every  NFS  operation
+including  all  disk read and write activities.  Including a
+_K_e_r_b_e_r_o_s authentication on each disk transaction would add a
+fair number of full-blown encryptions (done in software) per
+transaction and, according  to  our  envelope  calculations,
+would  have  delivered  unacceptable performance.  (It would
+also have required placing the _K_e_r_b_e_r_o_s library routines  in
+the kernel address space.)
+
+     We needed a  hybrid  approach,  described  below.   The
+basic  idea  is  to  have  the  NFS  server  map credentials
+received from client workstations, to a valid (and  possibly
+different) credential on the server system.  This mapping is
+performed in the server's kernel on each NFS transaction and
+is  setup  at  ``mount''  time  by a user-level process that
+engages  in  _K_e_r_b_e_r_o_s-  moderated  authentication  prior  to
+establishing a valid kernel credential mapping.
+
+     To implement this we added a new  system  call  to  the
+kernel  (required only on server systems, not on client sys-
+tems) that provides for the control of the mapping  function
+that  maps  incoming credentials from client workstations to
+credentials valid for use on the server (if any).  The basic
+mapping function maps the tuple:
+
+             <CLIENT-IP-ADDRESS, UID-ON-CLIENT>
+
+to a  valid  NFS  credential  on  the  server  system.   The
+CLIENT-IP-ADDRESS  is  extracted from the NFS request packet
+and the  UID-ON-CLIENT  is  extracted  from  the  credential
+
+
+                       March 30, 1988
+supplied by the client system.  Note: all information in the
+client-generated credential except the UID-ON-CLIENT is dis-
+carded.
+
+
+
+                           - 26 -
+
+
+     If no mapping exists, the server reacts in one  of  two
+ways,  depending  it  is configured.  In our friendly confi-
+guration we default the unmappable requests into the creden-
+tials  for  the user ``nobody'' who has no privileged access
+and has a unique UID.   Unfriendly  servers  return  an  NFS
+access  error  when  no  valid  mapping  can be found for an
+incoming NFS credential.
+
+     Our new system call is used to add and  delete  entries
+from  the kernel resident map.  It also provides the ability
+to flush all entries that map  to  a  specific  UID  on  the
+server   system,   or   flush   all  entries  from  a  given
+CLIENT-IP-ADDRESS.
+
+     We modified the mount daemon (which handles  NFS  mount
+requests  on  server  systems)  to  accept a new transaction
+type, the _K_e_r_b_e_r_o_s authentication  mapping  request.   Basi-
+cally,  as  part  of the mounting process, the client system
+provides a _K_e_r_b_e_r_o_s authenticator along with  an  indication
+of  her/his UID-ON-CLIENT (encrypted in the _K_e_r_b_e_r_o_s authen-
+ticator) on the workstation.  The server's mount daemon con-
+verts  the  _K_e_r_b_e_r_o_s  principal  name into a local username.
+This username is then looked up in a special file  to  yield
+the  user's UID and GIDs list.  For efficiency, this file is
+a _n_d_b_m database file with the username  as  the  key.   From
+this  information,  an  NFS  credential  is  constructed and
+handed  to  the  kernel  as  the  valid   mapping   of   the
+<CLIENT-IP-ADDRESS, CLIENT-UID> tuple for this request.
+
+     At unmount time a request is sent to the  mount  daemon
+to  remove the previously added mapping from the kernel.  It
+is also possible to send a request at logout time to invali-
+date all mapping for the current user on the server in ques-
+tion, thus cleaning up any  remaining  mappings  that  exist
+(though  they  shouldn't)  before  the  workstation  is made
+available for the next user.
+
+_S_e_c_u_r_i_t_y _I_m_p_l_i_c_a_t_i_o_n_s _o_f _t_h_e _M_o_d_i_f_i_e_d _N_F_S
+
+     This implementation  is  not  completely  secure.   For
+starters,  user  data is still sent across the network in an
+unencrypted, and therefore interceptable,  form.   The  low-
+level,   per-transaction   authentication   is  based  on  a
+<CLIENT-IP-ADDRESS, CLIENT-UID> pair provided unencrypted in
+the  request  packet.   This information could be forged and
+thus security compromised.  However, it should be noted that
+only  while  a  user  is actively using her/his files (i.e.,
+while logged in) are valid mappings in place  and  therefore
+this  form of attack is limited to when the user in question
+is logged in.  When a user is not logged in, no amount of IP
+address  forgery  will permit unauthorized access to her/his
+files.
+
+
+
+
+                       March 30, 1988
+_R_e_f_e_r_e_n_c_e_s
+
+
+
+
+
+                           - 27 -
+
+
+1.   S. P. Miller, B. C. Neuman, J. I. Schiller, and  J.  H.
+     Saltzer,  _S_e_c_t_i_o_n  _E._2._1:  _K_e_r_b_e_r_o_s  _A_u_t_h_e_n_t_i_c_a_t_i_o_n _a_n_d
+     _A_u_t_h_o_r_i_z_a_t_i_o_n _S_y_s_t_e_m, M.I.T. Project Athena, Cambridge,
+     Massachusetts (December 21, 1987).
+
+2.   E. Balkovich, S. R. Lerman, and R. P.  Parmelee,  "Com-
+     puting  in  Higher  Education:  The Athena Experience,"
+     _C_o_m_m_u_n_i_c_a_t_i_o_n_s _o_f _t_h_e _A_C_M, Vol. 28(11),  pp. 1214-1224,
+     ACM (November, 1985).
+
+3.   R. M. Needham and M. D.  Schroeder,  "Using  Encryption
+     for  Authentication  in  Large  Networks of Computers,"
+     _C_o_m_m_u_n_i_c_a_t_i_o_n_s _o_f _t_h_e  _A_C_M,  Vol.  21(12),  pp. 993-999
+     (December, 1978).
+
+4.   V. L. Voydock and S. T. Kent, "Security  Mechanisms  in
+     High-Level  Network Protocols," _C_o_m_p_u_t_i_n_g _S_u_r_v_e_y_s, Vol.
+     15(2), ACM (June 1983).
+
+5.   National Bureau of Standards,  "Data  Encryption  Stan-
+     dard,"  Federal Information Processing Standards Publi-
+     cation 46,  Government  Printing  Office,   Washington,
+     D.C. (1977).
+
+6.   S. P. Dyer, "Hesiod," in _U_s_e_n_i_x _C_o_n_f_e_r_e_n_c_e  _P_r_o_c_e_e_d_i_n_g_s
+     (Winter, 1988).
+
+7.   W. J. Bryant, _K_e_r_b_e_r_o_s  _P_r_o_g_r_a_m_m_e_r'_s  _T_u_t_o_r_i_a_l,  M.I.T.
+     Project Athena (In preparation).
+
+8.   W. J. Bryant, _K_e_r_b_e_r_o_s _A_d_m_i_n_i_s_t_r_a_t_o_r'_s  _M_a_n_u_a_l,  M.I.T.
+     Project Athena (In preparation).
+
+9.   G. W. Treese,  "Berkeley  Unix  on  1000  Workstations:
+     Athena   Changes   to  4.3BSD,"  in  _U_s_e_n_i_x  _C_o_n_f_e_r_e_n_c_e
+     _P_r_o_c_e_e_d_i_n_g_s (Winter, 1988).
+
+10.  C. A. DellaFera, M. W. Eichin, R. S. French, D. C. Jed-
+     linsky,  J.  T. Kohl, and W. E. Sommerfeld, "The Zephyr
+     Notification System," in _U_s_e_n_i_x _C_o_n_f_e_r_e_n_c_e  _P_r_o_c_e_e_d_i_n_g_s
+     (Winter, 1988).
+
+11.  M. A. Rosenstein, D. E. Geer,  and  P.  J.  Levine,  in
+     _U_s_e_n_i_x _C_o_n_f_e_r_e_n_c_e _P_r_o_c_e_e_d_i_n_g_s (Winter, 1988).
+
+12.  R. Sandberg, D. Goldberg, S. Kleiman, D. Walsh, and  B.
+     Lyon,  "Design  and  Implementation  of the Sun Network
+     Filesystem," in _U_s_e_n_i_x _C_o_n_f_e_r_e_n_c_e _P_r_o_c_e_e_d_i_n_g_s  (Summer,
+     1985).
+
+
+
+
+
+
+
+                       March 30, 1988
+
+
+

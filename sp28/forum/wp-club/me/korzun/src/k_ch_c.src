@@ -1,0 +1,450 @@
+$macro_file K_ch_C             ;       { ПЕРЕВОД РУССКИЙ _ ЛАТЫНЬ             }
+ {************************ ------------------------------ ********************
+  *             (C) Copyright 24.09.90 20:36 by Корзун Е.Г., Inc.            *
+  ************************ ------------------------------ ********************}
+ $macro K_ch_C              ;          { Запрос INVERS/Русский/Латынь         }
+   Def_Str(Title);
+
+   if (Global_Int('K_X_PLACE') = 0 ) then
+      If (WHEREY = 0) then             { Бывает после CONDENSE SEARCH  ?      }
+         DOWN; UP;                     { Попытаемся восстановить WHEREY       }
+      end;
+      Set_Global_Int('K_Y_PLACE',WHEREY);        { Запомним, где был курсор   }
+      Set_Global_Int('K_X_PLACE',WHEREX);
+   end;
+   if (Global_Int('K_Y_PLACE')> 23 ) then        { Показать место курсора     }
+            WRITE('|31' ,Global_Int('K_X_PLACE')
+                        ,Global_Int('K_Y_PLACE')-1,RED+8,WHITE);
+   else
+            WRITE('|30' ,Global_Int('K_X_PLACE')
+                        ,Global_Int('K_Y_PLACE')+1,RED+8,WHITE);
+   end;
+
+   Run_Macro('USERIN^XMENU /S=1/B=1/L=Перевод в:/X=3/Y=2 '
+            + '/T=0/M=1-Наоборот(X)2-Русский(X)3-Латынь(X)');
+   If (Return_Int > 0) Then
+      If (Return_Int = 1) Then
+         Run_Macro('K_CH_M /L=Наоборот' );
+      Else
+         If (Return_Int = 2) Then
+            Title := 'В РУССКИЙ';
+         Else
+            Title := 'В ЛАТЫНЬ';
+         End;
+         Run_Macro('K_CH_M /U=' + Str(Return_Int - 2 ) + '/L=' + Title);
+      End;
+   End;
+   Set_Global_Int('K_X_PLACE',0);
+   Set_Global_Int('K_Y_PLACE',0);
+   REDRAW;                             { Перерисовать экран                   }
+ End_macro;
+
+ {************************ ------------------------------ ********************}
+ $macro K_ch_M ;                       { Запрос Блок/Слово/Строка             }
+ {************************
+ Name:  K_ch_M
+ Description: Высветка BOX для выбора слово/строка/блок.
+ Parameters:  /L - заголовок BOX
+   Остальные параметры передаются в MACRO K_ch_C
+ ******************************************************************************}
+   Def_Str(S_menu , tstr);
+   Def_Int(tc , tl , blk ,o_rfrsh);
+
+   PUSH_UNDO;
+   o_rfrsh := refresh ;                { {R*}                                 }
+   refresh := false;
+   RUN_MACRO('K_BLKSAV');              { Запомнить информацию по состоянию    }
+   S_Menu := 'Line(X)Word(X)';
+   If (Block_Stat <> 0) Then           { Блок есть в природе                  }
+      RUN_MACRO('K_BLKSEE');           { Проверка "видимости" блока           }
+      IF  (LENGTH(GLOBAL_STR('K_MESSAGE')) = 0) THEN
+         S_Menu := 'Line(X)Word(X)Block(X)';
+      END;
+   End;
+
+   Call Disp_Word;
+   tl := 3;
+   If (Global_Int('K_Y_PLACE') < 10) Then
+      tl :=  11;
+   End;                                { -- If ..                             }
+
+   Run_Macro('USERIN^XMENU /S=' + Str( Global_Int('K_CH_M_') + 1 )
+            + '/B=1/L=' +  Parse_Str('/L=',Mparm_Str)
+            + '/X=3/Y=' + STR(tl)
+            + '/T=1/M=' + S_Menu );
+
+   If (Return_Int > 0) Then
+      Set_Global_Int('K_CH_M_' ,Return_Int - 1); { Запомним выбор             }
+      Run_Macro('K_CH_LR /T=' + Str(Return_Int - 1 ) + Mparm_Str);
+   End;
+   GoTo End_Macro;
+
+  Disp_Word:                           { Показать слово на экране             }
+
+      If not(at_eol) and (XPOS(cur_char,word_delimits,1) <> 0) then
+         word_right;
+      Else
+         if c_col > 1 then
+            left;
+            if xpos(cur_char,word_delimits,1) then
+               right;
+            else
+               right;
+            end;
+            If (At_Eol) Then
+               word_left;
+            End;
+         end;
+      End;
+      tc := c_col;                     { Эдесь начало слова                   }
+      tl := c_line;
+      tstr := get_word(word_delimits);
+      refresh := TRUE ;
+      GoTo_Col (tc);
+      GoTo_Line(tl);
+                                       { Показать слово на экране             }
+      Write( tstr, WHEREX , WHEREY , 0 , CHANGE_COLOR  OR 128);
+      refresh := FALSE;
+      goto_line(Global_Int('k_t_l'));
+      goto_col(Global_Int('k_t_c'));
+      if (Global_Int('K_Y_PLACE')> 23 ) then     { Показать место курсора     }
+         WRITE('|31' ,Global_Int('K_X_PLACE')
+                     ,Global_Int('K_Y_PLACE')-1,RED+8,WHITE);
+      else
+         WRITE('|30' ,Global_Int('K_X_PLACE')
+                     ,Global_Int('K_Y_PLACE')+1,RED+8,WHITE);
+      end;
+      Ret;
+
+ End_Macro:
+   RUN_MACRO('K_BLKRST');              { Восстановить информацию по блоку     }
+   Set_Global_Int('K_X_PLACE',0);
+   Set_Global_Int('K_Y_PLACE',0);
+   REFRESH := o_rfrsh;                 { {R*}                                 }
+   REDRAW;                             { Перерисовать экран                   }
+   POP_UNDO;
+ End_macro;
+ {************************ ------------------------------ ********************}
+ $macro K_ch_LR trans;                 { Измениние LAT/RUS куска текста       }
+  {************************ по   MULTI-EDIT MACRO CHNGCASE ********************
+                 (C) Copyright 19.02.90 16:57 by Корзун Е.Г., Inc.
+  Name:  K_ch_LR
+  Description: Измениние LAT/RUS куска текста, кодировка - местная(Трансляция).
+  Parameters: /U  не указано - наоборот,т.е. русский в латынь,а латынь в русский
+              /U=0       В латыньй
+                =1       В русский
+                =2       Перевод в верхний регистр     21.09.90 18:17
+                =3       Перевод в нижний  регистр
+
+              /T=0       Строку
+                =1       Слово
+                =2       Блок
+  *****************************************************************************}
+   def_int( jx, tc, ti, casetype, blocktype, tb1, tbs, tb2
+          , tbl1, tbl2, tbc1, tbc2 );
+   def_str( tstr );
+   Def_Str(Tmp);
+   Def_Char(Ch);
+   Def_Int(I,J,K,Inverse, L_C ,tl);
+   Def_Str(RUS,LAT);
+   RUS := 'йцукенгшщзхъфывапролджэ' +'ячсмитьбюЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ';
+   LAT := 'qwertyuiop[]asdfghjkl;'''+'zxcvbnm,.QWERTYUIOP[]ASDFGHJKL:"ZXCVBNM<>';
+   L_C := SVL(RUS)/2;                  { Длина рускких одного регистра        }
+
+   ti := insert_mode;
+   insert_mode := true;
+
+   Inverse  := Xpos('/U=', mparm_str,1) = 0;     { Главнее всего              }
+   casetype := parse_int('/U=', mparm_str);
+   blocktype := parse_int('/T=', mparm_str);
+
+   if blocktype = 0 then               { Заказана строка                      }
+      tstr := get_line;
+      Call RECOD;
+      put_line( tstr );
+   end;
+   if blocktype = 1 then               { Заказано слово                       }
+      If not(at_eol) and (XPOS(cur_char,word_delimits,1) <> 0) then
+         word_right;
+      Else
+         if c_col > 1 then
+            left;
+            if xpos(cur_char,word_delimits,1) then
+               right;
+            else
+               right;
+            end;
+            If (At_Eol) Then
+               word_left;
+            End;
+         end;
+      End;
+      tc := c_col;                     { Эдесь начало слова                   }
+      tl := c_line;
+      tstr := get_word(word_delimits);
+      GoTo_Col (tc);
+      GoTo_Line(tl);
+      del_chars( svl(tstr) );
+      Call RECOD;
+      text( tstr );
+   end;
+
+   if (block_stat <> 0) and (blocktype = 2) then { Заказан блок               }
+      block_end;
+      tbl1 := block_line1; tbl2 := block_line2;
+      tbc1 := block_col1; tbc2 := block_col2;
+      tbs := block_stat;
+      jx := block_line1;
+      while jx <= tbl2 do
+         goto_line(jx);
+         if tbs = 1 then
+            tstr := get_line;
+            Call RECOD;
+            put_line( tstr );
+         end;
+         if tbs = 2 then
+            goto_col(tbc1);
+            tstr := copy(get_line, tbc1, tbc2 - tbc1 + 1);
+            del_chars( svl(tstr) );
+            Call RECOD;
+            text( tstr );
+         end;
+         if tbs = 3 then
+            goto_col(1);
+            tb1 := 1;
+            tstr := get_line;
+            tb2 := svl( tstr );
+            if jx = tbl1 then
+                goto_col(tbc1);
+                tb1 := tbc1;
+            end;
+            if jx = tbl2 then
+               tb2 := tbc2;
+            end;
+            del_chars( tb2 - tb1 + 1);
+            tstr := copy( tstr, tb1, tb2 - tb1 + 1);
+            Call RECOD;
+            text(tstr);
+         end;
+         ++jx;
+         down;
+      end;
+   end;
+   GoTo End_Macro;
+
+   {  ------- ПОДПРОГРАММА перевода Русский - Латинский , Верхний - Нижний -- }
+  RECOD:                               { Выбор перекодировки по режиму        }
+   K := SVL(tstr);                     { Длина входной строки                 }
+   TMP := '';                          { Заготовка выходной                   }
+   J := 0;
+
+   If (Inverse) Then                   { Перкодировка INVRSE - наоборот       }
+      While (K > J) Do
+         ++J;
+         Ch := Str_Char(tstr,J);
+         I := Xpos(Ch,Lat,1);
+         If (I > 0 ) Then
+            Ch := Str_Char(RUS,I);     { Перекодировка                        }
+         Else
+            I := Xpos(Ch,RUS,1);
+            If (I > 0 ) Then
+               Ch := Str_Char(LAT,I);  { Перекодировка                        }
+            End;
+
+         End;
+         TMP := TMP + Ch;
+      End;
+      tstr := TMP;
+      ret;
+   End;
+
+   if (casetype = 0) then              { Латынь - Русский                     }
+      While (K > J) Do
+         ++J;
+         Ch := Str_Char(tstr,J);
+         I := Xpos(Ch,Lat,1);
+         If (I > 0 ) Then
+            Ch := Str_Char(RUS,I);     { Перекодировка                        }
+         End;
+         TMP := TMP + Ch;
+      End;
+      tstr := TMP;
+      ret;
+   end;
+
+   if (casetype = 1) then              { Русский - латынь                     }
+      While (K > J) Do
+         ++J;
+         Ch := Str_Char(tstr,J);
+         I := Xpos(Ch,RUS,1);
+         If (I > 0 ) Then
+            Ch := Str_Char(LAT,I);     { Перекодировка                        }
+         End;
+         TMP := TMP + Ch;
+      End;
+      tstr := TMP;
+      ret;
+   end;
+   if (casetype = 2) then              { В верхний + русский                  }
+
+      TSTR := CAPS(TSTR);              { Это для латыни                       }
+      While (K > J) Do
+         ++J;
+         Ch := Str_Char(tstr,J);
+         I := Xpos(Ch, COPY(RUS,1,L_C) ,1);      { Маленькая русская ?        }
+         If (I > 0 ) Then
+            Ch := COPY(RUS, L_C + I ,1);         { Перевод                    }
+         End;
+         TMP := TMP + Ch;
+      End;
+      tstr := TMP;
+      ret;
+   end;
+
+   if (casetype = 3) then              { В нижний  + русский                  }
+      TSTR := LOWER(TSTR);             { Это для латыни                       }
+      While (K > J) Do
+         ++J;
+         Ch := Str_Char(tstr,J);
+         I := Xpos(Ch,COPY(RUS,L_C+1 ,L_C),1);   { Б. русская ?               }
+         If (I > 0 ) Then
+            Ch := COPY(RUS, I ,1);     { Перевод                              }
+         End;
+         TMP := TMP + Ch;
+      End;
+      tstr := TMP;
+   end;
+
+   ret;
+
+  End_Macro:
+   { ------------    конец     подпрограммы -------------------------------- }
+   insert_mode := ti;
+ end_macro;
+ {************************ ------------------------------ ********************}
+ $MACRO K_BLKSEE FROM EDIT TRANS;      { Проверка, "виден" ли блок в окне     }
+   DEF_INT(L_WIND_UP,L_WIND_DN,W_Y);
+   If (Global_Int('K_X_PLACE') <> 0) Then        { Позиция курсора известна   }
+      W_Y := Global_Int('K_Y_PLACE');
+   Else
+      If (WHEREY = 0) then             { Бывает после CONDENSE SEARCH  ?      }
+         DOWN; UP;                     { Попытаемся восстановить WHEREY       }
+      end;
+      W_Y := WHEREY;
+   End;
+   L_WIND_UP := WIN_Y1 - W_Y + C_LINE + 1 ;      { N верхней строки файла     }
+   L_WIND_DN := L_WIND_UP - WIN_Y1 + WIN_Y2 - 2; { N нижней в окне            }
+   IF (BLOCK_LINE1 > L_WIND_DN) OR
+      (BLOCK_LINE2 < L_WIND_UP) THEN
+      SET_GLOBAL_STR('K_MESSAGE','K_BLKSEE:Блок не виден,поиск - CtrlC/CtrlE');
+   ELSE
+      SET_GLOBAL_STR('K_MESSAGE','');  { Все O.KEY                            }
+   END;
+ END_MACRO;                            { of ----- K_BLKSEE  / --------------  }
+ {************************ ------------------------------ ********************}
+ $MACRO K_BLKSAV FROM EDIT TRANS;      { Запомнить информацию по блоку        }
+   Set_Global_Int('k_tbl1' , block_line1 );
+   Set_Global_Int('k_tbl2' , block_line2 );
+   Set_Global_Int('k_tbc1' , block_col1  );
+   Set_Global_Int('k_tbc2' , block_col2  );
+   Set_Global_Int('k_tbs'  , block_stat  );
+   Set_Global_Int('k_tbm'  , marking     );
+   Set_Global_Int('k_t_l'  , C_Line      );
+   Set_Global_Int('k_t_c'  , C_Col       );
+   if (Global_Int('K_X_PLACE') = 0 ) then
+      If (WHEREY = 0) then             { Бывает после CONDENSE SEARCH  ?      }
+         BEEP;
+         DOWN; UP;                     { Попытаемся восстановить WHEREY       }
+      end;
+      Set_Global_Int('K_Y_PLACE',WHEREY);        { Запомним, где был курсор   }
+      Set_Global_Int('K_X_PLACE',WHEREX);
+   end;
+   block_end;                          { На всякий случай - закроем блок      }
+  END_MACRO;                           { of ----- K_BLKSAV  / --------------  }
+  {************************ ------------------------------ ********************}
+ $MACRO K_BLKRST FROM EDIT TRANS;      { Восстановить Экран и курсор          }
+  DEF_INT(b_dir ,int1 , int2 );
+
+   int1 := REFRESH ;
+   REFRESH := 0;
+   if (Global_Int('k_tbs') = 0) then   { А блока то и нет ...                 }
+      GoTo End_Macro;
+   end;
+                                       { Восстановление блока                 }
+   b_dir := 1;                         { Сначала считаем , что сверху-вниз    }
+   if (Global_Int('k_tbm') = 1 ) And   { Блок был не закрыт                   }
+      (Global_Int('k_tbl1') = Global_Int('k_t_l')) And
+      (Global_Int('k_tbc1') = Global_Int('k_t_c')) Then
+      b_dir := 0;                      { Надо снизу вверх                     }
+   end;
+   If (b_dir) Then                     { Сверху вниз и слева направо          }
+      goto_line(Global_Int('k_tbl1'));
+      goto_col(Global_Int('k_tbc1'));
+      If (Global_Int('k_tbs') = 1) Then
+            Block_Begin;
+      End;
+      If (Global_Int('k_tbs') = 2) Then
+            Col_Block_Begin;
+      End;
+      If (Global_Int('k_tbs') = 3) Then
+            Str_Block_Begin;
+      End;
+      goto_line(Global_Int('k_tbl2'));
+      If (Global_Int('k_tbs') = 3) Then
+         goto_col(Global_Int('k_tbc2') + 1);
+      Else
+         goto_col(Global_Int('k_tbc2') );
+      End;
+      If (Global_Int('k_tbm') = 0) Then
+         block_end;
+      End;
+   Else                                { Снизу вверх и справа налево          }
+      goto_line(Global_Int('k_tbl2'));
+      goto_col(Global_Int('k_tbc2') );
+      If (Global_Int('k_tbs') = 1) Then
+            Block_Begin;
+      End;
+      If (Global_Int('k_tbs') = 2) Then
+            Col_Block_Begin;
+      End;
+      If (Global_Int('k_tbs') = 3) Then
+            Str_Block_Begin;
+      End;
+   End;
+
+  End_Macro:
+   goto_line(Global_Int('k_t_l'));
+   goto_col(Global_Int('k_t_c'));
+   int2 := WHEREY - Global_Int('K_Y_PLACE');     { Восстановление строки      }
+   REFRESH := TRUE;
+   While (int2 <> 0) Do
+      If (int2 < 0) Then
+         Goto_Line(C_Line - 1);
+         ++int2;
+         Down;
+      Else
+         Goto_Line(C_Line + 1);
+         --int2;
+         Up;
+      End;
+      int2 := WHEREY - Global_Int('K_Y_PLACE');
+   End;
+   int2 := WHEREX - Global_Int('K_X_PLACE');     { Восстановление столбца  ?? }
+   If (int2 <> 0) Then
+      GOTO_COL (C_COL + int2) ;
+   End;
+   REDRAW ;
+   goto_col(Global_Int('k_t_c'));
+   REFRESH := int1;
+   Set_Global_Int('k_tbl1' , 0 );
+   Set_Global_Int('k_tbl2' , 0 );
+   Set_Global_Int('k_tbc1' , 0 );
+   Set_Global_Int('k_tbc2' , 0 );
+   Set_Global_Int('k_tbs' , 0 );
+   Set_Global_Int('k_tbm' , 0 );
+   Set_Global_Int('k_t_l' , 0 );
+   Set_Global_Int('k_t_c' , 0 );
+   Set_Global_Int('K_X_PLACE',0);
+   Set_Global_Int('K_Y_PLACE',0);
+
+ END_MACRO;                            { of ----- K_BLKRST  / --------------  }

@@ -1,0 +1,216 @@
+ $macro perenos;
+ def_int(ls);
+ def_int(nright,nleft,prglas,prznak,nline,bl1,bl2,insertmo,rab);
+ def_char(cc);
+ def_str(lin,s2[2]);
+ ls := global_int('linesize');  { пpавая гpаница }
+ if ls = 0 then
+   ls := 60;
+ end;
+ insertmo := insert_mode;
+ insert_mode := 1;
+  if ((block_stat = 1) and (marking = false)) then
+    bl1 := block_line1;          { начало блока }
+    goto_line(bl1);
+  else
+    bl2 := c_line;
+  end;
+m0: lin := get_line;
+  if length(lin) > ls then       { стpока длинная }
+    nline := c_line;
+m1:  goto_col(ls);
+       while ascii(cur_char) < 33 do { подтягивание к пpавой гpанице }
+         call insspace;
+         goto_col(ls);
+       end;
+			 cc := cur_char;
+			 if ((cc = '.') or (cc = ',') or (cc = '?') or (cc = '!')
+					 or (cc = ';'))   then
+				 right;
+				 goto crfin;
+			 end;
+       goto_col(ls+1);
+       if ascii(cur_char) < 33 then { если пpобел, enter }
+         goto crfin;
+       end;
+       goto_col(ls);
+       nright := 0;
+       prglas := 0;
+       while ((ascii(cur_char) > 32) and ((nright < 2) or (prglas = 0))
+                         and (at_eol = 0)) do
+         nright := nright + 1; { счет символов пpавых }
+         if prglas = 0 then
+           call provglas;
+         end;
+         call provznak;
+         if prznak = 1 then
+            call insspace;
+						goto m1;
+         end;
+         right;
+       end;
+       goto_col(ls);
+       if ((nright < 2) or (prglas = 0)) then { спpава нет слога }
+         call insspace;
+				 while (prglas = 0) do
+           call insspace;
+           call provglas;
+         end;
+				 goto m1;
+       end;
+m2:    goto_col(ls-1);
+       s2 := copy(get_line,(ls-1),2);
+       if ((ascii(cur_char) < 33) or (s2 = 'ст') or (s2 = 'ск')
+			 	    or (s2 = 'СТ') or (s2 = 'СК')) then
+         call insspace;
+         goto m1;
+       end;
+       nleft := 0;
+       prglas := 0;
+       while ((ascii(cur_char) > 32) and ((nleft < 2) or (prglas = 0)))  do
+         nleft := nleft + 1;         { счет символов слева }
+				 if (nleft > (ls - 3)) then { слева только согласные }
+					 goto final;
+				 end;
+				 if prglas = 0 then
+           call provglas;
+         end;
+         call provznak;
+         if prznak = 1 then    { встpетился знак пpепинания }
+            call insspace;
+						text(' ');
+					  goto m1;
+         end;
+         left;
+       end;
+       goto_col(ls-1);
+       if ((nleft < 2) or (prglas = 0)) then { слева нет слога }
+         call insspace;
+         goto m1;
+       else
+         goto_col(ls);
+         if ((cur_char = 'ь') or (cur_char = 'й')
+             or (cur_char = 'Ь') or (cur_char = 'Й')) then
+           call insspace;
+           text(' ');
+           goto m2;
+         end;
+         goto_col(ls);
+         call provglas;
+         if prglas = 1 then
+           left;
+           call provglas;
+           if prglas = 0 then  { согласная пеpед гласной пеpеносится }
+             call insspace;
+             goto m2;
+           end;
+         end;
+         goto_col(ls);
+         text('-');
+         goto crfin;
+       end;
+   end;
+   down;
+   goto fin;
+ {******* пп пpовеpки на гласную ************************}
+provglas:
+ prglas := 0;
+ cc := cur_char;
+ if ((cc = 'а') or (cc = 'и') or (cc = 'о') or (cc = 'е') or (cc = 'я')
+      or (cc = 'А') or (cc = 'И') or (cc = 'О') or (cc = 'Я')
+      or (cc = 'Е') or (cc = 'У') or (cc = 'Ю') or (cc = 'Ы')
+      or (cc = 'Э') or (cc = 'i') or (cc = 'I') or (cc = 'o')
+      or (cc = 'O') or (cc = 'e') or (cc = 'E') or (cc = 'u')
+      or (cc = 'U') or (cc = 'a') or (cc = 'A') or (cc = 'у')
+      or (cc = 'ю') or (cc = 'ы') or (cc = 'э')) then
+              prglas := 1;
+ end;
+ret;
+ { ******** пп пpовеpки на знак ********************** }
+provznak:
+ def_int(ccc);
+   prznak := 0;
+   ccc := ascii(cur_char);
+   if (((ccc > $20) and (ccc < $30))
+       or ((ccc > $30) and (ccc < $41))
+       or ((ccc > $5a) and (ccc < $61))
+       or ((ccc > $7a) and (ccc < $80))) then
+      prznak := 1;
+    end;
+  ret;
+ { ******** пп сдвиига слов впpаво на 1 ********* }
+insspace:
+	bl1 := c_line mod 2;
+	if bl1 = 0 then  { четная стpока 	}
+		bl1 := c_col - 1;
+		goto_col(1);
+		word_right;
+		if c_col > bl1 then
+			cr;
+			goto fin;
+		end;
+	else              { нечетная стpока }
+    rab := c_row;
+    word_left;
+      if ((rab <> c_row) or (c_col = 1)) then  { слева нет слов }
+        if c_col <> 1 then
+					down;
+					goto_col(1);
+				end;
+				while (ascii(cur_char) < 33) do  { удаление ведущих пpобелов }
+					del_char;
+				end;
+        lin := get_line;
+        if length(lin) > ls then
+          word_right;
+					if c_col < ls then
+						cr;
+          else
+					  goto final;
+					end;
+				end;
+        goto fin;
+      end;
+		end;
+    text(' ');      { pаздвигание }
+		ret;
+ { ****************************************}
+ crfin:  cr;
+   goto_col(1);
+   while ascii(cur_char) < 33 do
+     del_char;
+   end;
+   eol;
+   if c_col > 1 then
+     left;
+     if cur_char = '-' then  { удаление стаpого знака пеpеноса }
+       del_char;
+       del_char;
+     else
+       right;
+			 down;
+			 lin := get_line;
+			 if (copy(lin,1,3) <> '   ') then { сохpанение стаpого абзаца }
+				 up;
+				 del_char;
+         text(' ');
+			 end;
+     end;
+   end;
+fin:   if at_eof = 0 then
+         if ((block_stat = 1) and (marking = false)) then
+           bl2 := block_line2;
+         end;
+         if (c_line <= bl2)  then { если блок не кончен, след. стpока }
+            goto m0;
+          end;
+       end;
+final: insert_mode := insertmo;
+end_macro;
+ { **********************************************************}
+$macro set_perenos;
+  def_int(ls);
+  ls := parse_int('/ls=',mparm_str);
+  set_global_int('linesize',ls);
+  macro_to_key(<ctrl\>,'perenos',edit);
+  end_macro;

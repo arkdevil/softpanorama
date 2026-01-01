@@ -1,0 +1,78 @@
+/////////////////////////////  PCBOARD.SLT  //////////////////////////////////
+
+// This is a sample script for logging on to a PCBoard based system.
+// The logon questions are handled in any order, and optional prompts are ok.
+
+str user_name[] = "John Smith";
+
+// Put your name in the above line. The script will get the proper password
+// from the dialing directory (Telix puts that password in the script system
+// variable called _entry_pass).
+
+// Before using this script for the first time, or when you make a change,
+// type 'cs pcboard' at the DOS prompt to compile the script for use by Telix.
+
+//////////////////////////////////////////////////////////////////////////////
+
+main()
+
+{
+ int stat;
+ int t1,
+     t2,
+     t3,
+     t4;
+ int tmark;
+
+ alarm (1);
+
+ if (not _entry_pass)                     // no pass, so didn't recog. board
+  {
+   prints ("Sorry, I don't know the password for this BBS!");
+   return;
+  }
+
+ t1 = track (" graphics", 1);
+ t2 = track ("first name?", 1);
+ t3 = track ("Password", 1);
+ t4 = track ("Language # to use", 1);
+
+ tmark = timer_start (1800);            // wait up to 3 minutes for login
+
+                                        // answer any logon questions
+ while (not time_up (tmark))
+  {
+   terminal();                          // let Telix process any chars and keys
+
+   stat = track_hit (0);                // see which (if any) track was hit
+
+   if (stat == t1)                      // say whether we want graphics
+    {
+     delay (5);
+     cputs ("y q^M");
+    }
+   else if (stat == t2)                 // send name
+    {
+     cputs (user_name);
+     cputs ("^M");
+    }
+   else if (stat == t3)                 // send password
+    {
+     cputs (_entry_pass);
+     cputs ("^M");
+     break;                             // done with logon
+    }
+   else if (stat == t4)                 // specific to CRS
+    {
+     delay (5);
+     cputs ("^M");
+    }
+  }
+
+ if (time_up (tmark))
+  prints ("Logon failed!");
+
+ timer_free (tmark);                    // free timer channel
+ track_free (0);                        // and all track channels
+               
+}              

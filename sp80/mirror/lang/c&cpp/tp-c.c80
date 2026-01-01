@@ -1,0 +1,120 @@
+From: stupy@freenet.durham.org (Steve Tupy)
+Newsgroups: comp.lang.c,comp.lang.c++
+Subject: Re: Pascal 'real' to C 'float'
+Date: 28 Jan 1996 22:52:20 GMT
+
+Shawn Wallace (swallace@netinc.ca) wrote:
+: I've run into a little difficulty converting the data from an older
+: Pascal program into C.
+
+: I need to convert the pascal 'real' number (which I believe to be a
+: 6-byte struct) to a C/C++ float or double (which are 4 and 8-bytes
+: respecively).
+
+Try these out, they work just fine but are "C", not C++... for that I
+apologize...
+
+	Please do not leave "char burns" on my butt for posting this.. I am
+new to newsgroups and do not yet have total control over this editor!
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Begin REAL.H >>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#ifndef _REAL_H
+#define _REAL_H
+extern "C" {
+typedef unsigned char pasreal[6];
+typedef unsigned char bassngl[4];
+typedef unsigned char basdble[8];
+typedef union {
+          double        value;
+          unsigned char byte[8];
+        } IEEEdouble;
+
+double pasrealtodouble(pasreal OldNum);
+double bassngltodouble(bassngl OldNum);
+double basdbletodouble(basdble OldNum);
+
+void doubletopasreal(pasreal *New, double Old);
+void doubletobassngl(bassngl *New, double Old);
+void doubletobasdble(basdble *New, double Old);
+};
+#endif
+<<<<<<<<<<<<<<<<<<<<<<< End REAL.H >>>>>>>>>>>>>>>>>>>>>>>>>>
+
+<<<<<<<<<<<<<<<<<<<<<<< Begin REAL.C >>>>>>>>>>>>>>>>>>>>>>>>
+
+#include "real.h"
+
+/*  converts TP 6-byte real to IEEE 8-byte real  */
+
+double pasrealtodouble(pasreal OldNum) {
+
+  IEEEdouble NewNum;
+  char       Sign;
+  int        Exp;
+  int        X;
+
+  for(X = 0; X < 2; X++)
+    NewNum.byte[X] = 0x00;
+
+  Sign = OldNum[5] & 0x80;
+  Exp = OldNum[0] - 0x81 + 0x3FF;
+  NewNum.byte[6] = (Exp << 4);
+  NewNum.byte[7] = (Exp >> 4) | Sign;
+
+  for(X = 5; X > 1; X--) {
+    OldNum[X] <<= 1;
+    OldNum[X] |= OldNum[X-1] >> 7;
+  }
+  OldNum[1] <<= 1;
+
+  for(X = 6; X >= 2; X--) {
+    NewNum.byte[X] |= OldNum[X-1] >> 4;
+    NewNum.byte[X-1] =  OldNum[X-1] << 4;
+  }
+
+  return(NewNum.value);
+}
+
+/*  converts IEEE 8-byte real to pascal 6-byte real  */
+
+void doubletopasreal(pasreal *New, double Old) {
+  char    Sign;
+  int     Exp;
+  int     X;
+  unsigned char *NewNum, *OldNum;
+
+  NewNum = (char *) New;
+  OldNum = (char *) &Old;
+
+  Sign = OldNum[7] & 0x80;
+  Exp  = ((OldNum[7] & 0x7F) << 4) + (OldNum[6] >> 4) + 0x81 - 0x3FF;
+
+  for (X = 5; X >= 1; X--) {
+    NewNum[X] = OldNum[X+1] << 4;
+    NewNum[X] |= OldNum[X] >> 4;
+  }
+
+  for (X = 1; X < 5; X++) {
+    NewNum[X] >>= 1;
+    NewNum[X] |= NewNum[X+1] << 7;
+  }
+  NewNum[5] >>= 1;
+
+  NewNum[5] |=  Sign;
+  NewNum[0] =   Exp;
+}
+<<<<<<<<<<<<<<<<<<<<<<<<<<<< End REAL.H >>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+This should compile ok, I use it with Borland, so you might have to adapt it
+for other compilers but it is all basically there and in straight "C"...
+
+To others, please, no flames about off topic posting, It is useful code
+under ANY format.
+
+Take care!
+
+Steve
+
+
+

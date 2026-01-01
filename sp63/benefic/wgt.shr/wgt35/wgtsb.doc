@@ -1,0 +1,247 @@
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			WGT v3.5 SoundBlaster Routines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+VOC - Digital Sample Routines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Global Variables:
+
+int sbintnum;        Sbintnum is the interrupt number the SB runs on.
+		     Valid IRQs are 2, 3, 5 and 7 (default factory setting).
+
+int sbioaddr;        Sbioaddr is the I/O address the SB is installed at.
+		     Valid entries are 0x210, 0x220 (factory default),
+		     0x230, 0x240, 0x250, and 0x260
+
+unsigned int sbstat;  Status of the SB while playing VOC files
+		      0 - VOC not playing or recording
+		      255- VOC is playing or recording
+		      1-254- VOC marker found (?)
+
+typedef char far * wgtvoice;    A simple way to remember and use VOC files.
+				Use:     wgtvoice mysound;
+				(results in a pointer called mysound)
+
+
+
+int winitsb(void)
+----------------------------------------------------------------------
+Attempts to initialize the SoundBlaster at the address in sbioaddr,
+and interrupt sbintnum.
+
+Returns:
+	-1 if CT-VOICE could not be loaded from the current directory
+	-2 if SB could not reset correctly
+	 0 if everything is alright
+
+Also sets up the sbstat variable to update when the SoundBlaster
+VOC state changes.
+
+
+
+int wsbversion(void)
+---------------------------------------------------------------------
+Returns:
+	Version number of your SoundBlaster driver.
+
+
+
+void waddr(int base)
+---------------------------------------------------------------------
+	Changes the I/O address used by SB routines.
+
+
+
+
+void wirq(int irq)
+---------------------------------------------------------------------
+	Changes the interrupt number used by SB routines.
+
+
+
+
+void wdeinitsb(void)
+---------------------------------------------------------------------
+	Deinitializes the SoundBlaster driver.
+
+
+
+
+void wsetspeaker(int onoff)
+---------------------------------------------------------------------        
+	Turns SB speaker on or off (0 is off, 1 is on). It is best to
+turn the speaker off when sampling from the input port because garbled
+sound will be heard otherwise.
+
+
+
+
+void wplayvoc(wgtvoice buffer)
+---------------------------------------------------------------------        
+	Plays a previously loaded VOC file.
+You can store multiple VOC files in memory at once, by making different
+wgtvoice variables, and loading different VOC files into them.
+Sbstat is set to 255 while playing, and resets to 0 when the VOC is
+finished.
+	If a VOC is already playing, nothing will happen when you
+call this routine.  Use wstopvoc to stop current sounds, and then
+wplayvoc to start a new one.
+
+
+
+
+void wsample(wgtvoice buffer, long length)
+---------------------------------------------------------------------
+	Records a raw sample from the SB input device.
+Use newvoice to allocate memory for the voice data if you haven't
+loaded one into the buffer variable yet.
+
+eg:        hello=wnewvoice(23456);    /* allocate 23456 bytes for sample */
+	   wsample(hello,23456);      /* Sample into buffer      */
+
+
+
+
+void wstopvoc(void)
+---------------------------------------------------------------------        
+	Stops playback of a VOC file (if one is currently playing). 
+
+
+
+
+void wpausevoc(void)
+---------------------------------------------------------------------        
+	Pauses playback of a VOC file. Can be used in conjunction with
+wresumevoc to implement a pause feature in a program.
+
+
+
+
+void wresumevoc(void)
+---------------------------------------------------------------------
+	Resumes playback of a VOC file. Playback of a VOC will resume
+at the point where wpausevoc was called.
+
+
+
+
+void wfreevoc(wgtvoice vocname)
+---------------------------------------------------------------------
+	Frees memory used by a VOC file which was either sampled,
+or loaded in from disk.
+
+
+
+
+wgtvoice wnewvoice(long size)
+---------------------------------------------------------------------
+	Allocates memory for a new sample to be recorded using wsample.
+This is only required if you will be using wsample, as the wloadvoc
+automatically reserves the proper amount of memory.
+
+
+
+
+wgtvoice wloadvoc(char *name)
+---------------------------------------------------------------------
+	Loads a VOC file into a wgtvoice variable.  This will allocate
+the memory and read in the file.
+eg:
+		wgtvoice hello, world;       /* Declare pointers */
+		hello=wloadvoc("hello.voc"); /* Load first VOC   */
+		world=wloadvoc("world.voc"); /* Load another VOC */
+
+
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			      FM Sound Routines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Global Variables:
+
+typedef char far * wgtsong;     Simple way remember a CMF song.
+
+unsigned char fmstat;   Status of the FM playing routines.
+			0- not playing (Your song has finished)
+			255 Song is playing
+			1-254 Song marker found
+
+int fmint;              Current FM interrupt being used by SBFMDRV.COM
+			The SBFMDRV driver reports this value when installed.
+
+
+
+
+void wfmsetstatus(unsigned ofs,unsigned seg);
+---------------------------------------------------------------------
+	Sets status variable of FM routines.
+	fmstat is automatically set by wfindfm, but you may want to change
+	it to your own variable.
+eg:
+	fmsetstatus(FP_OFF(&mystat),FP_SEG(&mystat));
+
+
+
+
+unsigned wfmversion(void);
+---------------------------------------------------------------------
+	Returns the FM driver version number.
+
+
+
+
+void wfmreset(void);
+---------------------------------------------------------------------
+	Resets the FM driver. Should be called before any FM output is
+initiated by the program.
+
+
+
+
+void wfmstopmusic(void);
+---------------------------------------------------------------------
+	Stops the song which is currently playing.
+
+
+
+
+void wfmsongspeed(unsigned ss);
+---------------------------------------------------------------------
+	Changes the tempo of the song. We're not really sure what
+the number represents exactly, but the average setting is around 20000,
+and the lower you get the faster the song plays. Do NOT play songs too
+quickly or the driver may malfunction. This may also cause VOCs to
+freeze, or disable them entirely. Keep values above 2000 or so to
+ensure your programs stability.
+
+
+
+
+int wfindfm(void);
+---------------------------------------------------------------------        
+	Searches the interrupts to find out if SBFMDRV.COM has been
+loaded, and initializes the status variable fmstat. Returns 0 if the
+driver is installed, or a -1 if it is not.
+
+
+
+
+void wplaycmf(wgtsong song);
+---------------------------------------------------------------------
+	Plays a previously loaded CMF file. VOC files may be played
+simultaneously with CMF songs, so you may have FM and digital sound.
+Sets fmstat to 255 while song is playing.
+
+
+
+
+wgtsong wloadcmf(char *loadfile);
+---------------------------------------------------------------------
+	Allocates memory and loads a CMF file.
+You can load multiple CMF files similar to the method of loading multiple
+VOC files. Memory is automatically allocated for you.
+
+
+

@@ -1,0 +1,233 @@
+<HTML>
+<HEAD><TITLE>Clipper ToolsKit Reference Guide - Long Entry</TITLE></HEAD>
+<BODY>
+
+<A HREF="ng86cb.html">[&lt;&lt;Previous Entry]</A>
+<A HREF="ng1bc.html">[^^Up^^]</A>
+<A HREF="nga8f1.html">[Next Entry&gt;&gt;]</A>
+<A HREF="menu.html" >[Menu]</A>
+<A HREF="info.html">[About The Guide]</A>
+<HR>
+<PRE>
+ <B>SetWindow()</B>
+ Display framed and shadowed box w\saving used screen area
+ ──────────────────────────────────────────────────────────────────────────────────
+
+ <B>Syntax</B>
+
+     SetWindow ([cTitle], [nColor], [aLocation], aDim, [aFrame])
+          --&gt; aCoord
+
+ <B>Arguments</B>
+
+     &lt;cTitle&gt;
+          optional character string displayed on the top of window
+
+     &lt;nColor&gt;
+          optional Color Structure Index which specifies colors of all
+          window elements. See also <U>Color System</U>.
+
+     &lt;aLocation&gt;
+          optional structure which specifies window location area
+
+          <B>Location structure</B>
+          ────────────────────────────────────────────────────────────────
+          CTK.CH         Value     Comment
+          ────────────────────────────────────────────────────────────────
+          L_LN            1        Base line
+          L_CL            2        Base column
+          L_J_VERTICAL    3        Vertical justification mode
+          L_J_HORIZONTAL  4        Horizontal justification mode
+          L_MAX           4        Location structure dimension
+          ────────────────────────────────────────────────────────────────
+
+          If aLocation == NIL then used default structure {0,0,J_TOP, J_LEFT},
+          ie base point at window top-left corner.
+
+          <B>Possible justification modes</B>
+          ────────────────────────────────────────────────────────────────
+          CTK.CH         Value     Comment
+          ────────────────────────────────────────────────────────────────
+          J_TOP         0          Base line on window top
+          J_CENTER      1          Base line/column on window center
+          J_BOTTOM      2          Base line on window bottom
+          J_LEFT        0          Base column on window left side
+          J_RIGHT       2          Base column on window right side
+          ────────────────────────────────────────────────────────────────
+
+
+     &lt;aDim&gt;
+          array with dimension of needed work area, ie area
+          inside frame. If specified dimension not fit in physical screen
+          dimension then actually allocated area will be less then
+          asked. See also  <B>Return</B> section about actually allocated
+          area dimension.
+
+          <B>Dimension Structure</B>
+          ────────────────────────────────────────────────────────────────
+          CTK.CH         Value     Comment
+          ────────────────────────────────────────────────────────────────
+          D_MAX         2         dimension of array aDim
+          D_HEIGHT      1         position of element w\needed area height
+          D_WIDTH       2         position of element w\needed area width
+          ────────────────────────────────────────────────────────────────
+
+     &lt;aFrame&gt;
+          optional structure which specifies  width, height and type of frame.
+
+          <B>Window Frame Structure</B>
+          ────────────────────────────────────────────────────────────────
+          CTK.CH         Value     Comment
+          ────────────────────────────────────────────────────────────────
+          F_MAX         3         diminsion of frame structure
+          F_HEIGHT      1         horizontal size of window frame
+          F_WIDTH       2         vertical size of window frame
+          F_BORDER      3         window frame type (see table below)
+          ────────────────────────────────────────────────────────────────
+
+          If aFrame is {0, 0, AnyValue} - it means no frame at all.
+          To use default just skip this element. So len(aFrame) mustn't
+          be exactly F_MAX.
+
+          Possible frame types
+          ────────────────────────────────────────────────────────────────
+          CTK.CH         Value     Comment
+          ────────────────────────────────────────────────────────────────
+          WFB_MAX        3         maximum frame type number
+          WFB_NONE       0         frame wo\lines
+          WFB_SINGLE     1         single line frame
+          WFB_DOUBLE     2         double line frame (default)
+          WFB_BIGTITLE   3         when title is longer then window width
+          ────────────────────────────────────────────────────────────────
+
+          If work dimension width  less then title use frame type
+          F_BIGTITLE. Default is {1, 1, F_SINGLE}
+
+ <B>Returns</B>
+
+     Coordinates of actually allocated work area in displayed
+     window.
+
+     <B>SetWindow Returned Structure</B>
+     ────────────────────────────────────────────────────────────────
+     CTK.CH         Value     Comment
+     ────────────────────────────────────────────────────────────────
+     TOP            1
+     LEFT           2
+     BOTTOM         3
+     RIGHT          4
+     ────────────────────────────────────────────────────────────────
+
+ <B>Description</B>
+
+     SetWindow() is routine function which allocate window with
+     concern of physical screen limitations, save used screen
+     area (later restored by <U>UnSetWindow()</U>), draw window
+     in specified color and frame type and finally add Window
+     Structure in Window List (see also <U>Window System</U>).
+
+     Window location depends on values of aLocation and aDim.
+     Location structure or some of it element cat be missed.
+     In such cases reasonable defaults are assumed.
+     Here is ordered rulls by which missing value are defined
+     and adjusted:
+
+          - if length of cTitle is greater then window width
+            then aFrame [F_BORDER] equated to WFB_BIGTITLE
+
+          - if specified window width or height is greater than physical
+            screen dimension then they are shrinked to fit screen
+
+          - if verticala/horizontal justification missed then it
+            defaulted to J_TOP/J_LEFT.
+
+          - if aLocation==NIL and Window List is empty then
+            aLocation equated to  {0, 0, J_TOP, J_LEFT},  ie
+            window will be allocated at left-top screen corner.
+            If Window List isn't empty then coordinates of window
+            left-top will be shifted relative to preceding window left-top
+            corner. Default line and column shift is 1 and 2 correspondingly.
+
+            So   nil &lt;=&gt; {,} =&gt; {0,0,J_TOP,J_LEFT}  for first window and
+                 nil &lt;=&gt; {,} =&gt; {1,2,J_TOP,J_LEFT}  for second window.
+
+          - if verticala/horizontal coordinate are missed and correspondent
+            justification is J_CETER then this coordinate defaulted to
+            verticala/horizontal screen center coordinate. So for
+            example (* - any value):
+
+               {*, nil, *, J_CENTER}  =&gt;  {*, maxcol()/2, *, J_CENTER}
+               {nil, *, J_CENTER, *}  =&gt;  {maxcol()/2, *, J_CENTER, *}
+
+
+          - if any vertical/horizontal coordinates are out of physical
+            screen border then vertical/horizontal coordinates are
+            shifted to fit screen limitations.
+
+          - if any vertical/horizontal coordinates are out of physical
+            screen border then window are shifted vertically/horizontally
+            shifted to screen center.
+
+     After all coordinate are found, Window Structure is created.
+     Window, shadow coordinates and used screen area (including shadow)
+     are saved in it. Then this structure are added to Window List.
+     After it window, frame, title are shadow drawn in specified colors.
+
+ <B>Examples</B>
+
+     So here some examples of aLocation:
+
+     nil                 Ok, see above
+     {}                  Ok,  &lt;=&gt; nil
+     {,}                 Ok,  &lt;=&gt; nil
+     {10}                Error
+     {,10}               Error
+     {10,10}             Ok,  &lt;=&gt; {10, 10, J_TOP, J_LEFT}
+     {,10,J_CENTER}      Ok,  &lt;=&gt; {MaxRow()/2, 10, J_CENTER, J_LEFT}
+
+     Executing SetWindow (,,,{10,10}) will display window 10x10, wo\title,
+     in default colors, w\left-top corner at {0,0} and default frame:
+
+     ╔═════════════════════════════════╗
+     ║ ┌────────┐                      ║
+     ║ │        │▄                     ║
+     ║ │        │█                     ║
+     ║ └────────┘█                     ║
+     ║   ▀▀▀▀▀▀▀▀▀                     ║
+     ║                                 ║
+     ║                                 ║
+     ╚═════════════════════════════════╝
+
+     Executing same SetWindow (,,,{10,10}) second time:
+
+     ╔═════════════════════════════════╗
+     ║ ┌────────┐                      ║
+     ║ │  ┌─────┴─┐                    ║
+     ║ │  │       │█                   ║
+     ║ └──┤       │█                   ║
+     ║   ▀└───────┘█                   ║
+     ║      ▀▀▀▀▀▀▀▀                   ║
+     ║                                 ║
+     ╚═════════════════════════════════╝
+
+     Executing SetWindow ("title",,,{,,J_CETER,J_CENTER}) will display
+     window in screen center w\title:
+
+     ╔═════════════════════════════════╗
+     ║                                 ║
+     ║                                 ║
+     ║            ┌─title─┐            ║
+     ║            │       │▄           ║
+     ║            └───────┘█           ║
+     ║              ▀▀▀▀▀▀▀▀           ║
+     ║                                 ║
+     ╚═════════════════════════════════╝
+</PRE>
+<HR>
+<B>See Also:</B>
+<A HREF="ng86cb.html">Window System</A>
+<A HREF="nga8f1.html">UnSetWindow()</A>
+<A HREF="ng36c5.html">Color System</A>
+
+</BODY>
+</HTML>

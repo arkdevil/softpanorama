@@ -1,0 +1,219 @@
+<HTML>
+<HEAD><TITLE>MacSoft's DESQview aware I/O Library - Long Entry</TITLE></HEAD>
+<BODY>
+
+<A HREF="ng2e24.html">[&lt;&lt;Previous Entry]</A>
+<A HREF="ng223.html">[^^Up^^]</A>
+<A HREF="ng4a58.html">[Next Entry&gt;&gt;]</A>
+<A HREF="menu.html" >[Menu]</A>
+<A HREF="info.html">[About The Guide]</A>
+<HR>
+<PRE>
+
+   <B>int far menueng(int function,...);</B>
+
+   Menu engine has two functions - one for creating a menu and another
+ for sending 'messages' to menu engine. To create menu, engine must be
+ called like
+
+   menueng(ME_MAKE,&amp;menu);
+
+   where ME_MAKE is constant defined in MENUENG.H and 'menu' is structure
+ filled up with menu data.
+
+   Sending messages is quite tricky - the best time to send them is when
+ menu engine waits for keystroke or previous message has just been finished.
+ Anyway, to send a message, menu engine must be invoked like
+
+   menueng(ME_MESSAGE,&amp;message);
+
+ <B>Parameters:</B>
+
+ function   Function to perform
+ ...        Additional data
+
+ <B>Returns:</B>
+
+ IBM-style extended keystroke which terminated the function.
+
+ <B>Example:</B>
+
+ #include "window.h"
+ #include "menueng.h"
+ #include &lt;string.h&gt;
+ #include &lt;stdio.h&gt;
+ #include &lt;dos.h&gt;
+ #include &lt;stdlib.h&gt;
+
+ /*
+ ** This function writes a short help message to bottom line
+ */
+ void far helpout(ME_MENU *m)
+ {
+     _vputscp(0,_videocblk.rows-1,m-&gt;items[m-&gt;def-1].help,
+                 0x02,_videocblk.cols);
+ }
+
+ /*
+ ** This is our pull-down startup, let's just create a window.
+ */
+ int far startup(ME_MENU *m,int x1,int y1,int x2,int y2)
+ {
+     if (!makewnd(x1-1,y1-1,x2+1,y2+1,SINGLEFRAME,0x0202,80))
+         return 0;
+     return m-&gt;def;    /* nonzero, no warnings */
+ }
+
+ /*
+ ** This is for single menu cleanup, returns 0 on fatal error...
+ */
+ int far cleanup(ME_MENU *m)
+ {
+     if (!closewnd())
+         return 0;         /* failed... */
+     return m-&gt;def;        /* return nonzero and avoid warnings */
+ }
+
+ /*
+ ** This should never happen... except when we run out of memory.
+ ** Close all windows and leave with error...
+ */
+ void far errhand(ME_MENU *m,int i)
+ {
+     while(closewnd());
+     exit(m-&gt;def+i);
+ }
+
+ /*
+ ** This is menu keyboard input function. m-&gt;def is 1-based number of
+ ** currently selected menu item. It can be used to build context-sensitive
+ ** help system.
+ */
+ int far scankey(ME_MENU *m)
+ {
+     m-&gt;def+=0;  /* to avoid warnings... */
+     return waitkey();
+ }
+
+ /*
+ ** This is the 'application' function...
+ */
+ void far about(ME_MENU *m)
+ {
+ int i;
+     if (makewnd(18,8,60,16,FATFRAME,0x0f0b,80)) {
+         prtcwnd(1,"Menu engine demo",0x0b);
+         prtcwnd(3,"Using",0x0b);
+         prtcwnd(5,wndversio(),0x0b);
+         for (i=0;i&lt;100;i++) {
+             delay(50);
+             if (testkey()) {
+                 waitkey();
+                 break;
+             }
+         }
+         closewnd();
+     }
+     m-&gt;def+=0;
+ }
+
+ /*
+ ** White set will look good in all video modes...
+ */
+ ME_COLORS colors = {
+     7,
+     0xf,
+     0x70,
+     0x0f,
+     0x07,
+     0x07
+ };
+
+ /*
+ ** Define pull-down menu items...
+ */
+ ME_ITEMS img1 [] = {
+ /*
+ ** First is function call
+ */
+  {1, 2, 17,ME_IT_FUNC,1,0,0,"About...",about,"Show version and copyright information"},
+ /*
+ ** Another function call, but without function, does nothing
+ */
+  {1, 3, 17,ME_IT_FUNC,1,0,0,"Nothing",NULL,"Nothing here..."},
+ /*
+ ** This is 'normal' item. When this is selected menu engine will return
+ ** with keystroke used for selection. In our case 'G' or CR or ESC will
+ ** do...
+ */
+  {1, 4, 17,ME_IT_NORM,1,0,0,"Get out",NULL,"Back to main menu"},
+ };
+
+ /*
+ ** This defines the whole pulldown. We can move up and down, when we
+ ** move left or right menu engine returns.
+ */
+ ME_MENU menu1={ 3,1,ME_S_MOVE_UP|ME_S_MOVE_DN|ME_S_LTRT_QT,
+             &amp;colors,img1,helpout,startup,cleanup,errhand,scankey };
+
+ /*
+ ** Define main menu items
+ */
+ ME_ITEMS mainimg [] = {
+ /*
+ ** This item, when selected recursively call menu engine again
+ */
+  {0, 0, 3,ME_IT_DOOR,1,0,0,"ð",&amp;menu1,"Information and nothing more"},
+  {3, 0, 17,ME_IT_FUNC,1,0,0,"Straight about",about,"Shortcut to 'about'"},
+  {19, 0, 7,ME_IT_FUNC,1,0,0,"Empty",NULL,"Complete loneliness"},
+  {26, 0, 6,ME_IT_NORM,1,0,0,"Quit",NULL,"Let's finish this crap..."}
+ };
+ /*
+ ** Main menu has no frames, so we have to define separate setup function
+ ** for it. We don't need cleanup because main program closes all windows
+ ** before exiting...
+ */
+ int far mainstart(ME_MENU *m,int x1,int y1,int x2,int y2)
+ {
+     makewnd(0,0,_videocblk.cols-1,_videocblk.rows-1,"   ²²²   ",0x0707,80);
+     x1=x1+x2+y1+y2;
+     return m-&gt;def;
+ }
+ /*
+ ** In mein menu we can move left and right and down arrow does the same
+ ** as CR.
+ */
+ ME_MENU mainmenu={4,1,ME_S_MOVE_LT|ME_S_MOVE_RT|ME_S_DNEQUCR,
+             &amp;colors,mainimg,helpout,mainstart,NULL,errhand,scankey};
+
+ /*
+ ** This message will select first item in first pulldown (we have default
+ ** set to 1 in maimenu).
+ */
+ int msgdata [] = {
+     ME_MOVE_DN_KEY,
+     ME_CR_KEY,
+     0
+ };
+
+ /*
+ ** Message index is 0, data is set up and we don't need terminate
+ ** function. We could specify one if we have dynamically built message
+ ** which holds memory block which must be freed. Terminate function
+ ** is called when message ends and this is another safe place to send
+ ** new message.
+ */
+ ME_MSG message={ 0, msgdata , NULL};
+
+ void main(void)
+ {
+     _videoparm(); /* we want to know screen size before any low-level... */
+     cursoroff();
+     menueng(ME_MESSAGE,&amp;message);      /* send the message */
+     menueng(ME_MAKE,&amp;mainmenu);        /* and do the job */
+     while (closewnd());                /* close all (1 for us) windows */
+ }
+</PRE>
+
+</BODY>
+</HTML>

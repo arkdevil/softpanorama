@@ -1,0 +1,887 @@
+From: Peter_Gutmann@kcbbs.gen.nz (Peter Gutmann)
+Newsgroups: comp.compression
+Subject: A (quick?) intro.to data compression (LONG)
+Message-ID: <1991Apr16.081818.8257@kcbbs.gen.nz>
+Date: 16 Apr 91 08:18:18 GMT
+Lines: 878
+Organisation: Kappa Crucis Unix BBS, Auckland, New ZealandA
+
+
+  I threw together the following introduction to data compression about a 
+year ago.  I thought someone out there might find it useful (it explains some 
+of the theory behind data compression, as well as some of the jargon, and 
+gives a brief intro.to some of the more common techniques).  Some of the 
+material is now a bit dated, and the notation used to indicate things like 
+use of italics and special fonts is...err...original (I eventually redid this 
+with proper fonts, diagrams, etc, but can't post the result since its not 
+ASCII text any more).  There's quite a bit of information theory stuff at the
+beginning (you might call it a load of IT:-) which may be a bit tedious too...
+anyway, here it is: hope someone finds it useful.
+
+                     An Introduction to Data Compression
+                     -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+                            Peter Gutmann, 1990
+
+Basics of Information Theory 
+----------------------------
+
+<Quantity of information>
+
+  A message can be described in terms of how much information it contains. 
+For example, the message "The sun rose this morning" contains very little 
+information, whereas the message "Your house just burned down" contains a 
+much larger quantity of information.  The amount of information conveyed in 
+an event (in this case a message) depends on the probability of that event.  
+If someone is told something he already knows (so that the probability before 
+being told it was already unity), then the probability afterwards remains at 
+unity.  On the other hand, if someone is told something that is relatively 
+improbable, its probability changes from a small value beforehand to unity 
+afterwards.  A satisfactory definition of quantity of information must thus 
+involve the probability of an event.
+  Lets consider a specific example, in which someone is communicating to 
+someone else the position of an object in a square divided into four parts:
+
+                          1   2
+                        +---+---+
+                      1 | A | B |
+                        +---+---+
+                      2 | C | D |
+                        +---+---+
+
+  The person giving the position could communicate the information in two 
+ways.  They could either give the letter corresponding to the square, or they
+could give the position in a row,column format.  In the first case the 
+probability before the event is 1/4, and unity afterwards.  In the latter 
+case, the probability is 1/2 before the event and unity afterwards for the 
+row, and similarly for the column.  Obviously both methods impart the same 
+information: The sum of the information regarding the row and column must 
+equal that regarding the whole square.  Thus we can see that information is 
+summed while the probabilities are multiplied (1/2 * 1/2 = 1/4), which leads 
+us to the definition of quantity of information involving a logarithm of the 
+probability:
+
+  Quantity of information I = -log( p )
+    
+(the minus sign is used to make I positive, since p < 1).  Now in a binary 
+system we take logs to base 2, so if we have a source producing 0's and 1's 
+with equal probability (ie p( 0 ) = p( 1 ) = 1/2) then the information per 
+digit is log2( 2 ) = 1 bit.  A few further examples of probabilities are:
+
+  - Letters of the alphabet.  If these are assumed to be equiprobable, then
+    the probability of a letter is 1/26, giving I = log( 26 ) = 
+    4.7 bits/letter.
+      
+  - Numerals.  Again assuming all digits are equiprobable, we get I = 
+    log( 10 ) = 3.32 bits/digit.
+  
+  - An already-known event.  I = log( 1 ) = 0.
+
+<Entropy>
+
+  In practice we will be more interested in the average information conveyed 
+in an entire message than in the specific information in just one event.  
+This information is called the *entropy*, and for a set of symbols S1, S2, 
+S3, .... Sn with probabilities p( S1 ), p( S2 ), p( S3 ), ... p( Sn )) is 
+given by:
+
+                 n
+  Entropy H = -sigma p( S sub i) * log( p( S sub i ) )
+                i=1
+          
+  In the case of letters of the alphabet we can now make a more accurate 
+estimate of their probability as:
+
+  H = -( p( A ) * log( p( A ) ) + p( B ) * log( p( B ) ) + ...
+                                             ... + p( Z ) * log( p( Z ) )
+
+    = 4.05 bits (approximately) using standard values for p( A ) ... p( Z ).
+   
+<Redundancy>
+
+    A concept related to entropy is that of *redundancy*.  Redundancy is the 
+presence of more symbols in a message than is necessary.  For example in a 
+system with two symbols X and Y, we could code X as [000], and Y as [111] 
+(instead of the more obvious X = [0], Y = [1]).  This gives us some 
+protection against errors, since an error of one bit in three could be 
+tolerated (assuming that a majority is used for decoding at the receiver).  
+This leads to a definition of redundancy as:
+
+               maximum entropy - actual entropy
+  Redundancy = --------------------------------
+                      maximum entropy
+                        
+So in the above example the redundancy would be ( 3 - 1 ) / 3 = 0.66, since 
+three digits could carry three bits, but actually carry only one.  Spoken 
+languages usually have a quite high level of redundancy, allowing them to be 
+understood in the presence of noise or errors.  For example, most people will 
+be able to understand the phrase "d*ta c*mpr*ssio*" even though some of the 
+letters are missing.  The redundancy of English will be explored more fully a 
+little further on.
+
+<Probability Theory>
+
+  When we speak of the probability of an event (such as the probability of 
+the letter 'A' in English text), we actually mean the relative number of 
+occurrences of 'A' in a long sample of text, ie:
+
+                number of occurrences of A
+  p( A ) = -----------------------------------
+           total number of letters in the text
+
+Strictly speaking, p( A ) is the limit of this ratio as the number of letters 
+in the sample tends to infinity.  This we can see that the probability of 
+occurrence of any letter S will be given by:
+
+                        no of occurrences of Si   
+  p( Si ) =    lim      -----------------------
+           N->infinity             N
+    
+Unfortunately, many events in the real world are not completely independant, 
+but depend on other events.  For example, in English the chance of an H 
+following a T is quite high, whereas that of a T following an H is rather 
+low. When we have sequences of letters such as in English, the probabilities 
+of letters are strongly governed by those of the preceding letter or letters. 
+This is known as *intersymbol influence*; in English it may stretch over many 
+letters, words, or even entire sentences.  For example we may have a source 
+in which intersymbol influence extends over pairs of adjacent letters.  Such 
+a source is often referred to as a *first-order Markov source*, since we are 
+using a memory of one symbol (the symbol immediately preceding current one). 
+The simple model of discrete probabilites is often referred to as a 
+*memoryless* or *zero-order Markov source*.  When we remember two symbols 
+preceding the current one we say we have a *second-order Markov source*, and 
+so on.  In our example with a first-order Markov source, suppose we have two 
+symbols x and y.  Now the information obtained when y is received is 
+-log( p( y | x ) ), or minus the logarithm of the probability of receiving y 
+given that x has already been received.  In order to find the average 
+information over all letters we simply have to average over all possible 
+pairs of letters x, y.  The result is known as the *conditional entropy 
+H( y | x )* of the sequence, and represents the information per letter in 
+such a sequence:
+
+  H( y | x ) = -sigma sigma p( x, y ) * log( p( y | x ) )
+                  i     j
+                    
+  Extending this idea to a second-order model, so that we have conditional 
+probabilities of the form p( z | xy ), the formula becomes:
+
+  H( z | xy ) = -sigma sigma sigma p( x, y, z ) * log( p( z | xy ) )
+    
+and so on.  From this we can evaluate the following probabilities for English 
+(26 letters plus space):
+
+  For a zero-order Markov source with equiprobable symbols, we have an
+  entropy of 4.75 bits/letter.
+
+  For a zero-order Markov source with standard probabilities for letters in
+  English, we have an entropy of 4.05 bits/letter.
+    
+  For a first-order Markov source, or digraphs, we have an entropy of 3.32
+  bits/letter.
+    
+  For a second-order Markov source, or trigraphs, we have an entropy of 
+  3.10 bits/letter.
+
+<Redundancy in English>
+
+  The ideas presented above can be extended to arbitrarily complex Markov 
+models.  For example, assume that we have received the letters "INFORMATIO". 
+Then the probability of the next letter being an 'N' is almost unity (we 
+could always have an error somewhere which changed it to some other letter).  
+In 1949, Shannon and Weaver studied the redundancy in printed English by 
+constructing closer and closer approximations to real text.  They started out 
+with the models already presented above, arriving at the figure of 3.10 
+bits/letter when they considered conditional probabilties over three symbols 
+(in other words a second-order Markov source).  Further approximations 
+involved using the correct probabilities for complete words (giving an 
+entropy of around 2.1 bits/letter) and allowing for conditional probabilities 
+between words. Finally, in order to estimate the information in complete 
+English text, "volunteers" (probably grad students) were shown samples of 
+text and asked to predict the next letters.  In this manner it was shown that 
+information varies somewhere between 0.6 and 1.3 bits/letter depending on the 
+type of text.
+  From this we can see that the storage of text in computers is very 
+inefficient.  Text is usually stored in ASCII or EBCDIC form, in which each 
+letter is stored in an 8-bit byte, resulting in a storage requirement of 
+nearly 8 times what is really necessary.
+
+Statistical Compression
+-----------------------
+
+  Although typesetters for centuries have taken advantage of the fact that 
+some letters are used more frequently than others in stocking type, it was 
+Samuel Morse who first applied the properties of frequency analysis to 
+communications.  When Morse decided to use an alphabetical system of signals 
+for his newly invented telegraph, he consulted a Philadelphia newspapers 
+typecase.  Morse desired to assign the shorter dot-and-dash symbols used for 
+telegraph transmission to the more commonly used letters of the alphabet, 
+while longer dot-and-dash symbols would be used for less frequently used 
+characters.  In counting type in each letter bin, he found 12,000 e's, 9000 
+t's, 8000 each of a, o, m, i, and s, 6400 h's, and so on.  With few 
+exceptions, Morse followed this list in developing his teletype code, 
+assigning the shortest symbol, a dot, to the letter e, which was the most 
+common letter encountered, another short symbol, a dash, to the letter t, 
+and so on, assigning gradually longer codes to less frequently used letters.  
+In this way, he came up with a code in which transmission of an English 
+message consisting of 100 letters requires the transmission time of around 
+940 units, where the transmissionof a dot equals one unit, a dash equals 
+three units, and a space equals one or three units depending on whether it is 
+between letters or words. If the symbols had been assigned at random, the 
+same message would require the transmission time of approximately 1160 units, 
+an increase of about 23%.  This encoding technique represents the earliest 
+applications of statistical compression for data transmission.
+    We can apply Morse's ideas to the design of a code for transmitting 
+information in the following manner.  Say we have the following codes:
+    
+       Code No.   Symbol 1    Symbol 2    Symbol 3    Symbol 4
+          1          00          01          10          11
+          2           0          10         110        1110
+          3           0          10         110         111
+          
+  Code 1 is the simplest of the four, with each symbol being allotted an 
+equal length code.  Code 2 is a variable-length code which is known as a 
+*comma code*, since the digit '0' is being used as a "comma" or seperator 
+between code words.  Code 3 is another variable-length code with the 
+important property of being an *instantaneous* code, that is, as soon as the 
+code for a complete code word has been received we can immediately decode 
+that codeword.  Consider a code in which two symbols X and Y are encoded as 
+[0] and [01].  Assume we receive the message "001".  When we receive the 
+first bit, 0, we can't be sure if this represents X or Y until we look ahead 
+to the next bit, which is 0. Again, we can't be sure whether this is the 
+message "XX" or "X" followed by the first half of Y.  Only when we receive 
+the next bit, 1, can we be sure that we are in fact looking at the message 
+"XY".  Code 3 does not suffer from this problem, since no codeword can be a 
+prefix of another codeword.
+  Now consider a source with symbol probabilities of 0.5, 0.25, 0.125, and 
+0.125 for symbols 1-4 respectively.  With the simple fixed-length code, Code 
+1, the transmission of 10 letter requires 20 bits.  Using Code 3, the length 
+of the message would be:
+
+    10 * ( ( 0.5 * 1 ) + ( 0.25 * 2 ) + ( 0.125 * 3 ) + ( 0.125 * 3 ) )
+    
+    = 17.5 bits, an improvement of 12.5% over the simpler fixed-length code.
+
+  The average length L of a code is an important parameter in determining the 
+efficiency of a system.  If we encode a source of i symbols with probability 
+p sub i into codewords of length curly l sub i, we have the average length of 
+the code as:
+
+  L = sigma p sub i * curly l sub i
+        i
+
+  The efficiency of a code E is defined as:
+    
+      H
+  E = -
+      L
+        
+and is always <= 1 (corresponding to H( S ) <= L ).  In general, H( S ) < L, 
+since L must be an integral unit (ie 1, 2, 3..., not 2.82348). Using the 
+above code, we can calculate its efficiency as:
+
+  L = sigma p sub i * curly l sub i
+        i
+          
+    = ( ( 1 * 0.5 ) + ( 2 * 0.25 ) + ( 3 * 0.125 ) + ( 3 * 0.125 ) )
+     
+    = 1.75 bits/symbol
+      
+  Now if we calculate the entropy, we get:
+    
+  H = -sigma p( S sub i ) * log( p( S sub i ) )
+         i
+          
+    = -( ( 0.5 * log( 0.5 ) ) + ( 0.25 * log( 0.25 ) ) + 
+         ( 0.125 * log( 0.125 ) + ( 0.125 * log( 0.125 ) )
+           
+    = 1.75 bits/symbol
+      
+  In this case we have H( S ) = L.  This is in fact a rather special case 
+where all symbol probabilities are integral powers of 1/2 (ie p( S sub i ) = 
+( 1/2 ) ^ n).  This result does not occur if symbol probabilities are not 
+powers of 2, a fact which becomes important in the discussion of Huffman and 
+Shannon-Fano codes below.
+
+Huffman and Related Compression Techniques
+------------------------------------------
+
+  *Huffman compression* is a statistical data compression technique which 
+gives a reduction in the average code length used to represent the symbols of 
+a alphabet.  The Huffman code is an example of a code which is optimal in the 
+case where all symbols probabilities are integral powers of 1/2.  A Huffman 
+code can be built in the following manner:
+
+  [1] Rank all symbols in order of probability of occurrence.
+    
+  [2] Successively combine the two symbols of the lowest probability to form
+      a new composite symbol; eventually we will build a tree where each node
+      is the probability of all nodes beneath it.
+        
+  [3] Trace a path to each leaf, noticing the direction at each node.
+    
+  For example, using the symbols and probabilities given above,  we would 
+proceed as follows:
+
+Step 1:
+
+  S sub 1 [0.5]
+    
+  S sub 2 [0.25]
+    
+  S sub 3 [0.125]
+    
+  S sub 4 [0.125]
+    
+Step 2a:
+
+  S sub 1 [0.5]
+    
+  S sub 2 [0.25]
+    
+  S sub 3 [0.125] -+- [0.25]
+                   |
+  S sub 4 [0.125] -+
+
+Step 2b:
+
+  S sub 1 [0.5]
+    
+  S sub 2 [0.25] -------------+- [0.5]
+                              |
+  S sub 3 [0.125] -+- [0.25] -+
+                   |
+  S sub 4 [0.125] -+
+
+Step 2c:
+
+  S sub 1 [0.5] ------------------------+- [1.0]
+                                        |  
+  S sub 2 [0.25] -------------+- [0.5] -+
+                              |
+  S sub 3 [0.125] -+- [0.25] -+
+                   |
+  S sub 4 [0.125] -+
+
+Step 3:
+                                  (0)
+  S sub 1 [0.5] ------------------------+- [1.0]
+                        (0)       (1)   |  
+  S sub 2 [0.25] -------------+- [0.5] -+
+             (0)        (1)   |
+  S sub 3 [0.125] -+- [0.25] -+
+             (1)   |
+  S sub 4 [0.125] -+
+
+  Thus we get the following codes:
+    
+  S sub 1 = 0
+  S sub 2 = 10
+  S sub 3 = 110
+  S sub 4 = 111
+    
+  which have already been discussed above.
+    
+  Huffman codes can be easily constructed with the aid of a computer.  The 
+algorithm assumes that initially we have a forest of trees where each tree 
+corresponds to an individual source symbol, and then proceeds as follows:
+
+  while( there is more than one tree in the forest )
+      {
+      /* Find the two symbols with the lowest probability */
+      i = the tree with the smallest weight;
+      j = the tree with the next smallest weight;
+        
+      /* Combine them into a new composite symbol */
+      create a new node with left child i and right child j;
+      replace tree i with this new tree, with the tree's weight being
+          the weight of i plus j;
+      delete j from the forest;
+      }
+        
+  As we merge the two lowest-weight trees into a single new tree we slowly 
+decrease the size of the forest until finally we have reduced the entire 
+forest to one tree, which represents the Huffman tree for that set of symbols.
+
+                                    --
+                                    
+  A technique related to Huffman coding is *Shannon-Fano coding*, which was 
+suggested by Shannon and Weaver in 1949 and modified by Fano in 1961.  It 
+works as follows:
+
+  [1] Rank all symbols in order of probability of occurrence.
+    
+  [2] Successively divide the set of symbols into two equal or almost equal
+      subsets based on the probability of occurrence of characters in each 
+      subset.  The first symbol in one subset is assigned a binary zero, the
+      second a binary one.
+    
+  For example, again using the symbols and probabilities given above,  we 
+would proceed as follows:
+
+Step 1:
+
+  S sub 1 [0.5]
+   
+  S sub 2 [0.25]
+  
+  S sub 3 [0.125]
+   
+  S sub 4 [0.125]
+    
+Step 2a:
+                       (0)
+  S sub 1 [0.5]   --- [0.50] -+- [1.00]
+                       (1)    |     
+  S sub 2 [0.25]  -+- [0.50] -+        
+                   |             
+  S sub 3 [0.125] -+  
+                   |
+  S sub 4 [0.125] -+
+
+Step 2b:
+                                  (0)
+  S sub 1 [0.5]   -------------- [0.50] -+- [1.00] 
+                       (0)        (1)    |
+  S sub 2 [0.25]  --- [0.25] -+- [0.50] -+        
+                       (1)    |      
+  S sub 3 [0.125] -+- [0.25] -+ 
+                   |
+  S sub 4 [0.125] -+
+
+Step 2c:
+                                  (0)
+  S sub 1 [0.5]   -------------- [0.50] -+- [1.00] 
+                       (0)        (1)    |
+  S sub 2 [0.25]  --- [0.25] -+- [0.50] -+        
+            (0)        (1)    |      
+  S sub 3 [0.125] -+- [0.25] -+ 
+            (1)    |
+  S sub 4 [0.125] -+
+
+  Thus we get the following codes:
+    
+  S sub 1 = 0
+  S sub 2 = 10
+  S sub 3 = 110
+  S sub 4 = 111
+    
+  These codes are in this case identical to the Huffman codes - the only 
+difference is that tha algorithm used to create the Huffman codes is 
+bottom-up, and the one for the Shannon-Fano codes is top-down.  In practice 
+Shannon-Fano codes are usually of similar lengths to Huffman codes.  However, 
+if the probabilities of occurrence of the symbols have a wide variance, the 
+Shannon-Fano code will be more efficient, while the Huffman code will be more 
+efficient as the difference in symbol probabilities decreases.  One problem 
+that Shannon-Fano codes have is that they are not uniquely defined - if the 
+cut point for the set of symbols is on an interval, you can cut above or 
+below that point.  However Shannon-Fano coding does have the advantage that 
+it is a bit more tractable mathematically than Huffman coding, making 
+mathematical analysis easier.  Both Huffman and Shannon-Fano codes are 
+instantaneous codes.
+    
+Optimal Coding:
+---------------
+
+  It would appear from the above results that Huffman or Shannon-Fano coding 
+is the perfect means of compressing data.  However, this is *not* the case.  
+As mentioned above, these coding methods are optimal when and only when the 
+symbol probabilities are integral powers of 1/2, which is usually not the 
+case. Consider the following simple example:  Suppose we have a source 
+producing symbols X and Y of probability 0.66 and 0.33 respectively.  Then 
+the Huffman/Shannon-Fano code for these symbols would be:
+
+      (0)
+  X [0.66] -+- [1.0]
+      (1)   |  
+  Y [0.33] -+
+    
+  resulting in a code of X = [0], Y = [1], with average length:
+    
+  L = ( 1 * 0.33 ) + ( 1 * 0.66 )
+    
+    = 1.0
+      
+  and entropy:
+    
+  H = -( ( 0.33 * log( 0.33 ) ) + ( 0.66 * log( 0.66 ) ) )
+    
+    = 0.92
+      
+  giving an efficiency of:
+    
+      0.92
+  E = ----
+      1.00
+        
+  or 92%.
+
+  There is, however, a way to improve the coding efficiency of Huffman and 
+Shannon-Fano encoding.  This can be done by means of *alphabet extensions*, 
+that is, by extending the source alphabet to include groups of symbols 
+instead of just individual symbols.  Say we have an alphabet of two symbols, 
+X and Y. Now if we extend this to a first-order model to get { XX, XY, YX, 
+YY } and build the Huffman tree for this alphabet we find that there is an 
+increase in coding efficiency.  This effect continues as we keep extending 
+the alphabet in this manner (there are exceptions to this rule - we can 
+actually get a negative increase during an extension from n to n + 1, but the 
+lower bound will still be the entropy of the data), for example for the above 
+alphabet with symbol probabilities of .25 and .75 we get the following results:
+
+    H( S sub 1 ) =  .811, L sub 1 = 1.000, n sub 1 = .811
+    H( S sub 2 ) = 1.623, L sub 2 = 1.688, n sub 2 = .962
+    H( S sub 3 ) = 2.434, L sub 3 = 2.469, n sub 3 = .986
+    H( S sub 4 ) = 3.245, L sub 4 = 3.273, n sub 4 = .991
+    H( S sub 5 ) = 4.056, L sub 5 = 4.089, n sub 4 = .992
+    
+As the extension tends towards infinity, the efficiency approaches 1.000. 
+However for practical reasons this approach is impossible - most computers 
+would run out of memory long before they got to the third or fourth 
+extensions. And yet there *is* a way in which this type of encoding can be 
+achieved: through a technique called *arithmetic coding*.
+
+Arithmetic Coding:
+------------------
+
+    As already discussed above, Huffman coding is not optimal.  This is due 
+to the fact that it is not used to encode single, complete messages, but only 
+individual bytes or n-byte blocks, and while each byte (or block of bytes) is 
+encoded with minimum redundancy into an integral number of bits, the sequence 
+of bytes is not.  However, the technique of *arithmetic coding* does not have 
+this restriction: It achieves the same effect as treating the message as one 
+single unit (a technique which would, for Huffman coding, require enumeration 
+of every single possible message), and thus attains the theoretical entropy 
+bound to compression efficiency for any source.
+  Arithmetic coding works by representing a number by an interval of real 
+numbers between 0 and 1.  As the message becomes longer, the interval needed 
+to represent it becomes smaller and smaller, and the number of bits needed to 
+specify that interval increases.  Successive symbols in the message reduce 
+this interval in accordance with the probability of that symbol.  The more 
+likely symbols reduce the range by less, and thus add fewer bits to the 
+message.
+
+     1                                             Codewords
+    +-----------+-----------+-----------+           /-----\
+    |           |8/9 XX     |  Detail   |<- 31/32    11111
+    |           +-----------+-----------+<- 15/16     1111
+    |    X      |           | too small |<- 14/16     1110
+    |2/3        |    XY     | for text  |<- 6/8        110
+    +-----------+-----------+-----------+
+    |           |           |16/27 YXX  |<- 10/16     1010
+    |           |           +-----------+
+    |           |    YX     |           |
+    |           |           |   YXY     |<- 4/8        100
+    |           |4/9        |           |
+    |           +-----------+-----------+
+    |           |           |           |
+    |    Y      |           |   YYX     |<- 3/8        011
+    |           |           |8/27       |
+    |           |           +-----------+
+    |           |    YY     |           |
+    |           |           |           |<- 1/4         01
+    |           |           |   YYY     |
+    |           |           |           |
+    |0          |           |           |
+    +-----------+-----------+-----------+
+    
+  As an example of arithmetic coding, lets consider the previous example of
+two symbols X and Y, of probabilities 0.66 and 0.33, for which the
+Huffman/Shannon-Fano code efficiency was 92%.  To encode this message, we
+examine the first symbol:  If it is a X, we choose the lower partition; if it
+is a Y, we choose the upper partition.  Continuing in this manner for three
+symbols, we get the codewords shown to the right of the diagram above - they can be
+found by simply taking an appropriate location in the interval for that
+particular set of symbols and turning it into a binary fraction.  From these
+codewords we can calculate the average codeword length as:
+
+  L = ( 0.062 * 5 ) + ( 0.296 * 4 ) + ( 0.296 * 4 ) + ( 0.296 * 4 ) +
+      ( 0.444 * 3 ) + ( 0.296 * 4 ) + ( 0.444 * 3 ) + ( 0.444 * 3 ) +
+      ( 0.593 * 2 )
+
+    = 2.88 bits for 3 symbols
+
+    = 0.96 bits/symbol
+
+giving an efficiency of:
+
+      0.92
+  E = ----
+      0.96
+
+    = 96%
+        
+  In this case the arithmetic code is not completely efficient, which is due 
+to the shortness of the message - with longer messages the coding efficiency 
+does indeed approach 100%.
+
+  Now that we have an efficient encoding technique, what can we do with it? 
+What we need is a technique for building a model of the data which we can 
+then use with the encoder.  The simplest model is a fixed one, for example a 
+table of standard letter frequencies for English text which we can then use 
+to get letter probabilities.  An improvement on this technique is to use an 
+*adaptive model*, in other words a model which adjusts itself to the data 
+which is being compressed as the data is compressed.  We can convert the 
+fixed model into an adaptive one by adjusting the symbol frequencies after 
+each new symbol is encoded, allowing the model to track the data being 
+transmitted.  However, we can do much better than that.  Recall from the 
+section on information theory that using the symbol probabilities by 
+themselves is not a particularly good estimate of the true entropy of the 
+data:  We can take into account intersymbol probabilities as well.  The best 
+compressors available today take this approach:  DMC (Dynamic Markov Coding) 
+starts with a zero-order Markov model and gradually extends this initial 
+model as compression progresses; PPM (Prediction by Partial Matching) looks 
+for a match of the text to be compressed in an order-n context.  If no match 
+is found, it drops to an order n-1 context, until it reaches order 0.  Both 
+these techniques thus obtain a much better model of the data to be 
+compressed, which, combined with the use of arithmetic coding, results in 
+superior compression performance.
+    
+  So if arithmetic coding-based compressors are so powerful, why are they not 
+used universally?  Apart from the fact that they are relatively new and 
+haven't come into general use too much yet, there is also one major concern:  
+The fact that they consume rather large amounts of computing resources, both 
+in terms of CPU power and memory.  The building of sophisticated models for 
+the compression can chew through a fair amount of memory (especially in the 
+case of DMC, where the model can grow without bounds); and the arithmetic 
+coding itself involves a fair amount of number crunching.  Most 
+"bread-and-butter" PC's simply don't have the memory (640K - 1MB) or CPU 
+power (8-10 MHz 68000's or 80286's) to run a powerful arithmetic compressor.  
+There is however an alternative approach, a class of compressors generally 
+referred to as *substitutional* or *dictionary-based compressors*.
+
+Substitutional Compressors
+--------------------------
+
+  The basic idea behind a substitutional compressor is to replace an 
+occurrence of a particular phrase or group of bytes in a piece of data with a 
+reference to a previous occurrence of that phrase.  There are two main 
+classes of schemes, named after Jakob Ziv and Abraham Lempel, who first 
+proposed them in 1977 and 1978.
+
+<The LZ78 family of compressors>
+
+  LZ78-based schemes work by entering phrases into a *dictionary* and then, 
+when a repeat occurrence of that particular phrase is found, outputting the 
+dictionary index instead of the phrase.  There exist several compression 
+algorithms based on this principle, differing mainly in the manner in which 
+they manage the dictionary.  The most well-known scheme (in fact the most 
+well-known of all the Lempel-Ziv compressors, the one which is generally (and 
+mistakenly) referred to as "Lempel-Ziv Compression"), is Terry Welch's LZW 
+scheme, which he designed in 1984 for implementation in hardware for high- 
+performance disk controllers.
+
+Input string: /WED/WE/WEE/WEB
+
+Character input:    Code output:    New code value and associated string:
+    /W                  /                   256 = /W
+    E                   W                   257 = WE
+    D                   E                   258 = ED
+    /                   D                   259 = D/
+    WE                  256                 260 = /WE
+    /                   E                   261 = E/
+    WEE                 260                 262 = /WEE
+    /W                  261                 263 = E/W
+    EB                  257                 264 = WEB
+    <END>               B
+    
+  LZW starts with a 4K dictionary, of which entries 0-255 refer to individual 
+bytes, and entries 256-4095 refer to substrings.  Each time a new code is 
+generated it means a new string has been parsed.  New strings are generated 
+by appending the current character K to the end of an existing string w.  The 
+algorithm for LZW compression is as follows:
+
+  set w = NIL
+  loop
+      read a character K
+      if wK exists is in the dictionary
+          w = wK
+      else
+          output the code for w
+          add wK to the string table
+          w = K
+  endloop
+
+  A sample run of LZW over a (highly redundant) input string can be seen in 
+the diagram above.  The strings are built up character-by-character starting 
+with a code value of 256.  LZW decompression takes the stream of codes and 
+uses it to exactly recreate the original input data.  Just like the 
+compression algorithm, the decompressor adds a new string to the dictionary 
+each time it reads in a new code.  All it needs to do in addition is to 
+translate each incoming code into a string and send it to the output.  A 
+sample run of the LZW decompressor is shown in below.
+
+Input code: /WED<256>E<260><261><257>B
+
+Input code:        Output string:     New code value and associated string:
+    /                  /            
+    W                  W                      256 = /W
+    E                  E                      257 = WE
+    D                  D                      258 = ED
+    256                /W                     259 = D/
+    E                  E                      260 = /WE
+    260                /WE                    261 = E/
+    261                E/                     262 = /WEE
+    257                WE                     263 = E/W
+    B                  B                      264 = WEB
+           
+  The most remarkable feature of this type of compression is that the entire 
+dictionary has been transmitted to the decoder without actually explicitly 
+transmitting the dictionary.  At the end of the run, the decoder will have a 
+dictionary identical to the one the encoder has, built up entirely as part of 
+the decoding process.
+    LZW is more commonly encountered today in a variant known as LZC, after 
+its use in the UNIX "compress" program.  In this variant, pointers do not 
+have a fixed length.  Rather, they start with a length of 9 bits, and then 
+slowly grow to their maximum possible length once all the pointers of a 
+particular size have been used up.  Furthermore, the dictionary is not frozen 
+once it is full as for LZW - the program continually monitors compression 
+performance, and once this starts decreasing the entire dictionary is 
+discarded and rebuilt from scratch.  More recent schemes use some sort of 
+least-recently-used algorithm to discard little-used phrases once the 
+dictionary becomes full rather than throwing away the entire dictionary.  
+Finally, not all schemes build up the dictionary by adding a single new 
+character to the end of the current phrase. An alternative technique is to 
+concatenate the previous two phrases (LZMW), which results in a faster 
+buildup of longer phrases than the character-by-character buildup of the 
+other methods.  The disadvantage of this method is that a more sophisticated 
+data structure is needed to handle the dictionary.
+
+<The LZ77 family of compressors>
+
+  LZ77-based schemes keep track of the last n bytes of data seen, and when a 
+phrase is encountered that has already been seen, they output a pair of 
+values corresponding to the position of the phrase in the previously-seen 
+buffer of data, and the length of the phrase.  In effect the compressor moves 
+a fixed-size *window* over the data (generally referred to as a *sliding 
+window*), with the position part of the (position, length) pair referring to 
+the position of the phrase within the window.  The most commonly used 
+algorithms are derived from the LZSS scheme described by James Storer and 
+Thomas Szymanski in 1982.  In this the compressor maintains a window of size 
+N bytes and a *lookahead buffer* the contents of which it tries to find a 
+match for in the window:
+
+  while( lookAheadBuffer not empty )
+      {
+      get a pointer ( position, match ) to the longest match in the window
+          for the lookahead buffer;
+
+      if( length > MINIMUM_MATCH_LENGTH )
+          {
+          output a ( position, length ) pair;
+          shift the window length characters along;
+          }
+      else
+          {
+          output the first character in the lookahead buffer;
+          shift the window 1 character along;
+          }
+      }
+        
+  Decompression is simple and fast:  Whenever a ( position, length ) pair is 
+encountered, go to that ( position ) in the window and copy ( length ) bytes 
+to the output.
+  Sliding-window-based schemes can be simplified by numbering the input text 
+characters mod N, in effect creating a circular buffer.  The sliding window 
+approach automatically creates the LRU effect which must be done explicitly 
+in LZ78 schemes.  Variants of this method apply additional compression to the 
+output of the LZSS compressor, which include a simple variable-length code 
+(LZB), dynamic Huffman coding (LZH), and Shannon-Fano coding (ZIP), all of 
+which result in a certain degree of improvement over the basic scheme, 
+especially when the data are rather random and the LZSS compressor has little 
+effect.
+  Recently an algorithm was developed which combines the ideas behind LZ77 
+and LZ78 to produce a hybrid called LZFG.  LZFG uses the standard sliding 
+window, but stores the data in a modified trie data structure and produces as 
+output the position of the text in the trie.  Since LZFG only inserts 
+complete *phrases* into the dictionary, it runs considerably faster than any 
+other LZ77-based compressors.  This technique achieves the best compression 
+of any Ziv-Lempel type compressor, and has one of the best runtimes.
+
+Compression Performance
+-----------------------
+
+  The following representative sample of compressors were tested on a suite 
+of test data which ranged from straight ASCII text, through program source 
+code, graphics data, to object code and a file of seismic data.  The 
+compressors evaluated were:
+
+  The following schemes can be classed as "generic" schemes used as 
+representatives of a particular type of compression (these values are taken
+from "Text Compression").
+
+  Huffman coding [HUFF]:  Vitter's adaptive Huffman coding scheme, as used
+                          in the UNIX "compact" program.
+
+  LZW compression [LZW]: The LZ78 family representative.
+    
+  LZSS compression [LZSS]: The LZ77 family representative.
+    
+  LZFG compression [LZFG]: A LZ77/LZ78 hybrid.
+    
+  PPMC compression [PPMC]: The current state of the art in compression 
+                           performance, outlined in the section on
+                           arithmetic coding.
+
+  The following schemes are examples of practical implementations in everyday 
+use:
+
+  Modified LZW [LZC]: As first used in the UNIX "compress" program, also used
+                      in the ARC, ZOO, and Stuffit archivers (results are for
+                      Compress 4.0).
+                        
+  Imploding [PKZIP]: The "Imploding" scheme used by the PKZIP archiver 
+                     (Version 1.10).
+    
+  Freezing [LHARC]: The LZSS/adaptive Huffman coding combination used by the
+                    LHARC archiver (Version 1.13).
+    
+  The compression performances were as follows (all results are in 
+bits/byte):
+
+       Size      HUFF    LZW   LZSS   LZFG   PPMC    LZC   PKZIP  LHARC 
+---------------+------+------+------+------+------+------+------+------+
+Bib  : 111,261 | 5.24 | 3.84 | 3.35 | 2.90 | 2.11 | 3.89 | 2.97 | 3.34 |
+Book1: 768,771 | 4.56 | 4.03 | 4.08 | 3.62 | 2.48 | 4.06 | 3.65 | 3.85 |
+Book2: 610,856 | 4.83 | 4.52 | 3.41 | 3.05 | 2.26 | 4.25 | 3.04 | 3.31 |
+Geo  : 102,400 | 5.70 | 6.15 | 6.43 | 5.70 | 4.78 | 6.10 | 5.95 | 5.53 |
+News : 377,109 | 5.23 | 4.92 | 3.79 | 3.44 | 2.65 | 4.90 | 3.34 | 3.52 |
+Obj1 :  21,504 | 6.06 | 6.30 | 4.57 | 4.03 | 3.76 | 6.15 | 3.92 | 4.00 |
+Obj2 : 246,814 | 6.30 | 9.81 | 3.30 | 2.96 | 2.69 | 5.19 | 2.92 | 2.94 |
+Paper1: 53,161 | 5.04 | 4.58 | 3.38 | 3.03 | 2.48 | 4.43 | 3.01 | 3.27 |
+Paper2: 82,199 | 4.65 | 4.02 | 3.58 | 3.16 | 2.45 | 3.98 | 3.20 | 3.43 |
+Pic  : 513,216 | 1.66 | 1.09 | 1.67 | 0.87 | 1.09 | 0.99 | 0.99 | 0.96 |
+Progc:  39,611 | 5.26 | 4.88 | 3.24 | 2.89 | 2.49 | 4.41 | 2.86 | 3.11 |
+Progl:  71,646 | 4.81 | 3.89 | 2.37 | 1.97 | 1.90 | 3.57 | 1.93 | 2.09 |
+Progp:  49,379 | 4.92 | 3.73 | 2.36 | 1.90 | 1.84 | 3.72 | 1.92 | 2.07 |
+Trans:  93,695 | 5.98 | 4.24 | 2.44 | 1.76 | 1.77 | 3.94 | 1.98 | 2.40 |
+---------------+------+------+------+------+------+------+------+------+
+ 14 Files        4.99   4.71   3.43   2.95   2.48   4.26   2.98   3.13  
+
+  Huffman coding is easily the worst of the lot, particularly for the highly 
+compressible program and trans files, where most other compressors attain 
+around 2 bits/byte.  The disadvantage of non-adaptive compression is shown by 
+the results for the LZW compression of the file obj2, which at the start 
+consists almost purely of text, but then switches to code and graphics data. 
+Since the LZW dictionary is frozen after 4K (during which time it has adapted 
+itself to compressing text) it ends up expanding the data once it gets past 
+the text part of the program.
+
+    So which compressor is best overall?  That depends on several things.  
+PPMC achieves the best compression by quite a margin, but requires a fair 
+amount of computing resources, both in terms of memory and CPU power (though 
+of course these considerations will become relatively minor as faster systems 
+with larger amounts of memory become available).  One nice feature of PPMC is 
+that it can be scaled down to run in less memory, but compression performance 
+suffers in doing this.  LZC is popular since it is relatively easy to 
+implement, very fast, and achieves acceptable levels of compression in little 
+memory.  PKZIP is especially popular on micros since it is also quite fast, 
+requires little memory, and usually achieves better performance than any 
+other archiver.
+   
+                                ----------------
+--
+ Peter_Gutmann@kcbbs.gen.nz || peter@nacjack.gen.nz || pgut1@cs.aukuni.ac.nz
+                     (In order of decreasing reliability)
+Warning!
+  Something large, scaly, and with fangs a foot long lives between <yoursite>
+and <mysite>.  Every now and then it kills and eats messages.  If you don't
+receive a reply within a week, try resending...
+

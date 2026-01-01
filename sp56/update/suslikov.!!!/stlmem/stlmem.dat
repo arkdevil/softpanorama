@@ -1,0 +1,392 @@
+;
+;   DAT FILE for Structure Look (release format 1.00 by SEN, Kemerovo 1992)
+;
+; /<structName> - structure define
+;
+; Id Follower Name_of_field
+;
+; Id= c - character
+;     b - byte (hex)
+;     w - word
+;     d - double word
+;     p - pointer
+;     * - pointer to struct
+;     x - 8 bits  (ignore follower)
+;     y - 16 bits (ignore follower)
+;     z - 32 bits (ignore follower)
+;     r - skip
+;     s - byte (dec)
+;     i - int
+;     l - long
+;     t - unsigned byte (dec)
+;     u - int
+;     m - long
+;     + - info field
+
+/File Control Block
+b     1         drive_number
+c     11        blank-padded_file_name
+w     1         current_block_number
+w     1         logical_record_size
+d     1         file_size
+w     2         date/time
+b     1         number_of_system_file_table_entry
+x     1         attributes
++ xx000000 00 = SHARE.EXE not loaded, disk file
++          01 = SHARE.EXE not loaded, character device
++          10 = SHARE.EXE loaded, remote file
++          11 = SHARE.EXE loaded, local file
++ 00xxxxxx low six bits of device attribute word
+b     1         (device_attribute_word(low)_AND_0Ch)_OR_open_mode
+w     1         starting_cluster
+w     1         number_of_sector_containing_directory_entry
+b     1         number_of_directory_entry_within_sector
+b     1         record_within_current_block
+d     1         random_access_record_number
+
+/Program Segment Prefix
+b     2         INT_20_instruction
+w     1         segment_of_first_byte_beyond_memory_allocated_to_program
+b     1         unused_filler
+b     1         CP/M_CALL_5_service_request
+w     1         size_of_first_segment_for_.COM_files
+b     2         remainder_of_FAR_JMP_at_05h
+p     3         stored_INT_22h,_INT_23h,_INT_24h
+w     1         segment_of_parent_PSP
+b    20         Job_File_Table,_one_byte_per_file_handle,_FFh_=_closed
+w     1         segment_of_environment_for_process
+p     1         process's_SS:SP_on_entry_to_last_INT_21_call
+w     1         number_of_entries_in_JFT_(default_20)
+p     1         pointer_to_JFT_(default_PSP:0018h)
+p     1         pointer_to_previous_PSP
+b     4         unused_by_DOS_versions
+b     2         DOS_5.0_version_to_return_on_INT_21/AH=30h
+b    14         unused_by_DOS_versions
+b     3         DOS_2+_service_request
+b     9         unused_in_DOS_versions
+b    16         first_default_FCB
+b    16         second_default_FCB
+b     4         unused
+c    128        commandline
+
+/Diskette parametrs
+b       1       first_specify_byte
++ xxxx0000 - step rate
++ 0000xxxx - head unload time (0Fh = 240 ms)
+b       1       second_specify_byte
++ xxxxxxx0 - head load time (01h = 4 ms)
++ 0000000x - non-DMA mode (always 0)
+b       1       delay_motor_turned_off_(clock_ticks)
+b       1       bytes_per_sector
++ 00h = 128, 01h = 256, 02h = 512, 03h = 1024
+b       1       sectors_per_track
+b       1       length_of_gap
++ 2Ah for 5.25", 1Bh for 3.5"
+b       1       data_length
+b       1       gap_length_when_formatting
++ 50h for 5.25", 6Ch for 3.5"
+b       1       format_filler_byte
+b       1       head_settle_time_in_milliseconds
+b       1       motor_start_time_in_1/8_seconds
+
+/List of list(DOS 5.0)
+w       1       segment_of_first_MCB
+p       1       pointer_to_first_DPB
+p       1       pointer_to_first_SFT
+p       1       pointer_to_CLOCK$
+p       1       pointer_CON_device's
+u       1       maximum_bytes_per_sector
+p       1       pointer_to_disk_buffer
+p       1       pointer_to_directory_structures
+p       1       pointer_to_system_FCB_tables
+u       1       number_of_protected_FCBs
+s       1       number_of_block_devices_installed
+s       1       number_of_available_drive_letters
+*       1       Device_driver_header
+s       1       number_of_JOIN'ed_drive??
+w       1       (always_0000h_for_DOS_5.0)
+p       1       pointer_to_SETVER
+w       1       ???_pointer_to_function_in_DOS_CS
+w       1       ???_<see_info>
++ apparently 0000h if DOS loaded low
++ PSP of most-recently EXECed program if DOS in HMA
+u       1       the_x_in_BUFFERS_x,y
+u       1       the_y_in_BUFFERS_x,y
+b       1       boot_drive_(1=A:)
+b       1       01h_if_80386+,_00h_otherwise???
+u       1       extended_memory_size_in_K
+
+/Memory Control Block
+b       1       type:_5Ah_if_last,_otherwise_4Dh
+w       1       PSP_segment_of_owner
++ 0000h if free
++ 0006h if DR-DOS XMS UMB
++ 0007h if DR-DOS excluded upper memory ("hole")
++ 0008h if belongs to DOS
++ FFFAh if 386MAX UMB control block
++ FFFDh if 386MAX locked-out memory
++ FFFEh if 386MAX UMB (immediately follows its control block)
+w       1       size_of_memory_block_in_paragraphs
+b       3       unused
+c       8       ASCII_program_name
+
+/File in SFT
+w       1       number
+y       1       open_mode
++ 10000000 00000000 - opened via FCB
+b       1       attribute
+y       1       device_info_word
++ 10000000 00000000 - remote file
++ 01000000 00000000 - do not set file date/time
++ 00010000 00000000 - don't inherit on EXEC
+p       1       pointer_to_device_header
+w       1       start_cluster
+w       1       time
+w       1       date
+d       1       size
+d       1       current_offset
+w       1       relative_cluster
+w       1       absolute_cluster
+w       1       sector_of_directory
+b       1       entry_dir
+c       11      filename
+p       1       previous_SFT_sharing
+w       1       network_machine_number
+w       1       PSP
+w       1       offset_sharing_record
+w       1       local_absolute_cluster
+p       1       poiter_to_IFS_driver_for_file
+
+/System File Table
+p       1       pointer_to_next_file_table
+u       1       number_of_files_in_this_table
+*       1       File_in_sft
+
+/Current directory structure (CDS)
+c       67      ASCIZ_path
+y       1       drive_attributes
++ 10000000 00000000 : uses network redirector  \ invalid if 00, installable
++ 01000000 00000000 : physical drive           / file system if 11
++ 00100000 00000000 : JOIN'ed   \ path above is true path that would be
++ 00010000 00000000 : SUBST'ed  / needed if not under SUBST or JOIN
+p       1       pointer_to_DPB_for_drive
+w       1       starting_cluster_of_current_directory
++ 0000h = root, FFFFh = never accessed
+w       2       ???
+w       1       offset_of_backslash
+b       1       used_by_network
+p       1       pointer_to_IFS_driver
+w       1       ???
+
+/Device driver header
+p       1       pointer_to_next_driver
+y       1       device_attributes
++  Character device:
++ 10000000 00000000 set
++ 01000000 00000000 IOCTL supported
++ 00100000 00000000 (DOS 3+) output until busy supported
++ 00010000 00000000 reserved
++ 00001000 00000000 (DOS 3+) OPEN/CLOSE/RemMedia calls supported
++ 00000111 00000000 reserved
++ 00000000 10000000 (DOS 5+) Generic IOCTL check call supported (cmd 19h)
++ 00000000 01000000 (DOS 3.2+) Generic IOCTL call supported (command 13h)
++ 00000000 00100000 reserved
++ 00000000 00010000 device is special (use INT 29 "fast console output")
++ 00000000 00001000 device is CLOCK$
++ 00000000 00000100 device is NUL
++ 00000000 00000010 device is standard output
++ 00000000 00000001 device is standard input
++  Block device:
++ 10000000 00000000 clear
++ 01000000 00000000 IOCTL supported
++ 00100000 00000000 non-IBM format
++ 00010000 00000000 reserved
++ 00001000 00000000 (DOS 3+) OPEN/CLOSE/RemMedia calls supported
++ 00000100 00000000 reserved
++ 00000010 00000000 direct I/O not allowed???
++ 00000001 00000000 ??? set by DOS 3.3 DRIVER.SYS for "new" drives
++ 00000000 10000000 Generic IOCTL check call supported (cmd 19h)
++ 00000000 01000000 (DOS 3.2+) Generic IOCTL call supported
++ 00000000 00111100 reserved
++ 00000000 00000010 driver supports 32-bit sector addressing
++ 00000000 00000001 reserved
+w       1       device_strategy_entry_point
+w       1       device_interrupt_entry_point
+c       8       character_device_name
+
+/Disk parametr block(DBP)
+b       1       drive_number_00h=A,etc
+b       1       unit_number_within_device_driver
+u       1       bytes_per_sector
+s       1       highest_sector_within_a_cluster
+s       1       shift_count_to_convert_clusters_into_sectors
+u       1       number_of_reserved_sectors
+s       1       number_of_FATs
+u       1       number_of_root_directory_entries
+u       1       number_of_first_sector_containing_user_data
+u       1       highest_cluster_number
+u       1       number_of_sectors_per_FAT
+u       1       sector_number_of_first_directory_sector
+p       1       address_of_device_driver_header
+b       1       media_ID_byte
+b       1       00h-disk_accessed,_FFh_if_not
+p       1       pointer_to_next_DPB
+u       1       cluster_to_start_search_for_free_space
+u       1       number_of_free_clusters_on_drive
+
+/disk buffer header(5.0)
+w       1       forward_ptr,_offset_only
+w       1       backward_ptr,_offset_only
+b       1       drive_(0=A,etc),_FFh_if_not_in_use
+x       1       flags
++ 10000000 : remote buffer
++ 01000000 : buffer dirty
++ 00100000 : buffer has been referenced
++ 00010000 : search data buffer (only valid if remote buffer)
++ 00001000 : sector in data area
++ 00000100 : sector in a directory, either root or subdirectory
++ 00000010 : sector in FAT
++ 00000001 : reserved
+m       1       logical_sector_number
+s       1       number_of_copies_to_write
+w       1       offset_in_sectors
+p       1       pointer_to_DOS_Drive_Parameter_Block
+w       1       buffer_use_count_if_remote_buffer_(see_flags_above)
+b       1       reserved
+b       1       buffered_data
+
+/BIOS data (0040:0000)
+w       4       I/O_address_of_I/O_ports
+w       4       I/O_address_of_parallel_I/O_ports
+y       1       Installed_hardware:
++ 11000000 00000000 : number of parallel devices
++ 00100000 00000000 : [Conv] Internal modem
++ 00010000 00000000 : reserved
++ 00001110 00000000 : number of serial devices
++ 00000001 00000000 : reserved
++ 00000000 11000000 : number of diskette drives minus one
++ 00000000 00110000 : Initial video mode:
++                     00b = EGA,VGA,PGA
++                     01b = 40 x 25 color
++                     10b = 80 x 25 color
++                     11b = 80 x 25 mono
++ 00000000 00001000 : reserved
++ 00000000 00000100 : [PS] =1 if pointing device
++                     [non-PS] reserved
++ 00000000 00000010 : =1 if math co-processor
++ 00000000 00000001 : =1 if diskette available for boot
+b       1       POST_status
+w       1       Base_memory_size_in_kbytes_(0-640)
+b       2       [AT]_{Manufacturing_test_scratch_pad}
+x       1       Keyboard_status_flags_1:
++ 10000000 : INSert active
++ 01000000 : Caps Lock active
++ 00100000 : Num Lock active
++ 00010000 : Scroll Lock active
++ 00001000 : either Alt pressed
++ 00000100 : either Ctrl pressed
++ 00000010 : Left Shift pressed
++ 00000001 : Right Shift pressed
+x       1       Keyboard_status_flags_2:
++ 10000000 : INSert pressed
++ 01000000 : Caps Lock pressed
++ 00100000 : Num Lock pressed
++ 00010000 : Scroll Lock pressed
++ 00001000 : Pause state active
++ 00000100 : Sys Req pressed
++ 00000010 : Left Alt pressed
++ 00000001 : Left Ctrl pressed
+b       1       Alt-nnn_keypad_workspace
+w       1       ptr_to_next_character_in_keyboard_buffer
+w       1       ptr_to_first_free_slot_in_keyboard_buffer
+b       32      Keyboard_circular_buffer
+x       1       Diskette_recalibrate_status:
++ 10000000 : =1 Diskette hardware interrupt occurred
++ 01110000 : reserved
++ 00001000 : =1 Recalibrate diskette 3
++ 00000100 : =1 Recalibrate diskette 2
++ 00000010 : =1 Recalibrate diskette 1
++ 00000001 : =1 Recalibrate diskette 0
+x       1       Diskette_motor_status:
++ x0000000 : =1 current operation is write or format
++            =0 current operation is read or verify
++ 01000000 : reserved
++ 00110000 : diskette drive number selected (0-3)
++ 00001000 : diskette 3 motor on
++ 00000100 : diskette 2 motor on
++ 00000010 : diskette 1 motor on
++ 00000001 : diskette 0 motor on
+b       1       Diskette_motor_turn-off_time-out_count
+x       1       Diskette_last_operation_status_(0 = OK)
++ 10000000 : drive not ready
++ 01000000 : seek error
++ 00100000 : general controller failure
++ 000xxxxx : bits 4-0:
++            00h no error
++            01h invalid request
++            02h address mark not found
++            03h write-protect error
++            04h sector not found
++            06h diskette change line active
++            08h DMA overrun
++            09h DMA across 64k boundary
++            0Ch media type unknown
++            10h CRC error on read
+b     7         Diskette/Fixed_disk_status/command_bytes
+b     1         Video_current_mode
+u     1         Video_columns_on_screen
+w     1         Video_page_(regen_buffer)_size_in_bytes
+w     1         Video_current_page_start_address_in_regen_buffer
+t    16         Video_cursor_position_(col,_row)_for_eight_pages,_0_based
+w     1         Video_cursor_type,_6845_compatible,_hi=startline,_lo=endline
+s     1         Video_current_page_number
+w     1         Video_CRT_controller_base_address:_color=03D4h,_mono=03B4h
+b     1         Video_current_setting_of_mode_select_register_03D8h/03B8h
+b     1         Video_current_setting_of_CGA_palette_register_03D9h
+m     1         POST_real_mode_re-entry_point_after_certain_resets
+b     1         POST_last_unexpected_interrupt
+m     1         Timer_ticks_since_midnight
+b     1         Timer_overflow,_non-zero_if_has_counted_past_midnight
+b     1         Ctrl-Break_flag:_bit_7=1
+w     1         POST_reset_flag:
++ 1234h if to bypass memory test (warm boot)
++ 4321h [PS/2 MCA only] if to preserve memory
++ 5678h [Conv] system suspended
++ 9ABCh [Conv] manufacturing test mode
++ ABCDh [Conv] POST loop mode
++   64h Burn-in mode
+b      1        Fixed_disk_last_operation_status
++ 00h no error
++ 01h invalid function request
++ 02h address mark not found
++ 03h write protect error
++ 04h sector not found
++ 05h reset failed
++ 07h drive parameter activity failed
++ 08h DMA overrun
++ 09h DMA data boundary error
++ 0Ah bad sector flag detected
++ 0Bh bad track detected
++ 0Dh invalid number of sectors for Format
++ 0Eh control data address mark detected
++ 0Fh DMA arbitration level out of range
++ 10h uncorrectable ECC or CRC error
++ 11h ECC corrected data error
++ 20h general controller failed
++ 40h seek failed
++ 80h time out
++ AAh drive not ready
++ BBh undefined error
++ CCh write fault on selected drive
++ E0h status error/error register is zero
++ FFh sense failed
+t       1       Fixed_disk:_number_of_fixed_disk_drives
+b       1       Fixed_disk:_control_byte
+b       1       Fixed_disk:_I/O_port_offset
+b       4       Parallel_devices_1-3_time-out_counters
+b       4       Serial_devices_1-4_time-out_counters
+w       1       Keyboard_buffer_start
+w       1       Keyboard_buffer_end+1
+t       1       Video_EGA/MCGA/VGA_rows_on_screen_minus_one
+u       1       Video_EGA/MCGA/VGA_character_height_in_scan-lines
+

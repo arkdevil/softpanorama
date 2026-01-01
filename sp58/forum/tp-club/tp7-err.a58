@@ -1,0 +1,144 @@
+From relay1.cs.kiev.ua!rock!isk1ns.iskra.msk.su!rndavia!sch2.rostov-na-donu.su!sch2 Tue Oct 05 19:33:19 1993
+Received: by softp.kiev.ua (UUPC/@ v5.09gamma, 14Mar93);
+          Tue,  5 Oct 1993 19:33:19 +0300
+Received: by relay1.cs.kiev.ua; Mon,  4 Oct 93 15:47:15 +0200
+Received: from isk1ns.iskra.msk.su (isk1ns.iskra.msk.su [193.124.18.67]) by rock.cs.kiev.ua (sendmail 8.5) with SMTP; Mon, 4 Oct 1993 15:29:08 +0200
+Received: from rndavia.UUCP by isk1ns.iskra.msk.su with UUCP id AA02317
+  (5.65c8/IDA-1.4.4 for bnn@softp.kiev.ua); Mon, 4 Oct 1993 15:58:41 +0300
+Received: from sch2.rostov-na-donu.su by rndavia.rostov-na-donu.su with UUCP id AA15818
+  (5.65c8zs3/IDA-1.4.4 for bnn@softp.kiev.ua); Mon, 4 Oct 1993 15:50:08 -0700
+Received: by sch2.rostov-na-donu.su (UUPC/extended for mail2);
+          Mon, 04 Oct 1993 16:41:07 EDT
+Date: Mon, 04 Oct 1993 16:41:03
+From: "School Five" <sch2@sch2.rostov-na-donu.su>
+Message-Id: <2cb08a64@sch2.rostov-na-donu.su>
+Organization: Secondary school N5 Rostov n/D
+To: bnn@softp.kiev.ua
+Return-Receipt-To: sch2@sch2.rostov-na-donu.su
+X-Mailer: MAIL2 ( Ver. 2.05.1 from TECHNO )
+X-Protocol: UUCP
+Subject: BUG in Turbo Pascal 7.0
+Lines: 121
+
+
+               Уважаемый Николай Николаевич !
+
+  Предлагаю Вашему вниманию для опубликования в "Софтпанораме"
+статью про "дырку" в Паскале 7.0. Думаю, что моим коллегам,
+программирующим на Паскале, это сообщение будет интересно.
+Текст статьи прилагаю ниже.
+
+                            С уважением, Сергей Еременко.
+
+4 октября 1993
+
+
+Собственно текст:
+
+"Дырка" в Паскале 7.0
+
+          Уважаемые коллеги !
+
+
+    Программируя на Паскале 7.0 я обнаружил одну "дырку" в
+Run-time библиотеке. Сдвиг влево и вправо длинного целого
+при использовании сдвига более чем на 16 на процессоре 80386
+работает неверно. Попробуйте исполнить следующую программу.
+
+var a:longint ;
+begin
+  a := $12345678 ;
+  if a shr $14 <> $123 then begin
+    writeln ('Ubnormal') ;
+  end else
+    writeln ('Normal') ;
+  if a shl $14 <> $67800000 then begin
+    writeln ('Ubnormal') ;
+  end else
+    writeln ('Normal') ;
+end.
+
+   Я был неприятно удивлен, что при написании библиотеки
+фирма Борланд использовала команды SHLD и SHRD, не до конца
+разобравшись в их поведении.
+   Способов борьбы с неверным сдвигом два:
+   1) присвоить переменной Test8086 значение 1 (процессор 80286).
+      Однако при этом на процессорах 80386 и выше программа не
+      будет использовать новые команды, присущие этим процессорам.
+   2) если Вы имеете библиотеку RTL (исходник System.TPU), то в
+      файл LONG.ASM необходимо внести следующие изменения:
+
+<Часть старого файла>
+LongShr:
+
+        CMP     Test8086,2
+        JB      @@1
+    .386
+        SHRD    AX,DX,CL
+        SHR     DX,CL
+        RETF
+    .8086
+@@1:    AND     CX,1FH
+
+<Часть нового файла>
+LongShr:
+
+        TEST    CL,0F0H
+        JNE     @@cae1
+        CMP     Test8086,2
+        JB      @@1
+    .386
+        SHRD    AX,DX,CL
+        SHR     DX,CL
+        RETF
+    .8086
+@@cae1 :
+        AND     CL,0FH
+        XCHG    AX,DX
+        SHR     AX,CL
+        XOR     DX,DX
+        RETF
+@@1:    AND     CX,1FH
+
+<Часть старого файла>
+LongShl:
+
+        CMP     Test8086,2
+        JB      @@1
+    .386
+        SHLD    DX,AX,CL
+        SHL     AX,CL
+        RETF
+    .8086
+@@1:    AND     CX,1FH
+
+<Часть нового файла>
+LongShl:
+
+        TEST    CL,0F0H
+        JNE     @@cae2
+        CMP     Test8086,2
+        JB      @@1
+    .386
+        SHLD    DX,AX,CL
+        SHL     AX,CL
+        RETF
+    .8086
+@@cae2 :
+        AND     CL,0FH
+        XCHG    DX,AX
+        SHL     DX,CL
+        XOR     AX,AX
+        RETF
+@@1:    AND     CX,1FH
+
+   Если кто-то обнаружит, что контрольная программа работает
+верно, просьба сообщить мне. Кроме того, я не имею доступа к
+80486 и не могу проверить насколько работоспособна программа
+там. Буду признателен за проверку и последующее сообщение
+результатов.
+   Координаты:
+   344022 Россия, г.Ростов-на-Дону, пер. Нахичеванский, 21
+   тел. (8632)-65-23-93 (11:00-17:00)
+   E-mail : sch2@sch2.rostov-na-donu.su
+

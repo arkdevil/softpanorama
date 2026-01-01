@@ -1,0 +1,261 @@
+#########################################################
+#
+#	SCRIPT FOR FUNCTION MULTIDIAL AND CALLNEXT 
+#
+#   Thanks to Jay Sottolano for some improvements
+#	
+#########################################################
+#	
+#	If you select more than one entry to dial from the
+#	phonebook, they are stored in the file DIALQUE
+#	
+#	This script is automatically executed to connect
+#   to the first of these numbers. 
+#	CALLNEXT (from the Modem Menu) executes this script
+#   to connect to the next.
+#
+#########################################################
+
+	debug 0; maxscan 5
+
+	#	Read file and look if there's something in
+	call readfile
+	compn %max% with 1
+	ifhigh goto mbegin
+
+	writeln "NOTHING MORE TO DO"
+	// shell   "del DIALQUE"
+	exit
+
+
+#####################################################
+# 	MAIN LOOP
+# 	
+:mbegin
+	#	begin with first
+
+	send "AT^M"
+	delay 1
+
+    setn q 0
+
+:mloop0
+    cls
+	writeln "^[[1mQUEUE-DIAL (Abort with 'Stop Script' from toolbar)^[[m^M^J"
+	setn n 1
+    inc q
+
+:mloop1
+
+	#	Fetch data from record
+	seta name "%%box%n%%%"
+	seta boxdata "%name%"
+	seta box   "%boxdata%" |BOX=;  rtrim box
+	seta log   "%boxdata%" |LOG=;  rtrim log
+	seta emu   "%boxdata%" |EMU=;  rtrim emu
+	seta num   "%boxdata%" |TEL=;  rtrim num
+	seta baud  "%boxdata%" |PARM=; rtrim baud
+	seta opts  "%boxdata%" |OPTS=; rtrim baud
+	seta init  "%boxdata%" |INIT=; rtrim baud
+	seta zone  "%boxdata%" |ZONE=; rtrim zone
+	
+
+	#	Call and wait for 90 sek. max
+	delay
+	writeln "Calling %box% ... Attempt #: %q%"
+	exact 1
+
+	// wanna load options?
+	compa "%opts%" with ""
+	ifnequ loadopts "%opts%"
+
+	// wanna init modem?
+	compa "%init%" with ""
+	ifnequ send "%init%"
+	ifnequ delay 2
+
+	// want some emulation?
+	compa "%emu%" with ""
+	ifnequ setemu "%emu%"
+
+	// parameters given?
+	compa "%baud%" with ""
+	ifnequ baud "%baud%"
+	ifnequ send ^M; 
+
+	// set distance zone?
+	compa "%zone%" with ""
+	ifnequ setunit "%zone%"
+
+	// so dial it ...
+	delay 1
+	dial "%num%^I%box%"
+	timeout 90;
+	
+:mloop2
+	waitline
+
+	#	Timeout, nothing happened - go on
+	ifbrk hangup
+	ifbrk delay 2
+	ifbrk goto mgoon
+
+	exact 0
+
+	#	Zyxels say 'RINGING' - ignore that
+	compa "%lastline%" with RINGING
+	ifequ goto mloop2
+
+	#	CONNECT, so login
+	compa "%lastline%" with CONNECT
+	ifequ goto mlogin
+
+	compa "%lastline%" with CARRIER
+	ifequ goto mlogin
+
+	#	For anything else, try again
+
+:mgoon
+	#	Call next (or first again)
+	inc n 
+	compn %n% with %max%
+	ifnequ goto mloop1
+	goto mloop0
+       
+:mlogin
+	#	We're in
+	#	(delete records from list that are equal in the first six digits)
+	seta like "%box%" +1 6
+	call DelLike
+	call writefile
+
+	#	OPERAAAATOR!
+	beep 3
+
+	#	Did they want something to do for a start?
+	seta  cmd "%boxdata%" |CMD=
+	%cmd%
+
+	#	Process W1/S1-loop
+	exact 1
+	setn n 1
+
+	#	Set name for logging
+	compa "%log%" with ""
+	ifnequ logname "%log%"
+
+	#	Answer to all Wx= with Sx= (see phonebook)
+:mlogloop
+	seta  w "%boxdata%" |W%n%=
+	seta  s "%boxdata%" |S%n%=
+	exact 1
+	compa "%w%" with ""
+	ifequ goto mfinish
+
+	rtrim w
+	rtrim s
+
+	wait "%w%"
+	ifbrk writeln "Error: Did not receive '%w%'!"
+	ifbrk goto mfinish
+
+	delay
+	send "%s%"
+
+	inc n
+	goto mlogloop
+
+:mfinish
+	exit
+#
+#	END OF MAIN LOOP
+#####################################################
+#
+#
+#
+#	SUBS
+#
+#
+#
+##################################
+#	READ FILE
+##################################
+:readfile
+#
+	setn max 0 
+	openfile "DIALQUE" r
+	compa "%lastline%" with "##ERROR##"
+	ifequ writeln "Error"
+	ifequ return
+
+:rloop
+	inc max
+	getfile
+	seta box%max% "%lastline%"
+	compa "%lastline%" with "##EOF##"
+	ifnequ goto rloop
+
+	closefile
+	return
+##################################
+
+
+##################################
+#	WRITE FILE
+##################################
+:writefile
+#
+	openfile "DIALQUE" w
+	setn n 1
+
+:wloop
+	seta name %%box%n%%%
+	compa "%name%" with "##EOF##"
+	ifequ goto wend
+
+	seta tmp "%name%" +1 1
+	compa %tmp% with *
+	ifequ goto wgoon
+	putfile "%name%"
+:wgoon
+	inc n; goto wloop
+
+:wend
+	closefile 
+	return
+##################################
+
+
+#####################################
+#	REPLACE ALL ENTRIES LIKE %LIKE% 
+#	WITH "*" 
+#####################################
+:DelLike
+#
+	setn i 1
+
+:dloop
+	seta  dnam %%box%i%%%
+	seta  dname "%dnam%" |BOX=
+
+	compa "%dname%" with "##EOF##"
+	ifequ goto dend
+
+	compa "%like%" with "%dname%"
+	ifnequ goto dgoon
+
+	seta box%i% *
+
+:dgoon
+	inc i
+	goto dloop
+
+
+:dend
+	kill i
+	kill dnam
+	kill dname
+	kill like
+	return
+
+#####################################

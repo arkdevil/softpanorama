@@ -1,0 +1,496 @@
+Контроль памяти при разработке обьектно-ориентированных
+     приложений на BORLAND C++ 2.0" при отладке
+
+                                           Кельманзон А.К.
+
+
+
+     Наиболее часто встречающиеся и трудно определяемые ошиб-
+ки  связаны с неправильным распределением памяти во время ра-
+боты программы .
+     Интегрированная среда BORLAND C++ имеет хорошо  развитую
+систему отладки, но подчас ее возможностей бывает явно недос-
+таточно.
+     Сначала  мне бы хотелось привести пример обнаружения од-
+ной из самых распространенных ошибок
+
+          NULL POINTER ASSIGNMENT
+
+средствами встроенного отладчика.
+
+     Рассмотрим пример программы NP.CPP.
+     char *NullPointer - является нулевым указателем, которо-
+му в процессе работы присваивается некоторое значение. Запус-
+тим программу и после окончания ее работы на экране  появится
+сообщение об ошибке. Для того, чтобы определить в какой стро-
+ке  было присвоение нулевому указателю поместим в окно WATCHS
+следующее выражение:
+
+              *(char *)0, 4m
+
+т.е. будем просматривать первые четыре байта с нулевого адре-
+са. Начнем трассировку. Первоначально они равны 0. Как только
+мы пройдем строку с присвоением значение первых четырех  байт
+изменяется, т.е. мы прошли строку с ошибкой присвоения значе-
+ния нулевому указателю.
+
+     Перейдем  к С++ в рамках синтаксиса этого варианта языка
+С. Подразумевается, что все операции распределения и удаления
+блоков памяти осуществляются операторами NEW  и  DELETE.  Для
+большей  ясности приведу исходные тексты реализации этих опе-
+раторов:
+
+     void _FAR *operator new(size_t s){
+         void _FAR *p;
+         s = s ? s : t;
+         while((p=malloc(s)) == NULL && _new_handler != NULL)
+             _new_handler ();
+         return p;
+     }
+
+     void operator delete(void _FAR *p) {
+         if(p)
+            free(p);
+}
+
+     Глядя на эти тексты остается только один вопрос:
+
+           Что такое _new_handler()?
+
+     К сожалению, во встроенных подсказках нет информации  об
+этом,  а  в документрации использованию этой функции посвящен
+всего один абзац в "Руководстве программиста".
+     Итак, что же это такое?
+     Дело  в  том,  что BORLAND C++ дает пользователю возмож-
+ность самому обрабатывать ошибки распределения памяти (перво-
+начально значение функции _new_handler равно нулю).
+     Существует функция:
+
+          pvf set_new_handler(pvf nf) {
+              pvf of;
+              of = _new_handler;
+              _new_handler  = nf;
+              return of;
+          }
+где pvf: typedef void(*_FAR pvf)(), которая  позволяет  изме-
+нять значение функции обработки.
+
+     До  сих пор я говорил о встроенных возможностях обработки
+ошибок работы с памятью.
+     Теперь я бы хотел представить вам некоторый  разработан-
+ный  мной модуль CMEM.CPP, облегчающий программисту контроли-
+ровать ошибки работы  с памятью.
+     Основная идея основана на перегрузке глобальных операто-
+ров NEW и DELETE. За счет этого я получаю информацию о разме-
+ре рапсределяемых блоков, их адресах и памяти до их распреде-
+ления и после их освобождения, а также информацию о  последо-
+вательности  распределения  и вложенности блоков.
+     При каждом вызове оператора NEW информация о распределе-
+яемом  блоке  заносится в массив структур HBL[] (информации о
+блоках) и также эта информация заносится в файл рапорта.  При
+вызове  DELETE в соответствующий элемент заносится информация
+о количестве памяти после освобождения текущего блока и также
+выводится информация об этом в CMEM.RPT.
+     Для того, чтобы не мешать работе исследуемой  программы,
+в  модуле CMEM.CPP отсутствует динамическое распределение па-
+мяти, а, следовательно, есть ограничения на количество однов-
+ременно открытых блоков, но его легко изменить: достаточно  в
+опциях  компилятора  в  разделе  DEFINE  поставить обьявление
+MAX_POINTERS = (возможное количество открытых блоков).
+     Помимо построения структуры работы с  памятью  во  время
+работы  программы,  что дает возможность детально рассмотреть
+этот процесс, CMEM обрабатывает ошибки распределения, связан-
+ные с невозможностью выделения памяти под блок.  Кстати,  это
+осуществляется  заменой функции _new_handler() на my_handler,
+которая в случае возникновения рассматриваемой ситуации выда-
+ет сообщение:
+        
+         OUT OF MEMORY !
+     
+     Кроме этого, в конце рапорта CMEM.RPT приводится состоя-
+ние HEAP после завершения программы.
+     Для использования модуля CMEM достаточно его добавить  в
+Project.
+
+
+
+
+
+Институт Проблем Управления АН СССР
+117806,ГСП-7.Москва.
+Профсоюзная,65
+(лаборатория N55)
+Кельманзон А.К. т.334-90-70
+
+
+
+Приложение А:    NP.CPP
+//---------------------------------------------------------------
+// Пример нахождения строки, вызвавшей сообщение Null pointer 
+// assignment
+// Андрей К.Кельманзон ИПУ(55) (095)334-90-70
+//---------------------------------------------------------------
+
+void main( void ){
+    char *NullPointer = (char *)0;
+
+    *NullPointer = '?';
+}
+
+Приложение В:   CMEM.CPP
+//---------------------------------------------------------------
+//
+//   CCCC   MM   MM  EEEEEE  MM   MM
+//  C    C  M M M M  E       M M M M
+//  C       M  M  M  EEEE    M  M  M
+//  C    C  M     M  E       M     M
+//   CCCC   M     M  EEEEEE  M     M
+//
+//  Институт Проблем Управления ( л.55 )
+//  Андрей К.Кельманзон
+//  (095)334-90-70
+//
+//  Использование:
+//  --------------
+//       - скопируйте в рабочую директорию файл CMEM.CPP;
+//       - добавьте в проект файл CMEM.CPP;
+//       - по умолчанию программа работает со 100
+//         одновременно распределенными указателями,
+//         если Вам необходимо изменить это значение
+//         Options->Compiler->Code generation->Defines
+//         MAX_POINTERS=##;
+//       - после окончания работы вашей программы
+//         на диске будет создан файл с CMEM.RPT,
+//         который состоит из "дерева" распределения
+//         памяти.
+//---------------------------------------------------------------
+#include <alloc.h>
+#include <new.h>
+#include <mem.h>
+#include <stdlib.h>
+#include <dos.h>
+#include <stdio.h>
+#include <process.h>
+
+#if     !defined(MAX_POINTERS)
+#define MAX_POINTERS 100       // Максимальное число вызовов NEW
+#endif
+
+#define MEM_TO0( __nBL )  memset( __nBL,   0, sizeof __nBL )
+
+//Описатели//////////////////////////////////////////////////////
+enum flag      { Off, On, End = -1 };
+enum line_char 
+     { U='\xDA', D='\xC0', H='\xC4', V='\xB3', C='\xC5', S=' ' };
+
+typedef unsigned long ulong;
+typedef unsigned long uint;
+typedef void (_FAR *pvf)();
+
+// Новый обработчик ошибок распределения памяти//////////////////
+void my_handler( void ) {
+    fprintf( stderr, "\nOut of memory.\n" );
+    exit(0);
+}
+
+// Описание блока памяти ////////////////////////////////////////
+struct HeapBlock {
+	void _FAR *Addr;         // Адрес
+	ulong      SizeHOST,     // Размер - запрошенный
+               SizeALLOC;    //        - распределенный
+    flag       Status;       // Статус занятости
+    int        NCall;        // Номер в time_call
+    // Количество памяти ----------------------------------------
+    ulong      MemBefore,    // До распределения
+               MemLater;     // После освобождения
+};
+
+// Класс контролирующий ощибки распределения памяти /////////////
+class ControlMem {
+public:
+    ControlMem( void );                // Конструктор
+    ~ControlMem( void );               // Деструктор
+
+    int  search( void _FAR * );        // Поиск адреса
+    int  search_free( void );          // Поиск свободного блока
+    // Перегруженные глобальные операторы распределения памяти --
+    friend void _FAR *operator new( size_t );
+    friend void      operator delete( void _FAR *);
+
+private:
+    struct HeapBlock HBL[ MAX_POINTERS ]; // Массив описателей
+                                         // блоков
+    static flag      StatusClass; // Статус присутствия класса
+                                 // On-да Off-нет
+    static flag      CloseBlock;  // Статус "закрыт ли 
+                                 //предыдущий блок"
+                                // On-да Off-нет
+    FILE            *rpt;    // Указатель потока файла рапорта
+    static   int     Meter;  // Счетчик вызовов new & delete
+    line_char        ch;     // Символ линии
+
+    flag    time_call[ MAX_POINTERS*2 ];    // Порядок вызовов
+                                           // операций с блоками
+    int  find_state( void );                // Возвращает номер
+                                           // в time_call[]
+    void state_end( void );      // Выставляет признак конца
+    // Обработка ошибок распределения памяти --------------------
+    pvf  old_handler;   // Указатель на старую функцию,
+                       // обработки ошибок распределения
+    // Функции формирования рапортов ----------------------------
+    void open_r( void );     // Открытие
+    void close_r( void );    // Закрытие
+    void out_mem  ( int );   // Размер максимального блока
+    void out_size ( int );   // Размер выделеного блока
+    void out_addr ( int );   // Адресс блока
+    void out_tab  ( int = -1 );   // Отступ
+    void out_space( void );  // Пробел
+    void out_open ( int );   // Открытие блока
+    void out_close( int );   // Закрытие блока
+    void out_unknown( void _FAR* );    // Неизвестный блок
+    void out_heap( void );   // Выводит состояние "кучи"
+};
+
+// Инициализация static /////////////////////////////////////////
+flag ControlMem::StatusClass = Off;    // Класс обработки отсутствует
+flag ControlMem::CloseBlock  = Off;    // Нет закрытых блоков
+int  ControlMem::Meter       = 0;      // Счетчик вызовов
+
+// Объявление класса обработки //////////////////////////////////
+ControlMem MemAlloc;
+
+// Конструктор класса обработки /////////////////////////////////
+inline ControlMem::ControlMem( void ) {
+    ControlMem::StatusClass = On;
+    MEM_TO0( HBL );
+    MEM_TO0( time_call );
+             time_call[0] = End;   // End - Признак конца
+    old_handler = set_new_handler( my_handler );
+    open_r();
+}
+
+// Открытие файла рапорта ///////////////////////////////////////
+// Принцип работы:
+//     в случае невозможности создания файла - stderr
+//---------------------------------------------------------------
+void ControlMem::open_r( void ) {
+    if( (rpt = fopen( "cmem.rpt", "wt" )) == NULL )
+         rpt = stderr;
+}
+
+// Закрытие файла рапорта ///////////////////////////////////////
+void ControlMem::close_r( void ) {
+    if (rpt != stderr)
+        fclose( rpt );
+}
+
+// Размер максимального свободного блока ////////////////////////
+void ControlMem::out_mem( int n ) {
+    switch( HBL[ n ].Status ){
+         case  On: fprintf( rpt, "[%lu]\n", 
+                            ( ulong )HBL[ n ].MemBefore 
+                   );
+                   break;
+         case Off: fprintf( rpt, "[%lu]\n", 
+                            ( ulong )HBL[ n ].MemLater 
+                   );
+    }
+}
+
+// Размер запрашиваемый и реально распределенный блока "n" //////
+void ControlMem::out_size( int n ) {
+    fprintf( rpt, "          Size: %lu(%lu)\n",
+         ( ulong )HBL[ n ].SizeHOST,
+         ( ulong )HBL[ n ].SizeALLOC
+    );
+}
+
+// Адрес блока //////////////////////////////////////////////////
+void ControlMem::out_addr( int n ) {
+    fprintf( rpt, "%c%Fp{\n", ch=U, HBL[ n ].Addr );
+}
+
+// Отступ в соответствии с time_call ////////////////////////////
+void ControlMem::out_tab( int d ) {
+    int i=0;
+    if(d != -1) d = HBL[ d ].NCall;
+    while( time_call[ i ]!=End ){
+         if (d==-1 || i<d)
+              if( time_call[ i ] ) ch = V;
+              else ch = S;
+         else if( i==d ) ch = D;
+         else if( i>d )
+              if( time_call[ i ] ) ch = C;
+              else ch = H;
+         putc( ch, rpt ); i++;
+    }
+}
+
+// Печатает пробел //////////////////////////////////////////////
+void ControlMem::out_space( void ) {
+    putc( ' ', rpt );
+}
+
+// Печатает информацию об открывавющемся блоке //////////////////
+void ControlMem::out_open( int n ) {
+    if( !ControlMem::CloseBlock ){
+         out_tab(); out_space(); out_mem( n );
+    }
+    out_tab(); out_addr( n );
+    HBL[ n ].NCall = MemAlloc.find_state();
+    time_call[ HBL[ n ].NCall ] = On;
+    out_tab(); out_size( n );
+}
+
+// Печатает адрес закрывающегося блока, который не открывался ///
+void ControlMem::out_unknown( void _FAR *p ) {
+    out_tab(); fprintf( rpt, "<%Fp>{?}\n", p );
+}
+
+// Закрывает блок "n" ///////////////////////////////////////////
+void ControlMem::out_close( int n ) {
+    out_tab( n ); putc( '}', rpt ); out_mem( n );
+    time_call[ HBL[ n ].NCall ] = Off;
+    state_end();
+}
+
+// Информация о "куче" //////////////////////////////////////////
+void ControlMem::out_heap( void ) {
+    heapinfo hi;
+    int      i = 0;
+    fprintf( rpt, "\nHeap:\n" );
+    fprintf( rpt, "┌───┬───────┬──────┐\n");
+    fprintf( rpt, "│ # │ Size  │Status│\n" );
+    fprintf( rpt, "├───┼───────┼──────┤\n" );
+    hi.ptr = NULL;
+    while( heapwalk( &hi ) == _HEAPOK )
+         fprintf( rpt, "│%3d│%7lu│ %4s │\n",
+              ++i,
+              (ulong)hi.size,
+              hi.in_use ? "used" : "free"
+         );
+    fprintf( rpt, "└───┴───────┴──────┘\n" );
+
+    if(heapcheck() == _HEAPCORRUPT)
+         fprintf( rpt, "\nHeap is corrupted.\n" );
+    else
+         fprintf( rpt, "\nHeap is OK.\n" );
+}
+
+// Деструктор класса обработки //////////////////////////////////////////////
+inline ControlMem::~ControlMem( void ) {
+    ControlMem::StatusClass = Off;
+    out_heap();
+    close_r();
+    set_new_handler( old_handler );
+}
+
+
+// Возвращает номер в time_call[] блока i ///////////////////////
+int ControlMem::find_state( void ) {
+    int k=0, i=0;
+    while( time_call[i]!=End )
+         if( time_call[i++]==On ) k = i;
+    time_call[ k ] = Off; time_call[ k+1 ] = End;
+    return k;
+}
+
+// Выставляет признак конца /////////////////////////////////////
+void ControlMem::state_end( void ) {
+    int i=0, k;
+    while( time_call[i++]!=End );
+    k=(--i);
+    while( i>=0 ){
+         switch( time_call[ i ] ){
+              case  On: return;
+              case Off: time_call[ k ] = Off;
+                        time_call[ i ] = End;
+                        k=i;
+         }
+         i--;
+    }
+}
+
+// Поиск информации о блоке /////////////////////////////////////
+// Передается:
+//     p-адрес блока
+// Возвращает:
+//     номер блока (i) или -1 если он не найден
+//---------------------------------------------------------------
+int ControlMem::search( void _FAR *p ) {
+    for( int i=0; i<MAX_POINTERS; i++ )
+        if (HBL[ i ].Addr == p)
+            return i;
+    return -1;
+}
+
+// Поиск свободного описателя ///////////////////////////////////
+int ControlMem::search_free( void ) {
+    int i = 0;
+    do{
+        if (HBL[ i ].Status == Off)
+            return i;
+    }while(++i < MAX_POINTERS);
+    return -1;
+}
+
+// Исходный оператор new ////////////////////////////////////////
+void _FAR *o_NEW( size_t s ) {
+    void _FAR *p;
+    s = s ? abs( s ) : 1;
+    while ( (p = malloc( s )) == NULL && _new_handler != NULL )
+        _new_handler();
+    return p;
+}
+
+// Перегруженный оператор new ///////////////////////////////////
+// Принцип работы:
+//     если класс обработки отсутствует, работает как
+//     обыкновенный new
+//---------------------------------------------------------------
+void _FAR *operator new( size_t size_block ) {
+    int        i;
+    void _FAR *ptr;
+    ulong      mb = coreleft();
+    ptr = o_NEW( size_block );
+    if( ControlMem::StatusClass ){
+         if( (i=MemAlloc.search_free()) == -1 ){
+              fprintf(stderr, "\nStack of pointers is full.\n");
+              exit(0);
+         }
+         MemAlloc.HBL[ i ].SizeHOST  = ( ulong )size_block;
+         MemAlloc.HBL[ i ].SizeALLOC = mb - coreleft();
+         MemAlloc.HBL[ i ].Status    = On;
+         MemAlloc.HBL[ i ].MemBefore = mb;
+         MemAlloc.HBL[ i ].Addr      = ptr;
+         MemAlloc.out_open( i );
+    }
+    ControlMem::CloseBlock = Off;
+    return ptr;
+}
+
+// Исходный оператор delete /////////////////////////////////////
+void o_DELETE( void _FAR *ptr ) {
+    if( ptr ) free( ptr );
+}
+
+// Перегруженный оператор delete ////////////////////////////////
+// Принцип работы:
+//     если класс обработки отсутствует, работает как
+//      обыкновенный delete
+//---------------------------------------------------------------
+void operator delete( void _FAR *ptr ) {
+    int        i;
+    o_DELETE( ptr );
+    if( ControlMem::StatusClass ){
+         if( (i=MemAlloc.search( ptr )) == -1 ){
+              MemAlloc.out_unknown( ptr ); return;
+         }else{
+              MemAlloc.HBL[ i ].MemLater = coreleft();
+              MemAlloc.HBL[ i ].Status = Off;
+              MemAlloc.out_close( i );
+         }
+    }
+    ControlMem::CloseBlock = On;
+}
+

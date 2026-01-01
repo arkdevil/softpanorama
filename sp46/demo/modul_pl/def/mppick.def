@@ -1,0 +1,154 @@
+(****************************************************************************)
+(*                       MPPICK.DEF 2.00                                    *)
+(*                    Modula Plus Tools 2.00                                *)
+(*                  Copyright (c) Holofax 1992.                             *)
+(*              All rights reserved. Ukraine. Kiev.                         *)
+(****************************************************************************)
+(*$G+*)
+DEFINITION MODULE MpPick;
+(*╔════════════════════════════════════════════════════════════════════════╗*)
+(*║           Модуль работы с Pick - окнами (меню объектов).               ║*)
+(*╚════════════════════════════════════════════════════════════════════════╝*)
+
+FROM MpWindow IMPORT pWindow;
+FROM MpCrt    IMPORT Pressed,KeyHome,KeyEnd,KeyUp,KeyDown,KeyPgUp,
+                     KeyPgDn,KeyENTER,KeyESC,KeyLeft,KeyRight,KeyIns;
+
+
+
+TYPE
+  CommandPick =
+   (Pmark,          (* Маркировать пункт                                    *)
+    Pright,         (* Следующий пункт в текущей строке                     *)
+    Pleft,          (* Предыдущий пункт в текущей строке                    *)
+    Pdown,          (* Следующий пункт в текущем окне  через строку         *)
+    Pup,            (* Предыдущий пункт в текущем окне через строку         *)
+    Phome,          (* Первый пункт в текущем окне                          *)
+    Pend,           (* Последний пункт в текущем окне                       *)
+    PPgDn,          (* Следующая страница                                   *)
+    PPgUp,          (* Предыдущая страница                                  *)
+    Pselect,        (* Выбор пункта                                         *)
+    Pclose,         (* Закрыть Pick-окно и выйти из него                    *)
+    Pexit);         (* Выйти из Pick-окна                                   *)
+
+  CommandPickSet = SET OF CommandPick;
+
+  Command = ARRAY[0..255] OF CommandPickSet;
+
+TYPE
+
+  pName     = POINTER TO ARRAY[0..255] OF CHAR;
+  pItemPick = POINTER TO ItemPick;
+  pPick     = POINTER TO Pick;
+
+  ItemPick = RECORD       (* Пункт меню                                     *)
+    Size     : CARDINAL;  (* Размер структуры и строки                      *)
+    Next     : pItemPick; (* Указатель на следующий объект.                 *)
+    Prev     : pItemPick; (* Указатель на следующий объект.                 *)
+    ID       : CARDINAL;  (* Идентификатор объекта                          *)
+    Mark     : BOOLEAN;   (* Пункт помечен                                  *)
+    ItemStr  : POINTER TO ARRAY[0..132] OF CHAR; (* Текст объекта. *)
+  END;(*ItemPick*)
+
+  PickField = RECORD     (* Поле.                                           *)
+    X,Y      : CARDINAL; (* Координаты поля в окне.                         *)
+    Item     : pItemPick;(* Указатель на следующее поле.                    *)
+  END;(*PickField*)
+
+  Pick = RECORD (*  *)
+    Win      : pWindow;   (* Дескриптор окна                                *)
+    nX       : CARDINAL;  (* Число полей по горизонтали                     *)
+    nY       : CARDINAL;  (* Число полей по вертикали                       *)
+    N        : CARDINAL;  (* nX * nY                                        *)
+    Len      : CARDINAL;  (* Длина поля в знакоместах                       *)
+    Vert     : BOOLEAN;   (* Горизонтальное или вертикальное заполнение     *)
+    nField   : CARDINAL;  (* Номер поля                                     *)
+    First    : pItemPick; (* Первый объект                                  *)
+    Last     : pItemPick; (* Последний объект                               *)
+    pField   : POINTER TO ARRAY[0..1000] OF PickField;
+    Keys     : Command;   (* Множество выполняемых команд                   *)
+    ActivFore : CARDINAL;    (* Цвет текста активного пункта                *)
+    ActivBack : CARDINAL;    (* Цвет фона   активного пункта                *)
+    MarkFore  : CARDINAL;    (* Цвет текста маркированного пункта           *)
+    MarkBack  : CARDINAL;    (* Цвет фона   маркированного пункта           *)
+    ActivMarkFore : CARDINAL;(* Цвет текста активного маркированного пункта *)
+    ActivMarkBack : CARDINAL;(* Цвет фона   активного маркированного пункта *)
+  END;
+
+VAR
+  CurrentPick : pPick;
+  MarkItem    : pItemPick;
+
+
+PROCEDURE MakePick(
+(* Создать Pick - окно                                                      *)
+                   x,y,   (* Координаты левого верхнего угла  *)
+                   nx,    (* Число полей по x                 *)
+                   ny,    (* Число полей по у                 *)
+                   len    (* Длина поля в символах            *)
+                       : CARDINAL;
+                   vertical : BOOLEAN; (* вертикальное или горизонтальное заполнение *)
+                   cf,    (* Цвет символов                    *)
+                   cb,    (* Цвет фона                        *)
+                   cfm,   (* Цвет сиволов маркированного поля *)
+                   cbm  : (* Цвет фона маркированного поля    *)
+                          CARDINAL;
+                   expl : (* Сохранять под окном              *)
+                          BOOLEAN) : pPick;
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE ShowPick(pi : pPick; items : pItemPick);
+(* Отобразить Pick - окно. items - голова выводимых записей                 *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE UsePick(VAR key : CHAR) : CARDINAL;
+(* Выбор. Возвращает порядковый номер записи и последнюю нажатую клавишу.   *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE HidePick(pi : pPick);
+(* Убрать Pick - окно с экрана.                                             *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE PickItem(VAR items : pItemPick; str : ARRAY OF CHAR);
+
+PROCEDURE KillItemsPick(VAR item : pItemPick);
+(* Удаление цепи item.                                                      *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE KillPick(VAR pi : pPick);
+(* Уничтожить Pick - окно в памяти.                                         *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE PickWin(pi : pPick) : pWindow;
+(* Возвращает указатель на окно.                                            *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE TextItemPick(items : pItemPick; id : CARDINAL; VAR str : ARRAY OF CHAR);
+(* Возвращает в str текст пункта под номером id.                            *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE NextMark() : CARDINAL;
+(* Возвращает номер следующего маркированного пункта (или 0) цепи, уста-    *)
+(* новленной процедурой FirstMark.                                          *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE FirstMark(items : pItemPick) : CARDINAL;
+(* Возвращает номер первого маркированного пункта (или 0) цепи items        *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE SetColorsPick(pi : pPick;
+                        af , (* Цвет текста активного пункта                *)
+                        ab , (* Цвет фона   активного пункта                *)
+                        amf, (* Цвет текста активного маркированного пункта *)
+                        amb: (* Цвет фона   активного маркированного пункта *)
+                             CARDINAL);
+
+PROCEDURE InclPickCommand(pi : pPick; comand : CommandPick; ch : CHAR);
+(* Добавить команду к Pick-меню.                                            *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+PROCEDURE ExclPickCommand(pi : pPick; comand : CommandPick; ch : CHAR);
+(* Убрать команду Pick-меню.                                                *)
+(* ════════════════════════════════════════════════════════════════════════ *)
+
+END MpPick.

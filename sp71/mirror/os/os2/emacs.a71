@@ -1,0 +1,114 @@
+From: iim1dgh@iim.ups.com (David Hite)
+Newsgroups: comp.os.os2.programmer.tools,comp.os.os2.programmer.misc
+Subject: Re: OS/2 Emacs help...
+Date: 23 Dec 1994 18:31:09 GMT
+Organization: II Morrow Inc.
+Message-ID: <IIM1DGH.94Dec23133110@%HOSTNAME%.iim.ups.com>
+
+>>>>> "Mark" == Mark Grosberg <myg@gate.net> writes:
+
+    > Hello all, I was wondering if anybody out there has some E-LISP
+    > to do dynamic C formatting under EMACS/2 using nice PM fonts. I
+    > know about cc-mode (to get rid of the rtfm responses), but I
+    > don't think it is adequite at all.
+
+    > I am wondering if somebody has something like what Think C or
+    > Think Pascal do on the Mac (sorry :); I used it once in HS and
+    > thought it was the most lovely editor I ever saw. I could type
+    > in C code with _NO_ formatting, hit CR and watch it format,
+    > indent, and syntax highlight within a second or two on a SLOW
+    > 68000 processor, surely, somebody has something like this for
+    > EMACS/2.
+
+I'm using emacs 19.25 with both c-mode, hilit19, and font-lock modes.
+It does the highlighting and formatting as I type (no carriage return required).
+
+font-lock gives me the pretty fonts and hilit19 (with the following
+code in my .emacs) does the re-highlighting. the formatting is done
+by c-mode.
+
+;;; font-lock stuff
+;;;
+(cond (window-system
+       (set-face-font 'bold "8.bold.Courier")
+       (set-face-font 'bold-italic "8.italic.Courier")
+       (set-face-font 'italic "8.italic.Courier") ; NOT RECOMMENDED!
+
+       (make-face 'firebrick-italic)
+       (set-face-font 'firebrick-italic "8.italic.Courier") ; NOT RECOMMENDED!
+       (set-face-foreground 'firebrick-italic "firebrick")
+       ;;
+       ;;(make-face 'bold-blue)
+       ;;(set-face-font 'bold-blue "8.bold.Courier")
+       ;;(set-face-foreground 'bold-blue "blue2")
+       ;;
+       (setq font-lock-function-name-face 'blue-bold)
+       (setq font-lock-string-face 'ForestGreen-bold)
+       (setq font-lock-comment-face 'firebrick-italic)
+       ;;(setq font-lock-type-face 'ForestGreen-bold)
+       ;;(setq font-lock-keyword-face 'bold-blue)
+
+;;       (eval-after-load "font-lock" '(load "font-colours"))
+
+       (setq emacs-lisp-mode-hook '(lambda () (font-lock-mode 1)))
+
+
+       ))
+
+;;; Hilit19 stuff
+(cond (window-system
+       (set-cursor-color "red")
+       (set-mouse-color "red")
+       (set-background-color "white")
+       (set-default-font "11.System VIO")
+       ;;(set-default-font "10.System Monospaced")
+       ))
+
+(cond (window-system
+       (setq hilit-mode-enable-list  nil ;'(not c-mode)
+	     hilit-background-mode   'light
+	     hilit-inhibit-hooks     nil
+	     hilit-inhibit-rebinding nil)
+       (require 'hilit19)
+       (hilit-translate type 'RoyalBlue ; enable type highlighting in C/C++
+			string 'ForestGreen-bold) ; make strings green
+
+       (defvar hilit-autorehilit-necessary nil)
+       (setq after-change-function
+             (function
+              (lambda (beg end len)
+                (setq hilit-autorehilit-necessary t))))
+       (add-hook 'post-command-hook
+             (function
+              (lambda ()
+                (if hilit-autorehilit-necessary
+                    (progn
+                      (setq hilit-autorehilit-necessary nil)
+                      (if (and (not buffer-read-only)
+                               (not (string-match
+                                     "^ \\*Minibuf-[0-9]*\\*$"
+                                     (buffer-name (current-buffer)))))
+                          (if (memq major-mode '(dired-mode
+                                                 rmail-summary-mode
+                                                 compilation-mode 
+                                                 mail-mode
+                                                 Info-mode))
+                              ;; modes where the visible part of the
+                              ;; buffer can change totally with one
+                             ;; keypress (fortunately, in these modes
+                              ;; parsing the whole window is normally
+                              ;; fast)
+                              (hilit-rehighlight-region
+                               (window-start) (window-end) t)
+                            (save-excursion
+                             (hilit-rehighlight-region
+                               (progn (forward-line (- 1)) (point))
+                               (progn (forward-line 2) (point))
+                               t)))))))))))
+--
+David Hite                     II Morrow Inc.
+iim1dgh@iim.ups.com            A United Parcel Service Company
+
+The opinions expressed here are my own and do not represent the views
+of II Morrow Inc. or United Parcel Service.
+

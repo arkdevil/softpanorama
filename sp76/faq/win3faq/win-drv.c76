@@ -1,0 +1,574 @@
+From: Berlin@vireo.com
+Subject: comp.os.ms-windows.programmer.drivers Frequently Asked Questions (FAQ)
+Date: 30 Aug 1995 16:02:48 GMT
+Organization: Vireo Software, Inc.
+Expires: 28 Sep 1995 16:01:31 GMT
+Summary: This posting contains Frequently Asked Questions (with answers) 
+        for the comp.os.ms-windows.programmer.drivers newsgroup.
+        This newsgroup addresses issues raised by people WRITING device
+        drivers for Microsoft Windows.  Please do NOT post requests for
+        device drivers in this group. Such requests should be directed to:
+        comp.os.ms-windows.setup.
+
+Archive-name: windows/programming/device-drivers
+Posting-Frequency: bimonthly
+Last-modified: August 10, 1995
+
+
+                   Frequently Asked Questions (FAQ)
+                                 for
+                comp.os.ms-windows.programmer.drivers
+
+Summary:
+        This is a working document.  Suggestions, questions, answers,
+        are welcome.  I will post this document near the beginning of
+        each month.  This FAQ is particularly thin on Windows NT driver
+        information (that's a hint for you NT driver wizards out there
+        to send in some info...).
+
+        Thanks for help, comments, and answers from Lee Fisher, Michael Geary, 
+        Chris Marriott, Dan Norton, and especially Don Matthews.
+
+        Edited by Steve Lewin-Berlin (Berlin@vireo.com)
+
+Questions:
+
+ 1.  Help, I need a driver for...
+ 2.  What are the differences between device drivers for Win 3.1, Win 3.11,
+     Win 95, and Win NT?
+ 3.  What is a VxD?
+ 4.  How do I access physical memory at <addr> from a Windows 3.1 application?
+ 5.  What are the differences between embedded, installable, and conventional
+     device drivers?
+ 6.  I need to write a Windows device driver.  Should it be a DLL or a VxD?
+ 7.  How do I handle interrupts in my VxD?
+ 8.  How do I access physical memory in my VxD?
+ 9.  How do I access memory from my application or DLL in my VxD?
+10.  Can I write device drivers in C/C++, or must I use assembly language?
+11.  What commercial products are available to help write drivers?
+12.  What books are available?
+13.  What on-line resources are available?
+14.  What other information is available?
+15.  Other questions (full answers not written yet)
+        What magazine articles have been published about driver development?
+        How do I get a VxD ID from Microsoft, and why?
+        What's the best place to get started on driver development?
+        How do I call a Windows or DOS application from a driver?
+
+
+
+Answers:
+
+ 1.  Help, I need a driver for ...
+
+     I'm afraid you've asked on the wrong group. This is a newsgroup for
+     discussions of device driver programming, not for requesting drivers for
+     particular devices. I'm sure you'll get help if you ask on the correct
+     newsgroup, which is "comp.os.ms-windows.setup".
+
+ 2.  What are the differences between device drivers for Windows 3.1,
+     Windows 3.11, Windows 95, and Windows NT?
+
+     Windows 3.x and Windows 95 share a common device driver model.  Windows NT
+     depends an a completely new, and completely incompatible driver model.
+     Let's discuss Windows 3.x and Windows 95 first, then a brief word about
+     Windows NT, and finally some discussion about compatibility between NT and
+     Windows 3.x/95.
+
+     There are really two kinds of device drivers for Windows 3.x/95.  Virtual
+     Device Drivers (VxDs) run as part of the privileged (ring-0) operating
+     system. VxDs can be thought of as a DLL for the operating system.  Running
+     at ring 0, VxDs have complete access to the physical hardware, and can
+     access data in the address space of any DOS, Windows, or Protected Mode
+     application.  Under Windows 3.x, VxDs are typically given a .386 file
+     extension, and are loaded when Windows starts.  Under Windows 95, VxDs are
+     given the .VXD file extension, and may be loaded at startup time, or
+     dynamically loaded later.
+
+     Windows 95 uses the same basic architecture for VxDs as Windows 3.x.
+     Thus, drivers written for Windows 3.x can be loaded on a Windows 95 system
+     and should generally work fine.  However, Windows 95 adds hundreds of new
+     services for VxDs, and extends the VxD architecture to allow full dynamic
+     loading, pageable code and data, access to the system registry,
+interfaces to
+     Win32 applications, and many other features.  VxDs written for Windows 95
+     cannot be loaded on a Windows 3.x system.
+
+     In addition to VxDs, Windows 3.x/95 supports non-privileged (ring-3)
+     Communication and Printer drivers.  These are typically given .DRV file
+     extensions. 
+
+     Windows NT uses a new driver architecture, called "Kernel Mode Drivers".
+     Refer to the Windows NT DDK for detailed information.  VxDs are not
+     compatible with Windows NT.
+
+     In order to provide compatibility between Windows NT and Windows 95/3.x,
+     Microsoft provides "Miniport Drivers" for certain kinds of devices.
+     Miniports allow driver developers to write a single driver using a
+     pre-defined interface that is provided on both Windows NT and Windows
+     95/3.x.  Microsoft provides Miniport drivers for SCSI, Printer, and
+     Display devices. 
+
+ 3.  What is a VxD?
+
+     "VxD" stands for Virtual "something" Device, where 'x' stands for
+     "something". Microsoft often names drivers according to this convention,
+     thus "VKD" is the Virtual Keyboard Device, and "VPICD" is the Virtual
+     Programmable Interrupt Device.  VxDs are loaded into the protected
+     (ring-0) operating system address space, and have full access to the
+     system hardware.  VxDs can modify page tables directly, install true
+     hardware interrupt handlers, and generally wreak unrestricted havoc on
+     the system.
+
+     VxDs can be used to virtualize physical hardware by intercepting
+     application requests to use the hardware and arbitrating between
+     requests from different applications. In the more extreme case, VxDs can
+     provide a "virtual" device that is not actually present at all, by
+     emulating the behavior of a hardware device.  VxDs, by virtue of their
+     privileged access to the system, can also be used to implement software
+     monitors, debuggers, and to modify the behavior of other software on the
+     system.
+     
+ 4.  How do I access physical memory at <e.g. D000:0000> from a
+     Windows 3.1 application?
+
+     This is very easy to do.  Here is a sample program that  references the
+     VGA display buffer at A000:0000.  You can use the same technique, except
+     use _D000h instead of _A000h.  KERNEL defines a whole set of these
+     selectors for you covering the A000 through F000 range.
+
+         #define STRICT
+         #include <windows.h>
+
+         typedef WORD SELECTOR;
+
+         // __A000h is an absolute value; by declaring it as a NEAR variable
+         // in our data segment we can take its "address" and get the
+         // 16-bit absolute value.
+
+         extern BYTE NEAR CDECL _A000h;
+
+         SELECTOR selVGA = (SELECTOR)&_A000h;
+
+         int PASCAL WinMain (HINSTANCE   hinst,
+                             HINSTANCE   hinstPrev,
+                             LPSTR       lpszCmdLine,
+                             int         cmdShow
+                             )
+        {
+        WORD FAR * lpVGA = MAKELP( selVGA, 0 );
+
+        // Should put garbage pixels on top left of screen
+        lpVGA[0] = 0x1234;
+        lpVGA[1] = 0x5678;
+
+        return 0;
+        }
+
+
+ 5.  What are the differences between embedded, installable, and conventional
+     device drivers?
+
+     All of these terms can be used to describe 16-bit protected-mode DLLs.
+     
+   o An embedded device driver is a DLL that basically acts as an extension
+     of a particular Windows application.  It usually contains an interrupt
+     handler, and it exports any set of services the author might choose to
+     implement.
+ 
+   o An installable device driver must conform to more rigid guidelines.
+     This type of driver can be opened, closed, enabled, disabled, etc. by
+     other applications or DLLs.  It contains a DriverProc, which is like
+     the WindowProc in a Windows application.  The DriverProc responds to
+     a standard set of messages sent by Windows and to custom messages sent
+     by applications.  This is the type of driver that can be installed
+     using the Control Panel applet.
+ 
+   o A conventional device driver (also sometimes called a "standard"
+     device driver) interacts with a hardware device supported by the
+     Windows API.  For example, the display, keyboard, and printer are
+     considered to be "standard" devices.  These drivers are sometimes
+     given a file extension of .DRV, and are usually installable drivers.
+     They work with certain pre-defined data structures and provide certain
+     pre-defined services.
+
+ 6.  I need to write a Windows device driver.  Should it be a DLL or a VxD?
+
+     This is the kind of question whose answer really depends on your
+     application and your objectives.  In general, a VxD is more difficult
+     to develop, but yields higher performance when processing interrupts
+     and accessing I/O ports.  A VxD can also do things that aren't
+     otherwise possible with a DLL.
+     
+     The first step is to determine what it is that your driver must do.
+     If it must support a hardware device, then which of the following
+     system resources are required by your hardware?
+ 
+     a.)  I/O ports
+     b.)  IRQ lines
+     c.)  Memory ranges
+     d.)  DMA channels
+ 
+     If I/O ports are involved, then be aware that there are performance
+     issues related to accessing I/O ports from ring 3, as you would in a 
+     DLL, as compared to accessing them from ring 0 in a VxD.  There is
+     overhead associated with accessing I/O ports from ring 3, perhaps as
+     much as 100% or more (i.e. ring 3 accesses take twice as much time as
+     ring 0 accesses).
+ 
+     If IRQ lines are involved, then be aware that there is significantly
+     more interrupt latency associated with an ISR running in ring 3 than
+     in a VxD.
+ 
+     Access to physical memory can be accomplished with DPMI services in
+     a DLL, or VMM services in a VxD.
+ 
+     Access to DMA channels should go through VDS (Virtual DMA Services).
+ 
+     If you need to make your hardware appear to be shared by Windows
+     applications and DOS applications running in separate DOS boxes,
+     then you need to "virtualize" your hardware with a VxD.  You also
+     need to "virtualize" your hardware if you need to mediate access, or
+     resolve contention for your device.
+
+ 7.  How do I handle interrupts in my VxD?
+
+     You should use the services provided by the Virtual PIC Device (VPICD)
+     to install an ISR for your hardware device.  This involves creating
+     a data structure in the locked data segment of your VxD of type
+     VPICD_IRQ_Descriptor.  In it, you specify the IRQ number and the
+     address of your ISR, among other things.  You then register your
+     ISR by calling VPICD_Virtualize_IRQ.  This returns an IRQ Handle,
+     which you should save for future reference.
+     
+     Later, when an interrupt occurs, your ISR will be entered with minimal
+     latency.  The ISR should be in a locked code segment.  The IRQ Handle
+     that uniquely identifies this interrupt will be in EAX upon entry.
+     You should call VPICD_Phys_EOI at the end of your ISR.  Just before
+     returning from your ISR, clear the carry flag if you successfully
+     processed the interrupt.  If the IRQ is sharable, you can pass the
+     IRQ on to the next handler in the chain by setting the carry flag.
+     Return from the ISR with a RET instruction, not IRET.
+     
+     Upon entry to the VID_Hw_Int_Proc (your ISR), interrupts are masked
+     at the PIC for that particular interrupt, and an EOI has already been
+     sent to the PIC for that same interrupt.  The call to VPICD_Phys_EOI
+     at the end of the ISR doesn't actually send an EOI to the physical
+     PIC, as the name implies, but rather simply unmasks the interrupt at
+     the PIC. The EOI was actually sent to the PIC before entering
+     VID_Hw_Int_Proc.  The name of the VPICD_Phys_EOI service is misleading.
+ 
+     Check out the useful services provided by VPICD.
+
+ 8.  How do I access physical memory in my VxD?
+
+     You should first convert the physical address to a linear address
+     with the _MapPhysToLinear service.  Then convert the linear address
+     to either a protected-mode address in <selector>:<offset> form or a
+     V86-mode address in <segment>:<offset> form with the Map_Lin_To_VM_Addr
+     service.
+
+ 9.  How do I access memory from my application or DLL in my VxD?
+
+     You should convert the protected-mode address to a linear address
+     with the Map_Flat service.  
+
+10.  Can I write device drivers in C/C++, or must I use assembly language?
+
+     VxDs are 32-bit programs.  You may use a 32-bit C/C++ compiler, but
+     you must be careful about segmentation, calling conventions, and
+     run time library routines that require initialization.  Many of the
+     interfaces provided by the Virtual Machine Manager have register-based
+     calling conventions.
+
+     Vireo Software sells a toolkit that allows you to use C or C++ to
+     write VxDs.  See below.
+
+11.  What commercial products are available to help write device drivers?
+
+        MSDN level 1   (Microsoft)
+        MSDN level 2   (Microsoft)
+        Soft-ICE/W     (Nu-Mega Technologies)
+        VtoolsD        (Vireo Software)
+        WinRT          (BlueWater Systems)
+
+        MSDN level 1
+            Summary:  Membership in level 1 of the Microsoft Developer Network
+                      gets you a CD 4 times per year. The CD is packed with
+                      documentation and on-line books, including articles about
+                      VxD development.
+            Contact:  Microsoft Developer Network
+                      mail:  PO Box 10296, Des Moines, IA  50336
+                      voice: (800) 759-5474
+                      voice: (206) 936-8661
+                      CIS:  go MSDS
+
+        MSDN level 2
+            Summary:  Membership in level 2 of the Microsoft Developer Network
+                      gets you a set of CDs 4 times per year.  The CDs include
+                      the level-1 CD (see above) plus operating systems, SDKs,
+                      and DDKs for a number of MS products.  This includes the
+                      Windows Device Driver Kit (DDK), which includes
+                      utilities required to build device drivers, along with
+                      numerous examples.
+            Contact:  MSDN (see above)
+
+        VtoolsD for Windows 3.1
+            Summary:  VtoolsD is a toolkit that allows developers to build VxDs
+                      in C or C++ using the Microsoft 32-bit C/C++ compiler.
+                      VtoolsD includes a visual-programming VxD code generator,
+                      ANSI C run-time libraries, VMM/VxD service libraries, 
+                      and a VxD Class Library.  Compatible with Microsoft and
+                      Borland C/C++ compilers.
+            Contact:  Vireo Software
+                      mail:  385 Long Hill Road, Bolton, MA  01740
+                      voice: (508) 779-8352
+                      fax:   (508) 779-8351
+                      Email: Vireo@vireo.com
+
+        VtoolsD for Windows 95 (Pre-release)
+            Summary:  The Windows 95 Pre-release allows developers to build
+                      VxDs that call new services available in Windows 95.
+                      Requires Windows 95 DDK.
+            Contact:  Vireo Software (see above)
+
+        Soft-ICE/W
+            Summary:  Soft-ICE/W is a full-screen character-mode debugger that
+                      can be used to debug VxDs and applications. Soft-ICE/W
+                      can debug VxDs at the instruction level, or display
+                      ASM, C, or C++ source code.
+            Contact:  Nu-Mega Technologies, Inc.
+                      mail:  PO Box 7780, Nashua, NH  03060
+                      voice: (603) 889-2386
+                      fax:   (603) 889-1135
+                      Email: info@numega.com
+                      Compuserve: !GO NUMEGA
+
+        WinRT
+            Summary:  WinRT is a Win32 programmer's toolkit that allows a 
+                      Win32 thread to perform Port I/O, Memory I/O and 
+                      Interrupt without building a device driver.  Available
+                      for Windows 95 and Windows NT.
+            Price:
+            Contact:  BlueWater Systems
+                      mail:  PO Box 776, Edmonds, WA 98020
+                      voice: (206) 771-3610
+                      fax:   (206) 771-2742
+                      Email: 73514.132@compuserve.com
+
+12.  What books are available?
+
+      Specifically about device drivers:
+
+        Writing Windows Device Drivers           (Daniel Norton)
+        Writing Windows Virtual Device Drivers   (Thielen and Woodruff)
+        Writing Windows VxDs and Device Drivers  (Karen Hazzah)
+
+      Useful to device driver developers:
+
+        Undocumented DOS (2nd Edition)           (Andrew Schulman et al)
+        DOS Internals                            (Geoff Chappell)
+        Unauthorized Windows 95 Resource Kit     (Andrew Schulman)
+
+      Reference:
+
+            Title:      Writing Windows Virtual Device Drivers
+            Author:     David Thielen and Bryan Woodruff
+            Publisher:  Addison Wesley
+            ISBN:       0-201-62706-X (may be replaced by:)
+            ISBN:       0-201-48921-X
+            Price:      $39.95
+
+            Title:      Writing Windows Device Drivers
+            Author:     Daniel Norton
+            Publisher:  Addison Wesley
+            ISBN:       0-201-57795-X
+            Price:      $29.95
+
+            Title:      Writing Windows VxDs and Device Drivers
+            Author:     Karen Hazzah
+            Publisher:  R&D Publications
+            ISBN:       0-13-100181-7
+            Price:      $49.95
+
+            Title:      Undocumented DOS (2nd Edition)
+            Author:     Andrew Schulman et al
+            Publisher:  Addison-Wesley
+            ISBN:       0-201-63287-X
+            Price:      $44.95
+
+            Title:      DOS Internals
+            Author:     Geoff Chappell
+            Publisher:  Addison-Wesley
+            ISBN:       0-201-60835-9
+            Price:      $39.95
+
+            Title:      Unauthorized Windows 95 Resource Kit
+            Author:     Andrew Schulman
+            Publisher:  IDG Books
+            ISBN:       1-56884-305-4 (with disk)
+            ISBN:       1-56884-169-8 (no disk)
+            Price:      ?
+
+
+13.  What on-line resources are available?
+
+            Internet news groups
+                comp.os.ms-windows.programmer.drivers
+
+            World Wide Web sites
+                http://world.std.com/~vireo/
+                http://www.albany.net/~danorton/ddk/
+
+            DDK-L - Private Internet Mailing List ($15.00 fee)
+                To join, send a message to "Majordomo@lori.albany.net"
+                with the text "subscribe ddk-l email@host" in the body
+                of the message.
+
+            Internet FTP site
+                ftp://ftp.microsoft.com/Developr/drg/developer-info/devinfo.zip
+                        This file contains a list of developer resources
+                        available from Microsoft; it is not driver specific.
+                ftp://ftp.microsoft.com/Developr/MSDN/
+                ftp://ftp.microsoft.com/Developr/DRG/MSDN-Info/
+                        These directories contain additional information
+                        about Microsoft Developer Network.
+
+            CompuServe
+                Microsoft operates several forums on CompuServe that may
+                be of interest to device driver developers:
+
+                Microsoft Windows SDK Forum     Service: WINSDK 
+
+                    Developers using the Windows Software Development Kit [and
+                    DDK] will want to take advantage of the community of
+                    assistance and support available in the Windows SDK Forum.
+                    Help is available for subjects such as tools, accelerators,
+                    controls, dialogue boxes, memory management, fonts,
+                    palettes and color [and device drivers].
+
+                Microsoft Developer Knowledge Base      Service: MDKB  
+
+                    The Microsoft Developer Knowledge Base is a reference tool
+                    containing technical information and articles about the
+                    Microsoft developer-specific products.  This database is
+                    compiled and maintained by Microsoft Product Support and is
+                    full-text, keyword searchable. You will find Microsoft
+                    press releases and technical articles about product bugs,
+                    trouble-shooting and updates.       
+
+                Microsoft Developer Network Forum       Service: MSDNLIB
+
+                    The Microsoft Developer Network (MSDN) Technical Library
+                    Forum offers software developers a quick and efficient way
+                    of obtaining technical information.  The libraries contain
+                    a collection of technical articles in the Windows Help file
+                    format and sample code, which are available for
+                    downloading. Message sections enable you to discuss any of
+                    the files or codes with other users, as well as with
+                    Microsoft Representatives.
+
+                Microsoft Knowledge Base        Service: MSKB
+
+                    Microsoft Knowledge Base is a database which provides
+                    access to information about Microsoft products previously
+                    available only to the Microsoft support engineers. Search
+                    the database by product name, version or category. Or for
+                    immediate responses to your questions, perform a full-text
+                    search of all documents contained within database that
+                    contain the subject of your question. Also communicate
+                    directly with Microsoft by sending an electronic message to
+                    its Help Desk.
+
+                Microsoft Service Request       Service: MSR
+
+                    Microsoft offers the Service Request System as an optional,
+                    private (fee-based per incident) technical support service
+                    that offers to help solve complex development problems.
+                    Other avenues, such as the Microsoft Developer Support
+                    Forums and Microsoft Developer Knowlede Base, should be
+                    consulted prior to using the Service Request System.
+
+                Microsoft Software Library      Service: MSL
+
+                    The Microsoft Software Library is a collection of uploaded
+                    binary files, samples, technical notes and utilities about
+                    various Microsoft programs.  The entire library is keyword
+                    searchable and the files can easily be downloaded to your
+                    computer.
+
+14.  What other information is available?
+
+        The October 1992 Microsoft Windows NT Device Driver Developer's 
+        Conference video/audio tapes are still available. Contact:
+
+              MobileTape Co. Inc.
+              address: 25061 W. Stanford, Suite 70; Valencia, CA 91355, USA
+              phone (orders): 800.369.5718
+              phone (info): 805.295.0504
+              fax: 805.295.8474
+
+            ask for the order form for the event:
+
+              Microsoft Windows NT Device Driver Developer's Conference
+              October 26-28, 1992
+              Anaheim, CA
+
+        Solomon Software Technologies
+        20 Hunters Lante
+        Nashua, NH 03063-2245
+        USA
+        Phone: 1.800.492.4898
+        Phone: 1.603.595.9059
+        FAX: 1.603.595.9005
+        Email: 71561.3603@CompuServe.COM
+
+            They offer various technical seminars by folks such as Richard Hale
+            Shaw, Jamie Hanrahan, Jeffrey Richter, and David Solomon. Topics
+            include Visual C++, OLE, MFC, Windows '95 ("Chicago"), Win32
+            programming, and Windows NT device drivers. One relevant seminar
+            is "Windows NT Kernel-Mode Device Driver Programming".
+
+15.  Suggested questions, full answers not written yet:
+
+     What magazine articles have been published about driver development?
+        <<Articles have been published in Windows/Dos Developer's Journal,
+          Windows Technical Journal, Windows Sources, and others.  I haven't
+          collected exact references.>>
+
+     How do I get a VxD ID from Microsoft, and why?
+        <<A VxD ID is required for drivers that export services to other
+          drivers.  Alternative methods exist for drivers exporting services
+          to DOS, Protected Mode, and/or Windows applications.  Send Email to
+          VXDID@Microsoft.com for an application form.>>
+
+     What's the best place to get started on driver development?
+        <<one suggestion: Asche's "The Little Device Driver Writer" on
+          the MSDN CD.  Another suggestion: get Vireo's VtoolsD for VxD
+	  development>>
+
+     How do I call a Windows or DOS application from a driver?
+        <<See the VPOSTD example in the MS DDK, or the CLASSTUT example
+          in Vireo's VtoolsD kit, for examples of how to call PostMessage>>
+
+
+99.  Statement of interest
+
+        The editor works for Vireo Software, Inc. and is one
+        of the authors of the VtoolsD VxD toolkit mentioned
+        in this document. 
+
+        -- Steve Lewin-Berlin
+           Berlin@vireo.com
+           Vireo Software
+           "The VxD Tools Company"
+
+
+Stephen T. Lewin-Berlin
+                                email: berlin@vireo.com
+Vireo Software, Inc.            voice: (508) 779-8352
+"The VxD Tools Company"         Fax:   (508) 779-8351
+385 Long Hill Road              http:  //world.std.com/~vireo/
+Bolton, MA  01740               ftp:   //ftp.ultranet.com/pub/berlin/
+
+

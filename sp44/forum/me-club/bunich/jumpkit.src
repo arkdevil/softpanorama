@@ -1,0 +1,118 @@
+$Macro_File JumpKit;
+{
+  Набор операций позиционирования -- Л.Г.Бунич -- Multi-Edit 5.00P
+}
+
+$Macro JumpKit;
+
+  Def_Int (BG, FG, X1, Y1, X2, Y2);
+  Def_Int (k, l, len);
+
+  BG := M_T_Color shr 4;   FG := M_T_Color and $0F;
+  X1 := 10; Y1 := 8; X2 := 72; Y2 := 19;   {координаты плитки с подсказками}
+Open:
+  Mark_Pos;
+  Put_Box(X1,Y1,X2,Y2,BG,FG,' P o s i t i o n i n g   K i t ',1);
+  Write('Column.........перейти к заданной позиции',       X1+6,Y1+02,BG,FG);
+  Write('Longest........найти самую длинную строку',       X1+6,Y1+03,BG,FG);
+  Write('Modified.......найти следующую измененную строку',X1+6,Y1+04,BG,FG);
+  Write('Right Margin...найти строку с длиной более ' + Str(Right_Margin),
+                                                           X1+6,Y1+05,BG,FG);
+
+  Write('PgDn....найти последнюю строку следующего листа', X1+3,Y1+07,BG,FG);
+    Draw_Attr(X1+3,Y1+07,M_H_Color,4);
+  Write('PgUp....найти последнюю строку предыдущего листа',X1+3,Y1+08,BG,FG);
+    Draw_Attr(X1+3,Y1+08,M_H_Color,4);
+
+  Write(' ESC: отказ; Shift+клавиша: не выходить из JUMPKIT ',X1+5,Y2-1,
+        M_S_Color shr 4, M_S_Color and $0F);
+
+  k := Y1+2; While k < (Y2-5) do;
+    Draw_Attr(X1+6,k,M_H_Color,1); ++k;
+  end;
+  GoToXY(0,0);
+  Read_Key; Kill_Box; GoTo_Mark;        
+
+KeyProc:
+  Make_Message('');
+  if    KEY2 = 46 then                           {Column}
+    Return_Int := C_Col;
+    RM('USERIN^QUERYBOX /N=1/W=4/P= Укажите номер колонки (до '
+         + str(Length(Get_line)) + ')');
+    If Return_Str = 'FALSE' Then GoTo Open; End;
+    GoTo_Col(Return_Int);
+  elsif KEY2 = 38 then                           {Longest}
+    Push_Undo; Refresh := False;
+    TOF; WORKING; len := 0;
+    While At_EOF = 0 do
+      Put_Line_Num(C_Line);
+      l := Length(Get_Line);
+      If len < l Then len := l; k := C_LINE; End;
+      Down;
+    End;
+    GoTo_Line(k);
+    Refresh := True; Redraw;
+    Pop_Undo;
+    Make_Message('Длина строки = ' + Str(len) + '.');
+  elsif KEY2 = 50 then                           {Modified}
+    Push_Undo; Refresh := False; WORKING;
+    k := 1; GoTo_Col(1);
+    While k do
+      if AT_EOF = FALSE then Down; end;
+      Put_Line_Num(C_Line);
+      If LINE_CHANGED or AT_EOF Then k := 0; End;
+    End;
+    Refresh := True; Redraw;
+    Pop_Undo;
+    if AT_EOF then Make_Message('Конец файла.'); end;
+  elsif KEY2 = 19 then                           {Right Margin}
+    Push_Undo; Refresh := False; WORKING;
+    k := 1; GoTo_Col(1);
+    While k do
+      if AT_EOF = FALSE then Down; end;
+      Put_Line_Num(C_Line);
+      len := Length(Get_Line);
+      If (len > Right_Margin) or AT_EOF Then k := 0; End;
+    End;
+    Refresh := True; Redraw;
+    Pop_Undo;
+    if AT_EOF then
+      Make_Message('Конец файла.');
+    else
+      Make_Message('Right Margin = ' + Str(Right_Margin) +
+        ', длина строки = ' + Str(len) + '.');
+    end;
+  elsif KEY2 = 81 then                           {PgDn}
+    Refresh := FALSE;
+    GoTo_Col(1); Down;
+    Next_Page_Break;
+    if AT_EOF = FALSE then
+      Up; Up; RM('KORZUN1^K_LINE_CENTR');
+    else
+      EOF;
+      Make_Message('Конец файла.');
+    end;
+    Refresh := TRUE;
+  elsif KEY2 = 73 then                           {PgUp}
+    Refresh := FALSE;
+    GoTo_Col(1);
+    Last_Page_Break;
+    if C_LINE = 1 then
+      Make_Message('Начало файла.');
+    else
+      Up; Up; RM('KORZUN1^K_LINE_CENTR');
+    end;
+    Refresh := TRUE;
+  elsif KEY2 <> 1 then
+    Make_Message('Нажата недопустимая клавиша.');
+    GoTo Open;
+  end;
+
+  if Peek(0,$417) and $03 then     { проверка: нажат ли Shift }
+    Write(' JUMPKIT ', WORKING_COL, STATUS_ROW,
+          WORKING_Color shr 4, WORKING_Color and $0F);
+    Read_Key; GoTo KeyProc;
+  end;
+  Redraw;
+
+End_Macro;

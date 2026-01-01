@@ -1,0 +1,124 @@
+Newsgroups: comp.lang.rexx
+Date: Thu, 29 Jun 1995 09:54:40 MEZ
+Sender: REXX Programming discussion list <REXXLIST@uga.cc.uga.edu>
+From: Otto Stolz <Otto.Stolz@UNI-KONSTANZ.DE>
+Subject: Re: from rexx to rexx and variables
+
+On Thu, 22 Jun 1995 14:11:53 GMT Gerard Blokdijk said:
+> This is the part of the original rexx that calls invoer.rex
+...
+> drop say.
+>   call 'invoer.rex'
+
+I do not know what Gerard tries to achieve by this Drop statement.
+
+As a general rule, REXX does not expose any variables between external
+procedures. In order to pass information between an external procedure
+and its caller, you will have to use one of the following mechanisms:
+
+1. Argument strings can pass info from caller to callee; they are
+   specified as expressions in the function invocation, or in the
+   Call statement, respectively; these expressions are evaluated, the
+   callee sees only their respective positions and values -- not any
+   reference to any variable -- (cf. Arg built-in function, and Parse Arg
+   statement).
+
+2. The function result can pass info from the callee back to the caller;
+   it is specified as an expression in the Return statement; again, only
+   the value is transmitted (cf. function call, and Result variable).
+   Note that a REXX data value is an arbitrary string of unlimited
+   length, so you can return rather complex function results.
+
+3. The program stack (or one of several stacks, in some implementations)
+   can pass info in both directions; again only values are transmitted
+   (cf. Queue, Push, and Parse Pull statements).
+
+None of the above provides any means to pass a reference to a variable
+(let alone a reference to all variables sharing a common stem) to an
+external procedure.
+
+4. In most implementations, there is a Variable Pool Interface; this
+   allows to share variables between a REXX program and its external,
+   non-REXX(!), procedures.
+
+   This sort of interface can be exploited in two ways: the external
+   procedure can access (i.e. read, write, or drop) variables with fixed
+   names belonging to its caller, or the caller can pass the desired
+   variable names to the callee (usually via argument strings).
+
+   Some implementations allow the VPI to access the variables of several
+   active REXX programs (not just the immediate caller). In this case,
+   a REXX-callable procedure could be written (but not in REXX) to pro-
+   vide to an external REXX routine access to its caller's REXX
+   variables. Only with this sort of interface, a REXX program could
+   pass a stem to an external REXX procedure (strictly speaking, the
+   caller would pass the name of the stem as an argument string, and the
+   callee would invoke the ancillaray routine (outlined above) to gain
+   access to the variables belonging to that stem).
+
+> This is the part where it goes wrong in the called invoer.rex:
+...
+> titel='Wooncentrum De Meubelhal Hilversum B.V.'
+> drop say.
+> mbmsg='Maak uw keuze..'
+> say.1='1.Order client'
+> say.2='2.Bestellingen client'
+> say.3='3.Zelf ingekocht/voorraad'
+> say.4='4.Gegevens fabrikant'
+> say.6='5.Betalingen'
+> say.7='6.Binnengekomen goederen'
+> say.8='7.Uitgeleverde goederen'
+> say.9='8.Uitwisseling andere lokatie'
+> say.10='0.Verkorte invoer'
+> say.12='A.Wegboeken order'
+> say.13='B.Wegboeken bestelling'
+> say.11= '**Eindigen'
+> rc=choicebox(mbmsg,titel,say.)
+
+This quote does not say what exactly went wrong, neither does it say
+anything about the Choicebox function (which is not a standard REXX
+built-in function), so I can only point to the obvious problems with this
+code:
+
+1. When choicebox is called, the variable named say.5 is undefined
+   (dropped).  If this poses a problem for Choicebox, the statement
+      drop say.
+   could be replaced with
+      say. = ""
+   effectively assigning an empty string to every member of the Say.
+   family.
+
+2. Apparently, the variable say.11 contains the value that is intended to
+   be contained in say.14.
+
+3. In choicebox's function call, the 3rd argument refers to an undefined
+   variable.  In some circels, this is considered bad programming style,
+   hence REXX provides a means to trap this sort of anomaly: if the
+   Novalue condition trap is set (cf. Signal statement), then the program
+   will be aborted prior to the invocation of Choicebox.
+
+   If this trap is not set, Choicebox will see "SAY." as the value of its
+   3rd argument. I guess this is meant as an invocation along the lines
+   of method 4 above: Choicebox probably expects the name of a stem as
+   its 3rd argument. The most secure way to specify this name would be:
+      rc = choicebox(mbmsg, titel, "SAY.")
+
+3. If Choicebox indeed expects the name of a stem as its 3rd argument, it
+   may well expect names (rather than values) also as its 1st and 2nd
+   arguments. I really do not know -- check the pertinent documentation!
+   If so, you would have to invoke it thus:
+      rc = choicebox("MBMSG", "TITEL", "SAY.")
+   As both Mbmsg and Titel are defined, the quotes make a big difference:
+   "MBMSG" will yield the value "MBMSG",  while mbmsg will yield "Maak uw
+   keuze..". It really matters, what Choicebox wants to see...
+
+3. Choicebox is not told, which variables of the Say. family are to be
+   considered.  Again, you will have to check the pertinent
+   documentation. A widely used convention would require that the
+   assignment
+      say.0 = 14
+   should be added to the program.
+
+Good luck & happy programming,
+                    Otto Stolz <Otto.Stolz@uni-konstanz.de>
+

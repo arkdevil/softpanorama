@@ -1,0 +1,166 @@
+From: greve@rs1.thch.uni-bonn.de (Thomas Greve)
+Newsgroups: comp.os.os2.programmer.misc
+Subject: Re: Watcom and OS/2
+Date: 19 Jan 1995 15:04:15 GMT
+Organization: University of Bonn, Germany
+Message-ID: <GREVE.95Jan19160415@rs1.thch.uni-bonn.de>
+
+In article <3fkrod$oh0@jabba.cybernetics.net> ivisoft@cybernetics.net (Bruce Shankle) writes:
+
+   In article <GREVE.95Jan16172742@rs1.thch.uni-bonn.de> greve@rs1.thch.uni-bonn.de (Thomas Greve) writes:
+   >Yes, but *some other* OS/2 compiler compiles valid C++ code correctly.
+   >At least more correctly than Watcom's does.  I can live with the fact
+   >that i have to wait for the compilation.  I could not live with the
+   >unreliability of the result -- if i happen to get one.
+
+   What do you mean by valid C++ code? 
+   Can you give an example where Watcom will fail?
+   Your post seems rather vague. Please expand.
+
+Sorry, but i was not aware, that the internet community is interested
+in code that shows compiler bugs.  Here are some, that are all
+compiled correctly by C Set++ (which was meant by the *some other*
+Compiler):
+
+--------8<--------8<--------8<--------8<--------8<--------8<--------8<--------
+
+class A { 
+  int a;
+public:
+  A& operator = (const A&);
+};
+
+class B : public A {
+public:
+  inline A& operator = (const A& a) {
+    return (A&)*this = a;	// Error 028 incorrect
+  }				// ((A&)*this) = ... works, but cast should
+};				// have precedence over = anyway.
+
+--------8<--------8<--------8<--------8<--------8<--------8<--------8<--------
+
+#include <math.h>
+
+class istream;
+class ostream;
+class Complex;
+
+template <class T> class Matrix;
+
+template <class T> class Vector {
+
+public:
+  Vector();
+  Vector(const Vector<T>&);
+  Vector(const Vector<double>&);
+  virtual ~Vector();
+  Vector<T>& operator += (const Vector<T> &);
+  Vector<T>& operator *= (const Matrix<T> &);
+  friend istream& operator >> (istream &, Vector<double> &);
+}; // Vector
+
+template <class S> Vector<S> operator * (const S&, const Vector<S> &);
+Vector<Complex> operator * (double, const Vector<Complex> &);
+
+template <class T> class Matrix { // Error 126 is incorrect.
+
+public:
+  Matrix();
+  virtual ~Matrix();
+  virtual Vector<T> operator * (const Vector<T>&) const;
+  friend istream& operator >> (istream &, Matrix<double> &);
+};
+
+[if you leave out the `friend istream& operator >> (...)' declaration
+above the code compiles.]
+
+--------8<--------8<--------8<--------8<--------8<--------8<--------8<--------
+
+[include the example above]
+
+extern double a, b;
+extern Vector<double> k;
+
+void foo(Vector<double>& y) {
+  y += a * k; // error: matches operator * (const double&, const Vector<double>&)
+}	      // not operator * (double, const Vector<Complex>&), since for the
+	      // latter an implicit conversion to Vector<Complex> is required,
+	      // which is possible, but not allowed here. Cf. ARM, p345f
+
+--------8<--------8<--------8<--------8<--------8<--------8<--------8<--------
+
+int f(int x) {
+  int y = 1, z = 2;
+  x > 2 ? y : z = 0;	// bogus warning W387, wrongly interpreted:
+  return z;		// of course, x > 2 ? (int&) y : (int&) z is meant.
+}			// Explicitly casting y and z yields other errors.
+
+class C {
+  static int i;
+  friend int f(int = C::i);	// Error E148 incorrect, C::i, though private, 
+};				// may be used as initializer for friend
+				// functions argument. Cf. ARM, Examples on p143.
+
+--------8<--------8<--------8<--------8<--------8<--------8<--------8<--------
+
+// This example is similar to the above `Vector' one, except that the
+// circular dependency was avoided.
+
+#include <Complex.h>
+
+template <class S> class Vector;
+template <class S> class Matrix;
+template <class S> class DiagonalMatrix;
+
+template <class S> class VArray {
+friend class Vector<Complex> operator * (const Matrix<double> &M,
+					 const Vector<Complex> &V);   
+protected:
+  int size;
+  S *v;
+
+public:
+  VArray(int = 0, const S * = NULL);
+  virtual ~VArray() { delete [] v; }
+};
+
+template <class S> class MArray {
+protected:
+  int size;
+  S *m;
+
+public:
+  MArray(int s = 0, const S *w = NULL);
+  inline virtual ~MArray() { delete [] m; }
+};
+
+template <class S> class Matrix : public MArray<S> {
+public:
+  inline Matrix(int s = 0) : MArray<S>(s) {}
+};
+
+template <class S> class DiagonalMatrix : public Matrix<S> {
+public:
+  DiagonalMatrix(int s = 0);
+};
+
+template <class S> class Vector : public VArray<S> {
+public:
+  inline Vector(int s = 0) : VArray<S>(s) {}
+}; // Vector
+
+Vector<double> a;
+
+--------8<--------8<--------8<--------8<--------8<--------8<--------8<--------
+
+Moving the friendship  with ... operator * (Matrix..., Vector...) from
+VArray to Vector let Watcom compile the header correctly, but made him
+die in the first DiagonalMatrix member definition with an exception
+violation.  At this point, i decided to wait for the next patch level
+(but of course, the `b' level did not change anything).
+--
+				- Thomas
+
+   greve@rs1.thch.uni-bonn.de
+   unt145@work2.rhrz.uni-bonn.de
+

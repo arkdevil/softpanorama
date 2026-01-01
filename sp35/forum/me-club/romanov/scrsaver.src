@@ -1,0 +1,210 @@
+							$MACRO_FILE Scrsaver;
+{
+						 Programmed by Alex Romanov
+					  Moscow University Computer Center
+							   (095) 939-24-71
+
+	This macro file contains two Multi-Edit 5.00 macros:
+		Set_Screensaver -- control panel for the ScreenSaver macro.
+		ScreenSaver -- blanks the screen after the specified delay of keyboard
+						and mouse inactivity.
+	The ScreenSaver macro needs to be initialized after Multi-Edit starts up.
+	It is a good idea to use a Startup2 macro to perform the initialization.
+	The macro named Startup2 is automatically invoked by Multi-Edit every time
+	it loads. Startup2 is invoked after Restore, so restored global variables
+	are overridden. ScreenSaver's performance is controlled by several global
+	variables that you may wish to initialize in Startup2. Following is a
+	sample Startup2 macro.
+
+$MACRO Startup2 DUMP;
+
+	Set_Global_Int ('Scr_Iint_1',5);	{ Screen blank delay in minutes }
+	Set_Global_Int ('Scr_Method',1);    { Screen blank method # }
+	Set_Global_Int ('Scr_Iint_2',1);	{ Inform Set_Screensaver that
+						we are about to initialize ScreenSaver ourselves }
+		{ Choose the correct radio button }
+	Set_Global_Int ('Scr_Iint_4',0);
+	Set_Global_Int ('Scr_Iint_5',0);
+	Set_Global_Int ('Scr_Iint_' + Str (3+Global_Int ('Scr_Method')),1);
+		{ Now initialize ScreenSaver }
+	Set_Global_Int ('Scrsaver_Handle', Set_Timer_Event ('Scrsaver^ScreenSaver /G',18,EDIT));
+		{ Assign Set_ScreenSaver to a key so that parameters may be changed
+		  during your work session }
+	Macro_To_Key (<ShftF12>,'Scrsaver^Set_ScreenSaver /G', EDIT);
+	Make_Message ('ScreenSaver installed; screen blank delay is ' + Str (Global_Int ('Scr_Iint_1')) + ' min. <ShftF12> to adjust params.');
+
+END_MACRO;
+
+	The /G parameter enables greeting the user upon his return. Remove it if
+	you are bothered (or bored) by the message.
+	As usual, you may move the mouse to UR corner to immediately blank
+	the screen, or to LR corner to prevent screen blanking.
+
+	This macro is hereby placed in public domain. If you are imaginative you
+	probably can invent something far more beautiful than starry sky to divert
+	the public while you temporarily leave your working place. You can easily
+	expand the two macros to include your own superb screen saving method. You
+	actually need to modify only the main loop of ScreenSaver "while not
+	(check_key) do", where all the action takes place. Have fun!
+
+}
+
+$MACRO Set_Screensaver TRANS;
+	Def_Int (old_delay, old_method, enabled_flag);
+
+	Set_Global_Str ('Scr_Iparm_1','/T=Screen blank delay is/TP=1/C=2/L=1/W=3/MIN=1/H=SCRSAVER.HLP^*');
+	Set_Global_Str ('Scr_Iparm_2','/T=Enable Screen Saver/TP=13/C=2/L=2/H=SCRSAVER.HLP^*');
+	Set_Global_Str ('Scr_Iparm_3','/TP=10/T=Screen blank method/L=3/C=2');
+	Set_Global_Str ('Scr_Iparm_4','/TP=12/T=Disable video refresh (VGA only)/L=4/C=2/G=Scr_Method/R=1/H=SCRSAVER.HLP^*');
+	Set_Global_Str ('Scr_Iparm_5','/TP=12/T=Starry Sky/L=5/C=2/G=Scr_Method/R=2/H=SCRSAVER.HLP^*');
+	If Not (Global_Int ('Scr_Method')) Then
+		Set_Global_Int ('Scr_Method',2);
+	End;
+	Set_Global_Int ('Scr_Iint_' + Str (3+Global_Int ('Scr_Method')),1);
+	Set_Global_Str ('Scr_Iparm_6','/TP=10/T=minutes/L=1/C=28');
+	old_delay := Global_Int ('Scr_Iint_1');
+	old_method := Global_Int ('Scr_Method');
+	enabled_flag := Global_Int ('Scr_Iint_2');
+	Run_Macro ('Userin^Data_In /#=6/PRE=Scr_/S=1/A=0/T=SCREEN SAVER/H=SCRSAVER.HLP^*');
+	If Return_Int = 1 Then
+		If Not (enabled_flag) and Global_Int ('Scr_Iint_2') Then
+			Set_Global_Int ('Scrsaver_Handle', Set_Timer_Event ('Scrsaver^ScreenSaver ' + Mparm_Str,18,EDIT));
+			Make_Message ('ScreenSaver enabled; screen blank delay is ' + Str (Global_Int ('Scr_Iint_1')) + ' minutes.');
+		Elsif enabled_flag and Not (Global_Int ('Scr_Iint_2')) Then
+			Kill_Timer_Event (Global_Int ('Scrsaver_Handle'));
+			Make_Message ('ScreenSaver disabled.');
+		End;
+	Else
+		Set_Global_Int ('Scr_Iint_1',old_delay);
+		Set_Global_Int ('Scr_Method',old_method);
+		Set_Global_Int ('Scr_Iint_2',enabled_flag);
+		Set_Global_Int ('Scr_Iint_4',0);
+		Set_Global_Int ('Scr_Iint_5',0);
+		Set_Global_Int ('Scr_Iint_' + Str (3+Global_Int ('Scr_Method')),1);
+	End;
+
+END_MACRO;
+
+$MACRO ScreenSaver;
+		{ Input parameter: /G=1 -- enable greeting the user upon his return }
+	Def_Int (i, random_int, oldcursor, firstslash, secondslash, x_dots_addr, y_dots_addr, old_status_row, old_fkey_row);
+	Def_Str (supposed_user, x_dots, y_dots);
+
+	If Global_Int ('Last_User_Action') < Last_Keypress_Time Then
+		Set_Global_Int ('Last_User_Action', Last_Keypress_Time);
+	End;
+	R_AX := 3;
+	Intr ($33); { Return position & button status }
+	If (R_CX >= 632) and (R_DX = 0) Then
+		Set_Global_Int ('Mouse_Coord', R_DX shl 16 + R_CX);
+		GoTo blank_screen;
+	Elsif (R_CX >= 632) and (R_DX >= 192) Then
+		Set_Global_Int ('Mouse_Coord', R_DX shl 16 + R_CX);
+		GoTo abort;
+	End;
+	If (R_DX shl 16 + R_CX) <> Global_Int ('Mouse_Coord') Then
+		Set_Global_Int ('Mouse_Coord', R_DX shl 16 + R_CX);
+		Set_Global_Int ('Last_User_Action', System_Timer);
+		GoTo abort;
+	End;
+	If (System_Timer - Global_Int ('Last_User_Action')) < (1092 * Global_Int ('Scr_Iint_1')) Then
+		GoTo abort;
+	End;
+
+ blank_screen:
+	If Global_Int ('Scr_Method') = 1 Then
+		R_AX := $1201;
+		R_BX := $36;
+		Intr ($10); { VGA only -- disable video refresh }
+		If R_AX and $FF <> $12 Then { Function not supported }
+			GoTo default_method;
+		End;
+		While Not (Check_Key) Do
+			R_AX := 3;
+			Intr ($33);
+			If (R_DX shl 16 + R_CX) <> Global_Int ('Mouse_Coord') Then
+				GoTo exit1;
+			End;
+		End;
+		If (R_CX >= 632) and (R_DX = 0) Then
+			Mou_Set_Pos (Screen_Width,2); { Force mouse remove from UR corner }
+		End;
+		GoTo exit1;
+	End;
+
+ default_method:
+	random_int := Memb ($046C);
+	old_fkey_row := Fkey_Row;
+	old_status_row := Status_Row;
+	Save_Box (1,1,Screen_Width,Screen_Length);
+	Mou_Remove_Ptr;
+	Fkey_Row := FALSE;
+	Status_Row := FALSE;
+	Refresh := FALSE;
+	Clear_Screen (0);
+	R_AX := $0300;
+	R_BX := 0;
+	Intr ($10);		{ Save old cursor }
+	oldcursor := R_CX;
+	R_AX := $0100;
+	R_CX := $2000;
+	Intr ($10);		{ Turn the cursor off }
+	x_dots_addr := Seg (x_dots) shl 16 + Ofs (x_dots) + 4;
+	y_dots_addr := Seg (y_dots) shl 16 + Ofs (y_dots) + 4;
+	i := 0;
+	While Not (Check_Key) Do
+		R_AX := 3;
+		Intr ($33);
+		If (R_DX shl 16 + R_CX) <> Global_Int ('Mouse_Coord') Then
+			GoTo exit0;
+		End;
+		Call get_random;
+		Write (' ', Memb (x_dots_addr + 100 - i), Memb (y_dots_addr + 100 - i), BLACK,LIGHTCYAN);
+		Memb (x_dots_addr + i, random_int mod (Screen_Width + 1));
+		Call get_random;
+		Memb (y_dots_addr + i, random_int mod (Screen_Length + 1));
+		Write ('|250', Memb (x_dots_addr + i), Memb (y_dots_addr + i), BLACK,LIGHTCYAN);
+		Delay ((Memb (x_dots_addr + i) + Memb (y_dots_addr + i)) shl 2);
+		i := (i + 1) mod 100;
+	End;
+	If (R_CX >= 632) and (R_DX = 0) Then
+		Mou_Set_Pos (Screen_Width,2); { Force mouse remove from UR corner }
+	End;
+	GoTo exit0;
+
+ get_random:
+	random_int := random_int xor (random_int shr 4);
+	random_int := (random_int xor (random_int shl 11)) and $7FFF;
+	Ret;
+
+ exit0:
+	R_AX := $0100;
+	R_CX := oldcursor;
+	Intr ($10);		{ Turn the cursor on }
+	Fkey_Row := old_fkey_row;
+	Status_Row := old_status_row;
+	Refresh := TRUE;
+	Mou_Draw_Ptr;
+	Kill_Box;
+	GoTo do_greeting;
+ exit1:
+	R_AX := $1200;
+	R_BX := $36;
+	Intr ($10); { Enable video refresh }
+ do_greeting:
+	If Pos ('/G', Mparm_Str) Then
+		firstslash := Pos ('\', Dir_Path);   { Let's hope the user's directory name is not particularly indecent ... }
+		secondslash := Xpos ('\', Dir_Path, firstslash+1);
+		If secondslash Then
+			supposed_user := Copy (Dir_Path, firstslash+1, secondslash - firstslash - 1);
+		Else
+			supposed_user := Copy (Dir_Path, firstslash+1, Length (Dir_Path) - firstslash);
+		End;
+		If Not (Svl (supposed_user)) Then
+			supposed_user := 'Mr. Work-in-Root-Directory';
+		End;
+		Make_Message (' Welcome back, ' +  supposed_user + '!');
+	End;
+ abort:
+
+END_MACRO;

@@ -1,0 +1,796 @@
+ {TFM  14.09.90 - Начало проектирования
+ Макрокоманда редактора Multi-edit (Л.З.А.)
+ Форматирование абзаца в пределах :
+  Левой границы
+  Правой границы
+  Отступа абзаца
+ }
+ {********** настройка среды ******************************}
+ $macro tfm;
+  def_int(ls,ds,rs,x);
+  def_str(id,d1,l1,r1,b1);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  d1 := 'dleftpoint' + id;  { отступ }
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  b1 := 'blockblock' +id;  { признак открытия блока }
+  ls := parse_int('/l=',mparm_str);
+  ds := parse_int('/a=',mparm_str);
+  rs := parse_int('/r=',mparm_str);
+  error_level := 0; x := 0;
+  if rs = 1935 then
+     ls := global_int(l1);  { левая гpаница }
+     ds := global_int(d1);  { отступ }
+     rs := global_int(r1);  { пpавая гpаница }
+     x := 1;
+  end;
+  if rs = 0 then
+     rs := right_margin;
+     if rs = 0 then
+        rs := 72;
+     end;
+  end;
+  if ((ls >= rs) or (ds >= rs) or (rs < 3) or (rs > 256)) then
+     put_box(5, 4, 27, 7, white, red, 'error', true);
+     write ('ОШИБКА В ПАРАМЕТРАХ', 6,5, white, red);
+     beep;
+     delay(1000);
+     kill_box;
+     error_level := 1;
+     goto t;
+  end;
+  set_global_int(l1,ls);  { левая гpаница }
+  set_global_int(d1,ds);  { отступ }
+  set_global_int(r1,rs);  { пpавая гpаница }
+  set_global_int(b1,0);  { признак открытия блока }
+  indent_style := 0;   {ручная установка левой границы}
+  wrap_stat := 0;      {не рвать строку, не помещающуюся на экране}
+  macro_to_key(<Enter>,'abz_break',edit);
+  macro_to_key(<GreyEnter>,'abz_break',edit);
+  macro_to_key(< >,'abz_space',edit);
+  {run_macro ('ti');}
+  if ((ds > 0) and (x = 0)) then
+     goto_col(ds);
+  end;
+ t:
+ end_macro;
+ { **********************************************************}
+ { расстройка среды ******************************}
+ $macro tu;
+  def_int(bl);
+  def_str(id,d1,l1,r1,b1);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  d1 := 'dleftpoint' + id;  { отступ }
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  b1 := 'blockblock' +id;  { признак открытия блока }
+  {macro_to_key(< >,'abz1_space',edit);
+  macro_to_key(<enter>,'abz1_break',edit);
+  macro_to_key(<GreyEnter>,'abz1_break',edit);}
+  set_global_int(l1,0);  { левая гpаница }
+  set_global_int(d1,0);  { отступ }
+  set_global_int(r1,0);  { пpавая гpаница }
+  bl := global_int(b1);  { признак открытия блока }
+  if bl > 0 then
+     set_global_int(b1,0);
+     block_off;
+  end;
+  make_message ('ФОРМАТИЗАЦИЯ АННУЛИРОВАНА ДЛЯ ФАЙЛА ' + file_name);
+ end_macro;
+ { **********************************************************}
+ { ******** основная точка входа ****************************}
+ $macro tf;
+ def_int(ls,ds,rs);
+ def_int(i,j,k,nn,bl1,bl2,insertmo,first,prglas,ni);
+ def_char(cc,c1,c2,c4);
+ def_str(lin,st[2]);
+ def_str(id,d1,l1,r1);
+ id := get_extension(file_name) + str(window_id);
+ l1 := 'leftpoint' + id;  { левая гpаница }
+ d1 := 'dleftpoint' + id;  { отступ }
+ r1 := 'rightpoint' + id;  { пpавая гpаница }
+
+ ls := global_int(l1);  { левая гpаница }
+ ds := global_int(d1);  { отступ }
+ rs := global_int(r1);  { пpавая гpаница }
+ if rs = 0 then
+    goto t;
+ end;
+ push_undo;
+ {working;}
+ {refresh := false;}
+ insertmo := insert_mode;
+ insert_mode := 1;
+   if ((block_stat = 1) and (marking = false)) then
+      bl1 := block_line1;          { начало блока }
+      bl2 := block_line2;          { конец  блока }
+      i := bl1;
+      goto_line(i);
+      if ds = 0 then {автоустановка позиции начала абзаца}
+         while (i <= bl2) do
+            eol;
+            if c_col > 1 then
+               home; ds := c_col; goto t1;
+            else
+               i := i+1; down;
+            end;
+         end;
+         if ds = 0 then
+            goto final;
+         end;
+      end;
+ t1:  goto_line(i+1);
+      if ls = 0 then {автоустановка позиции левой границы}
+         while (i <= bl2) do
+            eol;
+            if c_col > 1 then
+               home; ls := c_col; goto t2;
+            else
+               i := i+1; down;
+            end;
+         end;
+         if ls = 0 then
+            ls := ds;
+         end;
+      end;
+ t2:  first := ds; goto_line(bl1);
+   else
+     goto final;
+   end;
+m0: goto_col(1);
+    while (ascii(cur_char) < 33) do { подтягивание к началу }
+      del_char;
+    end;
+    nn := 1;
+    while (nn < first) do  {вставка пробелов}
+      text (' '); nn := nn + 1;
+    end;
+    nn := 0;
+    goto_col(first);
+    while ((at_eol = 0) and (c_col <= rs)) do  {сжатие пробелов}
+       if (ascii(cur_char) < 33) then
+          if (nn = 0) then
+              nn := 1; right;
+          else
+              del_char;
+          end;
+       else
+          nn := 0; right;
+       end;
+    end;
+    {while search_fwd('  ',1) do
+       replace(' ');
+    end;}
+    lin := get_line;
+    if length(lin) > rs then       { стpока длинная }
+       goto m1;
+    else
+       bl2 := block_line2; i := c_line;
+       {подтклейка следующей строки}
+       if (c_line  <  bl2)  then
+          eol;  text(' '); del_char; left;
+          while ((ascii(cur_char) < 33) and (c_col > first)) do
+             left;
+          end;
+          cc := cur_char;
+          if (cc = '-') then
+              if (c_col > first) then
+                 left;
+                 if (ascii(cur_char) > 32) then
+                    right; del_char;
+                    while (ascii(cur_char) < 33) do
+                      del_char;
+                    end;
+                  end;
+               end;
+          end;
+       else
+          goto final;
+       end;
+    end;
+    goto m0;
+m1:                 {растаскивание слов по пробелам}
+    nn := 0; {позиция последнего вставленного пробела}
+    ni := 0; {признак - не вставлен ни один пробел}
+    { -------------------------------------------------------------}
+    while (true) do {*****внешний цикл ****************************}
+       goto_col(rs);  cc := cur_char; {но вначале проверяем разделитель}
+       if ((cc = ';') or (cc = ',') or (cc = '?') or (cc = '!'))   then
+            right; cr; first := ls; goto m0;
+       end;
+       if cc = '.'  then
+            right;
+            if cur_char <> '.' then
+               cr; first := ls; goto m0;
+            end;
+       end;
+       goto_col(rs);
+
+       if (ascii(cur_char) > 32) then { не  пробел в rs}
+          goto_col(rs+1);
+          if (ascii(cur_char) < 33) then { пробел в rs+1}
+             cr; first := ls; goto m0;
+          end;
+       end;
+
+         {проверка на перенос}
+       i := 0; j := 0; k := 0;
+       while(i < 4) do {ah-ha, ha-ha, ha-ah}
+          goto_col(rs-2+i);
+          call provglas;
+          if prglas = 0 then           {знак}
+             goto pr;
+          end;
+          j := j + prglas;
+          if i = 1 then
+             if j = 4 then
+                st := copy(get_line,(rs-2),2);
+                if ((st = 'ст') or (st = 'ск')) then
+                   goto_col(rs-3);
+                   call provglas;
+                   if prglas = 0 then           {знак}
+                      goto pr;
+                   end;
+                   if prglas = 2 then           {согл}
+                      goto_col(rs-4);
+                      call provglas;
+                      if prglas = 0 then           {знак}
+                         goto pr;
+                      end;
+                   end;
+                else
+                   goto pr;                {hh-??}
+                end;
+             end;
+          k := prglas; j := 0;
+          end;
+          if ((i = 2) and (k = 2) and (prglas = 1)) then
+             goto pr;                   {ah-a?}
+          end;
+          i := i + 1;
+       end;
+       if j = 4 then
+          goto pr;                      {??-hh}
+       end;
+       goto_col(rs); text('-'); cr;  first := ls; goto m0;
+
+          {перенос не получился, вставляем пробел}
+ pr:   if (nn = 0) then
+          goto_col(rs+1);
+          word_left; i := 0; {не буква но не пробел}
+          while ((i = 0) and (c_col > 1)) do
+             left;
+             if (ascii(cur_char) < 33) then
+                i := 1; right;
+             end;
+          end;
+          if (c_col <= first) then
+             goto_col(rs+1); {больше  не вставляется, ломаем строку}
+             cr; first := ls; goto m0;
+          end;
+       else
+          goto_col(nn);
+       end;
+       word_left; i := 0; {не буква но не пробел}
+       while ((i = 0) and (c_col > 1)) do
+          left;
+          if (ascii(cur_char) < 33) then
+             i := 1; right;
+          end;
+       end;
+       if (c_col <= first) then
+          if ni = 0 then
+             goto_col(rs+1); {больше  не вставляется, ломаем строку}
+             cr; first := ls; goto m0;
+          end;
+          nn := rs+1; ni := 0;
+       else
+          text(' ');           { вот он - пробел}
+          ni := 1;
+          nn := c_col;
+       end;
+    end;    { конец внешнего цикла *******************}
+    {------------------------------------------------------}
+
+ {*** пп пpовеpки на согласную, гласную и знак  **}
+provglas:
+ def_int(k);
+ prglas := 2;               {согласная ?}
+ cc := cur_char;
+ if ((cc = 'а') or (cc = 'и') or (cc = 'о') or (cc = 'е') or (cc = 'я')
+      or (cc = 'у') or (cc = 'ю') or (cc = 'ы') or (cc = 'э')
+      or (cc = 'А') or (cc = 'И') or (cc = 'О') or (cc = 'Е') or (cc = 'Я')
+      or (cc = 'У') or (cc = 'Ю') or (cc = 'Ы') or (cc = 'Э')) then
+         prglas := 1;       {гласная }
+ else
+     k := ascii(cur_char);
+     if ( (k < $41)
+        or ((k > $5a) and (k < $61))
+        or ((k > $7a) and (k < $80))
+        or (cc = 'ь') or (cc = 'Ь') or (cc = 'ъ') or (cc = 'Ъ')) then
+         prglas := 0;       {знак }
+     end;
+ {if ((cc = 'i') or (cc = 'I') or (cc = 'o') or (cc = 'O')
+      or (cc = 'e') or (cc = 'E') or (cc = 'u') or (cc = 'U')
+      or (cc = 'a') or (cc = 'A') or (cc = 'у') or (cc = 'Y')) then
+         prglas := 1;       гласная
+  end;}
+ end;
+ ret;
+
+ final: down;
+    down; down; down; up;up;up; {отрыв от нижней границы окна}
+    {refresh := true;   }
+    goto_col(ds);
+    insert_mode := insertmo;
+    pop_undo;
+ t:
+ end_macro;
+ { **********************************************************}
+{ ******Реакция на ENTER ***********************************}
+ $macro abz_break;
+  def_int(ls,rs,nn);
+  def_str(id,r1);
+  id := get_extension(file_name) + str(window_id);
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  rs := global_int(r1);
+  if (rs = 0) then
+     cr; goto t;
+  end;
+  run_macro('abzx_break /n=1');
+ t:
+  end_macro;
+{***********************************************************}
+{ ******Реализация  ENTER ***********************************}
+ $macro abzx_break;
+  def_int(ls,ds,rs,n,nn,rr,r,rr1);
+  def_char(cc);
+  def_int(insertmo);
+  def_str(id,d1,l1,r1);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  d1 := 'dleftpoint' + id;  { отступ }
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+
+  insertmo := insert_mode;
+  insert_mode := 1;
+  refresh := false;
+  n := parse_int('/n=',mparm_str);
+
+  push_undo;
+  rs := global_int(r1);
+  ds := global_int(d1);
+  ls := global_int(l1);
+  nn := c_col;
+  home;
+  if (c_col = ds) then
+     rr := ds;
+  else
+     rr := ls;
+  end;
+  rr1 := ds;
+  if ds = 0 then {автоустановка позиции левой границы}
+     eol;
+     if c_col > 1 then
+        home;
+     else
+        goto_col(nn);
+     end;
+     rr1 := c_col;
+  end;
+  goto_col(nn);
+  if (c_col < rs) then  {стpока короткая }
+    cr;
+    goto_col(1);
+    while (ascii(cur_char) < 33) do
+      del_char;
+    end;
+    r := 1;
+    while (r < rr1) do
+      text (' '); r := r + 1;
+    end;
+  else
+    r := ds;
+    if (rr = ls) then
+       set_global_int(d1,ls);
+    end;
+    run_macro('abz_blo');
+    run_macro('abz_go');
+    set_global_int(d1,r);
+    up;
+    if n = 1 then    {по ENTER}
+       eol; cr;
+       r := 1;  goto_col(1);
+       while (r < rr1) do
+          text (' ');  r := r + 1;
+       end;
+    else
+       eol;
+    end;
+  end;
+  refresh := true;
+  insert_mode := insertmo;
+  pop_undo;
+  end_macro;
+ { **********************************************************}
+ { ***** реакция на SPACE ***********************************}
+$macro abz_space;
+  def_int(ls,rs,nn,r);
+  def_int(insertmo);
+  def_str(id,l1,r1);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  rs := global_int(r1);
+  if (rs = 0) then
+     text(' '); goto t1;
+  end;
+  push_undo;
+
+  refresh := false;
+  insertmo := insert_mode;
+  ls := global_int(l1);
+  if (c_col > rs) then       { стpока длинная }
+     nn := c_col; r := 0; home;
+     if ls = 0 then {автоустановка позиции левой границы}
+         ls := c_col;
+     end;
+     while ((at_eol = 0) and (c_col <= rs)) do  {сжатие пробелов}
+        if (ascii(cur_char) < 33) then
+           if (r = 0) then
+               r := 1;  right;
+           else
+               del_char;
+               if c_col <= nn then
+                  nn := nn - 1;
+               end;
+           end;
+        else
+           r := 0;  right;
+        end;
+     end;
+     if nn <= rs then
+        goto_col(nn);
+        text(' '); goto t;
+     end;
+     goto_col(rs+1);
+     insert_mode := 1;
+     if (at_eol = 1) then  {за пределами строки, rs+1 = end}
+        cr;
+        goto_col(1); r := 1;
+        while (r < ls) do
+           text (' '); r := r + 1;
+        end;
+        goto t;
+     end;
+     goto_col(nn);
+     if at_eol = 0 then { находимся внутри строки < END, но > rs+1}
+        goto_col(nn);
+        cr; goto_col(1);   {работа сo второй половиной строки}
+        while (ascii(cur_char) < 33) do { подтягивание к началу }
+          del_char;
+        end;
+        r := 1;
+        while (r < ls) do  {вставка пробелов}
+           text (' '); r := r + 1;
+        end;
+        up;                {поднялись к первой половине строки}
+        eol;
+     end;
+     run_macro ('abzx_break /n=0');
+     if (c_col > ls) then
+        text(' ');
+     end;
+     nn := c_col;goto_col(1);goto_col(nn); {восстановить рамки экрана}
+  else
+     text(' ');
+  end;
+  t:
+  insert_mode := insertmo;
+  refresh := true;
+  pop_undo;
+  t1:
+  end_macro;
+ { **********************************************************}
+ {*********** открытие блока ********************************}
+ $macro abz_blo;
+  def_int(bl,rs);
+  def_str(id,r1,b1);
+  id := get_extension(file_name) + str(window_id);
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  b1 := 'blockblock' +id;  { признак открытия блока }
+  rs := global_int(r1);  { пpавая гpаница }
+  if (rs = 0) then
+    goto t;
+  end;
+  bl := global_int(b1);  { признак открытия блока }
+  if ((bl = 0) or (marking = false)) then
+     set_global_int(b1,1);
+     block_begin;
+  else
+     down;
+  end;
+  t:
+ end_macro;
+{************************************************}
+{ закрытие блока и обращение к  tf **************}
+ $macro abz_go;
+  def_int(bl);
+  def_str(id,b1);
+  id := get_extension(file_name) + str(window_id);
+  b1 := 'blockblock' +id;  { признак открытия блока }
+  bl := global_int(b1);  { признак открытия блока }
+  refresh := false;
+  if (bl = 1) then
+     set_global_int(b1,0);
+     block_end;
+     run_macro ('tf');
+     block_off;
+  else
+     run_macro ('tb /a=0/m=0');
+  end;
+  refresh := true;
+ end_macro;
+ { *************************************************}
+{ Автоустановка блока и форматирование tb **************}
+ $macro tb;
+  def_int(l0,lt,n1,n2,i,a,ls,ds,m);
+  def_str(id,d1,l1);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  d1 := 'dleftpoint' + id;  { отступ }
+  ls := global_int(l1);  { левая гpаница }
+  ds := global_int(d1);  { отступ }
+  a := parse_int('/a=',mparm_str); { > 0 - с проверкой соответствия левой границе}
+  m := parse_int('/m=',mparm_str); { 1 - из TG }
+     push_undo;
+     refresh := false;
+   i := 0;
+   call p;
+   while lt = 0 do   {спускаемся по пустым строкам}
+      if at_eof = 1 then
+         goto t;
+      end;
+      down; call p;
+   end;
+
+   l0 := lt;
+   while ((lt = l0) and (c_line > 1)) do  {под'ем и определение первой линии блока}
+      up; call p;
+      if lt = l0 then
+         i := 1;
+      end;
+   end;
+   n1 := c_line;
+   if lt = 0 then
+      down;
+      n1 := c_line;
+   else
+      if i = 0 then
+         if lt < l0 then
+            down;
+            n1 := c_line;
+         end;
+      end;
+   end;
+
+   goto_line(n1); call p;
+   lt := l0; i := 0;
+   while ((lt = l0) and (at_eof = 0)) do {спуск и определен6ие последней линии блока}
+      down; call p;
+      if lt = l0 then
+         i := 1;
+      end;
+   end;
+   if lt > 0 then
+      if i = 0 then
+         if lt < l0 then
+            l0 := lt;
+            while lt = l0 do
+               down; call p;
+               if lt <> l0 then
+                  goto t1;
+               end;
+            end;
+         end;
+      end;
+   end;
+
+  t1:   {все готово}
+   up; n2 := c_line;
+   goto_line(n1);
+   if a > 0 then
+      call p;
+      if lt <> a then
+         goto_line(n2 +1);
+         goto t;
+      end;
+   end;
+   block_begin;
+   while n1 < n2 do
+      down; n1 := n1 + 1;
+   end;
+   block_end;
+   run_macro ('tf');
+   block_off;
+   goto t;
+  {-----пп ------}
+  p:
+  lt := 0;
+  eol;   { строку не меняет }
+  if c_col > 1 then
+     home; lt := c_col;
+  end;
+  ret;
+  {--------------}
+  t:
+  pop_undo;
+  if m = 0 then
+     refresh := true;
+  end;
+ end_macro;
+ { *************************************************}
+{ Глобальное  форматирование tg **************}
+ $macro tg;
+  def_int(bl1,bl2,nn,n);
+  n := parse_int('/n=',mparm_str);
+  if n > 0 then
+     n := c_col;
+     make_message (' TFM:   Поиск /a=' + str(n));
+  end;
+  push_undo;
+  refresh := false;
+  working;
+  if block_stat <> 1 then
+     goto t;
+  end;
+  bl1 := block_line1;          { начало блока }
+  bl2 := block_line2;          { конец  блока }
+  goto_line(bl2);
+  while (at_eof = 1) do
+     up;
+  end;
+  set_mark(1); {Запомнили положение курсора}
+  goto_line(bl1); nn := c_line;
+  while(true) do;
+     get_mark(1);
+     if nn >= c_line then
+     run_macro('ti');
+        goto t;
+     end;
+     goto_line(nn);
+     run_macro('tb /m=1/a=' + str(n));
+     nn := c_line;
+  end;
+  t:
+  refresh := true;
+  pop_undo;
+ end_macro;
+ { *************************************************}
+ { *** ENTER ДЛЯ TP *********************************}
+ $macro abzp_break; run_macro ('abz_pp /n=1'); end_macro;
+ { *** ESCAPE ДЛЯ TP *********************************}
+ $macro abzp_esc; run_macro ('abz_pp /n=2'); end_macro;
+ { *** SPACE для TP *********************************}
+ $macro abzp_space; run_macro ('abz_pp /n=3'); end_macro;
+ { *** Экранная установка границ**************}
+ $macro tp;
+  def_str(c);
+  set_global_int('anypointabz',1);
+  c := inq_key(27,1,edit);
+  set_global_str('tfm_esc',c);
+  c := inq_key(0,244,edit);
+  set_global_str('tfm_btm0',c);
+  macro_to_key(<enter>,'abzp_break',edit);
+  macro_to_key(<btn0>,'abzp_break',edit);
+  macro_to_key(<GreyEnter>,'abzp_break',edit);
+  macro_to_key(<esc>,'abzp_esc',edit);
+  macro_to_key(< >,'abzp_space',edit);
+  run_macro ('abz_pp');
+  end_macro;
+ { ********************************************}
+ { *** Реализация экранной установки границ *****}
+ $macro abz_pp;
+  def_int(n,p,i,ls,ds,rs,color);
+  def_int(pb);
+  def_str(id,d1,l1,r1,c);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  d1 := 'dleftpoint' + id;  { отступ }
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  p := global_int('anypointabz');
+  if p = 0 then                      { левая гpаница }
+     goto t;
+  end;
+  if c_row > 4 then
+     pb := 4;
+  else
+     pb := 8;
+  end;
+  if p = 1 then                      { левая гpаница }
+     set_global_int('anypointabz',2);
+     c := 'ЛЕВАЯ ГРАНИЦА'; color := 0; call boxx;
+     goto t;
+  end;
+  n := parse_int('/n=',mparm_str);
+  if p = 2 then                      { левая гpаница }
+     set_global_int('anypointabz',3);
+     if n = 1 then
+        i := c_col;
+        set_global_int(l1,i);
+     end;
+     if n = 3 then
+        set_global_int(l1,0);
+     end;
+     c := 'НАЧАЛО АБЗАЦА'; color := 4; call boxx;
+     goto t;
+  end;
+  if p = 3 then                      { отступ }
+     set_global_int('anypointabz',4);
+     if n = 1 then
+        i := c_col;
+        set_global_int(d1,i);
+     end;
+     if n = 3 then
+        set_global_int(d1,0);
+     end;
+     c := 'ПРАВАЯ ГРАНИЦА'; color := 14; call boxx;
+     write ('ENTER -позиция, ESC - старое, SPACE - r.m.', 18,pb + 2 , 7, 5);
+     goto t;
+  end;
+  if p = 4 then                      { правая граница }
+     kill_box;
+     set_global_int('anypointabz',0);
+     unassign_key(<enter>,edit);
+     {unassign_key(<btn0>,edit);}
+     unassign_key(<GreyEnter>,edit);
+     unassign_key(< >,edit);
+     {unassign_key(<esc>,edit);   }
+     c := global_str('tfm_esc');
+     if c <> '' then
+        macro_to_key(<esc>,c,edit);
+     end;
+     c := global_str('tfm_btm0');
+     if c <> '' then
+        macro_to_key(<btn0>,c,edit);
+     end;
+     if n = 1 then
+        i := c_col;
+        set_global_int(r1,i);
+     end;
+     if n = 3 then
+        set_global_int(r1,0);
+     end;
+     run_macro ('tfm /r=1935');
+     run_macro ('ti');
+     goto t;
+  end;
+  { ---------------ПП --------------------------------}
+  boxx:
+     kill_box;
+     run_macro ('ti');
+     put_box(17, pb, 60, pb + 3, 7, red, '', 0);
+     write (c, 31,pb + 1, 7, color);
+     write ('ENTER -позиция, ESC - старое, SPACE - нуль', 18,pb + 2, 7, 5);
+     {beep;}
+     ret;
+  { ---------------------------------------------------}
+ t:
+ error_level := 0;
+ end_macro;
+ { **********************************************************}
+ {********** информация о параметрах форматирования *********}
+ $macro ti;
+  def_int(ls,ds,rs);
+  def_str(id,d1,l1,r1);
+  id := get_extension(file_name) + str(window_id);
+  l1 := 'leftpoint' + id;  { левая гpаница }
+  d1 := 'dleftpoint' + id;  { отступ }
+  r1 := 'rightpoint' + id;  { пpавая гpаница }
+  ls := global_int(l1);  { левая гpаница }
+  ds := global_int(d1);  { отступ }
+  rs := global_int(r1);  { пpавая гpаница }
+  make_message (' TFM V4    Файл ' + file_name + ', параметры /l=' + str(ls) +
+  '/a=' + str(ds) + '/r=' + str(rs));
+ end_macro;
+ { **********************************************************}

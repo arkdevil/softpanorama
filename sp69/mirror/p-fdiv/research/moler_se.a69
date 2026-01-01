@@ -1,0 +1,103 @@
+From: Cleve Moler <moler@mathworks.com>
+Date: Thur Nov 24 22:00:20 EST 1994
+Subject: Soft/Hardware Workaround for the FDIV bug
+Newsgroups: comp.sys.intel
+
+        SOFTWARE/HARDWARE WORKAROUND FOR THE FDIV BUG
+
+At the MathWorks, we have decided to issue a new release of
+MATLAB which is "Pentium aware".  It incorporates a workaround
+for the floating point division bug which restores full accuracy
+without a serious degradation of efficiency.  And, we have
+decided to post a description of our technique to the Internet
+so that other people, including other commercial software
+developers, can make use of it.
+
+It is not easy to modify a large package like MATLAB to include
+this change.  We would much prefer to have the compiler or the
+operating system do the job for us, but this is not yet an 
+option.  The kernel of MATLAB is written in C.  We have replaced
+several dozen instances of a '/' denoting a floating point
+division by a function call.  We are now in the process of
+confirming that we didn't introduce any source code errors
+while doing this.
+
+Our initial intention was to use the Pentium hardware FDIV
+instruction to compute a candidate quotient, check its accuracy,
+and then, if necessary, employ a standard Newton iterative
+refinement technique to eliminate any inaccuracy produced
+by the hardware.  But then we realized that an approach unique
+to this situation was possible, and more effective.  The FDIV
+instruction can be used to correct itself!  Here's the code:
+
+     #include <math.h>
+     #define EPS      2.2204460492503131e-16
+     #define REALMIN  2.2250738585072014e-308
+     #define RHO      0.75
+     
+     double fdiv(double x, double y)
+     {
+        int ok;
+        double r,z;
+        z = x/y;
+        r = x - y*z;
+        while (fabs(r) > EPS*fabs(x)+REALMIN) {
+           x = RHO*x;
+           y = RHO*y;
+           z = x/y;
+           r = x - y*z;
+        }
+        return(z);
+     }
+
+The idea is to use the hardware to divide x by y and produce the
+candidate quotient, z.  This will be correct in the vast majority
+of cases, but it is necessary to check.  The test uses the residual,
+r = x - y*z.  Normally, r will be no larger than roundoff error in x.
+The constant EPS involved in the test is the distance from 1.0
+to the next larger floating point number.  For double precision,
+EPS is 2^(-52).  At first, we forgot to include the constant
+REALMIN in the test, but this term is required to deal correctly
+with denormal floating point numbers.
+
+If the residual fails the test, it indicates that the hardware bug
+has been encountered.  When this occurs, we simply rescale the
+numerator and denominator by a factor of 3/4 and repeat the process.
+The scaling scrambles the bit patterns in x and y so that the second
+division almost certainly gives a satisfactory result.
+
+The factor 3/4 is important.  It is the "simplest" factor which
+alters the bit patterns in the fractions of x and y.  If the last
+bit in the fraction is zero, the scaling does not introduce any
+roundoff error.  Furthermore, since 3/4 is less than 1, the
+scaling cannot overflow.  And, if the operands are so small that
+scaling by 3/4 would underflow, the original division is done
+correctly and the scaling is not needed.
+
+How much does all this cost in execution speed?   We have not yet
+done any serious timings outside the MATLAB context.  Since the
+occurrence of the inaccurate results is so rare, any time spent
+inside the while loop can be ignored.  The FDIV instruction itself
+takes 30 or more cycles.  To this we must add the time for
+computing the residual, the time for doing the test and, perhaps
+the most significant, the time required by the function call.  We
+guess that this might double the time, but the actual factor will
+depend upon the surrounding environment.
+
+If anybody actually does incorporate this approach in their 
+software, we'd like to hear about it.  In particular, we'd 
+appreciate hearing about any timing measurements from other
+large packages.
+
+I will be posting an article to the comp.soft-sys.matlab newsgroup
+describing the Pentium aware MATLAB, and its availability, in
+more detail.
+
+Finally, although I have not yet met any of them in person,
+I would like acknowledge and thank Thomas Nicely, Tim Coe and
+Mike Carlton for their contributions to this enterprise.
+
+  -- Cleve Moler
+  Chairman and Chief Scientist
+  The MathWorks, Inc.
+  moler@mathworks.com

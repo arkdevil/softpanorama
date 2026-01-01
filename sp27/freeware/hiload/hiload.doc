@@ -1,0 +1,417 @@
+
+                                 HILOAD
+
+              An utility for loading TSR's someplace else
+                                   by
+                             Larry Shannon
+                              18 Jun 1989
+
+HILOAD is a utility program designed to load your normal TSR 
+(Terminate-and-Stay-Resident) programs somewhere else in memory. Usually 
+this is a place outside the normal DOS region; that is, outside the 
+first 640K of system memory.
+
+At this time, it does not include either extended or expanded memory.
+
+
+                               BACKGROUND
+
+The 8088 used in the PC-XT is capable of addressing up to 1024K of 
+memory.  The designers of the PC and DOS decided that only the first 
+640K would be used by the operating system, DOS, and the rest was 
+reserved for other uses.
+
+Because of the way the 8088 forms addresses, it is customary to refer to 
+addresses by a segment:offset combination. The 'actual' final address is 
+formed by multiplying the segment value by 16 (i.e., shifting it left 4 
+places) and adding the result to the offset address.
+
+        Thus, the very first address in the machine is called 0000:0000.
+An address 1024 bytes from this start (hex 400) may be variously
+indentified as 0000:0400, 0040:0000, 0020:0200, 0038:0080, etc.
+
+For convenience, we may speak of the various segments as:
+
+        0000:0000       to      0000:FFFF       Block 0
+        1000:0000       to      1000:FFFF       Block 1
+
+                    and so on
+
+        E000:0000       to      E000:FFFF       Block E
+        F000:0000       to      F000:FFFF       Block F
+
+It is easy to see that there are 16 contiguous segments of 64K each, 
+yielding (16 X 64 =) 1024K, or one megabyte, and that DOS can only use 
+the first 10 segments, or blocks 0 through 9.
+
+What is in the other 6 segments?  Is that 384K of potential memory just 
+sitting there idle?
+
+
+                           WHO'S USING WHAT?
+
+Well, actually not. Some of these blocks have been set aside, and are 
+probably being used, for specific purposes.
+
+Block F is where the ROM BIOS lives and, if you have a true- blue IBM 
+PC, where the ROM BASIC lives.  So the F block is pretty well spoken 
+for.
+
+Block B is where the memory for the video sits.  If you have a 
+Monochrome Display Adapter (MDA), it uses 4K of memory at addresses 
+B000:0000 to B000:1000, and the remainder of the B block, 60K, is 
+unused. In fact, if you have a straight monochrome card like IBM 
+supplies, that's all the memory you have available.
+
+If you have a Color Graphics Adapter (CGA), it occupies memory from 
+B800:0000 to B800:7FFF (or equivalently B000:8000 to B000:FFFF). Like 
+the MDA, when the CGA is in text mode it only uses the first 4K of this 
+memory, but it can support up to 8 'pages' of 4K each; when in graphics 
+mode, all 32K are in use. Like the MDA, true-blue CGA cards, and most 
+clone CGA cards, have only that 32K available.
+
+Enhanced Graphics Adapters (EGA) are even bigger consumers of memory, at 
+maximum using the A block and part of the C block!
+
+If you have a hard disk, its BIOS is normally located on the hard disk 
+controller card, and is ususlly resident at C000:8000, or as it is 
+commonly referred to, C800:0000.
+
+
+                                SO WHAT?
+
+Astute observers will notice that the D and E blocks were pretty much 
+left out of the above description.  It is believed that these areas of 
+memory were set aside by IBM for program cartridges, but few, if any, of 
+these were actually produced, and this area is normally wide open and 
+available for use.
+
+If you are like most PC users, you have only a monochrome or CGA 
+display, and the A block is available to you also.
+
+
+                            DOWN TO BUSINESS
+
+The '640K barrier' people talk about is caused by two reasons: programs 
+are getting more sophisticated and user-friendly, meaning they take up 
+more memory.  Secondly, there has been a proliferation of many handy 
+programs that reside in memory (TSR's) which 'pop up' with useful 
+information at the touch of a key or perform some other action.  
+Examples are SideKick from Borland International, various printer 
+buffers which are almost a necessity, and so on.  It is not too unusual 
+to have half one's DOS memory taken up with various TSR's.
+
+While there's little we can do about fat programs, we can move these 
+TSR's out of the way. This was the driving force behind the development 
+of HILOAD.
+
+                      WHERE DO I GET THIS MEMORY?
+
+Some PC clone makers map their memory into the D and E blocks; Kaypro 
+for one does, others may also. Constructing a board to fill in these 
+holes is not difficult, especially if static RAMS (SRAM) are used; these 
+are now available in 32K X 8 sizes at attractive prices.
+
+An old trick is to use commercial memory cards (now obsolete but 
+available) that allow themselves to be mapped into the desired regions.
+
+Finally, users of Hercules Graphics cards and their clones usually have 
+the full 64K in the B block available, but only 4K is used in text mode.  
+That 60K looks mighty attractive, as does the 'spare' memory on a CGA 
+card...BUT...because one may easily forget there are programs in that 
+space, switching to Herc graphics, or simulating a CGA, or using a CGA 
+in graphics mode will really screw up the works, so this technique is 
+not recommended.  It may be used to test out the program, though, and 
+see if it's worth the small trouble to get memory for the 'safe' areas.
+
+
+                         HOW THE PROGRAM WORKS
+
+HILOAD grabs the program you want, as well as any command tail required, 
+and loads it into the memory area you specify. After loading the 
+candidate TSR program, it revectors several DOS interrupts and then 
+executes the TSR program in the new location. When the TSR program 
+attempts to 'go resident', HILOAD traps that request, either from INT 
+27H or function 31H of INT 21H, resets the appropriate interrupt 
+vectors, examines the interrupt vector table to see which ones point to 
+the new program, and then terminates normally.
+
+Thus, when HILOAD exits, zero DOS memory is used up, and the TSR is 
+snugly nestled in another part of memory, acting just like it normally 
+does.
+
+                     HOW TO SPECIFY VARIOUS THINGS
+
+HILOAD requires various pieces of information to operate properly.
+
+Addresses  -    HILOAD requires a starting address for 
+                placing TSR's. After it places the first 
+                one, it keeps track of where it should place 
+                the next one by using the Intra-application 
+                Communication Area (ICA) at 0040:00F0 
+                through 0040:00FF. It checks this area and 
+                computes an address from the information 
+                there, so the initial starting address has 
+                to be specified only once (until you change 
+                blocks). As long as the loading area is 
+                contiguous, the starting address need not be 
+                re-specified.
+
+                The starting address is specified by an en- 
+                vironment variable, which is discussed be- 
+                low.
+
+Program names - The program name to be loaded must be 
+                specified with the full path name.  Sorry 
+                about this, but it wasn't worth the effort 
+                to program the logic to chase down the paths 
+                to find the programs.  This is not consid-
+                dered (by me, anyhow) to be a serious ob-
+                jection, as the typical use of this program
+                is in your AUTOEXEC file where it is only
+                typed in once.
+
+Starting off -  Executing HILOAD without any program 
+                specified causes it to zero out the ICA.  
+                This is the easiest way to begin a loading 
+                sequence after changing the start address.
+
+
+           SPECIFYING A START ADDRESS (ENVIRONMENT VARIABLES)
+
+When DOS loads a program, it also provides that program with a copy of 
+what it calls the Environment.  To see what the contents of your 
+environment are, do the following:
+
+        At the DOS prompt (e.g., C:\>), type SET <CR>
+
+The response will be a list of things, starting with COMSPEC and 
+continuing with your PATH and PROMPT values (if you have any).  After 
+these values, you may or may not have additional entries.  If you do, 
+they will be of the form:
+
+        name=value
+
+To add a value to the environment, type:
+
+        set abc=ABCabc <CR>
+
+and then type
+
+        set <CR>
+
+Notice that a new environment variable has been added.  Notice also that 
+the name, abc, has been capitalized as ABC, but the value remains as it 
+was typed in, i.e., ABCabc.
+
+To change an environment value, type
+
+        set name=NewValue<CR>
+
+and NewValue will replace the old value.
+
+To delete an environment variable, type
+
+        set name=<CR>
+
+and the value will disappear from the environment.
+
+HILOAD requires an environment variable with a name the same as the 
+program name.  The value is the hex starting address.
+
+So, if the program is named HILOAD, as it is on this disk, and the 
+desired starting value is A000, then you would set the environment 
+variable by typing:
+
+        set hiload=A000<CR>
+
+This can also be done as an entry in your AUTOEXEC.BAT file.
+
+DOS is poorly documented, but it provides the name of the program it 
+loads, and where it came from, right after the environment.  I have used 
+this quirk of DOS to determine the name of the environment variable. If 
+you change the program name to, say, SHIFTSR.COM, then you would set the 
+environment variable as:
+
+        set shiftsr=A000<CR>
+
+This feature (?) allows you to have multiple copies of the program under 
+different names, each with its own environment variable, if you should 
+so desire.
+
+NOTE:  As far as I can tell, this feature is only available in DOS 3.X.  
+The program determines the DOS version in use and, if less than 3.0, it 
+uses a default program name of HILOAD.  This is what the name of the 
+environment variable would have to be, no matter what you rename the 
+program to.
+
+
+                        INITIALIZING THE PROCESS
+
+As stated above, the program must first initialize the ICA. It does this 
+by being invoked with no parameters.  The 'standard' starting sequence 
+is therefore:
+
+        SET HILOAD=A000
+        HILOAD
+        etc.
+
+
+                      SPECIFYING PROGRAMS TO LOAD
+
+Also as stated above, full path names must be given.  Suppose you have 
+four TSR's you wish to load, as follows:
+
+
+        NAME            SIZE            PARAMETERS (TSR command tail)
+
+        TSR1             14K                 none
+        TSR2             22K                 /X /U /M=22
+        TSR3             1.4K                none
+        TSR4             26K                 'text string'
+
+Adding them up, we see that they will occupy less than 64K, so they can 
+all be loaded in one block. Suppose also we have the A block available 
+for use.  The series of commands in the AUTOEXEC file to perform the 
+desired action might be:
+
+
+        SET HILOAD=A000                         starting address
+        HILOAD                                  initialize
+        HILOAD \DOS\TSR1                        load first tsr
+        HILOAD \SUB1\SUB2\TSR2 /X /U /M=22      load next tsr
+        HILOAD \TSR3                            load next tsr
+        HILOAD \UTILITY\TSR4 'text string'      load last tsr
+
+The directories shown are the complete path names
+to the various TSR's.
+
+Suppose now you have another TSR you want loaded, but it's too big to 
+fit in the A block; you have memory available in D block.
+
+You would follow the above sequence with:
+
+        SET HILOAD=D000                         reset start address
+        HILOAD                                  re-initialize
+        HILOAD \SUB3\SUB4\TSR5                  load it
+
+
+                             PROGRAM OUTPUT
+
+HILOAD issues various progress and error messages as it chugs along. It 
+tells you the starting address it uses, the name of the program it is 
+loading, what it found for a command tail to the TSR, and the amount of 
+memory the TSR has reserved for itself.
+
+It also lists the interrupts the TSR has captured, along with their new 
+addresses.  This can be handy for debugging purposes or just finding out 
+who captures what. Many TSRs do not go through Int 21H functions 35H and 
+25H to get and set the interrupt vectors; they directly manipulate the 
+DOS interrupt table at the bottom of memory.  This is not a recommended 
+technique but many do so. HILOAD will capture these villians (SideKick 
+being the most prominent one) and show what they trap.
+
+Incidentally, it appears that SideKick traps interrupt 21H for itself, 
+and any TSR loaded after it, who attempts to grab Int 9H, is pushed down 
+the list by SideKick so he (SideKick) still has first grab at the 
+keyboard. Very clever programming; a pain in the kazoo when you're 
+groping around to figure out what's actually happening!
+
+The above comments are based on an older version of SideKick (1.56) 
+which I have been using. Later versions may act in a more civilized 
+manner.
+
+
+                           KEEPING THE OUTPUT
+
+Since the information from HILOAD can whiz off the screen before you 
+have a chance to read it, it is a good idea to redirect the output to a 
+file instead of the screen.  The program output can then be perused at 
+your leisure. The following sequence is an example of how to do this:
+
+
+        DEL TSRLIST.LST                           delete old file
+        SET HILOAD=A000                           set start address
+        HILOAD >>TSRLST.LST                       initialize
+        HILOAD \TSR1 >>TSRLST.LST                 load first tsr
+        HILOAD \SUB1\TSR2 /X /Z >>TSRLST.LST      load next tsr
+        SET HILOAD=D000                           reset start address
+        HILOAD >>TSRLST.LST                       initialize
+        HILOAD \UTILITY\BIGTSR /PARMS >>TSRLST.LST  load big tsr
+
+After everything is loaded, the file TSRLST.LST may be browsed to see 
+what went on, get addresses, check vectors, etc.
+
+Of course, the output may also be redirected to the printer by putting a 
+>PRN instead of >>filename.ext
+
+
+                             ERROR MESSAGES
+
+If something doesn't go right, the program tries to tell you and exit 
+safely.  The error messages are:
+
+        No address given ... ABORTING          Something's wrong with the
+                                               environment variable. Check
+                                               spelling of variable name and
+                                               make sure it agrees with the
+                                               program name.
+                                               The value given must be 4 hex
+                                               digits, upper or lower case.
+
+        Can't find file PROGNAME ... ABORTING   HILOAD was unable to locate
+                                                the specified program. Check to
+                                                see that the path is correct.
+                                                Also, only .COM files can be
+                                                loaded this way; .EXE files
+                                                will bomb!
+
+        Requires DOS 2.0 ... ABORTING           Program requires DOS version
+                                                2.0 or above.
+
+        The program also issues a message when it initializes the ICA.
+
+
+                               DISCLAIMER
+
+TSRs are tricky things; SideKick is notorious for being sensitive to the 
+order in which other TSR's are loaded. Experiment with loading your TSRs 
+in the 'normal' fashion until you get a loading sequence that works. Use 
+that order to HILOAD them and all should be well.
+
+
+                              LEGAL STUFF
+
+This program is being placed in the public domain.  It may be copied and 
+distributed freely for non-commercial uses.  Both this file and the 
+executable code must be distributed together and unmodified.
+
+Any brand names mentioned are copyright by their respective owners.
+
+
+                           SHEEPISH ADMISSION
+
+
+This program was developed over a period of time as I was learning about 
+TSRs and revectoring interrupts, etc. Also, though the objective of the 
+program remained firm, the little niggly details kept changing on me as 
+I thought of alternate ways to accomplish things and more frills were 
+added.  
+
+Consequently, the source code is comprehensible to me but I'm sure looks 
+like a real mess to the 'seasoned professional'.  I am thus a little 
+ashamed to release it for public scrutiny and scorn.
+
+However, it is included and commented as best as I can recall what each 
+little piece does.  Don't bother to tell me there are 'dead code' areas 
+and unused variables.  
+
+Anybody who wants can modify it to their hearts' content, but please 
+take note of the distributon restriction noted above.
+
+
+                          Larry Shannon 
+                          5615 Truscott Terrace
+                          Lakeview, NY  14085
+
+                                - end -

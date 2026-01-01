@@ -1,0 +1,165 @@
+$Macro_File K_USR_91
+ {-------------------------- -------------------------------------------------}
+$Macro  K_LINE_CENTR TRANS  ;          { Поставить тек. строку середину окна  }
+ { ******************************************* 11.01.91-18:31 *************** }
+      DEF_INT(int_1);
+
+         Refresh := 0;
+         int_1 := C_Line ;
+         While C_Row  < ((Win_Y2 - Win_Y1 - 1)/2) Do
+            Down ;
+         End ;
+         While C_Row  > ((Win_Y2 - Win_Y1 - 1)/2) Do
+            Up ;
+         End ;
+         Goto_Line (int_1) ;
+         Refresh := 1;
+         Redraw ;
+         End_Macro ;                   { -- K_LINE_CENTR                      }
+ {-------------------------- -------------------------------------------------}
+$Macro  K_PG_DN TRANS  ;               { На посл. строку след./пред. страницы }
+ { ******************************************* 11.01.91-18:31 *************** }
+
+         Refresh := 0;
+         Push_Undo;
+         If Pos('/UP',Mparm_Str) Then  { На последнюю строку пред. страницы   }
+            Last_Page_Break;
+         Else
+            Next_Page_Break;
+            Next_Page_Break;
+         End;
+         Up;
+         Up;
+         Run_Macro('K_LINE_CENTR');    { Установить строку в центр окна       }
+         Pop_Undo;
+         Refresh := 1;
+         Redraw ;
+         End_Macro ;                   { -- K_PG_DN                           }
+ { -------------------------------------------------------------------------  }
+$Macro K_DSPKEY From ALL  ;            { Код + имя макро 10.01.91-21:35       }
+   Def_Str(s,so,tstr);
+   Def_Int(i,j,k);
+
+   Make_Message('K_DSPKEY v.m 10.01.91-21:35 - нажмите нужную клавишу');
+   Read_Key;
+   i := Key1;
+   j := Key2;
+   Run_Macro('KEYCODE^MAKEKEY /K1=' + Str(i)
+                           + '/K2=' + Str(j)
+                                        );       { Запрос KEYCODE             }
+   so := Inq_Key(i,j,MODE);            { --""-- Имени макро                   }
+   s := Return_Str + '|177' + so;
+   If Svl(so) > 0  Then                { Каково состояние этого макро ?       }
+      If (Xpos('^',so,1) > 0) Then     { Выделили имя макро-входа             }
+         so :=   Parse_Str('^', so ) ;
+      End;
+      If (Xpos(' ',so,1) > 0) Then     { Убрать параметры                     }
+         so :=   Str_Del(so, Xpos(' ',so,1), 255);
+      End;
+      If (Xpos('/',so,1) > 0) Then     { Убрать параметры                     }
+         so :=   Str_Del(so, Xpos('/',so,1), 255);
+      End;
+      k := Inq_Macro(so);
+      so := '';
+      If (k = -1) Then
+         so := so + 'не загружен';
+      Else
+         If (k AND $80) Then
+            so := so + 'TRANS ';
+         End;
+         If (k AND $40) Then
+            so := so + 'HIDDEN ';
+         End;
+         If (k AND $20) Then
+            so := so + 'DUMP ';
+         End;
+         If (k AND $10) Then
+            so := so + 'TRANS2 ';
+         End;
+         If (k AND $04) Then
+            so := so + 'PERM ';
+         End;
+         If (k AND $02) Then
+            so := so + 'NOSWAP ';
+         End;
+         If NOT(k AND $01) Then
+            so := so + 'не запускался';
+         End;
+      End;                             { -- If  не загружен Else ..           }
+      so := '|247' + so;
+   End;
+   Make_Message('K_DSPKEY: (' + Str(i)
+                        + ',' + Str(j)
+                        + ')|177' + s + so  );
+ End_Macro;                            { -- K_DSPKEY                          }
+
+ { -------------------------------------------------------------------------  }
+ { **** по мотивам  -- Search in  MACRO_FILE AUGMENTA  Романова А.      ***** }
+$Macro K_SEARCH_REPL       ;           { 10.01.91-13:58                       }
+ { ********** KEG - вместо всех SEARCH_AND_REPLACE Word/Block *************** }
+ {  Параметры запуска ( через PARM ):                                               }
+ { без параметров - поиск слова под/перед курсором,ограничители-WORD_DELIMITS }
+ {   /R           - поиск+замена    --""--                                    }
+ {   /B           - поиск блока  (вернее куска мз первой строки блока)        }
+ {   /BR          - поиск+замена блока                                        }
+ { ** При заказе блока, когда он не выделен,в качестве образа поиска          }
+ {     берется слово, но ограничители - пробел и Tab .                        }
+ { -------------------------------------------------------------------------  }
+   Def_Str(str_1 , search_typ[6] );
+   Def_Int(int_1);
+
+      Refresh := FALSE;                { **KEG Чтобы работал Get_Word  при    }
+                                       { --          "незакрытом" блоке       }
+      Mark_Pos ;
+      search_typ := 'Search';          { По умолчанию - поиск                 }
+      If (Pos('R',Caps(Mparm_str))) Then         { Приказали заменить         }
+         search_typ := 'S_Repl';
+      End;
+      If (Pos('B',Caps(Mparm_str))) Then         { Приказали блок             }
+         If (Block_Stat  >= 1) Then    { Блок в природе есть                  }
+            If (Marking ) Then
+               Block_End ;
+            End ;
+            Refresh := 0;
+            Goto_Line(Block_Line1) ;
+            If ((Block_Stat  = 3) AND (Block_Line1  <> Block_Line2 )) Then
+               str_1 := Copy (Get_Line  , Block_Col1  , 255) ;
+            Else
+               str_1 := Copy (Get_Line  , Block_Col1
+                     , (Block_Col2  - Block_Col1 ) + 1) ;
+            End ;
+         Else                          { Блока нет (заказ) - между пробелми   }
+            int_1 := Reg_Exp_Stat ;
+            Reg_Exp_Stat := 1;         { Используем REGULAR EXPRESSION        }
+            If (Search_Bwd ('[|9 ]' , 1) ) Then
+               Forward_Till_Not ('|9 ') ;
+            Else
+               Goto_Col (1) ;
+            End ;
+            str_1 := Get_Word ('|9 ') ;
+            Reg_Exp_Stat := int_1;
+         End ;
+      Else                             { Блок не заказывали , образ - слово   }
+         Right ;                       { в "казенных" ограничителях           }
+         Word_Left ;
+         If (POS (Cur_Char  , Word_Delimits ) ) Then
+            Word_Right ;
+         End ;
+         str_1 := Get_Word (Word_Delimits ) ;
+      End;
+      Goto_Mark ;
+      Make_Message ('K_SEARCH_REPL║-' + search_typ + ' for:' + str_1) ;
+      If (Svl(str_1) = 0 ) Then
+         GoTo END_MACRO;
+      End;
+      Set_Global_Str ('Search_Str' , str_1) ;
+      Push_Key(0 , 80);                { **KEG Вниз                           }
+      If (Pos('R',Caps(Mparm_str))) Then
+         Set_Global_Str ('Replace_Str' , str_1) ;
+         Push_Key(0 , 80);             { **KEG Вниз                           }
+      End;
+      RM ('MEUTIL2^' + search_typ) ;
+   END_MACRO:
+      Refresh := TRUE ;
+   End_Macro ;                         { K_SEARCH_REPL                        }
+ { -------------------------------------------------------------------------  }

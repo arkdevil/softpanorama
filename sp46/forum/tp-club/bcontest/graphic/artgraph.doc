@@ -1,0 +1,198 @@
+{$I defaults.inc}     {Compiler directives}
+  {**************************}
+  {* ArtGraph ToolBox 3.0   *}
+  {* SOFT-ARTEL      1991   *}
+  {* Leningrad, USSR        *}
+  {**************************}
+
+Unit ArtGraph;
+(***********************************************************)
+(*  Engineering graphics.    Basic unit.                   *)
+(***********************************************************)
+
+interface
+
+uses
+  Graph,Crt,Dos,        { standart TP units }
+  Globals,              { unit of global definitions }
+  Message,              { program messages }
+  UtilUnit,             { auxiliary procedures and functions }
+  MenuUtil;             { auxiliary procedures and functions }
+
+type
+  DirectType = (Horiz,Vert); { Direction type}
+
+  NColFuncType = function(var X) : longint;
+  { Procedural type ; function of this type returnes }
+  { number of columns in structure X }
+
+  NRowFuncType = function(var X; j : longint) : longint;
+  { Procedural type ; function of this type returnes }
+  { number of rows in column j of structure X }
+
+  GetMFuncType = function(var X; i,j : longint) : Float;
+  { Procedural type ; function of this type returnes }
+  { element of structure X corresponding with indices i,j }
+
+  AttrFuncType = function(j : longint) : word;
+  { Procedural type ; function of this type assignes attribute }
+  { (Line style, color, thicknes, marker type, marker color, fill pattern) }
+  { to (line, marker, pattern) corresponding with j -th index }
+
+var
+  { User initialized procedural variables to pass data }
+  { into ArtGraph roitines }
+  NColX,NColY  : NColFuncType;
+  NRowX,NRowY  : NRowFuncType;
+  GetMX,GetMY  : GetMFuncType;
+  LineColorFunc,MarkerColorFunc,
+  LineStyleFunc,ThicknessFunc,
+  MarkerFunc,FillPatternFunc   : AttrFuncType;
+const
+  {Line styles}
+  NoLine   = 0;
+  Solid    = 1;  LongDash = 5;  MiddleDot= 9;   Dot2        = 13;
+  SmallDash= 2;  Center   = 6;  Dot      = 10;  Dot3        = 14;
+  Dash     = 3;  DashDot  = 7;  RareDot  = 11;  Dash2       = 15;
+  HalfDash = 4;  TuffDot  = 8;  DashDot2 = 12;  ShortDashDot= 16;
+
+  {Marker types}
+  NoMarker  = 0;
+  Chr31     = 1;   StarM      = 5;  Chr4       = 9;      RombM   = 13;
+  Chr7      = 2;   XM         = 6;  Chr30      = 10;     TopUpM  = 14;
+  Chr254    = 3;   HeartM     = 7;  PixelM     = 11;     TopDnM  = 15;
+  PlusM     = 4;   OM         = 8;  RectangleM = 12;     CircleM = 16;
+  MarkerSize : byte = 4;   { size of markers 12 - 16 }
+
+Const
+  Grid   : Boolean = True;         { Grid existence }
+  Border : Boolean = True;         { Border existence }
+  Missing = MaxInt;  { Value corresponding to "missing" values of any
+                       numerical type except Shortint and Byte; in several 
+                       ArtGraph procedures it is used to set parameteres
+                       to default }
+  UseMissing: Boolean = False;     { When True, "missing" values are ignored }
+  StrictPattern : Boolean = False; { Line styles are not strictly supported }
+
+  { Constants defining adjustment of graphical field boundaries }
+  EvenTopX : Boolean = True;
+  EvenTopY : Boolean = True;
+  EvenBottomX : Boolean = True;
+  EvenBottomY : Boolean = True;
+
+  { Graphical field indents in character width/height,
+    when = Missing then not used }
+  LeftIndent  : word = Missing; 
+  RightIndent : word = Missing;
+  TopIndent   : word = Missing;
+  BottomIndent: word = Missing;
+
+  UserRatioXY : Float = Missing; { Constant defining user set aspect ratio }
+                                 { in square plotting }
+
+  YLabelDirect : DirectType = Vert; { Y label disposition }
+
+  { Max grid density }
+  MaxGridsX : byte = 8;  { of horiz. axis }
+  MaxGridsY : byte = 8;  { of vert. axis }
+
+  TickLen  : shortint = 4 { tick length, if TickLen < 0 then ticks 
+                            outside of graph field }
+
+  { Dynamical plot parameteres }
+  MaxWin = 16;    { Max window number - can be user increased}
+  MaxCurve = 16;  { Max curve number - can be user increased}
+
+  { If  10^StepOrder  < scaling step < 10^Pred(StepOrderX) , then }
+  { exponent is displayed along axes }
+  StepOrderX : byte = 3;
+  StepOrderY : byte = 3;
+
+  DriversPath   : AnyString = '';  { BGI driver's path }
+
+procedure InitGraphMode;
+  { Graphic mode initialization }
+
+procedure ViewPort(X1, Y1, X2, Y2 : integer);
+  { Setting of graphical window coordinates}
+
+procedure ZoomOn;
+  { Zoom graphical window to max size, used when UseMenu = False }
+
+procedure ZoomOff;
+  { Setting of graphical window field to normal size }
+
+procedure Pause;
+  { Wait for key pressed }
+
+{ -------------- Universal attribute definitions ---------------}
+procedure DefLineColor(N,Attr : string);     { Line color }
+procedure DefLineStyle(N,Attr : string);     { Line style }
+procedure DefThickness(N,Attr : string);     { Line thickness }
+procedure DefMarkerColor(N,Attr : string);   { Marker color }
+procedure DefPattern(N,Attr : string);       { Fill pattern }
+procedure DefMarker(N,Attr : string);        { Marker type }
+  { N-string defines sequence of lines/markers/backgrounds numbers,
+    Attr-string defines sequence of attributes values.
+    Every item from N-string sequence is assigned to value from
+    Attr-string sequence.
+    If Attr-sequence is shorter than N-string sequemce,
+    then Attr-sequence is repeated in cycle.
+    Possible syntax : '5..9'    defined sequence :  5,6,7,8,9
+                      '5..2'                        5,4,3,2
+                      '3,12,7'                      3,12,7
+                      '3*7'                         7,7,7
+    Combinations are possible.
+    Examples :
+           Syntax                        Defined markers attributes(1..10)
+    DefMarker('1..10','1')               (1,1,1,1,1,1,1,1,1,1)
+    DefMarker('1..10','1..4')            (1,2,3,4, 1,2,3,4, 1,2)
+    DefMarker('1..10','1,3,5,10..6')     (1,3,5, 10,9,8,7,6, 1,3)
+    DefMarker('1..10','3*5,2*6')         (5,5,5, 6,6, 5,5,5, 6,6)
+
+procedure Labels(TopTitle,LabelX,LabelY : AnyString);
+  { Title and axes labels definitions }
+
+procedure HoldOn;   { Set Hold = True }
+procedure HoldOff;  { Set Hold = False}
+  { If Hold = True, then next plot procedure uses }
+  { previosly defined coordinates }
+
+procedure SquareOn(FixAxis : DirectType; FixLow : boolean);
+  { Initialization of square plotting }
+procedure SquareOff;
+  { Cancelling square plotting }
+
+procedure Axis(Xmin,Ymin,Xmax,Ymax : Float);
+  { Axes boundaries definitions. If value = Missing , }
+  { then corresponding boundary is automatically defined }
+
+procedure SubPlot(R,C,N : byte);
+  { Procedure splits graphical window in R x C parts  }
+  { and assignes N-th window for current plotting }
+
+procedure Plot(var X, Y);
+  {  Plots vectors and matrices. X and Y can be of almost arbitrary}
+  { structure of any numerical type }
+{$IFDEF DISK}
+procedure LoadScreen(FN : AnyString);
+  { Load screen copy from disk }
+
+procedure SaveScreen(FN : AnyString);
+  { Save screen copy to disk }
+{$ENDIF}
+
+{$IFDEF PRINT}
+procedure PrintScreen;
+  { Copying screen to printer }
+{$ENDIF}
+
+procedure ExitGraphMode;
+  { Return to text mode}
+{____________________________________________________________________________}
+
+
+
+
+                
+

@@ -1,0 +1,141 @@
+
+Return-Path: <helman@elm.sdd.trw.com>
+Received: from elm.sdd.trw.com.sdd.trw.com by deneva.sdd.trw.com (4.1/SMI-4.0 TRW 1.8)
+	id AA03240; Mon, 23 Sep 91 09:24:14 PDT
+Received: by elm.sdd.trw.com.sdd.trw.com (4.1/SMI-4.1)
+	id AA02072; Mon, 23 Sep 91 09:24:22 PDT
+Date: Mon, 23 Sep 91 09:24:22 PDT
+From: helman@elm.sdd.trw.com (Howard L. Helman)
+Message-Id: <9109231624.AA02072@elm.sdd.trw.com.sdd.trw.com>
+To: kirsch@usasoc.soc.mil
+Subject: Updates to SED14
+Cc: bsu-cs!mdlawler@iuvax.cs.indiana.edu
+
+David, Mike and any others:
+
+I finally got around to testing the sed14 version.  I was sorry
+that my updates I sent you on Friday were incorrect.  I thought
+I tested them but I do this at night at home and I must have  been
+asleep.  I don't feel as bad after finding the mistranslation in the
+N command.  I still find it easier to read and understand without the
+explicit test but any consistent style is fine.  So I am sending you
+these fixes and an updated version of the documentation in zoo format.
+
+
+As promised the inline pragmas to allow compilation are:
+#pragma warn -pia    /* silence prob incorrect assignment */
+#pragma option -K-   /* signed characters*/
+
+These work with TC++ and BC++.  I am surprised that you are
+still using TC2.  I got off of it over a year ago.  It was
+a good system but the newer compilers are great especially 
+for the upgrade prices.  I found the C++ set to be a complete
+ANSI compiler and although there are a few bugs in it, most
+of the problems with TC2 have been fixed. 
+
+h**2
+
+These changes have been extensively tested, and fix the following:
+
+   ! processing with no addresses
+   } command with !
+   N command error
+   * and + normal if not at repeatable spot big error  by me
+   \{ processing  m processing error and 0 allowed
+   A clean up in sedcomp 
+   A recommendation for D command
+
+Fixes in SEDCOMP.C:
+ clean up ! processing  delete lines 313 and 314
+  312:            case '{':                     /* start command group */
+  313: xx               if(!cmdp->addr1)   /* no address is special*/
+  314: xx                  cmdp->command=(cmdp->flags.allbut?BCMD:NOCMD);
+  315:                  cmdp->flags.allbut = !cmdp->flags.allbut;
+
+ do not allow ! option } commands  add test to line 322
+  321:            case '}':                            /* end command group */
+  322:                  if (cmdp->addr1||cmdp->flags.allbut)
+		                       --------------------			     
+
+ Bug in processing * + in REs  move assmgt from 465 to after 467, 473, 482,
+    and 485.  Fix typo on 478 and 502.  This was a biggie
+  464:            switch (c) {
+  465:                 case '\\':lastep=0;
+				 xxxxxxxxx					
+  466:                  if ((c = *cp++) == '(') {  /* start tagged section */
+  467:                    if (bcount >= MAXTAGS) return 0;
+			  lasetep=0;
+			  ++++++++++
+
+  473:                    if (brnestp <= brnest) return 0;/* extra \) */
+		          lastep=0;			   
+		          +++++++++
+  474:                    *fp++ = CKET;                 /* enter end-of-tag */
+
+  477:                    break;}
+  478:                  else if(c=='{'){if(!lastep) return 0; /* rep error*/
+				                **
+  479:                    *lastep|=MTYPE; lastep=0;
+
+  482:                  else if(c=='<'){   /*begining of word test*/
+		          lastep=0;
+			  +++++++++
+  483:                    *fp++=CBOW;
+  484:                    break;}
+
+  485:                  else if(c=='>'){/*end of word test*/
+			  lastep=0;
+			  +++++++++	
+  486:                    *fp++=CEOW;
+  487:                    break;}
+
+  501:                 case '+':        /* 1 to n repeats of previous pattern */
+  502:                  if(!lastep)   goto defchar;
+			        **
+  503:                  *lastep|=MTYPE; lastep=0; *fp++=1;*fp++=0xFF;
+ 
+
+ Bug in processing \{ expressions delete line 547; This was removed once
+ also add test on 549 to disallow 0 times.
+  546:  static int processm(Void) {int i1=0,i2=0;
+  547:    cp++; /*move past bracket*/
+	  xxxxxxxxxxxxxxxxxxxxxxxxxxx
+  548:    while(isdigit(*cp))i1=i1*10+*cp++-'0';
+  549:    if(i1<=0||i1>255)return 0;
+             -------
+  550:    *fp++ = (char)i1;Bug fixes for SEDEXEC.C
+
+ I think the correct way to handle D commands (after rereading the Unix stuff)
+ is to change line 130 to the following.  I.e. after a D start over without
+ a line read.  Any Unixers got any ideas???  I did not make this change.
+      /*while(cdswitch||spend=getline(linebuf)!=NULL){ */ /* v1.5 if approved*/
+  130:       while( (spend=getline(cdswitch?spend:linebuf))!= NULL){ /* v1.4 */
+
+ Exec fix for ! commands with no address delete test from line 137
+  137:                    if (ipc->addr1 && !selected(ipc)) {ipc++;continue;}
+	                      xxxxxxxxxxxxx              
+
+There appears to be no reason for the test on line 145 just do the assmnt
+  145:                       if ((ipc = ipc->u.link) == 0) {ipc = cmds;break;}}
+                             xxxxx                 xxxxxxxxxxxxxxxxxxxxxxxxxx x
+
+The final exec fix for ! with no address add the following before line 169
+	   if(!p1)return !ipc->flags.allbut;
+	   +++++++++++++++++++++++++++++++++ 
+  169:     if( (ans=ipc->flags.inrange) != 0) ; /* v1.4 */
+
+ Fix the `oldstuf' stuff for a correct test  in an N command.
+ I highly recommend only one form.   I prefer mine because of the
+ error here but after the fix the explicit test version is ok by me
+  467:  #ifdef OLDSTUF  /* v1.4 */
+  468:                     if(!(execp=getline(spend)))pending=ipc,delete=TRUE;
+  469:  #else
+  470:                    if( (execp=getline(spend)) == 0)        /* v1.4 */
+			            == not != !!!!!!!!!!!!!!!!!!!!
+  471:                              pending=ipc,delete=TRUE;
+  472:  #endif
+  473:                          else pending=NULL,spend=execp;
+
+
+
+

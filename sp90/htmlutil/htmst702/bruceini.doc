@@ -1,0 +1,201 @@
+BRUCEINI.DOC                        1                         Revised: 02-09-97
+
+This text file describes what INI files are and how they are supported by  this
+program and other programs by the same author.  INI files are  always  optional
+but they can be very useful.
+
+An INI file is a way of specifying parameters for a program that you don't want
+to have to respecify from the command line  each  time.   This  allows  you  to
+override any program defaults you want to change.
+
+This is very useful if you disagree with the defaults I've established for  the
+routines.  It is also useful in cases where you typically use the  command  one
+way but in fairly regular cases you need to run the command using a whole bunch
+of different parameters.  You can set up one INI file for your  standard  usage
+and then provide a different INI file when it's time to  run  the  lesser  used
+versions.
+
+Each of the programs reads an INI file if it can find one.  By default, the INI
+file that is searched for is based on the executable's  name  but  not  always.
+This is  shown  below  (block  declarations  and  environmental  variables  are
+described later):
+
+        Routine         INI file        Block           Env variable
+
+        AV.EXE          AV.INI          [AV]            AV
+        BFIND.EXE       BFIND.INI       [BFIND]         BFIND
+        CHANGE.EXE      CHANGE.INI      [CHANGE]        CHANGE
+        CONVERT.EXE     CONVERT.INI     [CONVERT]       CONVERT
+        COPSINCE.EXE    COPSINCE.INI    [COPSINCE]      COPSINCE
+        DATES.EXE       DATES.INI       [DATES]         DATES
+        DIRCOMP.EXE     DIRCOMP.INI     [DIRCOMP]       DIRCOMP
+        DIRTOTAL.EXE    DIRTOTAL.INI    [DIRTOTAL]      DIRTOTAL
+        EUMAIL.EXE      EUMAIL.INI      [EUMAIL]        EUMAIL
+        FILL.EXE        FILL.INI        [FILL]          FILL
+        FILUPDAT.EXE    FILUPDAT.INI    [FILUPDAT]      FILUPDAT
+        FIXTEXT.EXE     FIXTEXT.INI     [FIXTEXT]       FIXTEXT
+        FORTUNE.EXE     FORTUNE.INI     [FORTUNE]       FORTUNE
+        HTMSTRIP.EXE    HTMSTRIP.INI    [HTMSTRIP]      HTMSTRIP
+        ISAMFIND.EXE &
+          ISAMMAKE.EXE  ISAMFIND.INI    [ISAMFIND]      ISAMFIND
+        MOZ.EXE         MOZ.INI         [MOZ]           MOZ
+        PAGINATE.EXE    PAGINATE.INI    [PAGINATE]      PAGINATE
+        READ.EXE &
+          READINIT.EXE &
+          READMAKE.EXE &
+          READY.EXE     READ.INI        [READ]          READ
+        TXTABLE.EXE     TXTABLE.INI     [TXTABLE]       TXTABLE
+
+The INI file is an ASCII text file that can be created maintained by hand.  The
+commands in the INI file should begin in column 1.  It can consist of:
+
+  (a) Command-line parameters
+  (b) Comments
+  (c) Block declarations
+  (d) Special items (vary by routine)
+
+
+BRUCEINI.DOC                        2                         Revised: 02-09-97
+
+(a)  Command-line parameters:  The INI file can consist or one or more  command
+     line parameters.  In most  cases,  it  can  *only*  include  command  line
+     parameters that begin with a slash ("/").  These will vary by  routine  of
+     course but, in READ for example, your INI file might appear like this:
+
+        /MONO
+        /-DOS
+        /COLOR=123 134 145 156
+
+(b)  Comments:  The INI file can also contain comment lines.  These are defined
+     as any lines that are either blank or begin with a  semi-colon  in  column
+     one.
+
+(c)  Block declarations:  You can combine INI files if you'd like.  This  saves
+     some disk space.  Typically, this is  done  in  connection  with  the  SET
+     BG=inifile environmental parameter (described below).  Blocks are declared
+     by using the name of searched-for routine in  brackets.   (See  the  table
+     above to  see  what  blocks  are  searched  for  for  each  routine.)  Any
+     statements between one block and the next are  assumed  to  be  associated
+     with the first routine.  For example:
+
+        ; ALL.INI -- contains all of the INI statements
+        [DATES]
+        /SORT
+        [FILL]
+        /ON
+        /SPLIT
+        [READ]
+        /MONO
+
+(d)  Special items:  Some routines allow the INI  file  to  include  statements
+     that cannot be specified from the command line.  These special  statements
+     are described in the specific routine's documentation.
+
+A    fairly complicated example might be an INI  file  used  for  the  HTMSTRIP
+     program.  In this case, you might find  all  of  the  following  types  of
+     lines:
+
+(blank line)   ignored as comment
+;xxxxx ignored as comment
+[xxxxx] beginning of program block (e.g. "[HTMSTRIP]")
+/xxxxx command-line parameters
+\xxx = \xxx    character-translation entry
+&xxx;= xxx     entity references (HTML translations)
+<xxx> = xxx    how to show certain blocks
+
+
+BRUCEINI.DOC                        3                         Revised: 02-09-97
+
+Where does each program look for the INI file?
+
+Each program here looks for an INI file unless instructed otherwise.  The logic
+used is as follows.  Note that the first "hit" wins:
+
+(a)  No INI file is checked for if any of the following is true:
+      - /-I or /INULL is passed in from the command line
+      - /-I or /INULL is passed in from the routine's environmental parameter
+           (for example, SET READ=/-I)
+      - the environmental variable BG is set to the value of /-I or /INULL
+           (for example, SET BG=/-I)
+     Most programs accept either /-I  or  /INULL.   However,  several  routines
+     (BFIND and CHANGE) accept /-I to mean do a case-insensitive  search.   For
+     these programs, you *have* to use /INULL instead.
+
+(b)  If a /Iinitfile setting is passed in, the routine uses this  to  determine
+     the name of the INI file to look  for.   Note  that  the  file  name  must
+     include a period (for example, "/ICHANGE.INI") or the  program  will  skip
+     it.
+
+(c)  The routine looks for an environmental variable BG.  If this  variable  is
+     defined (and it's not set to /-I), then the routine takes this to  be  the
+     name of the INI file to look for.
+
+(d)  The routine looks for the INI file under the "INI file" name shown in  the
+     table at the start of this documentation.
+
+If the INI file name does not include either a drive or path specification (for
+example, you don't pass in  something  like  /IC:\ALL.INI),  the  routine  will
+search for the named file.  It will check for it in the following places in the
+following order.  The first place that it finds it wins:
+
+  - Your default subdirectory (where you were when you executed the command)
+  - The subdirectory that contains the EXE that you're executing
+  - Your regular DOS path
+
+If you do not have an INI file, this searching can take  awhile  especially  if
+you have any networked drives in your path.  In  this  case,  specifying  "/-I"
+will save some time.  Passing in a fully qualified filename also helps.
+
+
+BRUCEINI.DOC                        4                         Revised: 02-09-97
+
+Personally, I have a common INI file named WAYNE.INI  in  the  root  of  my  C:
+drive.  I put it there so I don't run out of environmental space by  specifying
+some huge path.  I have the following statement in my AUTOEXEC.BAT:
+
+     SET BG=C:\WAYNE.INI
+
+Currently, my C:\WAYNE.INI file looks like this:
+
+     [AV]
+     /on
+     [bfind]
+     /-empty
+     [COPSINCE]
+     /def text=*.bas *.bi *.c *.diz *.doc *.h *.ref *.sas *.sc *.txt
+     /def prg=*.bas *.bat *.bi *.c *.h *.sas
+     /to c:\temp
+     /replace
+     /-beep
+     /text
+     /copy -0
+     [DATES]
+     /cc:\mine\datemine.txt
+     /sort
+     /day
+     /-i
+     [FILL]
+     /letter
+     [htmstrip]
+     /lc:\vbdos\htmstrip.ini
+     /-symbols
+     /warnings
+     [paginate]
+     /overwrite
+     /cc:\bat\brucedoc.ctl
+     [txtable]
+     /debug
+
+If I ever need to override the WAYNE.INI settings, it's easy to do  by  passing
+them in from the command line or by specifying /-I from the command line.
+
+
+                Bruce Guthrie
+                Wayne Software
+                113 Sheffield St.
+                Silver Spring, MD 20910
+
+                fax: (301) 588-8986
+                e-mail: bguthrie@nmaa.org
+                http://www.geocities.com/SiliconValley/Lakes/2414
+

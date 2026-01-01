@@ -1,0 +1,87 @@
+Newsgroups: comp.sys.intel
+From: morris@altair.sce.carleton.ca (Bob Morris)
+Subject: I've not found a killer FDIV ap for sin/cos! READ THIS
+Message-ID: <morris.786479376@altair.sce.carleton.ca>
+Organization: Carleton University
+Date: Sat, 3 Dec 1994 18:29:36 GMT
+
+If you read appendix G of the Pentium manual, you find that
+trig functions are implemented on the Peniutium using the Cordic algorithm via
+tables. Interesting that they tested three million random
+points! Also, on page 7-23 of vol 3 of the User's Manual we find that
+other than FDIV and its variations, only FYL2X and FXTRACT use FDIV internally!
+These leads me to believe (I have some refs on Cordic somewhere) that none
+of the trig functions use FDIV so that -- as per Intel's tests -- FSIN, FCOS
+etc should be perfect on Pentium.
+
+So, I said to myself :-), what about those people who have 8087/287
+compatible software that does not use fsin, fcos, or fsincos, but compute
+sin and cos in a way which involves divides? Eh?
+
+For example, I confirmed a long time ago that Turbo Pascal V3 (I have the only
+copy in existance!) uses the routines borrowed from Startz's 8087 App book
+(pp. 196-202) which use FPTAN and then a formula of the form X or Y divided by 
+SQRT(X**2+Y**2), which definately use FDIV.
+
+So I wrote a Turbo Pascal V3 program (which calcs sin and cos via FDIV)
+and also calls an assembler routine which uses FSIN and FCOS.
+
+I calaulated 100,000 points over a quarter cycle of a sine wave
+and compared the results using both the Turbo V3 (which requires FDIVS)
+and FSIN/FCOS which I assume doens't use FDIV (as per above).
+
+Ran progs on both 486DX and Pentium. Essentially no differences
+greater than 10**-16. 
+
+So, I am forced to conclude that sin and cos values, whether calculated
+using built in functions or using FDIV, are error free.
+
+Not a conclusive test, but pretty convincing.
+
+I also tried a number of table driven 1K FFT's where sin/cos tables
+are computed using FDIV, and no difference on 486 vs Pentium.
+
+Bob Morris
+
+
+From ankh.iia.org!babbage.ece.uc.edu!news.kei.com!bloom-beacon.mit.edu!spool.mu.edu!uwm.edu!lll-winken.llnl.gov!unixhub!news.Stanford.EDU!Sunburn.Stanford.EDU!pratt Sun Dec  4 12:41:15 1994
+Path: ankh.iia.org!babbage.ece.uc.edu!news.kei.com!bloom-beacon.mit.edu!spool.mu.edu!uwm.edu!lll-winken.llnl.gov!unixhub!news.Stanford.EDU!Sunburn.Stanford.EDU!pratt
+From: pratt@Sunburn.Stanford.EDU (Vaughan R. Pratt)
+Newsgroups: comp.sys.intel
+Subject: Re: I've not found a killer FDIV ap for sin/cos! READ THIS
+Date: 3 Dec 1994 22:58:37 GMT
+Organization: Computer Science Department,  Stanford University.
+Lines: 28
+Message-ID: <3bqt6t$1l4@Radon.Stanford.EDU>
+References: <morris.786479376@altair.sce.carleton.ca>
+NNTP-Posting-Host: sunburn.stanford.edu
+
+In article <morris.786479376@altair.sce.carleton.ca>,
+Bob Morris <morris@altair.sce.carleton.ca> wrote:
+>If you read appendix G of the Pentium manual, you find that
+>trig functions are implemented on the Peniutium using the Cordic algorithm via
+>tables. Interesting that they tested three million random
+>points! Also, on page 7-23 of vol 3 of the User's Manual we find that
+>other than FDIV and its variations, only FYL2X and FXTRACT use FDIV internally!
+>These leads me to believe (I have some refs on Cordic somewhere) that none
+>of the trig functions use FDIV so that -- as per Intel's tests -- FSIN, FCOS
+>etc should be perfect on Pentium.
+
+Not only does CORDIC not use division, it does not (when implemented
+properly) even use a single multiplication.  It works by rotating and
+slightly stretching a vector using matrices each of whose entries in
+binary contains at most two bits.  These matrix multiplications can
+therefore be realized in hardware with just a couple of shifts and
+adds.  Because of the associativity of matrix multiplication,
+multiplicative cleanups that the theory of the algorithm indicate
+should be done at the end of the process can equally well be done at
+the beginning where they become mere loading of constants into
+registers.  (I wrote course notes on CORDIC for an undergraduate course
+on algorithms, 6.043, that I started up at MIT in 1973.)
+
+Hence if the transcendentals are indeed realized by CORDIC, and the
+implementation is done right, they should not be affected at all by the
+FDIV bug.
+-- 
+Vaughan Pratt			http://boole.stanford.edu/boole.html
+

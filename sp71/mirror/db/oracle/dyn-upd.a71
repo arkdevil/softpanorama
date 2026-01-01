@@ -1,0 +1,112 @@
+From: james_f_miller@jhuapl.edu (Jim Miller)
+Newsgroups: comp.databases.oracle
+Subject: Dynamic Updates to Oracle Forms?
+Date: 29 Dec 1994 18:04:40 GMT
+Organization: jhuapl
+Message-ID: <james_f_miller-291294130501@f3cjfm.jhuapl.edu>
+
+Oracle Forms and Dynamic Screen Updates
+
+Scenario:	
+When a row or rows of data are inserted into or updated on a database
+table, we would like those changes to be dynamically (as they happen)
+updated on the screen in a multi-record block without  having to re-query
+the database.  We would  like the user of this application to be able to 
+scroll randomly through this multi-record block, as updates are being done,
+without the user losing context or their current position in this block.
+ 
+For example, say we have a database table with 100 rows of data. Since we
+cannot view 100 rows of data at one time, we set up a multi-record block
+with a vertical scrollbar displaying 10 rows at a time. We would like the
+user to be able to keep focus on a particular row or group of contiguous
+rows while updates are being made to the other rows that are not currently
+of interest to the user. The user may currently be viewing rows 50-59 but
+updates are occurring say at row 1, 100, 25, 55 etc. while the user is
+still looking at rows 50-59. 
+
+Attempted Solution #1:
+
+The basic idea for this solution was to simply take the new information off
+of the pipe and update the multi-record block (i.e. assign the newly read
+pipe information to the currently displayed block information).
+
+ In SQL a trigger was created to fire after insert or update on the
+database table.  This trigger  utilizes the DBMS_PIPE package and for every
+row  that is inserted or updated that row's data is sent over the pipe to
+the Oracle Forms application.
+
+ In Oracle Forms there is a When-Timer-Expired  trigger that reads the
+database pipe every 'n'  seconds.  When there is new data on the pipe,  the
+trigger unpacks (removes) this information from the pipe and tries to
+update the multi-record block.  
+
+Problems with Solution # 1:
+
+ The problems here are that we must determine which row this new
+information belongs to and how to position there transparently so that the
+data can be updated.
+
+Determining which row that this new data belongs to was accomplished by
+looping through the multi-record block and comparing a key of the new data
+with a key in each row of the block until the row was found.  If the row
+was not found, the new data was assumed to be a new row. The crux of this 
+problem was that now that the row number for this new data has been
+determined, how does one position to that row so that the row can be
+updated?  The  Oracle Forms API provides simple calls (ie GO_RECORD, etc.)
+to navigate to a desired row; however, the problem (in our  case) is that
+they NAVIGATE (i.e. physically change location) the user to that row.
+
+The result of navigating to a row each time data is updated is that the
+user loses context of the data  they are currently looking at. Imagine
+trying to  examine a row of data in the multi-record block and have the
+block automatically navigate to another row!  Clearly, this is not a viable
+solution.
+
+Attempted Solution #2:
+
+The basic idea for this solution was to update a record group from the new
+data coming from the pipe and reflect that updated record group in the
+multi- record block. To accomplish this, the multi-record block could not
+be a base table block but rather  like a 'control' block and the default
+Oracle Forms querying from the database had to be replaced with querying
+from the record group. In essence then,  the record group, which was
+dynamically updated, would be queried as opposed to the database table.
+
+In SQL a trigger was created to fire after insert or update on the database
+table.  This trigger utilizes the DBMS_PIPE package and for every row that
+is inserted or updated that row's data is sent over the pipe to the Oracle
+Forms application.
+
+ In Oracle Forms there is a When-New-Form-Instance  trigger that creates a
+record group from a query  and then populates the record group.  A record
+group is a two-dimensional array of multiple record types--essentially an
+in-memory representation of a table or block.
+
+In Oracle Forms there is a When-Timer-Expired  trigger that reads the
+database pipe every 'n'  seconds.  When there is new data on the pipe,  the
+trigger unpacks (removes) this information from the pipe, determines the
+row number in the record group of where this new information belongs, and
+updates the row with appropriate calls to Set_Group_Char/Date/Number_Cell.
+It was assumed that if the row number could not be determined then this was
+a new row and hence Add_Group_Row was called. 
+
+In Oracle Forms there is an On-Fetch trigger. Since we want to fetch data
+from the record group and not the database, this trigger was created.  This
+ trigger basically fetches a row from the record  group and assigns the
+current row to the record group's row. It is called for every row fetched
+and  is called when Execute_Query is called (a query is essentially a
+select and a series of fetches).
+
+After the When-Timer-Expired trigger is finished  reading the new
+information from the pipe and updating the record group, an Execute_Query
+call is made.  Since there is an On-Fetch trigger, the On- Fetch trigger is
+called and the code for the  trigger is executed.
+
+Problem with Solution #2: 
+
+This seemingly works fine except for one problem--a call to Execute_Query
+causes the current block to be flushed (i.e. user's context is lost) the
+entire record group to be queried.  We need a way to  update a multi-record
+block without losing the  current context of the user.
+ 
+

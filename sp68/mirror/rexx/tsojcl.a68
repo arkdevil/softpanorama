@@ -1,0 +1,74 @@
+From: peltlayman@delphi.com
+Newsgroups: comp.lang.rexx
+Subject: Re: REXX vs. JCL (was: REXXLIST Digest - 23 Sep 1994 to 24 Sep
+Date: Wed, 12 Oct 94 21:06:15 -0500
+Organization: Delphi (info@delphi.com email, 800-695-4005 voice)
+Message-ID: <Jy3X5Dn.peltlayman@delphi.com>
+
+Dave Gomberg <GOMBERG@UCSFVM.UCSF.EDU> writes:
+ 
+>I am really puzzled.  MVSers, please advise.  I see this debate about
+>processing time for JCL vs REXX for job control.  I would assume that
+>the CPU in both cases is vanishingly trivial (elapsed not necessarily
+>trivial because of IO and task interaction).  Is that wrong?  Is JCL
+>interpretation now a major consumer of CPU in an MVS system?  I am
+>astounded.  Is REXX MUCH slower than JCL at job initialization?  Are
+>there any published numbers or is this just guessing?  Enquiring minds
+>want to know.   Dave
+>
+ 
+To run a batch program requires coding of a jobstep in JCL. A jobstep
+typically requires an EXEC statement to identify the program to be run
+and one or more DD (Data Definition) statements to specify the files to
+be used. Programs never refer directly to file names (data set names)
+but instead refer to DD names (which refers to the DD statement with
+the same name in the jobstep's JCL). Before a jobstep is initiated (started
+by MVS), it's files are "allocated" (devices may need disks or tapes
+mounted, disk space may need to be reserved, contention with other job
+steps must be checked, and so forth).
+In batch JCL, all allocations for all DD cards for a step are handled
+by one pass through the operating system allocation routines. Since
+these routines are highly serialized (and involve some of the longest
+code paths in MVS) they are very costly in terms of CPU time AND
+real-time.
+When a MVS user logs on (starts on interactive session from a terminal)
+he is actually starting a TSO job with its own JCL consisting of a
+single job step that executes program IKJEFT01 also referred to as the
+TSO Terminal Monitor Program or TSO TMP for short. Once logged on, the
+user can issue TSO commands. One such command is the ALLOC command
+which basically does interactively a single DD allocation. The major
+difference is that such "dynamic" allocations are done one file at a time
+(one ALLOC command) and hence go through the same operating system
+routines multiple times for multiple ALLOC commands.
+You tell me what's more resource demanding and time-consuming: going
+through the drive-in window once to get your fries, burger and coke
+or getting one item at a time and driving around to wait in line for
+each item ?
+If you want to run a REXX program in batch, you basically code a batch
+job that runs the TSO TMP in batch, then have the TMP execute an EXEC
+command to execute your REXX program. The expense of starting up the
+TMP is non-trivial and costs about the same as starting a full TSO
+interactive session.
+If none if this makes sense, you must know the history: MVS has its
+roots in MVT which was originally a batch job only environment. The
+implementation of TSO was a (very ugly) add-on.
+To answer the question, REXX is not expensive to run. Setting up the
+environment to be able to run REXX (starting the TSO TMP) is, however.
+On top of that, having REXX execute ALLOC commands is infinitely more
+expensive than if the same can be accomplished using straight JCL.
+Measuring the difference is not that easy. The SMF accounting records
+created by MVS do not always attribute system routine usage (such as
+batch allocation) to the job, since it is considered to happen before
+a jobstep starts execution, for example.
+ 
+Hope this added much to the confusion.
+ 
+--
+-----------------------------------------------------------------------
+!  Nanoo, nanoo          !                 PELT INDUSTRIES
+!  Mark from Ark         !                 Software Experts
+!                        !          1(800) 741-4322 or 1(303) 442-7700
+!  Markus Pelt-Layman    !              FAX: 1(303) 442-3198
+!                        !   8027 N. 41st Street, Longmont, CO 80503
+-----------------------------------------------------------------------
+

@@ -1,0 +1,323 @@
+Journal:    Computer Language  March 1993 v10 n3 p31(5)
+* Full Text COPYRIGHT Miller Freeman Inc. 1993.
+-------------------------------------------------------------------------
+Title:     Making sense out of make.
+             (a tool used on program development) (contains related
+             articles on Black Lightning Inc.'s The Flash: All the News
+             That's Fit To Print newsletter and free software engineering
+             reports from the Software Engineering Institute) (Tools of
+             the Trade)
+Author:    Keuffel, Warren
+
+
+Abstract:  Make is a configuration management tool that keeps track of
+           relationships between program or system modules.  Make ensures
+           that the proper modules are compiled and linked correctly by
+           traversing the dependency graph and finding elements that are
+           dependent on dependent files, which are the elements that need
+           to be recompiled.  Make has evolved so that some makes allow
+           iterative tasks to allow looping structures and reduce the
+           size of makefiles.  Some makes add views and viewpaths.  Views
+           are different versions of software systems.  Users can combine
+           collections of files to form different views and then store
+           the collections in separate nodes.  Each developer can then
+           work in a separate node.  Nodes can be combined to create a
+           software view by specifying a viewpath, or an ordered list of
+           nodes that each have the same directory structure.  Files are
+           identified by their relative path names and located by
+           searching in each node in order, with only the first version
+           of each file used in a particular view.
+-------------------------------------------------------------------------
+Full Text:
+
+A viewpath is used to resolve references to files.
+
+Successful configuration management requires tools other than the source
+code control system (SCCS) and RCS version control utilities that we
+looked at last month.  This month, we'll take a look at make, a tool used
+to keep track of the relationships between modules of a program or system
+that are very frequently controlled by version control utilities such as
+SCCS and RCS.  Most engineers are familiar with make, since a version of
+the utility comes with virtually every compiler sold.  However, in the
+interests of exploring the historical roots of version control, hopefully
+a visit to UNIX make will be equally as interesting as last month's
+historical overview of SCCS and RCS.
+
+In addition, I also want to share with you a treasure-trove of software
+engineering information from the Software Engineering Institute at
+Carnegie Mellon University that is available to anyone with ftp access to
+Internet.
+
+Make was developed at AT&T Bell Laboratories by Stuart Feldman in 1975.
+Feldman describes make in "Make--A Program for Maintaining Computer
+Programs" (Software--Practice and Experience, Sept. 1979, pp.  255-265).
+Let's review what Feldman's objectives were in developing make.
+
+"Consider the plight of a modern programmer.  Following the dictates of
+software engineering, he has divided his project into a number of
+sensible modules.  He makes use of all the tools he can.  Common data
+structure descriptions and constants are entered just once and are shared
+by the relevant programs.  An automatically generated parser analyzes the
+input.  The complicated logic is specified in decision tables and the
+output is guided by a formatter.
+
+Now he decides to make a small change to a data structure.  How does he
+regenerate his program?
+
+One possibility is to 'recompile everything in sight.' It may not be easy
+to put together the monster command sequence he needs.  Doing all this
+work too often will certainly break the budget, since those marvelous
+tools aren't free.  Alternately, he may think hard and deep, decide
+exactly which parts are affected by the change, figure out the
+sub-sequence needed to do the processing, and go to work.  He has saved
+machine time, but if he has forgotten just one module, he now has a bug
+that may take days to find.
+
+"These difficulties affect projects of all kinds.  Even in a simple card
+environment, it is hard to remember which object decks are good and which
+are bad.  In a large project with many people working on related pieces
+of a product, it is very likely that parts will become inconsistent.
+
+"What is needed is a mechanism for keeping track of the status of the
+parts of a program, and for executing an efficient control sequence to
+ensure that the end product is correctly made from consistent pieces."
+
+After you finish chuckling at the references to "card environment" and
+"object decks," you'll recognize that the problem Feldman describes has
+not gone away--if anything, it has become more acute because software has
+certainly become far more complex, usually by several orders of
+magnitude.  Further, although modern workstations and compilers can emit
+object code so fast that the time saved by makeing a project can be
+negligible compared to what it used to be, the problems of ensuring that
+the right module is compiled and linked are perhaps even more pernicious
+than when Feldman first addressed the problem.
+
+How does make work? Feldman describes his basic algorithm: "We assume
+there is a certain set of primary source documents.  These are to be
+transformed and combined to produce other files, including the final
+products.  If a source file is changed, then the files that generate from
+it are obsolete.  The make program reads a text file that describes the
+objects to be maintained.  Make queries the environment to discover which
+files have been changed and deduces the set of commands that must be
+executed to ensure that all the relevant files are consistent and up to
+date."
+
+The mechanism the programmer uses to access this algorithm is the
+makefile, which is little more than a text file containing rules
+describing a dependency graph.  Make uses the makefile to traverse the
+dependency graph, finding those elements (modules) that need to be
+recompiled because they are dependent upon dependent files.  Make knows
+that a target needs recompilation when the environment reports that one
+or more of the dependent files for a given target have been modified
+since the target was last generated.  Listing 1 shows the basic format of
+a rule.  Make interprets this rule to read "if any of the dependencies
+(dependent1 dependent2, ...) have been changed since any of the targets
+(target1, target2, ...) were generated, execute command1, command2, ..."
+
+Feldman describes the grammar of a makefile as follows:
+
+* Blank lines are ignored, as are characters from a sharp (#) to the end
+of a line.
+
+* A line with an embedded equals sign (=) defines a macro, such as CFLAGS
+= -ms.  The macro definition is invoked with a dollar sign ($) followed
+by a pair of parentheses, $(CFLAGS).
+
+* A set of dependencies is declared by a line with an embedded colon;
+each name on the left depends on each name to the right of the colon.
+
+* A dependency line may be followed by one or more indented command
+lines.
+
+To illustrate, Listing 2 shows an annotated example of a makefile with
+macro usage culled from the MKS make documentation.
+
+How has make evolved beyond the basic make described here? Many PC
+compilers come with their own makefile generators: programs that scan the
+source code for dependencies and automatically construct the target
+dependency command relationships.  Some makes extend the basic make
+grammar to permit iterative tasks, thus permitting looping structures and
+thereby reducing the size of makefiles.
+
+V.B.  Erickson and J.E Pellegrin of AT&T Bell Laboratories describe an
+extension to make called build in "Build -- A Software Construction Tool"
+(AT&T Bell Laboratories Technical Journal, Jul.-Aug.  1984, pp.
+1049-1059).  Essentially, what Erickson and Pellegrin describe is the
+addition of "views" and "viewpaths" to make: "Individual software views
+are versions of the software system that are unique to an individual
+developer or to a particular set of developers, such as system testers.
+Different views are formed by combining different collections of files
+from the system.  These collections are stored in separate nodes.  A node
+is a set of UNIX operating system directories, all of which share the
+same common ancestor directory, called the root directory of the node.  A
+node for a software project is defined as a project-standard set of
+directories that are sufficient to contain the complete set of project
+files.
+
+Individual software views for developers are established by having each
+developer work in a separate node containing only those files that the
+developer needs to change.  The developer then accesses all other project
+files through a separate project-wide shared node that contains a
+complete set of all the project files.
+
+"This combining of individual and shared files in separate nodes to
+express a particular software view is achieved through the specification
+of a viewpath. A viewpath is an ordered list of nodes, each of which has
+the same directory structure.  The viewpath is used to resolve references
+to files.  A file, identified by its relative path name within the node's
+directory structure, is located within the viewpath by searching in its
+directory within each successive node in the viewpath until it is
+located.  Any additional version of the file in subsequent nodes in the
+viewpath is ignored.  In this way, the viewpath determines which version
+of each file in the software system is to be used in a particular
+software view that consists of a set of populated nodes."
+
+The configuration management tools that we'll look at in subsequent
+installments of this series generally combine tools that provide most of
+the same functionality as UNIX make and SCCS.  Most of the tools are more
+sophisticated and easier to use than their UNIX forebears; each vendor
+has identified what it believes are the most important features for a
+configuration management tool.  We'll soon start taking a look at the
+differences between these vendor approaches to configuration management
+in future installments of this series.
+
+Warren Keuffel is a software engineer for Unisys Corp. in Salt Lake City,
+Utah.  Contact him on CompuServe at 76702,525, on Internet at wpk@unislc.
+ slc.  unisys.  corn, or write to him in care of COMPUTER LANGUAGE, 600
+Harrison St., San Francisco, Calif.  94107.
+
+[PROGRAM LISTING OMITTED]
+
+THE WORKBEANCH
+
+This month's WorkBench selection has little to do with software
+engeneering, but it's so useful, intriguing and interesting that I wanted
+to share it with you.  If you use a laser printer, you owe it to yourself
+to get a subscription to The Flash: All The News That's Print To Fit from
+Black Lightning Inc. Black Lightning, the brainchild of Walter Jeffries,
+is one of those peculiar and endearing Vermont institutions that is
+reminiscent of The Mother Earth News, The Old Farmer's Almanac, or Tom &
+Jerry's ice cream.  Now, I have no idea if either Mother Earth or the
+Almanac are actually published in Vermont, but the ambience is certainly
+Vermont-ish, which should give you a hint why The Flash has certainly
+Vermont-ish, which should give you a hint why The Flash has achieved cult
+stature among Jeffries' 18,000 readers.  The quarterly newsletter is free
+to Black Lightning customers and is available for $5 per year to
+noncustomers.
+
+What's in The Flash? An eclectic melange of articles about laser
+printers, desktop publishing, and environmental issues; incidentally, the
+best articles from previous issues of The Flash have been released in the
+Flash Compendium (Black Lightning, 1992).  Black Lightning Inc., Riddle
+Pond Rd., West Topsham, Vt 05086 (800) 252-2599, fax: (802) 439-6463,
+CompuServe:73130,1734.
+
+FREE SOFTWARE ENGINEERING REPORTS FROM SEI
+
+The Software Engineering Institute (SEI) at Carnegie Mellon University
+enjoys a formidable reputation as a source of original research in
+software engineering.  Too many engineers, however, feel that the results
+of this research effort is inaccessible to them.  As I hope to
+demonstrate, this is not the case.  SEI maintains a UNIX machine on which
+hundreds of reports are available, free for the cost of downloading.
+Here's a sampling of the kind of reports that are available from SEI;
+I've limited the sample to reports relating to areas that this column
+focuses on, such as configuration management, metrics, and CASE, but
+there are also many Ada and defense-related reports as well as
+information on software engineering education.  Two typical abstracts
+dealing with our current series are:
+
+Spectrum of Functionality in Configuration Management System,
+CMU/SEI-90-TR-11, ADA235753, S. Dart.  The software environments project
+at the Software Engineering Institute has found considerable progress
+concerning support for software configuration management (CM) in
+environments and tools. This paper's intent is to high-light a spectrum
+of features provided by existing CM systems.  The spectrum shows features
+as extensions or generalizations of other features and these extensions
+represent the progress.  As part of presenting the features, the scope of
+issues concerning users of CM systems is discussed.  No single CM system
+provides all the functionality required by the different kinds of users
+of CM systems.  Rather, each CM system addresses some part of a spectrum
+of functionality.  To complete the report, several configuration
+management systems are briefly described.
+
+Issues and Techniques of CASE Integration with Configuration,
+CMU/SEI-92-TR-5, K.C.  Wallnau.  Commercial computer-aided software
+engineering (CASE) tool technology has emerged as an important component
+of practical software development environments.  Issues of CASE tool
+integration have received heightened attention in recent years, with
+various commercial products and technical approaches promising to make
+inroads into this difficult problem.
+
+One aspect of CASE integration that has not been adequately addressed is
+the integration of CASE tools with configuration management
+(CM)--including both CM policies and systems.  Organizations need to
+address how to make CASE tools from different vendors work effectively
+with an organization's CM policies and tools (in effect, integrate CASE
+with CM) within the context of the rapidly evolving state of commercial
+integration technology.  This report describes key issues of the
+integration of CASE with CM from a third-party integrator's perspective,
+i.e., how to approach the integration of CASE and CM in such a way as to
+not require fundamental changes to the implementation of the tools or CM
+systems themselves.
+
+Some other interesting reports include:
+
+* Understanding Integration in a Software Development Environment,
+CMU/SEI-91-TR-31, ADA248119, A.W.  Brown, P.H.  Feiler, K.C.  Wallnau.
+
+* CASE Planning and the Software Process, CMU/SEI-89-TR-26, ADA219066, W.
+Humphrey.
+
+* Measurement in Practice, CMUfSEI-91-TR-16, ADA241781, S. Rifkin.
+
+* Comparison of U.5.  and Japanese Software Process Maturity, A
+CMU/SEI-91-TR-27, ADA245031, W. Humphrey, D. Kitson, J. Gale.
+
+Interested in getting these reports? If you have access to a UNIX machine
+connected to Internet (and a PostScript printer--all the reports are
+PostScript files), you can use anonymous ftp to retrieve them.  The
+repons are filed by year of issue in subdirectories under the pubs
+documents directory on a machine known as ftp.sei.cmu.edu (Internet
+address: 128.237.2.179).  To access this machine, log onto your local
+UNIX machine and follow these steps:
+
+* At the prompt, type: ftp ftp.  sei.cmu.edu.
+
+* When you get a login prompt from ftp.sei.cmu.edu, type: anonymous.
+
+* You will then be prompted for your password.  Enter your internet
+mailing address.  Because the password is not echoed back, you'll have to
+be careful typing your address.  In my case, I would type:
+wpk@unislc.slc.unisys.com.
+
+* After you're logged into ftp.sei.cmu.edu, change to the documents
+directory: cd pub documents.
+
+* One of the best places to start exploring is with the READ.ME file.
+You can transfer the READ.ME file on the SEI machine to your local
+machine by typing: get READ.ME.
+
+* Repeat the previous procedure to get any other files you're interested
+in reading.  When you're finished with your ftp session, log off ftp.
+sei.cmu.edu with bye (or quit).
+
+Your PostScript printer must have Helvetica, Times, New Century
+Schoolbook, Courier, and Symbol fonts loaded to properly print these
+documents.  But what if you don't have a UNIX connection or a PostScript
+printer? Bound copies of the SEI reports are available from: Research
+Access Inc., 3400 Forbes Ave., Ste.  302, Pittsburgh, Pa.  15213, (800)
+685-6510 fax: (412) 682-6530.
+-------------------------------------------------------------------------
+Type:      tutorial
+Topic:     Tutorial
+           Program Development Software
+           Software Engineering
+           Version and Release Control
+           UNIX
+           Modular Programming
+           Configuration
+
+
+Record#:   13 396 732.
+                              *** End ***

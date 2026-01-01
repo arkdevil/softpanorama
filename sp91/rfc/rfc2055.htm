@@ -1,0 +1,340 @@
+<title>RFC 2055</title>
+<a href="/cgi-bin/rfc/view-plain?number=2055">View this RFC without HTML formatting</a><p>
+<P>
+Network Working Group                                       B. Callaghan
+Request for Comments: <a href="/cgi-bin/rfc/view?2055">2055</a>                        Sun Microsystems, Inc.
+<pre width=80>Category: Informational                                     October <a href="/cgi-bin/rfc/view?1996">1996</a><P></pre>
+<h3>WebNFS Server Specification</h3>
+Status of this Memo<P>
+   This memo provides information for the Internet community.  This memo
+   does not specify an Internet standard of any kind.  Distribution of
+   this memo is unlimited.
+<h3>Abstract</h3>
+   This document describes the specifications for a server of WebNFS
+   clients.  WebNFS extends the semantics of versions 2 and 3 of the NFS
+   protocols to allow clients to obtain filehandles more easily, without
+   recourse to the portmap or MOUNT protocols.  In removing the need for
+   these protocols, WebNFS clients see benefits in faster response to
+   requests, easy transit of firewalls and better server scalability
+   This description is provided to facilitate compatible implementations
+   of WebNFS servers.
+<h3>Table of Contents</h3>
+<pre width=80>   1.    Introduction . . . . . . . . . . . . . . . . . . . . . . . 2
+   2.    TCP vs UDP . . . . . . . . . . . . .   . . . . . . . . . . 2
+   3.    Well-known Port  . . . . . . . . . . . . . . . . . . . . . 2
+   4.    Server Port Monitoring . . . . . . . . . . . . . . . . . . 3
+   5.    Public Filehandle  . . . . . . . . . . . . . . . . . . . . 3
+   5.1     Version 2 Public Filehandle  . . . . . . . . . . . . . . 3
+   5.2     Version 3 Public Filehandle  . . . . . . . . . . . . . . 4
+   6.    Multi-component Lookup . . . . . . . . . . . . . . . . . . 4
+   6.1     Canonical Path vs. Native Path . . . . . . . . . . . . . 5
+   6.2     Symbolic Links . . . . . . . . . . . . . . . . . . . . . 6
+   6.3     Export Spanning Pathnames  . . . . . . . . . . . . . . . 6
+   7.    Location of Public Filehandle  . . . . . . . . . . . . . . 7
+   8.    Index Files  . . . . . . . . . . . . . . . . . . . . . . . 7
+   9.    Bibliography . . . . . . . . . . . . . . . . . . . . . . . 8
+   10.   Security Considerations  . . . . . . . . . . . . . . . . . 9
+   11.   Acknowledgements . . . . . . . . . . . . . . . . . . . . . 9
+   12.   Author's Address . . . . . . . . . . . . . . . . . . . . . 10</pre><P>
+<hr><P>
+<h3>1. Introduction</h3>
+   The NFS protocol provides access to shared filesystems across
+   networks.  It is intended to be machine, operating system, network
+   architecture, and transport independent.  The protocol currently
+   exists in two versions: version 2 [RFC<a href="/cgi-bin/rfc/view?1094">1094</a>] and version 3 [RFC<a href="/cgi-bin/rfc/view?1813">1813</a>],
+   both built on Sun RPC [RFC<a href="/cgi-bin/rfc/view?1831">1831</a>] and its associated eXternal Data
+   Representation (XDR) [RFC<a href="/cgi-bin/rfc/view?1832">1832</a>]. This document assumes some
+   familiarity with the NFS protocol and underlying RPC protocols.<P>
+   WebNFS servers implement semantic extensions to both versions of the
+   NFS protocol to support a lightweight binding mechanism for
+   conventional or web browser clients that need to communicate with NFS
+   servers across the Internet. a WebNFS server supports the public
+   filehandle and multi-component lookup features described herein, as
+   well as meeting some additional requirements.<P>
+   For a description of WebNFS client requirements, read RFC <a href="/cgi-bin/rfc/view?2054">2054</a>.
+<h3>2. TCP vs UDP</h3>
+   The NFS protocol is most well known for its use of UDP which performs
+   acceptably on local area networks.  However, on wide area networks
+   with error prone, high-latency connections and bandwidth contention,
+   TCP is well respected for its congestion control and superior error
+   handling.  A growing number of NFS implementations now support the
+   NFS protocol over TCP connections.<P>
+   A WebNFS client will first attempt to connect to its server with a
+   TCP connection.  If the server refuses the connection, the client
+   will attempt to use UDP.  All WebNFS servers should support client
+   use of TCP and must support UDP.
+<h3>3. Well-known Port</h3>
+   While Internet protocols are generally identified by registered port
+   number assignments, RPC based protocols register a 32 bit program
+   number and a dynamically assigned port with the portmap service which
+   is registered on the well-known port <a href="/cgi-bin/rfc/view?111">111</a>.  Since the NFS protocol is
+   RPC-based, NFS servers register their port assignment with the
+   portmap service.<P>
+   NFS servers are constrained by a requirement to re-register at the
+   same port after a server crash and recovery so that clients can
+   recover simply by retransmitting an RPC request until a response is
+   received.  This is simpler than the alternative of having the client
+   repeatedly check with the portmap service for a new port assignment.
+   NFS servers typically achieve this port invariance by registering a<P>
+<hr><P>
+   constant port assignment, <a href="/cgi-bin/rfc/view?2049">2049</a>, for both UDP and TCP.<P>
+   To avoid the overhead of contacting the server's portmap service, and
+   to facilitate transit through packet filtering firewalls, WebNFS
+   clients optimistically assume that WebNFS servers register on port
+   <a href="/cgi-bin/rfc/view?2049">2049</a>.  Most NFS servers use this port assignment already, so this
+   client optimism is well justified.<P>
+   A WebNFS server must register on UDP port <a href="/cgi-bin/rfc/view?2049">2049</a> and TCP port <a href="/cgi-bin/rfc/view?2049">2049</a> if
+   TCP is supported.
+<h3>4. Server Port Monitoring</h3>
+   Some NFS servers accept requests only from reserved UDP or TCP ports,
+   i.e. port numbers below <a href="/cgi-bin/rfc/view?1024">1024</a>.  These "privileged" ports are available
+   only to Unix processes with superuser permissions.  Requests that do
+   not originate from the range of reserved ports are rejected.  This an
+   optimistic way of preventing direct access to the server from user
+   processes that may attempt to spoof AUTH_UNIX RPC credentials.<P>
+   Since WebNFS clients are not required to use reserved ports, a WebNFS
+   server must not check the originating port for requests to
+   filesystems made available to WebNFS clients.
+<h3>5. Public Filehandle</h3>
+   The public filehandle is an NFS file handle with a reserved value and
+   special semantics that allow an initial filehandle to be obtained.  A
+   WebNFS client can use the public filehandle as an initial filehandle
+   without using the MOUNT protocol.  Since NFS version 2 and version 3
+   have different filehandle formats, the public filehandle is defined
+   differently for each.<P>
+   The public filehandle is a zero filehandle.  For NFS version 2 this
+   is a filehandle with 32 zero octets.  A version 3 public filehandle
+   has zero length.
+<h3>5.1 Version 2 Public Filehandle</h3>
+   A version 2 filehandle is defined in RFC<a href="/cgi-bin/rfc/view?1094">1094</a> as an opaque value
+   occupying 32 octets.  A version 2 public filehandle has a zero in
+   each octet, i.e. all zeros.<P>
+    1                                                             32
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+<P>
+<hr><P>
+<h3>5.2 Version 3 Public Filehandle</h3>
+   A version 3 filehandle is defined in RFC<a href="/cgi-bin/rfc/view?1813">1813</a> as a variable length
+   opaque value occupying up to 64 octets.  The length of the filehandle
+   is indicated by an integer value contained in a 4 octet value which
+   describes the number of valid octets that follow. A version 3 public
+   filehandle has a length of zero.<P>
+   +-+-+-+-+
+   |   0   |
+   +-+-+-+-+
+<h3>6. Multi-component Lookup</h3>
+   Normally the NFS LOOKUP request (versions 2 or 3) takes a directory
+   file handle along with the name of a directory member, and returns
+   the filehandle of the directory member.  If a client needs to
+   evaluate a pathname that contains a sequence of components, then
+   beginning with the directory file handle of the first component it
+   must issue a series of LOOKUP requests one component at a time.  For
+   instance, evaluation of the Unix path "a/b/c" will generate separate
+   LOOKUP requests for each component of the pathname "a", "b", and "c".<P>
+   A LOOKUP request that uses the public file handle can provide a
+   pathname containing multiple components.  The server is expected to
+   evaluate the entire pathname and return a filehandle for the final
+   component. The pathname syntax is assumed to be understood by the
+   server, but the client must not make assumptions of the pathname
+   syntax.<P>
+   A Unix server, for instance, uses a slash "/" character to separate
+   components in a Unix pathname.
+<h3>For example, rather than evaluate the path "a/b/c" as:</h3>
+        LOOKUP  FH=0x0  "a"  ---&gt
+                             &lt---  FH=0x1
+        LOOKUP  FH=0x1  "b"  ---&gt
+                             &lt---  FH=0x2
+        LOOKUP  FH=0x2  "c"  ---&gt
+                             &lt---  FH=0x3<P>
+   Relative to the public filehandle these three LOOKUP requests can be
+   replaced by a single multi-component lookup:<P>
+        LOOKUP  FH=0x0  "a/b/c"  ---&gt
+                                 &lt---  FH=0x3<P>
+<hr><P>
+   Multi-component lookup is supported only for LOOKUP requests relative
+   to the public filehandle.
+<h3>6.1 Canonical Path vs. Native Path</h3>
+   If the pathname in a multi-component LOOKUP request begins with a
+   printable ASCII character, then it must be a canonical path.  A
+   canonical path is a hierarchically-related, slash-separated sequence
+<pre width=80>   of components, &ltdirectory&gt/&ltdirectory&gt/.../&ltname&gt.</pre><P>
+   Occurrences of the "/" character within a component will be escaped
+   using the escape code %2f.  Non-printable ascii characters (with
+   values in the range 00-1F and 7f hexadecimal) will also be escaped
+   using the "%" character to introduce a two digit hexadecimal code.
+   Occurrences of the "%" character that do not introduce an encoded
+   character will themselves be encoded with %25.<P>
+   If the first character of a canonical path is a slash, then the
+   canonical path must be evaluated relative to the server's root
+   directory.  If the first character is not a slash, then the path must
+   be evaluated relative to the directory with which the public
+   filehandle is associated.<P>
+   Not all WebNFS servers can support arbitrary use of absolute paths.
+   Clearly, the server cannot return a filehandle if the path identifies
+   a file or directory that is not exported by the server.  In addition,
+   some servers will not return a filehandle if the path names a file or
+   directory in an exported filesystem different from the one that is
+   associated with the public filehandle.<P>
+   If the first character of the path is 0x80 (non-ascii) then the
+   following character is the first in a native path.  A native path
+   conforms to the natural pathname syntax of the server. For example:
+<h3>Lookup for Canonical Path:</h3>
+                LOOKUP FH=0x0 "/a/b/c"
+<h3>Lookup for Native Path:</h3>
+                LOOKUP FH=0x0  0x80 "a:b:c"<P>
+   Other introductory characters in the range 0x81 - 0xff may be added
+   in future specifications.  If the server receives any character in
+   this range that it does not understand then it must return an error
+   to the client: NFSERR_IO for NFS V2, NFS3ERR_IO for NFS V3.<P>
+<hr><P>
+<h3>6.2 Symbolic Links</h3>
+   Servers that support symbolic links may encounter pathname components
+   that are symbolic links.  The server is expected to evaluate these
+   symbolic links as a part of the normal pathname evaluation process.
+   This is a different semantic from that of conventional component-ata-time pathname evaluation by NFS clients, where the client is
+   expected to do the evaluation.<P>
+   However, if the final component is a symbolic link, the server must
+   return its filehandle and let the client evaluate it.
+<h3>6.3 Export Spanning Pathnames</h3>
+   The server may evaluate a pathname, either through a multi-component
+   LOOKUP or as a symbolic link embedded in a pathname, that references
+   a file or directory outside of the exported hierarchy.<P>
+   Clearly, if the destination of the path is not in an exported
+   filesystem, then the server must return an error to the client.<P>
+   Many NFS server implementations rely on the MOUNT protocol for
+   checking access to exported filesystems and NFS server does no access
+   checking.  The NFS server assumes that the filehandle does double
+   duty: identifying a file as well as being a security token. Since
+   WebNFS clients do not normally use the MOUNT protocol, a server that
+   relies on MOUNT checking cannot automatically grant access to another
+   exported filesystem at the destination of a spanning path. These
+   servers must return an error.<P>
+   For example: the server exports two filesystems.  One is associated
+   with the public filehandle.<P>
+      /export/this   (public filehandle)<P>
+      /export/that<P>
+   The server receives a LOOKUP request with the public filehandle that
+   identifies a file or directory in the other exported filesystem:<P>
+      LOOKUP 0x0  "../that/file"
+   or
+      LOOKUP 0x0  "/export/that/file"<P>
+   Even though the pathname destination is in an exported filesystem,
+   the server cannot return a filehandle without an assurance that the
+   client's use of this filehandle will be authorized.<P>
+<hr><P>
+   Servers that check client access to an export on every NFS request
+   have more flexibility.  These servers can return filehandles for
+   paths that span exports since the client's use of the filehandle for
+   the destination filesystem will be checked by the NFS server.
+<h3>7. Location of Public Filehandle</h3>
+   A server administrator can associate the public filehandle with any
+   file or directory. For instance, a WebNFS server administrator could
+   attach the public filehandle to the root of an anonymous FTP archive,
+   so that anonymous FTP pathnames could be used to identify files in
+   the FTP hierarchy, e.g.<P>
+      # share -o ro,public  /export/ftp<P>
+   On servers that support spanning paths, the public filehandle need
+   not necessarily be attached to an exported directory, though a
+   successful LOOKUP relative to the public filehandle must identify a
+   file or directory that is exported.<P>
+   For instance, if an NFS server exports a directory "/export/foo" and
+   the public filehandle is attached to the server's root directory,
+   then a LOOKUP of "export/foo" relative to the public filehandle will
+   return a valid file handle but a LOOKUP of "export" will return an
+   access error since the server's "/export" directory is not exported.<P>
+<pre width=80>               /            (public filehandle is here)</pre>
+              /\
+<pre width=80>             /  \
+            /   export      (not exported)
+           /    /\
+          /    /  \
+         /    /   foo       (exported)<P></pre>
+<h3>LOOKUP 0x0  "export"      (returns an error)</h3>
+      LOOKUP 0x0  "export/foo"  (returns an filehandle)
+<h3>8. Index Files</h3>
+   Most HTTP servers support the concept of an index file.  If a browser
+   references a directory that contains an index file, then the server
+   will return the contents of the index file rather than a directory
+   listing.  For instance if a browser requests "a/b/c" then the server
+   might return the contents of "a/b/c/index.html".<P>
+<hr><P>
+   A WebNFS server may choose to emulate this feature for the benefit of
+   clients using the NFS protocol to browse a Web hierarchy. On
+   receiving a multi-component lookup for a canonical path that names a
+   directory, the server can check that directory for the presence of an
+   index file.  If the file exists then the server may choose to return
+   the filehandle of the index file instead of the directory.  Index
+   files are commonly called "index.html" though the name is usually
+   configurable.
+<h3>9. Bibliography</h3>
+   [RFC<a href="/cgi-bin/rfc/view?1831">1831</a>]       Srinivasan, R., "RPC: Remote Procedure Call
+                   Protocol Specification Version 2", RFC <a href="/cgi-bin/rfc/view?1831">1831</a>,
+                   August <a href="/cgi-bin/rfc/view?1995">1995</a>.
+                   http://www.internic.net/rfc/rfc<a href="/cgi-bin/rfc/view?1831">1831</a>.txt<P>
+   [RFC<a href="/cgi-bin/rfc/view?1832">1832</a>]       Srinivasan, R., "XDR: External Data Representation
+                   Standard," RFC <a href="/cgi-bin/rfc/view?1832">1832</a>, August <a href="/cgi-bin/rfc/view?1995">1995</a>.
+                   http://www.internic.net/rfc/rfc<a href="/cgi-bin/rfc/view?1832">1832</a>.txt<P>
+   [RFC<a href="/cgi-bin/rfc/view?1833">1833</a>]       Srinivasan, R., "Binding Protocols for ONC RPC
+                   Version 2", RFC <a href="/cgi-bin/rfc/view?1833">1833</a>, August <a href="/cgi-bin/rfc/view?1995">1995</a>.
+                   http://www.internic.net/rfc/rfc<a href="/cgi-bin/rfc/view?1833">1833</a>.txt<P>
+   [RFC<a href="/cgi-bin/rfc/view?1094">1094</a>]       Sun Microsystems, Inc., "Network Filesystem
+                   Specification", RFC <a href="/cgi-bin/rfc/view?1094">1094</a>, March <a href="/cgi-bin/rfc/view?1989">1989</a>.  NFS
+                   version 2 protocol specification.
+                   http://www.internic.net/rfc/rfc<a href="/cgi-bin/rfc/view?1094">1094</a>.txt<P>
+   [RFC<a href="/cgi-bin/rfc/view?1813">1813</a>]       Sun Microsystems, Inc., "NFS Version 3 Protocol
+                   Specification", RFC <a href="/cgi-bin/rfc/view?1813">1813</a>, June <a href="/cgi-bin/rfc/view?1995">1995</a>.  NFS version
+                   3 protocol specification.
+                   http://www.internic.net/rfc/rfc<a href="/cgi-bin/rfc/view?1813">1813</a>.txt<P>
+   [RFC<a href="/cgi-bin/rfc/view?2054">2054</a>]       Callaghan, B., "WebNFS Client Specification",
+                   RFC <a href="/cgi-bin/rfc/view?2054">2054</a>, October <a href="/cgi-bin/rfc/view?1996">1996</a>.
+                   http://www.internic.net/rfc/rfc<a href="/cgi-bin/rfc/view?2054">2054</a>.txt<P>
+   [Sandberg]      Sandberg, R., D. Goldberg, S. Kleiman, D. Walsh,
+                   B.  Lyon, "Design and Implementation of the Sun
+                   Network Filesystem," USENIX Conference
+                   Proceedings, USENIX Association, Berkeley, CA,
+                   Summer <a href="/cgi-bin/rfc/view?1985">1985</a>.  The basic paper describing the
+                   SunOS implementation of the NFS version 2
+                   protocol, and discusses the goals, protocol
+                   specification and trade-offs.<P>
+<hr><P>
+   [X/OpenNFS]     X/Open Company, Ltd., X/Open CAE Specification:
+                   Protocols for X/Open Internetworking: XNFS,
+                   X/Open Company, Ltd., Apex Plaza, Forbury Road,
+                   Reading Berkshire, RG1 1AX, United Kingdom,
+                   <a href="/cgi-bin/rfc/view?1991">1991</a>.  This is an indispensable reference for
+                   NFS version 2 protocol and accompanying
+                   protocols, including the Lock Manager and the
+                   Portmapper.<P>
+   [X/OpenPCNFS]   X/Open Company, Ltd., X/Open CAE Specification:
+                   Protocols for X/Open Internetworking: (PC)NFS,
+                   Developer's Specification, X/Open Company, Ltd.,
+                   Apex Plaza, Forbury Road, Reading Berkshire, RG1
+                   1AX, United Kingdom, <a href="/cgi-bin/rfc/view?1991">1991</a>.  This is an
+                   indispensable reference for NFS version 2
+                   protocol and accompanying protocols, including
+                   the Lock Manager and the Portmapper.
+<h3>10. Security Considerations</h3>
+   Since the WebNFS server features are based on NFS protocol versions 2
+   and 3, the RPC security considerations described in RFC <a href="/cgi-bin/rfc/view?1094">1094</a>, RFC
+   <a href="/cgi-bin/rfc/view?1813">1813</a>, and Appendix A of RFC <a href="/cgi-bin/rfc/view?1831">1831</a> apply here also.<P>
+   Clients and servers may separately negotiate secure connection
+   schemes for authentication, data integrity, and privacy.<P>
+   Implementors must note carefully the implications of export spanning
+   pathnames as described in section 6.3.
+<h3>11. Acknowledgements</h3>
+   This specification was extensively reviewed by the NFS group at
+   SunSoft and brainstormed by Michael Eisler.<P>
+<hr><P>
+<h3>12. Author's Address</h3>
+   Address comments related to this document to:<P>
+   nfs@eng.sun.com<P>
+   Brent Callaghan
+   Sun Microsystems, Inc.
+   <a href="/cgi-bin/rfc/view?2550">2550</a> Garcia Avenue
+   Mailstop Mpk17-<a href="/cgi-bin/rfc/view?201">201</a>
+   Mountain View, CA <a href="/cgi-bin/rfc/view?94043">94043</a>-<a href="/cgi-bin/rfc/view?1100">1100</a><P>
+<pre width=80>Phone: 1-<a href="/cgi-bin/rfc/view?415">415</a>-<a href="/cgi-bin/rfc/view?786">786</a>-<a href="/cgi-bin/rfc/view?5067">5067</a>
+Fax:   1-<a href="/cgi-bin/rfc/view?415">415</a>-<a href="/cgi-bin/rfc/view?786">786</a>-<a href="/cgi-bin/rfc/view?5896">5896</a>
+EMail: brent.callaghan@eng.sun.com<P></pre>
+

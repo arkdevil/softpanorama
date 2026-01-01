@@ -1,0 +1,277 @@
+Journal:    UNIX Review  Nov 1992 v10 n11 p46(4)
+* Full Text COPYRIGHT Miller Freeman Inc. 1992.
+-------------------------------------------------------------------------
+Title:     Who are you? (Kerberos system's authentication processes)
+Author:    McNutt, Dinah
+
+
+Abstract:  MIT's Kerberos system provides a unique solution to the
+           authentication problem found in distributed computing
+           environments.  Authentication involves the systematic
+           restriction and availability of a system to users depending on
+           whether users have legitimate access rights.  The traditional
+           methods require passwords and user name log-ons.  Kerberos
+           assumes a distributed environment.  The environment
+           encompasses workstations that function in insecure locations
+           and with untrustworthy software, as well as servers that exist
+           in secure machine rooms with potentially untrustworthy
+           software.The environment also consist of Kerberos key
+           distribution machines operating in secure areas with trusted
+           software.  The Kerberos system must be physically secure and
+           requires modification of all network services.  The system can
+           provide protection from external attacks and accounts for
+           internal usage and access control.
+-------------------------------------------------------------------------
+Full Text:
+
+A  distributed computing environment has two main security issues:
+authentication and authorization.  Authentication is the process of
+verifying that users are who they claim to be.  Authorization involves
+determining whether a user has legitimate access to a resource and
+allowing the owner of a resource to define who has what type of access to
+the resource.  This article focuses on the problem of authentication and
+describes Kerberos, which was developed at MIT as part of Project Athena,
+as a solution to authenticating users.
+
+The problem.  Traditionally, authentication is done with a user name and
+password combination that is verified against the entries in the system
+password file at login time.  If a user has root access, it is possible
+for that user to masquerade as another by using the su command as the
+root user.  Another problem is maintaining consistent copies of the
+password file (and propagating changes) on all of the systems.  Sun's NIS
+offers a reasonable solution for small networks, but it is not a viable
+solution for a large number of users and workstations or for
+heterogeneity.
+
+Even with reasonable schemes for managing password files, accessing
+resources on remote hosts requires either using a trusted host (or user)
+mechanism or providing user names and passwords for accessing remote
+services.  These passwords are sent in the clear over untrusty networks.
+
+UNIX has the concept of trusted hosts, where one host trusts another
+host.  Users from the trusted host do not have to enter a password to
+access resources on the other host, as long as the user has an account on
+both machines.  For instance, if host zempo trusts host rockytop, then
+user joe can remotely log in to host zempo from rockytop without entering
+a user name and password.  Trusted hosts are a very powerful feature, and
+they make it easy for users to access network resources casually.  UNIX
+also has the concept of a trusted user, which is similar to a trusted
+host, except a user from a specific host can be trusted and access your
+account without entering a user name and password on your host.
+
+The negative side of trusted hosts is that you must implicitly trust the
+users and hosts on the systems you define as trusted.  Not only must you
+trust them, but you must trust your network not to allow hosts to
+masquerade as each other.
+
+If you do not define trusted hosts for your system or if you want to
+access your system from untrusted hosts, you must provide a user name and
+password that will be sent in clear text over the network.  This makes
+your system vulnerable to anyone eavesdropping on your network.  A
+solution to this problem is to encrypt the passwords, but this does not
+prevent someone from capturing the network packets containing the
+encrypted password and replaying the packets as if they were coming from
+you (and your system).
+
+Kerberos solves authentication and enables authorization.  Therefore,
+Kerberos provides a reliable mechanism for determining whether or not I
+am really the user dinah on the host rockytop.  The applications must use
+the authentication information to make decisions about authorization.  As
+I mentioned earlier, both authentication and authorization are essential
+for a secure environment, but without reliable authentication, any
+authorization scheme can be compromised.
+
+What is Kerberos? Kerberos assumes a distributed environment where you
+have workstations in unsecure locations with untrusted software, servers
+in moderately secure machine rooms with potentially untrusted software,
+and Kerberos key distribution machines in secure areas with trusted
+software.
+
+Kerberos uses a third-party authentication scheme in which each Kerberos
+client trusts the Kerberos server to identify the other clients on the
+network.  In addition, information is time-stamped so that if an
+eavesdropper captures information (and can decipher it), the usefulness
+of the information will expire within a relatively short period of time
+(usually measured in hours).
+
+Design goals of Kerberos are that:
+
+* No clear text passwords be sent over the network
+
+* No clear text passwords be stored on servers
+
+* The exposure of client and server keys be minimal
+
+* Compromises only affect the current session
+
+* Authentication lifetime be minimal
+
+* Authentication always be transparent during normal use
+
+* Changes require minimal modifications to existing network applications.
+
+When users request access to a Kerberized service their identities must
+be established.  Users do this by presenting a ticket to the server
+providing the service along with the authenticator that proves the ticket
+was not stolen.  This process involves three steps:
+
+* Obtaining the credentials required to request access to other services
+
+* Requesting authentication for a specific service (such as NFS)
+
+* Presenting the credentials to the server offering the specified
+service.
+
+Two types of credentials are used: tickets and authenticators.  Both use
+private key encryptions, but they are encrypted using different keys.  A
+ticket is used to transmit the identity of an individual to a server
+securely and to gain a temporary session key.  The authenticator contains
+additional information to ensure that the client presenting the ticket
+and the client to whom the ticket was issued are the same.
+
+A ticket contains the name of the server, the name of the client, the IP
+address of the client, a time stamp, a lifetime, and a random session
+key.  This information is encrypted using the Data Encryption Standard
+(DES) and the private key of the server for which the ticket will be
+used.  The ticket may be used by the client to access that particular
+server until the ticket expires.  Then, another ticket must be obtained.
+When the server decrypts the ticket, it should find its own service name
+in the ticket.  If it does, it compares the name of the client in the
+ticket to the client in the authenticator.  If they match, it knows the
+client is who it claims to be.
+
+An authenticator contains the name of the client, the IP address of the
+client, and a time stamp.  An authenticator may only be used once; a
+client must create new authenticators at the moment of service requests.
+
+Using Kerberos.  Let's look at what happens when a user logs on to a
+system that has been modified to use Kerberos.  Once the user name has
+been entered, the system sends a request to the authentication server
+that contains the user's name and the name of a service called the
+ticket-granting service (TGS).  (I will use client name instead of user
+name because the mechanism is the same for applications requesting
+Kerberos authentication as it is for users.  See the references at the
+end of this article for more information on Kerberos naming conventions.)
+If the authentication server has an entry for that user, it generates a
+random session key that will be used between the client and the
+ticket-granting server.  It also generates a ticket that can be used by
+the client to request access to services on the network.  This ticket
+contains the client's name, the name of the ticket-granting server, the
+current time, the lifetime of the ticket (this is configurable, but
+normally between 8 and 24 hours), the client's IP address, and the random
+session key.  This ticket is encrypted with a key that is only known to
+the ticket-granting server and the authentication server.  (Note that the
+client has no knowledge of the key or the contents of the ticket.)
+
+This ticket is sent back to the client (along with a copy of the random
+session key) in encrypted form, using a key that is derived from the
+client's Kerberos password by applying an encryption algorithm to the
+password.
+
+Next, the user is prompted for a password, which is converted to a DES
+key and used to decrypt the response from the authentication server.
+Note that the decryption is performed on the local system, and the user's
+password is not sent out over the network.  The decrypied ticket-granting
+ticket and the session key are stored for future use (until the lifetime
+of the ticket expires).  The next step is to gain access to a service.
+
+The client must obtain a separate ticket for each service it wishes to
+use.  Tickets must be obtained from the tgs; to access the tgs, you must
+first have a ticket*granting ticket.  This is why we automatically
+received a ticket-granting ticket at login time.  The request to the tgs
+contains the name of the server for which a ticket is requested, the
+ticket-granting ticket (which is encrypted using a password only known to
+the authentication service and the TGS), and an authenticator (remember
+that a client can build an authenticator as often as required).  If the
+request is valid, the TGS generates a new random session key to be used
+between the client and the requested server.  It also builds a ticket for
+the server that contains the client's name, the server's name, the
+current time, the client's IP address, and the new session key.  The
+lifetime of the new ticket is either the remaining life of the
+ticket-granting ticket or the default for the server, whichever is
+smaller.  The ticket is encrypted with the server's private Kerberos key,
+which is unknown to the client.  The new ticket is sent back with the
+session key and is encrypted using the session key that was part of the
+ticket-granting ticket.  This process prevents the user from having to
+re-enter the password.
+
+Finally, the client requests access to the service by sending the newly
+acquired ticket and an authenticator to the server.  The server decrypts
+the ticket using its private Kerberos key.  Then, using the session key
+obtained from the decrypied ticket, it verities the information in the
+authenticator, the client name, the IP address, and the current time.  If
+everything matches, the request to access the service is granted.
+
+A summary of this process is shown in Figure 1.  It seems complicated,
+but keep in mind that the user only had to enter the password one time.
+
+Issues.  One of the main problems in using Kerberos is that each network
+service must be modified or Kerberized.  Not only do you require the
+source code for each application, but you must spend the effort to modify
+the necessary programs.
+
+Your Kerberos server must be a physically secure system dedicated to
+providing the Kerberos service.  This cost can be prohibitive for some
+sites. However, as the price of UNIX systems continues to drop,
+visualizing a Kerberos server that costs less than $5,000 for a large
+site is not too difficult.  Small sites could use an even less-expensive
+solution.  Keep in mind that access to services is denied if the Kerberos
+server is unavailable, so you should plan for redundant servers.
+
+As stated previously, Kerberos is a solution to network security.  It
+does not protect you if your systems are compromised, but it does make
+you less susceptible to external attacks by providing internal
+accountability and access control.
+
+If a server or client password is obtained, it is possible for an
+eavesdropper on the network to use that password to decrypt tickets.
+Plainly put, sharing passwords is just as outrageously stupid as ever;
+don't do it and don't tolerate it.
+
+Getting Kerberos.  For a copy of the Kerberos source code and papers on
+Kerberos, contact MIT Software Center, W32-300, 20 Carlton St.,
+Cambridge, MA 02139, (617) 253-7686.  These files are also available via
+anonymous ftp from athenadist.  mit.edu.
+
+Dan Geer and Jon Rochlis teach a tutorial at USENIX, Interop, and other
+conferences.  For information, contact the USENIX office at (714)
+588-8649 or office@usenix.org.
+
+Dinah McNutt is a customer support consultant at Tivoli Systems Inc.
+Tivoli, based in Austin, TX, specializes in distributed system management
+solutions for UNIX environments.  She can be reached at dinah@
+tivoli.com.
+
+References
+
+* Champine, George A., Dan Geer, and William N. Ruh.  "Project Athena as
+a Distributed Computer System," Computer, September 1990, pp.  40-51.
+
+* Steiner, Jennifer G., Clifford Neuman, and Jeffrey I. Schiller.
+"Kerberos: An Authentication Service for Open Network Systems," Usenix
+Conference Proceedings, (Winter 1988).
+
+* Garfinkel, Simson, and Gene Spafiord.  Practical UNIX Security.
+Sebastopol, CA: O'Reilly and Associates Inc., 1991.
+
+* Russell, Deborah, and G.T.  Gangemi.  Computer Security Basics.
+Sebastopol, CA: O'Reilly and Associates Inc., 1991.
+
+* Champine, George A. MIT Project Athena: A Model for Distributed Campus
+Computing.  Digital Press, 1991.
+
+* Geer, Dan, and Jon Rochlis.  "Network Security: The Kerberos Approach,"
+USENIX Summer 1992 Technical Conference (tutorial notes).
+
+* Geer, Dan, Jon Rochlis, and Jennifer G. Steiner.  "Security Issues in
+II* N%
+-------------------------------------------------------------------------
+Topic:     Data Security
+           Security Systems
+           Access Rights
+           Passwords
+           Massachusetts Institute of Technology
+           Source Code
+
+
+Record#:   12 663 598.

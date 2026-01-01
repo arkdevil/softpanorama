@@ -1,0 +1,834 @@
+From: burgess@cynjut.infonet.net (Dave Burgess)
+Newsgroups: comp.os.386bsd.announce,comp.answers,news.answers
+Subject: [comp.os.386bsd] BNR/2 derived BSD for PCs FAQ (Part 5 of 10)
+Date: 27 Dec 1994 01:00:27 -0600
+Organization: Dave's House in Omaha
+Message-ID: <386bsd-faq-5-788511609@cynjut.infonet.net>
+
+Posted-By: auto-faq 3.1.1.2
+Archive-name: 386bsd-faq/part5
+
+Section 4.	(System Additions)
+
+  Thanks go to Marc Wandschneider (storm@cs.mcgill.ca) for putting this
+  section of the FAQ together..
+
+  Important note:  Most of these 'kernel patches' are to the original
+  386bsd 0.1.  The really useful ones have been added to the kernel
+  of both NetBSD and FreeBSD.
+
+4.0	Introduction
+
+	If you have written some addition to the kernel or some other 
+	part of the system, or know of one that feel should be mentioned, 
+	send mail to Dave Burgess (burgess@cynjut.infonet.net) with all 
+	the relevant information, and it will be added for the next 
+	release.
+
+4.1	Common Kernel-related problems
+
+4.1.1	Where are the commands "rpcinfo" and "rpcgen"?
+
+	Chris Flatters (cflatter@nrao.edu) informs us in the following
+	posting excerpt where we can find them:
+
+	--------------------------------------------------------------------
+	The sources for the Sun OS 4.0 RPC are on titan.rice.edu (I don't 
+	have the inet number handy) in directory sun-sources.  You will have 
+	to pick up all the shell archives and unpack them to get at rpcgen.
+	--------------------------------------------------------------------
+
+	These sources are also included in NetBSD and FreeBSD as part of the
+	normal installation.
+ 
+4.1.2	Where can I get a working "netstat"?
+
+	When netstat was released, it came out as a binary patch and 
+	source patch in the patchkit for 386bsd 0.1.  The program has
+	been included in both NetBSD and FreeBSD.
+
+
+4.1.3	How can I fix NFS to work with my NE2000 board?
+
+	Ken Raeburn (raeburn@cambridge.cygnus.com) has both identified the
+	problem (in 386bsd 0.1) and provided us with a work around:
+
+	--------------------------------------------------------------------
+	I reported previously that I was seeing problems reading files over
+	NFS using the ne2000 driver; timeouts would eventually be reported, no
+	data would be read.  Listing files and directories (small ones
+	anyways) were not a problem.
+
+	After playing with etherfind and kernel printfs, I've come to this
+	conclusion: Fragmented 8K UDP packets from the NFS server are not
+	reaching the UDP layer in 386bsd.  The Sun is sending them (according
+	to another Sun spying on the network), but the UDP input routine is
+	never called.  I don't know if the bug here is on the 386bsd or Sun
+	side, and won't have time to look into it in the next couple of days.
+
+	In the meantime, mounting NFS file systems with "rsize=1024" does get
+	rid of this problem.
+
+	(It does nothing about TCP being slow, though.)
+	Ken
+	--------------------------------------------------------------------
+
+	Hopefully, the real solution (a UDP fix) will be forthcoming so
+	that the slow TCP problem is fixed as well.
+
+	See also:  Section 2.6.3.3c "I am getting lousy performance 
+		   out of my network card.  What are some of the other 
+		   possibilities?"
+
+	Recent work in FreeBSD and NetBSD may have deprecated this problem.
+	There is a new network card driver called the ed0 driver.  This
+	replaces the original NE1000/NE2000 drivers, as well as replacing
+	the we0 driver.  By combining the two, a more flexible driver has
+	been developed and most of these types of problems have been fixed.
+	Once again, upgrading to FreeBSD or NetBSD seems to be the answer.
+
+
+4.1.4	How can I get "ps" and "w" to work?
+
+	The patch-kit contains a fix for /src/lib/libutil/kvm.c, which,
+	last we heard, was due to the work of Jim Paradis 
+	(paradis@sousa.ltn.dec.com).  New versions of the kernel should
+	have this problem fixed.
+
+	In order for users to be able to use certain flags with ps and
+	the w/uptime commands, the kernel must have permissions 755.
+
+	Also, in order to save space on the distribution, the 386bsd 0.1
+	kernel is 'stripped' of all its labels.  Programs that rely on 
+	those labels will not work.  There are several in this category, 
+	including ps, w, and uptime.  Either ftp an un-stripped kernel, 
+	or recompile.
+
+	Also, when the internal structure of the kernel changes (as
+	with the changes to NetBSD and FreeBSD that change fundamental
+	parts of the kernel) a new ps, w, and uptime must usually be 
+	recompiled.  If you are having trouble with your ps and have 
+	recently upgraded/rebuilt your kernel, you will probably have 
+	to rebuild ps etal.
+
+
+4.1.5	Where are re_comp and re_exec?
+
+	These two functions are currently not in libc.a.  However, there
+	are two related functions that seem to work exactly the same in
+	all cases we've heard of---These are regcomp() and regexec().
+
+	Thus, a pretty ugly fix for the problem would be to always compile
+	as follows:
+
+	$(CC) -Dre_comp=regcomp -Dre_exec=regexec ....
+
+	There is a slightly nicer fix available for this, listed in 4.2
+
+4.1.6	What about the termio, termios, and termcap stuff?
+
+4.1.6.1	Where are stty() and gtty()?
+
+	These functions were missing from libc.a in the original 386bsd 0.1.  
+	To fix, add the following #defines to your program:
+
+	#define stty(f, m)	ioctl((f), TIOCSETP, (m))
+	#define gtty(f, m)	ioctl((f), TIOCGETP, (m))
+
+	A more elegant solution is to apply the patchkit.  These routines
+	are included in there.
+
+4.1.6.2	Sometimes I have trouble with my system resetting the terminal
+	to seven bit mode.  Isn't 386BSD eight bit clean?
+
+	The answer is "sort of".  The problem seems to come from the
+	fact that the <sgtty.h> interface is not guaranteed to be eight
+	bit clean.  The <termios.h> interface is better, and should be
+	eight bit clean in all cases.  If you find an application that
+	uses the <sgtty.h> interface, you should either contact the
+	author and try and get them to use the termios interface or port
+	the code yourself.
+
+
+4.1.7	The system hangs with the HD light on after intense disk usage.
+	The system hangs when trying to fsck -p both of my IDE hard drives
+	at boot-up.
+
+	Brett Lymn (blymn@mulga.awadi.com.AU)  Provides us with a
+	description of the problem and the steps that he had to take
+	to fix it:
+
+        It seems that, on some disk subsystems, the controller and the
+	hard disk get out of synchronization when they are being used 
+	intensively.  The result of this is that the disk completes a 
+	command but the controller still believes the disk not to have 
+	completed the command, so the controller status register 
+	indicates the disk is busy when it is not really.  The standard 
+	wd drivers are too trusting of the hardware and expect it to do 
+	the right thing all the time.  There are a few while loops in 
+	the wd drivers that loop on a status change from the disk 
+	controller, however; if the problem I have described takes place 
+	then the wd driver will be stuck looping waiting for the disk to 
+	not be busy - which never happens, so you lock the machine because 
+	this is a kernel level wait.  To fix this problem I put a timeout 
+	into the while loops so that after a specified time the wd driver 
+	will give up waiting for the drive to become ready, reset the 
+	controller and retry the command.  In my experience the retry 
+	always succeeds.
+
+	Ed.Note:  The retry doesn't ALWAYS work, but it IS better than 
+	just waiting for the drive to wake back up (which it never does).
+
+	It has been recently noted that, from time to time, a SCSI disk
+	subsystem will behave exactly the same way.  It is usually because
+	of bad/out-of-tolerance cables.  It is not a common problem, but it
+	is one that you, the reader, may need to take into account when
+	you are trouble-shooting your drives.
+
+	Dan Yergeau (yergeau@gloworm.Stanford.EDU) provides us with more 
+	insight into this problem.  The README accompanying the original 
+	sources used as a base for the NetBSD driver indicates that
+
+	> There's also another problem still bothering me: There's some 
+	sort of timing/reentrancy error still lurking in here, that was 
+	there in the original 0.1 wd driver as well.  The symptom is that, 
+	on *some* controllers, doing the initial wdopen() (which will 
+	then call the readdisklabel() function) for two or more disks at 
+	the same time (so that wdopen() gets called again while it's 
+	already being executed), the controller gets hung.  I'm still 
+	looking for this, meanwhile I specify in my config file that I 
+	have swap on all disks.  This causes the kernel to wdopen() the 
+	drives nicely in order -- and once it's been done for each disk, 
+	the problem will, of course, not occur.  Without the "swap on ... 
+	and ... and ..." stuff, my wd1, wd2 and wd3 would be opened 
+	simultaneously by "fsck -p" forks, which would nicely hang up 
+	everything...  I note a "sleep(10)" in fsck, but it obviously 
+	doesn't do that.
+
+	So, changing the appropriate config line to
+
+	config		"386bsd"	root on wd0 swap on wd0 and wd1
+	                                                        ^^^^^^^
+	may get around the problem.  I don't run NetBSD, but I do use a
+	variation of the barsoom/NetBSD driver.  This works for me.  
+	Please let the NetBSD people know if it works for you.
+
+
+#include <std.disclaimer>
+
+	[Ed. again] Other methods for fixing this problem include doing a 
+	dd if=/dev/wd1d of=/dev/null count=1 before the initial 'fsck -p'.
+	This method is considered brute force.  It works by making sure
+	that the drive is properly initialized before the disklabel is
+	read in the fsck.
+
+	Another method involves using the '-l1' (little L) flag to make sure
+	that the fsck doesn't try to open both unopened hard drives at the
+	same time.  This method is a little better (from a purely brute
+	viewpoint) but does caused your startup to run longer, since the
+	purpose of this option is to have each of your fsck passes run
+	one after another.
+
+
+4.1.8	How do you implement quotas on Net/2 derived BSD systems?
+
+	From: tinguely@plains.NoDak.edu (Mark Tinguely)
+
+ 	maybe you did not complete the setup, here is a step-by-step 
+ 	instructions to get them to work:
+
+	1)  make a kernel with "options QUOTA" installed
+
+	2)  edit /etc/fstab and include the kinds of quotas you want, 
+	    below I used "userquota", you could also add "groupquota".
+
+	/dev/wd0h		/usr		ufs	rw,userquota 1 2
+
+	3)  for each filesystem that is in /etc/fstab that uses quota,
+	    create the file "quota.user" (and "quota.group if appropriate).
+	    Above I have user quotas in the /usr filesystem, so I would:
+
+	    # touch /usr/quota.user
+
+	4)  scan filesystem for files ownership (and/or group ownership).
+
+	    # quotacheck -a
+
+	5)  now you can add individual quota limits, if you want to add 
+	    the same quotas to the many people, then make a template and 
+	    replicate the template.  If they change for each user, then 
+	    edit seperately.
+
+	    # edquota tinguely
+
+	 (an editor is kicked up and says something like:
+
+	Quotas for user tinguely:
+	  /usr: blocks in use: 11876, limits (soft = 0, hard = 0)
+	        inodes in use: 891, limits (soft = 0, hard = 0)
+
+	 a limit of 0 means "unlimited".  Change these to the appropriate 
+	 number of blocks.  A soft limit generates a warning, and can be 
+	 exceed for period of time (7 days?), after which time a soft limit 
+	 is treated like a hard limit.  A hard limit denies new writes.
+
+ 	to replicate a template (for this example let us assume "tinguely" 
+ 	is the template):
+
+	    # edquota -p tinguely user1 user2 user3 ... userN
+
+	6)  turn quotas on (usually done in the /etc/rc file, but turn it 
+	    on manually so you do not have to reboot right now:
+
+	    # quotaon
+
+	that should take care of setting up quotas.  You can look at the 
+	status of use of files with repquota, the -a option lists all 
+	filesystems with quotas.
+
+
+4.2	Available kernel add-ons
+
+
+4.2.1	The Patch-Kit
+
+	Perhaps the most famous of all additions to the kernel, the Patch-Kit,
+	coordinated by Rodney Grimes (rgrimes@agora.rain.com) contained 
+	numerous bug fixes, Julian's SCSI drivers, as well as fixes
+	for other parts of the system.
+
+	It is highly recommended that all users with space for the source code
+	apply the patch-kits as many things that seem broken in 0.1 suddenly
+	start working with the patch-kits.
+
+	Of course, there is no such thing as a patch kit for NetBSD or FreeBSD.
+	The update method for these systems is different, and covered in the
+	section about the System Update Protocol (sup) updates.
+
+
+4.2.2	Shared Libraries
+
+	A basic and experimental implementation of shared libraries exists
+	for 386bsd.  According to the author (Dr. Joerg Lohse, 
+	lohse@tech7.informatik.uni-hamburg.de), features are as follows:
+
+	-No kernel extension is necessary
+	-Shared libraries use the approach used in SysV.
+
+	Others are also working on different implementations of shared
+	libraries.
+
+	Bill and Lynne have adopted a shared-library implementation based
+	on Dr. Lohse's original work.  It will be included in Version 0.2
+	of 386bsd.
+
+	For NetBSD and FreeBSD users, two seperate and different shared 
+	library systems have been developed.  This feature is included in
+	the '-current' tree of both systems, and will be included in the
+	next major release of eiter or both.
+
+	The shared libs have, in general, been very well behaved.  The
+	closest thing to a FAQ that has been introduced is the
+	following: 
+
+
+	I installed FreeBSD-1.1-BETA a few weeks ago but can't get
+	dynamically linked programs to run for some reason.  Every time
+	I try to run a dynamically linked program, I get a message that 
+	says "No ld.so"...	
+
+	The answer is: 
+
+	# chmod 755 /usr/* /usr/share/misc
+
+
+4.2.3	Sound Blaster Drivers
+
+	A driver for the Sound Blaster card has been written by Steve
+	Haehnichen (steveh@ucsd.edu) for BSD.  Steve Gerakines has
+	provided us with the information necessary to get this driver 
+	working under 386bsd.
+
+	Most features of the SB family of cards are supported save some
+	stereo portions of the SBPro cards.
+
+	NetBSD and FreeBSD have also adapted soundblaster drivers.  They
+	are included in either the -current tree or in the most recent 
+	release (depending on when you read this).
+
+	For a fact, the following sound cards are supported in FreeBSD:
+
+		1	Yamaha FM Synth
+		2	Soundblaster/Soundblaster Pro DSP
+		3	PAS PCM and Midi
+		4	Gravis UltraSound
+		5	MPU-401
+
+	In the release notes I have, there is some doubt as to the 
+	operational status of the MPU-401 sound card driver.  If you have 
+	one of these cards and want to try the driver out, you should 
+	contact Jordan Hubbard (jkh@freefall.cdrom.com) when you are 
+	finished installing it and let him know how it is working.
+
+	The docs for the FreeBSD driver are in 
+	/usr/src/sys/i386/doc/sound.doc.
+	
+
+4.2.4	Bus Mouse Drivers
+
+	Fred Cawthorne (fcawth@delphi.umd.edu) wrote a busmouse
+	driver for 386bsd.  He recently wrote a short letter with this
+	update:
+
+	This is taken from the INDEX in the Freebsd.cdrom.com mice 
+	directory:
+
+	"We currently have four bus mouse drivers for 386bsd available by
+	anonymous ftp on XFree-86.cdrom.com in pub/XFree86/mice:
+
+	ms-busmouse.tar.z
+
+		Sandi Donno's <sandi@uctcs.cs.uct.ac.za.> port of 
+		Erik Forsberg's Microsoft bus mouse driver to 386bsd.
+
+	logitech-busmouse-0.2.shar.z
+
+		Fred Cawthorne's <fcawth@delphi.umd.edu> second version 
+		of a logitech Bus Mouse driver.  
+
+	busmouse.tar.z:
+
+		Eugene Stark's port of Rick Macklem's driver to the 
+		Microsoft bus mouse.  Rick's driver supports the 
+		Logitech and ATI Inport Bus mice with 386bsd.  It's also 
+		available by e-mail to stark@cs.sunysb.edu and by anon. 
+		ftp on cs.sunysb.edu in pub/386BSD/busmouse.tar.Z.
+
+	psm.tar.z:
+
+		Johan Solhed <Johan.Solhed@lu.erisoft.se> ported the 
+		Linux PS/2 mouse driver to 386BSD.  It includes a PS/2 
+		to Microsoft protocol converter in the driver so XFree86 
+		understands the mouse events.
+
+	In addition we have busmouse.v3.z which is Erik Forsberg's original
+	post of his device driver for BSDI/386 and Microsoft (and
+	compatible) bus mice using the Microsoft InPort chip as well as a
+	device driver for Logitech bus mice. "
+
+	Most of these busmouse drivers are now included in the current
+	releases of NetBSD and FreeBSD.  There is some question about
+	how well they work (especially the psm driver), but they are
+	all there.
+
+	Additional information about configuring the psm device is
+	included below to help make the psm driver work reliably.
+
+	Add the following entries to your config file:
+
+	options        ALLOW_CONFLICT_IOADDR
+	device         psm0    at isa? port "IO_KBD" tty irq 12 vector psmintr
+	
+	Duplicate the options and device lines into your own kernel 
+	configuration file, making sure to obey the proviso given about 
+	following your pc0/sc0 devices, recompile it, install it, and 
+	you should be off.  The the LINT configuration file for more
+	information.
+
+
+4.2.5	PPP Support
+
+	PPP support is included in NetBSD and FreeBSD.  With the demise
+	of agate's support for 386BSD, there is no way to add ppp
+	support to 386BSD.  You must upgrade to wither FreeBSD or
+	NetBSD.
+
+
+4.2.6	re_comp and re_exec library functions
+
+	As mentioned in section 4.1, re_comp and related functions, such
+	as re_exec, are currently not in the library libc.a.  Apart from
+	using the rather crude fix listed above, there is another option.
+
+	Kim Anderson (kim@dde.dk) has provided a patch that will add these
+	to libc.a.  You can probably obtain this patch from the author, or
+	you can ftp it from binkley.cs.mcgill.ca in pub/386bsd.
+
+	These functions are (I think) included in the libcompat.a that
+	comes with both NetBSD and FreeBSD.
+
+
+4.2.7	Intel i82586 Ethernet Controller driver
+
+	Garrett A. Wollman has written a 386bsd 0.1 driver for the 
+	Intel i83586 Ethernet Controller.  The author's e-mail address 
+	is listed as wollman@emba.uvm.edu.
+
+
+4.2.8	PC Speaker driver for Nethack
+
+	Andrew A. Chernov has ported the Nethack PC Speaker driver to
+	386bsd.  It allows the speaker to be controlled by applications.
+
+	Unfortunately, we are not aware of a site that distributes this,
+	but this patch has been posted a couple of times to the various
+	comp.os.386bsd groups, and the author can be contacted at
+	ache@astral.msk.su
+
+	The patch that is included in the NetBSD and FreeBSD source trees
+	is one written by Soerne Schmitt.  It appears to use the Sun-style
+	/dev/audio interface and is different in goals and implementation
+	from Andrew Chernov's speaker driver.  The source for this package
+	is included in the source trees for both, but is not included in 
+	the distribution kernels.
+
+
+4.3	Other program building type problems.
+
+4.3.1	Greetings from Mars.  I am building a program that requires access
+	to the crypt library.  Either I have it and it isn't getting copied
+	into the executable, or I don't have it; why?
+
+	This is actually two separate questions, but they are close enough
+	to the same that I can answer them here.  The first problem that
+	anyone building a 'crypt' aware program needs to remember is that
+	the crypt library is a separate library and requires a '-lcrypt' 
+	to be added at the end of the link line.  The other half of the 
+	problem is the 'US Non Export' policy for DES encryption.  There 
+	are several good sources (about one per country) for non-US
+	crypt libraries.  IF you are outside the US and need one, look 
+	around on some of the NetBSD/FreeBSD/386BSD FTP sites in the 
+	'local area'.
+
+
+4.4	Where is the 'adduser' program?
+
+	Here.
+
+#!/bin/sh
+# This is a shell archive.
+# remove everything above the "#!/bin/sh" line
+# and feed to /bin/sh
+# Use -c option to overwrite existing files
+#
+# Contents: 
+#	adduser.sh
+#
+# packed by: <sjg@zen.void.oz.au> on Sun Aug 21 10:25:30 EST 1994
+#
+PATH=/bin:/usr/bin:/usr/ucb ; export PATH
+if test -f adduser.sh -a x$1 != x-c ; then
+  echo shar: Will not over-write existing file \"adduser.sh\"
+else
+  echo shar: Extracting \"adduser.sh\" \(6443 characters\)
+  sed 's/^X//' >adduser.sh << '!EOF'
+X:
+X#
+X# NAME:
+X#	adduser.sh - portable add user script
+X#
+X# SYNOPSIS:
+X#	
+X#	adduser.sh [-G "Group"] [-H "Homes"] [-S "Shell"] [-u "uid"] \\
+X#		[-p "encrypted"] [-P "cleartext"] [-l]
+X#
+X# DESCRIPTION:
+X#	Simply adds users and their home directory.  It prompts for a
+X#	"username" and "fullname" which become part of the passwd file
+X#	entry for the new user.  It adds "username" to "Group"
+X#	(creating it if necessary) and uses "uid" or the 'gid' of
+X#	"Group" as a starting point for its search for an unused
+X#	'uid'.  By default it will prompt for a passwd after adding
+X#	each user, but '-p' can be used to set a pre-encrypted password
+X#	or '-P' can be used to give a clear text password which the
+X#	script will encrypt and then use for each new "username".
+X#
+X#	Most of the variables used are obvious.  "Homes" is the parent
+X#	directory of new users home directories.
+X#	
+X#	The '-l' option causes the script to show the default values
+X#	for the variables that it uses.  Most if not all can be set on
+X#	a per machine basis by creating a file '.adduserrc' in the
+X#	super users home directory or in the directory where
+X#	'adduser.sh' is found.  If "Homes"/.adduserrc exists it will
+X#	be processed after any others, so can be used to set defaults
+X#	on a per project basis.
+X#	
+X# NOTES:
+X#	The script handles shadow password files on Solaris 2.3, other
+X#	machines may break.  It has been tested on NetBSD, SunOS,
+X#	Solaris and HP-UX.
+X#	
+X# AUTHOR:
+X#	Simon J. Gerraty <sjg@zen.void.oz.au>
+X#
+X
+X# RCSid:
+X#	$Id: adduser.sh,v 1.2 1994/05/08 22:54:04 sjg Exp sjg $
+X#
+X#	@(#) Copyright (c) 1993 Simon J. Gerraty
+X#
+X#	This file is provided in the hope that it will
+X#	be of use.  There is absolutely NO WARRANTY.
+X#	Permission to copy, redistribute or otherwise
+X#	use this file is hereby granted provided that 
+X#	the above copyright notice and this notice are
+X#	left intact. 
+X#      
+X#	Please send copies of changes and bug-fixes to:
+X#	sjg@zen.void.oz.au
+X#
+X
+XMyname=`basename $0 .sh`
+XMydir=`dirname $0`
+Xcase $Mydir in
+X.)	Mydir=`pwd`;;
+Xesac
+X
+XETC=/etc
+X# for testing only
+X#ETC=/tmp
+X#VIPW="ed $ETC/passwd"
+X
+X# thinks that the rc file may override.
+Xhost=`hostname 2>/dev/null`
+XHomes=/home/${host:-`uname -n`}
+XShell=/bin/csh
+X[ -x /bin/ksh ] && Shell=/bin/ksh
+XGroup=users
+XPasswd='**'
+X
+X# look for an rc file
+Xfor d in $HOME $Mydir 
+Xdo
+X  [ -s $d/.${Myname}rc ] && { . $d/.${Myname}rc; break; }
+Xdone
+X
+XEXF=/tmp/e$$
+XTF=/tmp/u$$
+XTF2=/tmp/uu$$
+X
+Xcase `echo -n .` in
+X-n*)	N=;C="\c";;
+X*)	N=-n;C=;;
+Xesac
+X
+XOS=`uname -s`
+X
+Xadd_path () { [ -d $1 ] && eval ${2:-PATH}="\$${2:-PATH}:$1"; }
+X
+Xget_id()
+X{
+X  file=$1
+X  name=$2
+X  min=${3:-1000}
+X  max=`expr $min + ${4:-999}`
+X  > $EXF
+X  
+X  id=`grep "^$name:" $file | cut -d: -f3`
+X  case "$id" in
+X  "")
+X    # missing, must add it
+X    i=$min
+X    while [ $i -lt $max ]
+X    do
+X      n=`cut -d: -f1,3 $file | grep ":$i\$"`
+X      case "$n" in
+X      "")
+X        # an empty slot - use it
+X        id=$i
+X        break;;
+X      esac
+X      i=`expr $i + 1`
+X  done
+X  ;;
+X  *)
+X    echo $id > $EXF;;
+X  esac
+X  echo $id
+X}
+X
+Xmkdirs()
+X{
+X  case $1 in
+X  /*)	pp=/;;
+X  *)	pp=;;
+X  esac
+X  for p in `echo $1 | tr / " "`
+X  do
+X    case "$pp" in
+X    "")	pp=$p;;
+X    /)	pp=/$p;;
+X    *)	pp=$pp/$p;;
+X    esac
+X    [ -d $pp ] || mkdir $pp || exit 1
+X  done
+X}
+X
+X
+Xadd_group()
+X{
+X  echo "adding $1:*:$2: to $ETC/group"
+X  echo "$1:*:$2:" >> $ETC/group
+X}
+X
+Xupd_group()
+X{
+X  [ "$mygroup" ] || mygroup=`grep "^$1:" /etc/group | cut -d: -f4`
+X  case ",$mygroup," in
+X  ",,")				# empty
+X    add=$2;;
+X  *,$2,*)			# already there
+X    add=;;
+X  *)				# missing
+X    add=,$2;;
+X  esac
+X  [ "$add" ] && sed "/^$1:/s/\$/$add/" $ETC/group > $ETC/group.$$ &&
+X  	mv $ETC/group.$$ $ETC/group
+X}
+X
+Xupd_passwd()
+X{
+X  EDITOR=ed
+X  VISUAL=ed
+X  export EDITOR VISUAL
+X
+X  didit=
+X  
+X  echo "adding $1:$2:$3:$4:$5:$6:$7 to $ETC/passwd"
+X  case "$OS" in
+X  SunOS)
+X    if test -f /etc/shadow; then
+X      # we are assuming its Solaris
+X      echo "$1:x:$3:$4:$5:$6:$7" > $TF
+X      echo "$1:$2:6445::::::" > $TF2
+X      didit=yes
+X    fi
+X    ;;
+X  *BSD)	  # NetBSD at least
+X    echo "$1:$2:$3:$4::0:0:$5:$6:$7" > $TF
+X    didit=yes
+X    ;;
+X  esac
+X  # most OS's just want this.
+X  test "$didit" || echo "$1:$2:$3:$4:$5:$6:$7" > $TF
+X
+X  line=`grep -n '^+:' $ETC/passwd | cut -d: -f1`
+X  ( sleep 1; echo ${line}-1r $TF; echo w; echo q;
+X    if test -f /etc/shadow && test "$OS" = SunOS
+X    then
+X      # this is a crok...
+X      sleep 5
+X      echo e
+X      sleep 5
+X      echo '$r' $TF2
+X      echo w
+X      echo q
+X    fi
+X  ) | ${VIPW:-vipw} 
+X}
+X
+Xadd_user() 
+X{
+X  group=$1; shift
+X  
+X  eval set -- `echo "'$*'" | sed "s/:/' '/g"`
+X  
+X  gid=`get_id $ETC/group $group $4 256`
+X  if [ "$gid" ]; then
+X    [ -s $EXF ] || add_group $group $gid 
+X    uid=`get_id $ETC/passwd $1 $3 1024`
+X    if [ "$uid" ]; then
+X      [ -s $EXF ] || upd_passwd "$1" "$2" "$uid" "$gid" "$5" "$6" "$7"; upd_group $group $1
+X      [ -d $6 ] || { mkdirs $6 && chown $1 $6 && chgrp $group $6 && chmod 2775 $6; }
+X    else
+X      echo "can't add user $1" >&2; exit 1
+X    fi
+X  else
+X    echo "can't add group $group" >&2; exit 1
+X  fi
+X}
+X
+Xrm_user()
+X{
+X  ( echo /^$1:/d; echo w; echo q ) | ${VIPW:-vipw}
+X}
+X
+X# needs perl
+Xencrypt() {
+X  for d in /usr/libexec /usr/lib
+X  do
+X    [ -x $d/makekey ] && { makekey=$d/makekey; break; }
+X  done
+X  perl -e "print pack('a8a2', '$1', '${2:-$$}')" | ${makekey:-makekey}
+X}
+X
+X# ok, time to get to work...
+Xset -- `getopt H:S:G:u:p:P:l $*`
+X
+Xadd_path /sbin
+Xadd_path /usr/sbin
+Xadd_path /usr/ucb
+Xadd_path /usr/etc
+X
+Xfor i in $*
+Xdo
+X  case "$i" in
+X  --)	shift; break;;
+X  -H)	Homes=$2; shift 2;
+X	# pick up group defaults...
+X	test -s $Homes/.${Myname}rc && . $Homes/.${Myname}rc
+X        ;;
+X  -S)	Shell=$2; shift 2;;
+X  -G)	Group=$2; shift 2;;
+X  -u)	uid=$2; shift 2;;
+X  -p)	Passwd="$2"; shift 2;;
+X  -P)	Passwd=`encrypt $2`; shift 2;;
+X  -l)	list=yes;;
+X  esac
+Xdone
+X
+Xgid=`get_id $ETC/group $Group 100 1000`
+X[ "$uid" ] || uid=$gid
+X
+Xcase "$Passwd" in
+X""|none)	Passwd=;;
+Xnologin)	Passwd='*';;
+Xesac
+X
+Xif [ "$list" = yes ]; then
+X  echo "Defaults:"
+X  for v in Group Homes Shell
+X  do
+X    eval echo "\	$v=\$$v"
+X  done
+X  [ "x$Passwd" = "x*" ] && echo "	Passwd=prompt" || echo "	Passwd=$Passwd"
+X  [ "$uid" ] && echo "	Initial uid=$uid"
+X  echo
+Xfi
+Xecho Enter username and fullname - spaces in fullname are ok, no quotes needed.
+Xecho An empty line terminates input.
+Xecho
+X
+Xecho $N "username fullname: $C"
+Xwhile read uname fname
+Xdo
+X  [ "$uname" ] || exit 0
+X  add_user $Group "$uname:$Passwd:$uid:$gid:$fname:$Homes/$uname:$Shell"
+X  [ "x$Passwd" = "x**" ] && passwd $uname
+X  echo $N "username fullname: $C"
+Xdone
+!EOF
+  if test 6443 -ne `wc -c < adduser.sh`; then
+    echo shar: \"adduser.sh\" unpacked with wrong size!
+  fi
+  chmod +x adduser.sh
+fi
+exit 0
+
+-- 
+TSgt Dave Burgess           | Dave Burgess
+NCOIC, USSTRATCOM/J6844     | *BSD FAQ Maintainer
+Offutt AFB, NE              | Burgess@cynjut.infonet.net or ...@s069.infonet...
+                               
+

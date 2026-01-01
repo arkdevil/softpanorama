@@ -1,0 +1,205 @@
+From: eric.arnold@sun.com (Eric Arnold)
+Newsgroups: comp.lang.perl
+Subject: Re: multiple substitutions
+Date: 30 Aug 94 21:49:19 GMT
+Organization: Sun Microsystems
+Message-ID: <ERIC.94Aug30214919@sun.com>
+
+
+In message <33lnrq$cv@tekadm1.cse.tek.com> you write:
+
+>I am quite new to Perl, and I would appreciate if some one can help me with the
+>following question.
+>I am writing a perl script that reads from a file and writes into another file.
+>The input file has a declaration something like the following with several comments
+>in a single line:
+>
+>input a, b, /* comment  */ c, /* comment ******************* */ d;
+>
+>I need to delete the comments in between and write the declaration as
+>
+>input a, b, c, d;
+>
+>I've tried several methods of pattern matching and substitution, but everything seems
+>to be eating up the pattern  till the second '*/' deleting 'c,' in between. 
+>Any suggestions are welcome.
+>
+>Prasanna
+>
+
+There appears to be a zillion differing answers to this question (some
+included).  I would have referred you to point 4.20(included) of the new
+Perl FAQ, but since I'm not sure about your mail address, here's an
+answer.  (It would actually be good to include the perl4 C comment
+remover in the FAQ.  I didn't find it in the new one.)
+
+Your problem is probably that the regex .*  is grabbing too much, which
+is the common problem with regular expressions:  they grab the maximum
+possible matching string by default (and you can't change the default).
+
+It turns out that the easiest way to do this with conventional regular
+expressions is to turn the */ part of the comments into some sentinal
+character first, because then you can use the negative character
+class expression [^c] instead of hassling with the */ combination.
+
+
+  eval 'exec perl -S $0 "$@"'
+    if $running_under_some_shell; 
+
+  while(<DATA>)
+  {
+    s:\*/:\377:g ;		# using \377 because it's an unlikely char
+    s:/\*[^\377]*\377::g;		# to appear in ASCII text
+    print;
+  }
+
+__END__
+  input a, b, /* comment  */ c, /* comment ******************* */ d;
+
+
+However, in Perl5, you can specify minimal matching like:
+
+  eval 'exec perl5 -S $0 "$@"'
+    if $running_under_some_shell; 
+
+  while(<DATA>)
+  {
+    s:/\*.*?\*/::g;
+    print;
+  }
+
+__END__
+  input a, b, /* comment  */ c, /* comment ******************* */ d;
+
+
+-Eric
+
+
+
+
+
+
+
+4.20) What does it mean that regexps are greedy?  How can I get around it?
+
+    The basic idea behind regexps being greedy is that they will match the
+    maximum amount of data that they can, sometimes resulting in incorrect
+    or strange answers.
+
+    For example, I recently came across something like this:
+
+	$_="this (is) an (example) of multiple parens";
+	while ( m#\((.*)\)#g ) {
+	    print "$1\n";
+	}
+
+    This code was supposed to match everything between a set of
+    parentheses.  The expected output was:
+
+	is
+	example
+
+    However, the backreference ($1) ended up containing "is) an (example",
+    clearly not what was intended.
+
+    In perl4, the way to stop this from happening is to use a negated
+    group.  If the above example is rewritten as follows, the results are
+    correct: 
+
+	while ( m#\(([^)]*)\)#g ) {
+
+    In perl5 there is a new minimal matching metacharacter, '?'.  This
+    character is added to the normal metacharacters to modify their
+    behaviour, such as "*?", "+?", or even "??".  The example would now be
+    written in the following style:
+
+	while (m#\((.*?)\)#g )
+
+    Hint: This new operator leads to a very elegant method of stripping
+    comments from C code:
+
+	s:/\*.*?\*/::gs
+
+
+
+Here's another take on it:
+
+
+  If you have room to slurp the whole file into memory, you can do this:
+
+      $/ = undef; $_ = <>; $* = 1;
+      s!/\*[^*]*(\*+[^*/][^*]*)*\*+/!!g;
+      print;
+
+  Or even 
+
+      perl -0777 -i.bak -pe '$* = 1; s!/\*[^*]*(\*+[^*/][^*]*)*\*+/!!g' *.c
+
+  Otherwise, you have to be trickier still: (from h2ph)
+
+      while (<>) {
+	  if (s!/\*!\200!g) {
+	      s!\*/!\201!g;
+	      s/\200[^\201]*\201//g;      
+	      if (s/\200[\0-\377]*//) {  
+		  $_ .= '/*';
+		  $_ .= <>;
+		  redo;
+	      }
+	  }
+	  print;
+      }
+
+  You'll still be hosed if people put things that look like comments
+  inside of strings, since we aren't doing real parsing.
+
+  --tom
+  -- 
+      Tom Christiansen      tchrist@convex.com      convex!tchrist
+  A Law of Computer Programming:
+	  Make it possible for programmers to write in English and you
+	  will find the programmers cannot write in English.
+
+
+And another one:
+
+
+  I have been thinking about this and think I've come up with a new tact on it.
+
+  A C comment can be defined as: slash, star, some number of sequences
+  of characters that each end with a star but doesn't start with a slash, slash.
+  This gives the pattern:
+
+  m#/\*(([^/*][^*]*)?*\*)+/#
+
+  I think this pattern is lightly simpler then the one in the FAQ.
+
+  --
+  Perl's Maternals Uncle
+  Mark Biggar
+  mab@wdl1.wdl.loral.com
+
+
+More:
+
+
+  s#/\*/*(([^/*][^*]*)?\*)+/##g;
+
+  The method is:
+
+  Opening delimiter plus any number of slashes,
+  At least one string ending in a star that does not start with a slash
+  and has no other stars in it.
+  A terminating slash.
+  --
+  -------- Roy Johnson ---- rjohnson@shell.com ---- Speaking for myself --------
+  "When the only tool you have is Perl, the whole | "Hooray for snakes!"
+   world begins to look like your oyster." -- Me  |  -- The Simpsons (29 Apr 93)
+  ------- "We _love_ being politically Koreshed" -- Steve Taylor, "Smug" -------
+
+
+Here's one that shows stuff inside comments instead of deleting them:
+
+  # extract C comments:
+   perl -0 -ne 's:\*/:$&\377:g;@l=(m:(/\*[^\377]+)\377:g);for $c(@l){print "$ARGV: $c\n"}' * 
+

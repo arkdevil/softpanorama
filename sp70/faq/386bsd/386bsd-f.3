@@ -1,0 +1,1193 @@
+From: burgess@cynjut.infonet.net (Dave Burgess)
+Newsgroups: comp.os.386bsd.announce,comp.answers,news.answers
+Subject: [comp.os.386bsd] BNR/2 derived BSD for PCs FAQ (Part 4 of 10)
+Date: 27 Dec 1994 01:00:24 -0600
+Organization: Dave's House in Omaha
+Message-ID: <386bsd-faq-4-788511609@cynjut.infonet.net>
+
+Posted-By: auto-faq 3.1.1.2
+Archive-name: 386bsd-faq/part4
+
+Section 3.	(Kernel Building and Maintenance)
+
+3.0	System Internals
+	
+	One of the interesting aspects of *BSD is the fact that it comes 
+	with the complete source.  This allows you to make changes to the 
+	system, recompile, and test out your new ideas.  This section of 
+	the FAQ describes many of the different aspects of this endeavor 
+	and common problems and pitfalls that are encountered.  Kevin Lahey 
+	provided the substantial portion of this section.  You can contact 
+	him via E-Mail at (kml@rokkaku.atl.ga.us) or contact Dave Burgess 
+	(burgess@cynjut.infonet.net).
+
+3.1	Kernel
+
+3.1.1	How do I build a kernel?
+
+	The kernel can be compiled in a variety of ways to support different 
+	devices and configurations.  Compilation is controlled by a config 
+	file that specifies the characteristics of the kernel.  A set of 
+	different config files is located in /sys/i386/conf or 
+	/sys/arch/i386/conf.  The configuration file names are in upper case.
+
+	To build a particular kernel (in this example, we use the GENERICISA
+	configuration file in NetBSD or FreeBSD):
+
+	% cd /sys/i386/conf
+	% config GENERICISA
+	% cd /sys/compile/GENERICISA
+	% make depend
+	% make
+
+	If you are using 386bsd 0.1, you'll need patch 1 from the patchkit 
+	to get the compilation to work, because the version file isn't 
+	correctly included in the Makefile.
+
+	In NetBSD, since there are multiple architectures supported, there
+	is an architecture line in the middle of the path to these files.
+	See the build.kernel script in section 3.8 for more information.
+
+
+3.1.2	I want to do one of the following things:
+	* add a device not in the distributed kernel (third com
+	  port, additional disk or tape, line printer driver, etc).
+	* use a patch from the net or the patchkit to fix a kernel bug.
+	* add another swap device.
+	* recompile the kernel to remove extraneous devices so that
+	  it takes up less space.
+	* configure more pseudo-terminals to allow for more xterms
+	  or network logins.
+	
+	You're going to have to recompile the kernel after you modify the 
+	config file.  See section 3.2 below for more information about the 
+	config file in general.
+	
+
+3.1.3	I don't have the source distribution -- how can I rebuild the
+	kernel?
+
+	There are reference sites available, as well as the 'good 
+	net-neighbor' policy, whereby you could make arrangements 
+	with a net neighbor to use a large local machine as a Network 
+	File System (NFS), or allow you to compile a new kernel on 
+	their machine and transfer it to yours.  You can also ask for 
+	help from comp.os.386bsd.questions if you get stuck and cannot 
+	make any headway.
+
+
+3.1.4	Now that I have a kernel, how do I install it?
+
+	Your kernel is called /386bsd or /netbsd.  Copy the new kernel
+	from /sys/compile/GENERICISA/386bsd to /, assuming that it is 
+	in that directory.  This is relatively straightforward; there 
+	are a couple of things to remember, though.  First, if you 
+	really screw up the new kernel, you want to have something to 
+	fall back on, so be sure to save /386bsd to /386bsd.old before 
+	copying in a new kernel.  Second, if you just copy the new 
+	kernel over the currently running kernel, funny things can 
+	happen.  Be sure to move aside the currently running kernel 
+	before copying over the new one.  
+
+	There are folks that have reported that overwriting their
+	current kernel has never caused them any real problems.  On the  
+	other hand, if the old kernel was working and the new one 
+	doesn't, and you have made changes that require that old 
+	kernel, it should be available to the system, and saving it 
+	to /386bsd.alt or /386bsd.old are reasonable things to do.
+
+	If you are really paranoid, you can mount a new fixit floppy 
+	and replace its kernel with the one you just built, and then
+	boot from the fixit floppy to make sure everything will work.
+	This is a pretty good idea if you are making radical changes or
+	if you are unsure about your changes.
+  
+
+3.1.5	After installing the patchkit and recompiling the kernel with the
+	option "WD8013", I am no longer able to reboot the machine.  A
+	cold boot (power on) runs fine, but after a reboot no boot drive
+	is found by the BIOS.  Besides having a 16-bit WD/SMC Ethernet
+	card installed the machines try to boot using either a Adaptec
+	1742 or 1542 SCSI board to boot from.
+
+	This answer was provided by Hellmuth Michaelis (hm@hcshh.hcs.de)
+	and by Rodney Grimes (rgrimes@acacia).
+
+	Remove "option WD8013" from the config files and recompile and
+	reinstall the kernel. 
+
+	The reason that option WD8013 often causes this reboot problem is 
+	this:
+	
+	There is a requirement that all memory within a 128k bank in the
+	0xA0000 to 0xFFFFF region be either 16-bit or 8-bit.  On a cold 
+	boot, the WD8013 boards are reset to 8-bit mode, the POST
+	(Power On Self Test) passes without error.  386bsd comes up, the 
+	if_we.c driver places the WD8013 in 16-bit mode.  Now on a soft boot
+	when the BIOS runs some quick POST tests it finds a problem in the 
+	0xA000 to 0xF000 region.  You probably get a "beep-beep" when this
+	happens.  It means you have a memory size conflict.
+	The machine has been mis-configured.
+	
+	This is a little known fact about 16-bit vs 8-bit option cards.
+	It has caused more than one person to go crazy tracking down
+	what they swear is a bug in the program.  It is not, it is a
+	flaw in the design of the ISA bus.  The signal MEMCS16- must be 
+	returned the same for every 128k block of memory:
+	
+ 		A0000-BFFFF	Must all be either 8-bit or 16-bit.
+ 		B0000-CFFFF	Must all be either 8-bit or 16-bit.
+ 		D0000-FFFFF	Must all be either 8-bit or 16-bit.
+	
+	In your particular configuration (WD8013 @ cc000) I suspect that
+	you have another board in the B0000-CFFFFF region that is 8-bit, 
+	i.e.  your Adaptec has an 8-bit BIOS on it!
+	
+	Try moving the board to the 0xD0000 region and see if it works 
+	there, you may still have a problem as many modern system BIOSes
+	are now 8-bit.  If your system BIOS is 8-bit, try shadowing the
+	system BIOS region at 0xF0000 to 0xFFFFF, this effectively turns 
+	it into a 16-bit BIOS.  
+
+	Do not attempt to shadow the WD8013, it will cause you many
+	headaches.  In fact, it sometimes helps to turn on BIOS shadowing. 
+	Some BIOSes allow to copy ROM contents to unused RAM pages for 
+	selected 16KB-regions. While it is generally a good idea to turn 
+	BIOS shadowing off, I have also observed that sometimes it helps to 
+	turn shadowing of true ROM regions on. 
+
+
+3.1.6	My system is complaining about stray interrupt 7.  Is my machine 
+	going to explode or anything?
+
+	No.  They are caused by lots of things.  They are, as far as
+	anyone that should be expected to know about this stuff, harmless.
+	There are ramifications on them being there, but for MOST users
+	they do not pose a real threat to your operations.  For those of
+	you that are doing REALLY interrupt intensive stuff, you may want
+	to grab a technical reference and figure out why the 8259 is not
+	getting reset correctly.
+
+	In spite of the number of times this has come up (and people have
+	even referenced this section) there are still at least two 
+	questions on the net about this.  A memorable one was a guy who
+	was just vehement that the stray int 7 was what was keeping his
+	system from booting.  In fact, he went so far as to say that this
+	document was practically worthless because I didn't tell him how
+	to fix it.  Of course, once he configured his hard drive controller 
+	so that it was on the right interrupt, his booting problem went 
+	away.  I have said it before and I will say it again.  For MOST 
+	users they do not pose a real threat to your operations.
+	I have heard of three people (out of at least 2000) that have
+	actually have problems so bad that they couldn't proceed.  They
+	bought new computers, and the problem went away.
+
+	These stray interrupts are caused by something in the PC.  
+	I have yet to see a convincing explanation of precisely what,
+	but they are definitely caused by something.  There are four
+	ways to deal with this problem.
+
+	1)  Ignore them.  They are spurious and do not effect the
+	operation of your computer.
+
+	2)  Implement the lpt driver.  This way, the driver traps 
+	(the lpt driver expects IRQ 7) and then quietly discards them.  
+	That is why when folks implement the lpt driver the 'problem' 
+	goes away.  The computer is taught how to ignore them.
+
+	3)  Do what the original 386bsd code did.  Comment out the
+	diagnostic and associated code that tries to deal with them so
+	you don't see the error message.
+
+	4)  Buy a new computer that doesn't cause this problem.   It is a
+	known hardware problem with the 8259 being reset incorrectly in
+	hardware.
+
+
+3.1.7	I keep getting "wd0c: extra interrupt".  What does it mean?
+
+	It means that the drive was already processing a command 
+	(active) when it recieved an interrupt from the system telling 
+	it to see if it had anything to do.  This is mostly harmless 
+	but could indicate that the drive/controller is having problems 
+	if the message appears often.
+
+	
+3.1.8	I found a bug in the kernel.  How do I report it?
+
+	Both NetBSD and FreeBSD include a facility called 'bugfiler'.  
+	While the instructions are included in both system, there is 
+	still some apparent confusion about when to use (and when to
+	NOT use) bugfiler.
+
+	Jordan K. Hubbard (jkh@whisker.lotus.ie)  provides us with this
+	short article for FreeBSD.
+
+	To send bug reports, you want to use the sendbug(1) command.
+	The entire package for sending and filing these bugs is known 
+	as "the bugfiler", which is where the confusion stepped in, 
+	but sendbug is definately the command you want to use.
+
+	Second, it doesn't take a "net connection" to use sendbug, 
+	since all it does is package up your "bug report form" and mail 
+	it to us; no direct internet connectivity is required, just mail.
+
+	So if you can send internet mail you can use sendbug, or you can 
+	also send mail to the `FreeBSD-bugs@freefall.cdrom.com' address 
+	(do NOT send it to FreeBSD.cdrom.com since it will BOUNCE, this 
+	is not the place to send bugs to, just to ftp stuff from!).
+
+	NetBSD has a similar facility, but has a different program and
+	host for bug reports.  The program for NetBSD is called send-pr
+	and is slightly different in several respects.  It is
+	recommended that NetBSD users see the man page on send-pr
+	before filing bug reports.
+
+
+3.1.9	Can someone please give a reasonably clear set of instructions 
+	as to how to get a "current" version of NetBSD running?
+
+	Marc Wandschneider <marcwan@microsoft.com> provided this
+	description of what he did to upgrade to the (then) current
+	version of NetBSD:
+
+	1. Delete the old source tree, saving what I wanted to (a bunch
+	of files moved around, and just unpacking the new one over the
+	old will cause some problems)
+
+	2. Unpacked the new source tree.
+
+	3. ran the following sequence of commands:
+
+		cd /usr/src/share/mk; make install
+		cd /usr/src/include; make && make install
+   		setenv LDSTATIC -static
+   		setenv NOPIC
+		cd /usr/src/lib/libc; make && make install
+		cd /usr/src/gnu/lib/libmalloc; make && make install
+   		cd /usr/src/gnu/usr.bin/gas; make && make install
+   		cd /usr/src/gnu/usr.bin/ld; make && make install
+		# You'll probably get some barfage from the above because 
+		# ld.so won't build yet.  Ignore it and install ld anyway.
+   		cd /usr/src/gnu/usr.bin/gcc; make && make install
+   		unsetenv NOPIC LDSTATIC
+   		cd /usr/src/lib ; make && make install
+   		cd /usr/src/gnu/lib ; make && make install
+		cd /usr/src/gnu/usr.bin/ld; make && make install
+   		cd /usr/src; make && make install
+
+	At some point during the installation, your system will be 
+	fixed enough that many of these steps will no longer be required.
+	For example, the new 'make' defines the variables OBJDIR and 
+	MACHINE_ARCH for you, so you will not need those  once you get to
+	that point.  Until then, the following procedure may suit your
+	needs better.
+
+		#! /bin/csh
+
+		unsetenv NOPIC LDSTATIC
+		setenv MACHINE_ARCH i386
+		# Pick one of these three setenv lines.
+		#  setenv MAKE "make clean "
+		#  setenv MAKE "make obj "
+  		  setenv MAKE  
+		cd /usr/src/share/mk 
+ 		  make install
+		cd /usr/src/include 
+		   $MAKE
+		   make && make install
+		setenv LDSTATIC -static
+		setenv NOPIC
+		cd /usr/src/usr.bin/make
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/usr.bin/rpcgen
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/lib/libc 
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/gnu/lib/libmalloc
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/gnu/usr.bin/gas
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/gnu/usr.bin/ld
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/gnu/usr.bin/gcc2 
+		   $MAKE 
+		   make && make install
+		
+		#
+		unsetenv NOPIC LDSTATIC
+		
+		cd /usr/src/lib 
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/gnu/lib 
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src/gnu/usr.bin/ld 
+		   $MAKE 
+		   make && make install
+		
+		cd /usr/src 
+		   make && make install
+		
+		
+	NOTE: At some point, you might very well come across an
+	unresolved external __DYNAMIC in crt0.o.  If this happens, edit
+	the makefile for crt0.o (lib/csu/i386) and remove the -DDYNAMIC 
+	flag) make && make install.  Then put the flag back in the
+	makefile (but don't rebuild it until the natural order of things 
+	dicates that it happen)
+
+	And Theo Deraadt provides this guidance when you get an error
+	like "init_main.o: Undefined symbol _pdevinit referenced from
+	text segment."
+
+	You need to
+		(1) install new config
+		(2) make clean
+		(3) re-config your kernel
+	then this goes away
+
+
+3.2	What exactly is this config file, anyway?  What are all of these 
+	cryptic notations?
+
+	I've annotated the distributed 386bsd GENERICISA file;  my comments 
+	are delineated by the '--' symbols.  
+
+	THIS IS NOT A COOK-BOOK.  YOU WILL NEED TO DO THE RESEARCH (LIKE
+	LOOKING AT THE 20 OTHER CONFIG FILES) TO SEE WHAT IS CURRENT AND
+	WHAT YOU WILL NEED IN YOUR CONFIG FILE.
+
+	#
+	# GENERICISA -- Generic ISA machine -- distribution floppy
+	#
+--  BSD can be compiled for different hardware platforms, so it is important to
+--  define the hardware types.  386bsd can only be built for 386 or
+--  compatible machines, so this is sort of superfluous, but maintains
+--  compatibility with standard BSD config files.
+	machine		"i386"
+	cpu		"i386"
+--  The ident describes the machine for which this kernel is to be built.
+--  It is usually the system name -- "ROKKAKU", "REF", or whatever.
+--  This can be used for conditional compilation, so that kernel changes
+--  can be compiled in only for one machine.
+	ident		GENERICISA
+--  This should indicate the timezone of the system relative the
+--  Greenwich.   8 is PST;  4 is EST.  A fuller explanation is provided
+--  below.
+	timezone	8 dst 7
+--  maxusers isn't strictly checked;  it is just used to size several
+--  system data parameters.
+	maxusers	10
+--  The options control the conditional compilation of features into the
+--  kernel.  The options can be listed all on a line separated by commas.
+--  They are #define'ed when the kernel is compiled, so that #ifdef's
+--  will work.  An option can be given a value by appending an equals sign
+--  and a value (enclosed in double quotes) to the option name.
+	
+--  Hopefully the names are at least somewhat self-explanatory.  To
+--  discover what everything does, you'd have to go through the kernel
+--  looking for all of the appropriate #ifdef's.
+	
+--  [Perhaps somebody else could list the *exact* meanings of these
+--  options and some of the other possible options?]
+	options		INET,ISOFS,NFS
+	options		"COMPAT_43"
+	options		"TCP_COMPAT_42"
+	
+--  The config line controls the location of the root, swap, and dump
+--  devices.  Anything not specified is defaulted.  This is where you add
+--  support for multiple swap devices.  Just list 'em, separated by 'and'.
+--  The config line below identifies the root drive as wd0 and the
+--  swap drives as wd0 and as0.  See the section on swap devices in FAQ_02
+--  for additional information.
+	config		"386bsd"	root on wd0 swap on wd0 and as0
+--  A 'controller' is a device or bus controller.  'isa' is obviously for
+--  the ISA bus.  'wd0' is for regular disk controllers,  'fd0' is for the
+--  floppies, and 'as0' is for SCSI disk controllers.
+	controller	isa0
+--  The fields work as follows:
+	
+--  a.  What do you call this device?  
+--  b.  What controller is this on?  As you can see, the disk controller
+--  talks to the ISA bus, and the disks talk to the disk controller.
+--  c.  Where are the registers for the controller mapped into memory?
+--  This is #defined in /sys/i386/isa/isa.h.
+--  d.  What IRQ is this device set up for?
+--  e.  What routine should be called on an interrupt from the device?
+	
+--			 a          b           c             d           e
+--			vvv        vvv       vvvvvvv          vv        vvvvvv
+	controller	wd0	at isa? port "IO_WD1" bio irq 14 vector wdintr
+--  You need a 'disk' entry for every disk on the controller.  In the
+--  config file originally shipped with 386bsd, both hard disks were 
+--  incorrectly identified as wd0.  Be sure to change the second occurrence 
+--  to wd1, as I have done in below.
+	disk		wd0	at wd0 drive 0
+	disk		wd1	at wd0 drive 1
+	
+	controller	fd0	at isa? port "IO_FD1" bio irq 6 drq 2 vector fdintr
+	disk		fd0	at fd0 drive 0
+	disk		fd1	at fd0 drive 1
+
+--  The 'drq' specifies the channel used for bus-mastering DMA.
+	controller	as0	at isa? port 0x330 bio irq 11 drq 5 vector asintr
+	disk		as0	at as0 drive 0
+	disk		as1	at as0 drive 1
+
+--  Define other physical devices.  pc0 is the keyboard, npx0 drives the
+--  math coprocessor, and com* controls the com ports.
+	device		pc0	at isa? port "IO_KBD" tty irq 1 vector pcrint
+	device		npx0	at isa? port "IO_NPX" irq 13 vector npxintr
+	device		com1	at isa? port "IO_COM1" tty irq 4 vector comintr
+	device		com2	at isa? port "IO_COM2" tty irq 3 vector comintr
+	
+--  Ethernet drivers of various sorts and the particular configuration
+--  information they require.  For most installations, only one of these 
+--  devices would normally be defined.
+	device we0 at isa? port 0x280 net irq 2 iomem 0xd0000 iosiz 8192 vector weintr
+	device ne0 at isa? port 0x300 net irq 2 vector neintr
+	device ec0 at isa? port 0x250 net irq 2 iomem 0xd8000 iosiz 8192 vector ecintr
+	device is0 at isa? port 0x280 net irq 10 drq 7 vector isintr
+
+--  Tape driver
+	device		wt0	at isa? port 0x300 bio irq 5 drq 1 vector wtintr
+	
+--  The TCP/IP loop-back device, ethernet interface, slip interface, log
+--  device, and pseudo-terminals.
+	pseudo-device	loop
+	pseudo-device	ether
+	pseudo-device	sl	2
+	pseudo-device	log
+	pseudo-device	pty	4
+	
+--  Devices required by VM. 
+	pseudo-device	swappager
+	pseudo-device	vnodepager
+	pseudo-device	devpager
+
+	Normally, there is an annotated configuration file called ALL which
+	gives a list of all of the options for the configuration file.
+	
+	The configuration file that was used to create the list above
+	was for a 386BSD system.  Many things have changed in the
+	config files for NetBSD and FreeBSD.  As an example, the
+	psuedo-devices swappager, vnodepager, and devpager are now full
+	fledged devices.  Like it said up at the top, use the config
+	files that come with your system as a basis for your own
+	experiments in kernel building.
+
+3.2.1	Okay, fine.  Why shouldn't I just add every device I can find to
+	the kernel, so I'll never have to recompile this again?
+
+	Because it takes up space.  The kernel is wired into memory, so 
+	every byte it uses comes out of the pool of memory for everything 
+	else.  It can't page out sections that aren't in use.  If your 
+	kernel is larger than 640K, then it can't be loaded.  You'll need 
+	to use Julian Elischer's bootblocks to put it in high memory, which 
+	seem to be fairly complex.  Installing them (once they are 
+	compiled) is as easy as using disklabel.
+
+	Newer versions of the *BSD kith provide the capability to build
+	a kernel that is larger than 640K.  Complete instructions are
+	provided in the appropriate systems.
+
+
+3.2.2	What should I remove from the kernel?
+
+	What do you need?  If you only have an SCSI controller, you don't 
+	need the wd0 device;  if you have another kind of disk controller, 
+	you don't need as0.  Unless you actually HAVE more than one Ethernet 
+	controller, you should comment out all but one of them.  If you don't 
+	have an ethernet controller, you don't need any of the controllers or 
+	NFS compiled in.   Without a CD-ROM, ISOFS is kind of pointless.  Just 
+	look at what you have and think about what you really need.
+
+
+3.2.3	I can't get enough remote login sessions or xterm sessions.  I also
+	can only get four sessions working at a time.  What can I do?
+
+	Increase the count of pseudo-terminals --
+
+	pseudo-device	pty	12  # or whatever
+
+	Every pseudo terminal should have a /dev/pty* entry.  If you have 12
+	pseudo terminals, you should also have at least 12 pty devices in the
+	/dev directory.  The MAKEDEV script in /dev will create as many pseudo-
+	terminals as you tell it to.
+
+
+3.2.4	How do I get ddb, the kernel debugger, compiled into the kernel
+	and running?
+
+	Add the following line to the configuration file:
+
+	pseudo-device	ddb
+
+	Build the kernel, then run dbsym on it:
+
+	% dbsym ./386bsd
+
+	Install it and go for it.  Ctl-Alt-Esc drops you into the debugger.
+
+	Note: DDB as shipped originally is a memory hog, and it is very
+	difficult to get a kernel small enough with enough fun things in it
+	to debug in 640K
+
+
+3.2.5	Can I patch the current running OS image?
+
+	In general, I think, the answer is no.  The prevailing philosophy 
+	seems to be that one should use sysctl for such things, but that 
+	requires that one has already compiled in the ability to change 
+	the specific variable in question.  (I discovered this when I 
+	wanted to patch tickadj at runtime; I added it to kernfs, and 
+	when I offered the patches (which are quite small) I was told 
+	sysctl was the `correct' way.  What's incorrect about /kern was 
+	never quite explained; the closest anyone came was to invoke 
+	internationalization concerns.  Of course, using /kern also 
+	requires having compiled in support for tweaking the variable 
+	you want to change.)
+
+	Besides, unless you've patched securelevel, I don't think there 
+	is any good way to twiddle variables in the running kernel.  
+	/dev/{,k}mem are, I believe, read-only once init sets securelevel 
+	to 1.
+				Der Mouse
+				(mouse@collatz.mcrcim.mcgill.edu)
+
+
+3.2.6	Can I have more than one config file?  Should I rename it to something
+	else?  Any other hints?  
+
+	You can create as many (or as few) config files as you desire.  The 
+	system, once the patchkit is applied, will have between 10 and 15, 
+	each of which implements certain functions or features.  In addition, 
+	the normal place for the patchkit to make changes to the config files 
+	is in the GENERICISA file.  Since this file should remain unchanged 
+	and available, it is always a good idea to copy this file to a 
+	meaningful name and modify that file.  In other words, change every 
+	reference in 3.1.1 from GENERICISA to HAL (or whatever you call your 
+	system).
+
+	One final note.  Every /sys/compile directory takes up 800K or so;
+	you might want to watch to see how big these all get.
+
+
+
+3.2.7	What is the meaning of the trap codes I get in panic messages?
+	Sometimes this message appears in the form "trap type nn".
+
+	That message means that the system received an unexpected (and
+	unwanted) trap that probably indicates some form of kernel bug.
+	These traps, are usually received from the kernel, in which case
+	the trap.h definitions should be used.
+
+	The number (which appears in place of "nn" above) is *NOT* the 
+	i386 or i386 trap type, it is a BSD-defined trap type number.
+
+	The definitions of the various trap types can be found in
+	/usr/include/machine/trap.h.
+
+	two of the more common ones are:
+          9	T_PROTFLT	protection fault
+				(The kernel tried executing code
+				which was not noted as "executable".
+				This happens if the kernel jumps to
+				a bogus location.)
+         12	T_PAGEFLT	page fault
+				(The kernel tried to access a bogus
+				area of memory.  This can happen if
+				an invalid pointer is dereferenced.)
+
+
+	This is a list of i386 trap codes (just to confuse the issue).
+
+Trap	0	Divide Error
+		The DIV or IDIV instruction is executed with a zero denominator
+		or the quotient is too large for the destination operand.
+	
+	
+Trap	1	Debug Exceptions
+		Used in conjunction with DR6 and DR7, The following flags
+		need to be tested to determine what caused the trap:
+		BS=1				Single-step trap
+		B0=1 AND (GE0=1 or LE0=1)	Breakpoint, DR0, LEN0, R/W0
+		B1=1 AND (GE1=1 or LE1=1)	Breakpoint, DR1, LEN1, R/W1
+		B2=1 AND (GE2=1 or LE2=1)	Breakpoint, DR2, LEN2, R/W2
+		B3=1 AND (GE3=1 or LE3=1)	Breakpoint, DR3, LEN3, R/W3
+		BD=1				Debug registers not available,
+						in use by ICE-386
+		BT=1				Task Switch
+			
+	
+Trap	2	NMI Interrupt
+		On PC/AT systems, the NMI input to the CPU is usually
+		connected to the main memory parity circuit.  By the time the
+		error signal is generated, the data may have already been
+		used in an instruction, so it isn't possible to reliably
+		recover.
+	
+		And some not-so-common causes (from various sources):
+
+		  PS50+ : I/O channel check, system watch-dog timer 
+		  time-out interrupt, DMA timer time-out interrupt
+
+		  parity errors on any 8-bit or 16-bit board pulling the 
+		  IOCHCK* line low 
+
+		  first generation of auto-switching EGA cards used NMI to trap port
+		  access for CGA emulation (e.g., ATI's EGA Wonder)
+	
+		  Zeos Notebook low battery (perhaps other battery-based 
+		  computers)
+
+
+Trap	3	Breakpoint
+		The result of executing an INT 3 instruction.  MS-DOS and
+		Windows and some other non-386 systems use this for debugging.
+		Code specific to the 386 and later processors should use
+		the debugging features tied to Trap 1.
+	
+	
+Trap	4	INT0 Detected Overflow
+		Occurs if an INT0 instruction is executed and the overflow
+		flag (OF) is currently set.
+	
+	
+Trap	5	BOUND Range Exceeded
+		Occurs if the BOUND instruction is executed and the array
+		index points beyond the area of memory containing the array
+		being tested.
+	
+	
+Trap	6	Invalid Opcode
+		The value read at CS:IP is not a valid opcode.
+	
+	
+Trap	7	Coprocessor Not Available
+		This occurs if the processor fetches an instruction that is
+		for the coprocessor and no coprocessor is present.
+	
+	
+Trap	8	Double Exception (Fault)
+		An exception occurred while trying to execute the handler
+		for a prior exception.  Example, an application causes a
+		General Protection Fault (13) and the area of memory where
+		the GPF handler should be is flagged not-present (paged-out?).
+		The double-fault handler is invoked in these conditions.
+		If a fault occurs while trying to run the double-fault handler,
+		a triple-fault occurs and the CPU resets.
+	
+		The rules for deciding if a double-fault should occur or
+		if the two faults can be handled serially are discussed in
+		more detail in the Intel song book.
+	
+	
+Trap	9	Coprocessor Segment Overrun
+		A page or segment violation occurred while transferring
+		the middle part of a coprocessor operand to the NPX.
+	
+	
+Trap	10	Invalid Task State Segment
+		During a task switch, the new TSS was invalid.  Here is
+		a table of conditions that Invalidate the TSS:
+		TSS id + EXT	The limit in the TSS descriptor is < 103
+		LTD id + EXT	Invalid LDT selector or LDT not present
+		SS id + EXT	Stack segment selector is outside table limit
+		SS id + EXT	Stack segment is not a writable segment
+		SS id + EXT	Stack segment DPL does not match new CPL
+		SS id + EXT	Stack segment selector RPL <> CPL
+		CS id + EXT 	Code segment is outside table limit
+		CS id + EXT	Code segment selector does not refer to
+					code segment
+		CS id + EXT	DPL of non-conforming code segment <> new CPL
+		CS id + EXT	CPL of conforming code segment > new CPL
+		DS/ES/FS/GS id + EXT	DS, ES, FS or GS segment selector is
+					outside table limits
+		DS/ES/FS/FS id + EXT	DS, ES, FS, or GS is not readable
+					segment
+
+
+Trap	11	Segment Not Present
+		Occurs when the "present" bit of a descriptor is zero.
+		This can occur while loading any of these segment registers
+		CS, DS, ES, FS, or GS.  Loading SS causes a Stack fault.
+		Also occurs when attempting to use a gate descriptor that is
+		marked "not present", and if attempting to load the LDT with
+		an LLDT instruction.  Note that loading the LDT during a
+		task switch causes an "invalid TSS" trap.
+
+
+Trap	12	Stack Fault
+		A limit violation relating to an address referenced off
+		the SS register.  Includes POP, PUSH, ENTER and LEAVE
+		opcodes, as well as references such as MOV AX,[BP+8]
+		(which has an implied SS:).
+		Also causes by loading SS with a descriptor that is marked
+		"not present".
+
+
+Trap	13	General Protection Fault (GPF)
+		Americas Favorite, in the Windows 3.0 world, it is known as
+		the UAE error.  The instruction tried to access data out of
+		the bounds designated by the descriptors.  The access that
+		failed can be a read, write or instruction fetch.  There are
+		15 classifications of GPFs:
+		1.  Exceeding segment limit when using CS, DE, ES, FS or GS.
+		2.  Exceeding segment limit when referencing a descriptor
+		    table.
+		3.  Transferring control to a segment that is not executable.
+		4.  Writing into a read-only data segment or into a code
+		    segment.
+		5.  Reading from an execute-only segment.
+		6.  Loading the SS register with a read-only descriptor
+		    (unless the selector comes from the TSS during a task
+		    switch, in which case a TSS exception occurs.)
+		7.  Loading SS, DS, ES, FS or GS with the descriptor of a
+		    system segment.
+		8.  Loading, DS, ES, FS or GS with the descriptor of an
+		    executable segment that is not also readable.
+		9.  Loading SS with the descriptor of an executable segment.
+		10. Accessing memory via, DS, ES, FS or GS when the segment
+		    register contains a null selector.
+		11. Switching to a busy task.
+		12. Violating privilege rules.
+		13. Loading CR0 with a PG=1 and PE=0.
+		14. Interrupt or exception via trap or interrupt gate from
+		    V86 mode to privilege level other than zero.
+		15. Exceeding the instruction limit of 15 bytes (this can
+		    only occur if redundant prefixes are placed before an
+		    instruction).
+		To determine which condition caused the trap, you need
+		the instruction, the contents of all associated registers,
+		particularly the segment registers involved, then the various
+		LDT, GDT and page control tables.  Lots of common coding
+		errors cause the GPFs.  Even a stack imbalance will usually
+		show up as a GPF.   Even MOV AX,7 MOV ES,AX or 
+		MOV AX,5 PUSH AX POP DS will get a GPF error.  You can't
+		use a segment register for "temporary storage" of any
+		old value the way you could on the 8086.  The values loaded
+		into the segment registers are checked in protected mode.
+
+
+Trap	14	Page Fault
+		The page directory or page table entry needed for the address
+		translation has a zero in the present bit, or the current
+		procedure does not have sufficient privilege to access the
+		indicated page.
+
+Trap	15	(reserved)
+
+
+Trap	16	Coprocessor Error
+		The coprocessor asserted the ERROR# input pin on the 386
+		(internal on the 486)
+
+
+Trap	17	Alignment Check (486 and later)
+		If enabled, this trap will occur if a data fetch does not
+		occur on a word boundary.  I don't know of any software that
+		activates this feature yet.  I have seen SCO UNIX get this
+		error on early Cyrix processors, even though SCO had not
+		enabled the feature.
+
+
+Trap	18-32	(reserved)
+
+[answered by 	Frank Durda IV <uhclem@nemesis.lonestar.org>	and
+		jim mullens jcm@ornl.gov  -or- mullens@jamsun.ic.ornl.gov]
+	
+-------------------------------------------------------------------------------
+
+3.2.8	I have been getting a lot of "virtual memory exhausted" errors when 
+	I am compiling a program with a really big static array.  I have 
+	128Meg of memory and 8Gig of swap.  How can this be happening?
+
+	If you are using Csh, you can simply unlimit your processes in 
+	your system level /etc/csh.cshrc file or your personal .cshrc 
+	file.  You can also modify your kernel so that the
+	amount of memory available is less limiting.  J"org Wunsch 
+	(j@tcd-dresden.de) provides us with this brief description:
+
+	From a recent posting i just made, regarding the problem how much
+	virtual memory one could get.
+
+	| On the other hand, i've also changed the definitions you
+	| mentioned. But i didn't like to modify the header files, and
+	| actually, modifying the values is as easy as:
+	| 
+	| options		"DFLDSIZ='(16 * 1024 * 1024)'"
+	| options		"MAXDSIZ='(64 * 1024 * 1024)'"
+	| 
+	| Include the above lines into your kernel's config file, reconfig
+	| and rebuild it.
+	| 
+
+	This is just a hint for those people poking around with compiling
+	large source files. Especially, due to some gcc problems with large
+	static arrays, compiling X applications with huge bitmaps would
+	cause virtual memory trouble. Increasing the limits (o'course, as
+	long as the h/w resources suffice) could help there.
+
+	The default definitions for the above parameters are found in
+	/usr/include/machine/vmparam.h.
+
+
+3.2.9	Where can I learn more about all this?
+
+	We've skipped over a lot of details here;  the straight dope comes from
+	"Building Berkeley UNIX Kernels with Config", by Samuel J. Leffler and
+	Michael J. Karels. 
+
+
+3.2.10	Does anyone have a system building script that takes things like 
+	building a new config and multiple config files into account?
+
+	This is the program that I use to rebuild my kernel.  See the note
+	in the file about my 'test' program.  You may elect to build a
+	new config every time, or not, depending on your requirements.
+
+
+	#! /bin/sh
+	#
+	#  Script to rebuild the kernel.
+	#
+	if [ `whoami` != 'root' ] ; then
+	  echo 'You must be root to successfully proceed from this point'
+	  exit 1
+	fi
+	
+	#
+	#  Set up the environment
+	#
+	
+	if [ X$MACHINE_ARCH = "X" ] ; then
+	  MACHINE_ARCH=i386
+	fi
+	
+	if [ -f /netbsd ] ; then
+	  ARCHDIR='/arch'
+	fi
+	
+	#
+	# Rebuild Config
+	#
+	# I am using a modified test(1) that allows for file date comparisons.
+	# You can either get my patches (if they aren't already included),
+	# modify test() yourself, or get the GNU ShellUtils test(1) program.
+	#
+	
+	if [ /usr/src/usr.sbin/config -ot /usr/sbin/config ] ; then
+	  echo "Config Up To Date"
+	else
+	 cd /usr/src/usr.sbin/config
+	 make clean
+	 make depend
+	 make
+	 make install
+	fi
+	
+	cd /sys
+	make
+	make install
+	
+	#
+	# Modify the local Configuration File
+	#
+	echo `tput clr`
+	cd /sys$ARCHDIR/i386/conf
+	
+	if [ "X$CONFIG_NAME" = "X" ]; then
+	  CONFIG_NAME=GENERIC
+	fi  
+	
+	if [ "X$1" = "X" ]; then
+	  echo "Configuration Files available:"
+	  ls [A-Z]*
+	  echo " "
+	  echo -n "Enter the name of the config file to use: "
+	  read CONFIG_NAME
+	  echo
+	else
+	  CONFIG_NAME=$1
+	fi
+	
+	if [ ! -f $CONFIG_NAME ]; then
+	  cp GENERIC $CONFIG_NAME
+	fi
+	
+	echo "Modifying $CONFIG_NAME config file"
+	echo -n "Press return to continue (q to quit) "
+	read ans
+	
+	ans=`echo $ans | cut -c1 | tr 'QqYy' 'qqqq'`
+	
+	if [ "X$ans" = "Xq" ] ; then
+	  exit 0
+	fi
+	
+	vi $CONFIG_NAME
+	
+	#config.new $CONFIG_NAME
+	config $CONFIG_NAME
+	
+	COMPILE_DIR=/sys$ARCHDIR/i386/compile/$CONFIG_NAME
+	
+	cd $COMPILE_DIR
+	make depend
+	make
+	
+	if [ $? -ge 1 ] ; then
+	  echo "Errors encountered"
+	else
+	  if [ -f netbsd ] ; then
+	    PROGNAME=netbsd
+	  else
+	    if [ -f freebsd ] ; then
+	      PROGNAME=freebsd
+	    else
+	      PROGNAME=386bsd
+	    fi
+	  fi
+	  echo `tput clr`
+	  echo ""
+	  echo "  Manual Installation is recommended.  The following files should be"
+	  echo "copied/linked/moved to the root directory.  The following steps are"
+	  echo "suggested:"
+	  echo ""
+	  echo "	mv /$PROGNAME /$PROGNAME.old"
+	  echo "	mv $COMPILE_DIR/$PROGNAME /$PROGNAME"
+	  echo "	reboot"
+	  echo ""
+	  echo "Remember that the new kernel changes will not take place until you "
+	  echo "re-boot the system."
+	fi
+
+	
+3.3	X11/XFree86/XS3
+3.3.1	What options should I define to get the X extensions included?
+
+	Once you have applied the patch kit, the only thing left to do is to
+	modify the config file to include the following line:
+
+	options	XSERVER, UCONSOLE
+ 
+	recompile the kernel and the kernel should support X.
+
+3.3.2	Where can I get the FAQ for 'X'?
+
+	Steve Kotsopoulos' general 'X on Intel-based Unix' FAQ
+	available by anonymous ftp from export.lcs.mit.edu in 
+	/contrib/Intel-Unix-X-faq. 
+
+
+3.3.3	Why does X drop characters when using xdm?   When I run xdm 
+	from the console, it keeps losing keystrokes and the shift keys 
+	don't always work.  Why?
+
+        You need to run xdm with the -nodaemon flag.  The reason is
+        xdm normally detaches from the keyboard.  This allows other
+        processes (like getty) to return to reading from the keyboard.
+        A race condition results, where some keystrokes are sent to
+        xdm and others are sent to other processes.  Using the
+        -nodaemon flag causes xdm to stay attached to the keyboard
+        so no other process can use it.  This answer comes from Michael 
+        C. Newell (root@wanderer.nsi.nasa.gov)
+
+	This bit of trivia is also covered in detail in the X FAQ and 
+	the README that accompanies XFree86.
+
+
+3.4	Compiler and Library routines
+
+	There are several questions that could probably be included
+	here.  See also Section 4 for some of the more common 'missing
+	modules' that also happen to be library routines.
+
+
+3.4.1	Which C compiler is shipped with my 386BSD derived system? 
+
+	The standard compiler released with 386bsd 0.1 is GCC 1.38.  This
+	version is considered by many people to be the most stable of
+	the GCC versions.  All other Net/2 derived BSD systems have both 
+	1.38 and 2.4+ available.  NetBSD 0.9, for example, is completely 
+	compilable using GCC 2.4.5, which is included as the default
+	compiler.  FreeBSD also ships with the same compiler.
+
+3.4.2	Where is libcompat.a?
+
+	The library libcompat.a is (working from memory here) completely
+	deprecated in 386bsd.  The only exceptions might be the re_comp
+	and re_exec routines, which are discussed in detail in section 4.
+	In addition, things will be added to libcompat.a as they are 
+	deprecated in the newer versions of NetBSD and FreeBSD.  The
+	getreuid() and setreuid() stuff may be heading that way (if they
+	aren't there already.
+
+	The easiest way around not having a libcompat.a is to simply link 
+	it to a small library, since virtually every other function that
+	is expected in libcompat.a is already include libc.a.
+
+
+3.5	You promised to talk about timezones below.  Are you going to?
+
+	>I've seen lots of stuff about timezone's being a bit dodgy,
+	>especially with most European timezones changing over to DST on 
+	>the 27th March.  I must say that that was NOT the case for me - 
+	>pumpy (the author's system) is running off the 
+	>/usr/share/zoneinfo/GB-Eire timezone file, (symbolically) linked 
+	>to /etc/localtime, the CMOS clock is running off GMT, and the 
+	>kernel is compiled with "timezone 0".
+
+	I use /usr/share/zoneinfo/MET as /etc/localtime and have the 
+	kernel configured as
+
+		timezone        -1 dst 4
+
+	(My wife is running DOS on this machine for doom sometimes ;-)
+
+	I set this strange dst value after diging in some old ultrix(?) 
+	man pages.  There were several dst-changing-method listed and 4 
+	was the code for the central europe one.
+
+	This gave me an idea... I use an Ultrix box every day, so why not...
+
+	Now, I don't know how closely this applies to NetBSD since 
+	Ultrix is based on a much older version of BSD, and this isn't 
+	for the kernel config, but for an envar of timezone values, but 
+	it's at least somewhat enlightening on possible meanings for 
+	these things.  Could someone in the know shed light on how 
+	accurately this models the timezone stuff in the kernel config?  
+	When I did "man timezone" this is what I got (portion of this 
+	quoted from the DEC MIPS Ultrix 4.3a timezone(3) manpage, 
+	slightly hacked by me (Michael L. VanLoon (michaelv@iastate.edu))
+
+
+		 STD offset [DST [offset][,start[/time],end[/time]]]
+
+	     the components of the string have the following meaning:
+
+	STD and DST	Three or more characters that are the 
+			designation for the standard (STD) or 
+			summer (DST) time zone. Only STD is required; 
+			if DST is missing, then summer time does not apply 
+			in this locale. Upper- and lowercase letters are 
+			explicitly allowed.  Any characters except a 
+			leading colon (:), digits, comma (,), minus (-), 
+			plus (+), and ASCII NUL are allowed.
+
+     	offset		Indicates the value to be added to the local 
+			time to arrive at Coordinated Universal Time. The 
+			offset has the form:
+
+			hh[:mm[:ss]]
+
+			The minutes (mm) and seconds (ss) are optional. 
+			The hour (hh) is required and may be a single 
+			digit.	The offset following STD is required. If 
+			no offset follows DST, summer time is assumed to 
+			be one hour ahead of standard time.  One or more 
+			digits may be used; the value is always
+			interpreted as a decimal number.  The hour must 
+			be between 0 and 24, and the minutes (and
+			seconds) - if present - between zero and 59. If 
+			preceded by a "-", the time zone is east of the 
+			Prime Meridian; otherwise it is west (which may
+			be indicated by an optional preceding "+").
+
+     start and end	Indicates when to change to and back from summer
+     			time. Start describes the date when the change
+			from standard to summer time occurs and end 
+			describes the date when the change back
+			happens.  The format of start and end must be
+			one of the following:
+
+			Jn	The Julian day n (1 < n < 365). Leap
+				days are not counted.  That is, in all
+				years, including leap years, February
+				28 is day 59 and March 1 is day 60.  It
+				is impossible to explicitly refer to
+				the occasional February 29.
+
+			n	The zero-based Julian day (0 < n <
+				365).  Leap days are counted, and it is	
+				possible to refer to February 29.
+
+			Mm.n.d	The nth d day of month m (1 < n < 5, 
+				0 < d < 6, 1 < m < 12).  When n is 5 it 
+				refers to the last d day of month m.
+				Day 0 is Sunday.
+
+     			time	The time field describes the time when,
+				in current time, the change to or from
+				summer time occurs. Time has the same
+				format as offset except that no leading
+				sign (a minus (-) or a plus (+) sign)
+				is allowed. The default, if time is not
+				given, is 02:00:00.
+
+	As an example of the previous format, if the TZ environment
+	variable had the value EST5EDT4,M4.1.0,M10.5.0 it would	describe 
+	the rule, which went into effect in 1987, for the Eastern time
+	zone in the USA.  Specifically, EST would be the designation for
+	standard time, which is 5 hours behind GMT.  EDT would be the 
+	designation for DST, which is 4 hours behind GMT.  DST starts
+	on the first Sunday in April and ends on the last Sunday in
+	October.  In both cases, since the time was not specified, the
+	change to and from DST would occur at the default time of 2:00 AM.
+
+	The timezone call remains for compatibility reasons only; it is 
+	impossible to reliably map timezone's arguments (zone, a
+	`minutes west of GMT' value and DST, a `daylight saving time in
+	effect' flag) to a time zone abbreviation.
+
+
+3.5.1	How do you change the timezone on NetBSD (FreeBSD also?)?
+
+	Relink /etc/localtime.  This will correct the difference from
+	GMT (or its trendy equivelant) to your local timezone.  In
+	addition, the kernel needs to be modified to take the clock
+	time in your CMOS into account.  Since most folks that run DOS
+	prefer to have their clocks set to local time, the timezone
+	hack was introduced to allow the kernel to adjust the CMOS
+	clock time to GMT.  Once GMT has been computed, the
+	/etc/localtime file can be referenced to determine the
+	corrected local time.
+
+	All generic kernels are built using the offset from California
+	(why is anyone's guess:-) so just about everyone's clock will
+	be off by their timezone offset from Berkeley.
+
+
+3.5.2	The translation between seconds-since-the-epoch and date
+	differs by about 18 seconds between BSD and other Unixes when
+	running ntp; why?
+
+	See ntp FAQ. Apparently, the time correction takes leap seconds
+	into account twice.  The timezone files in our system take the 
+	leap seconds into account in the kernel, and nntp takes the
+	same 18 leap seconds into account when syncing the time.
+	Because of that, the time will appear to be off by eighteen
+	seconds.  (Henning Schulzrinne)
+-- 
+TSgt Dave Burgess           | Dave Burgess
+NCOIC, USSTRATCOM/J6844     | *BSD FAQ Maintainer
+Offutt AFB, NE              | Burgess@cynjut.infonet.net or ...@s069.infonet...
+                               
+

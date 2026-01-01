@@ -1,0 +1,379 @@
+This file contains user documentation for the UUENCODE/DECODE pair.
+
+
+SUMMARY:
+
+This package encodes and decodes "UUencoded files".  UUencoding is a
+popular technique for reliably sending binary files over communications
+systems.  Common binary files are "zip files" produced by pkzip, gif and
+jpg picture files, and doc files produced by word processors.  To send
+a binary file, UUencode the file and send it out with your favorite
+e-mail or communications program.  To receive the file, get the
+UUencoded version to your PC and UUdecode it.
+
+There are many public domain UUencoders and decoders.  This pair was
+originally written in 1987 and has been kept up to date since; it is
+designed to handle just about anything you can throw at it with ease.
+
+For more details on how to use the UUENCODE and UUDECODE programs, read
+this document.  For a technical description of the UUencode process, see
+UUTECH.DOC.
+
+
+SIMPLE, COMMON USE:
+
+To decode a file, download it to your PC.  Give the filename an
+extension of ".UUE". (ie: FOO.UUE); this aids you in identifying it as a
+uuencoded file.  If the file was sent out in multiple parts, put the
+part number on the end of the file name (ie: FOO1.UUE, FOO2.UUE, etc.).
+
+Then enter: UUDECODE FOO
+
+UUdecode will scan for variations of the name.  The name of the file
+to decode into is saved inthe encoded file.
+
+To encode a file, enter: UUENCODE filename
+
+There are all kinds of options, which are described below; but you
+should ignore them if the above works for you.
+
+
+DISCLAIMER:
+
+This program was written by me, Richard Marks, and it is copyrighted.
+The program is freeware; but if used in a for profit situation, please
+contact me.
+
+************************************************************************
+
+UUENCODE:
+
+UUencode a file to send it out over a communications system (e-mail).
+Most e-mail systems limit the size of a single file.  A typical limit is
+64 thousand bytes.  UUencode splits the encoded file into parts which
+can be sent out one at a time.  Thus a very large file gets sent out as
+a number of smaller ones that are within size limits.
+
+UUencode can automatically put checksum characters in the encoded file
+so the decode program can do validation.  (Modern communications systems
+are so reliable that one rarely sees a checksum error when decoding, but
+I still think it is a good idea to leave checksum-ing turned on just to
+be sure there are no problems.  This adds at most a few seconds to
+encoding and decoding times.)
+
+The command:
+
+    UUENCODE  [options]  input-file  [output-file]
+
+    Popular options:
+       -c     - Do not create any checksums. (Checksums recommended!)
+
+       -s     - Do NOT split the encoded file into sections.
+
+       -s nnn - Split the encoded file into sections of nnn lines.
+                Default is split into 950 line sections.
+
+       -h nnn - Leave room in first section for nnn header (extra
+                comment) lines.
+
+       -x     - Use XX encoding (see below).
+
+    Less Popular options:
+       -o     - write to standard output, not to a file.
+                No splitting is done in this case.
+
+       -L     - Insert checksums on every line.  This is an old option
+                for use with unreliable communication systems.
+
+       -t     - Write the mapping table that was used into the encoded
+                file (see below).
+
+       -u     - Unix format file (Unix end of line character).
+
+
+INPUT FILE NAME:
+
+The input file name must be supplied.  It is the name of the file to be
+encoded.  The file name and extension, but not the drive or path, is put
+in the encoded file.  This name is used by UUdecode to recreate a file
+with the same name.
+
+
+OUTPUT FILE NAME (of the encoded file):
+
+This is an optional parameter.  Normally it is not needed.
+
+Naming can get a little complicated if you are creating split files.  So
+let's take things in little steps.  (The problem is that in automated
+systems, there is a need for a variety of ways to specify file names.)
+
+First, the normal case where is no output file name is supplied:
+
+        Output file name is input file name, with a ".UUE" extension.
+        Output is to the current directory; the drive & directory
+        of the input file is ignored.
+
+        UUENCODE FOO.BAR  creates FOO.UUE
+
+If you supply an output file name, it is used.  If the output file name
+you supply does not have an extension, ".UUE" is used.
+
+        UUENCODE FOO.BAR  ABC.DEF  creates ABC.DEF
+        UUENCODE FOO.BAR  ABC      creates ABC.UUE
+        UUENCODE FOO.BAR  ABC.     creates ABC.
+
+Note the subtly of the last example.  The "." after "ABC" is an
+extension of all spaces; so there is no extension on the output file.
+This differs from the second example where, since there is no ".", the
+default extension of ".UUE" is supplied.
+
+Normally output goes to the directory you are in when you enter the
+UUencode command (the current directory).  This happens even if the
+input file is in some other directory.  If a drive and/or directory is
+specified for the output file, it is used.
+
+If you want to use the input file's drive & directory, use a directory
+of *\ for the output file.  The input file's drive & directory is used.
+
+          UUENCODE ZZZ\FOO.BAR         creates FOO.UUE
+          UUENCODE ZZZ\FOO.BAR  ABC    creates ABC.UUE
+          UUENCODE ZZZ\FOO.BAR  *\ABC  creates ZZZ\ABC.UUE
+          UUENCODE ZZZ\FOO.BAR  *\     creates ZZZ\FOO.UUE
+
+
+SPLIT FILES and OUTPUT FILE NAMES:
+
+UUencode checks the size of your file, if it is too small to split, the
+naming convention above is used.
+
+Normally UUencode splits encoded files by putting a number after the
+file name.
+         UUENCODE FOO.BAR           creates FOO1.UUE, FOO2.UUE, etc.
+         UUENCODE FOO.BAR  *.ZZZ    creates FOO1.ZZZ, FOO2.ZZZ, etc.
+         UUENCODE FOO.BAR  ABC.ZZZ  creates ABC1.ZZZ, ABC2.ZZZ, etc.
+
+Another popular way to name split files is with the extension of .001,
+.002, etc.  If you specify an output file extension of .001, then this
+naming convention is used.
+
+        UUENCODE FOO.BAR  ABC.001   creates ABC.001, ABC.002, etc.
+        UUENCODE FOO.BAR    *.001   creates FOO.001, FOO.002, etc.
+
+(I personally prefer to use the ".UUE" extension so I can determine that
+this is a UUencoded file from the file name; but some prefer the .001
+naming convention.)
+
+
+XXENCODING (the -x and -t options):
+
+UUencode maps a binary file into a certain character set.  This
+character set goes through most communications systems with no problems.
+However some communications systems change some of the special
+characters used by UUencode.  For example the "{" character is changed
+into a "<" on some systems.
+
+If you are having this sort of problem mailing to a friend, read on.
+
+One could argue that it was a bad decision for UUencode to use
+characters that may be changed.  But many years ago, it was hard to find
+enough characters that could go over all communications systems
+unchanged.  Maybe 15 years ago, the character set that UUencode uses was
+a good choice; but today there are other options.
+
+The XXencode option, is a better choice.  It uses characters that
+usually get through with no problems.  (It uses some lower case
+characters, lower case was not common on computers 20 years ago.)
+Unfortunately, XXdecoders are not as commonly available as UUencoders.
+If the person you are mailing to has an XXdecoder, use the "-x" option
+on UUencode.  My UUdecoder automatically handles XX encoded files.  Note
+that the default file extension is .XXE for XX encoded files.
+
+Another option is to send out the mapping table that UUencode uses.
+Then whatever get changed, gets changed in the mapping table and in the
+data, so the decode will decode correctly.  If the person you are
+mailing to has a UUdecoder that accepts mapping tables, try the -t
+option on UUencode.  You can use -x and -t together, but there is no
+reason to do this.  My UUdecoder handles mapping tables.  Note that if a
+file is changed, UUdecode will report an input file checksum error.
+This is OK as long as it does not report an output file checksum error
+(what comes out is the important thing).
+
+************************************************************************
+
+UUDECODE:
+
+UUdecoding is the inverse of UUencoding.  The input is a UUencoded file
+or a several split UUencoded files.  The output is what the original
+UUencode started with.
+
+This UUdecode automatically checks for just about everything.  It
+automatically handles split files, checksums, files packaged with the
+Unix 'sed' program, and UU or XX encoding.  But more importantly, over
+the years I have encountered many different minor problems and
+eccentricities of various communications systems.  (Even CompuServe can,
+on occasion, insert some weird stuff in the middle of your files.)  This
+UUdecode handles all this sort of stuff.
+
+In most cases you can just download a whole set of files as:
+     FOO1.UUE, FOO2.UUE, etc.
+then just enter:
+     UUDECODE FOO
+with no editing or anything else and "poof" the thing will decode.
+
+The majority of decode problems are related to the PC learning curve
+(file naming and directories) or to downloading problems.  However
+sometimes you will have a problem situation which occurs when decoding
+files from one particular site.  This may require special procedures for
+handling files from just that site.
+
+The typical site related problem is caused by a non-standard UUencoder.
+I have seen a lot of encoded files, but if you think there is a problem,
+please contact me.  (Contact info is at the end of this writeup.)
+
+The command:
+
+    UUDECODE  [options]  input-file  [output-file]
+
+    popular options:
+        none - normally you do not use any options with UUdecode
+
+
+    less popular options:
+        -c/C - do not do any checksum testing.  If upper case "C",
+               checksum testing is done on the output file but not
+               on any input files (see below)
+
+        -L   - do not do line level checks (see below)
+
+        -s   - do not handle split files
+
+        -i   - take input from stdin (implies -s)
+
+        -u/x - use UU or XX decoding, do not do automatic analysis
+
+
+    options for use in automated systems (see UUTECH.DOC):
+        -e/E - call .bat file when decoding complete.
+
+        -q   - quiet operation (no beeps)
+
+        -y   - force "yes" response to all prompts.
+
+        -z   - use specific "cut" line.
+
+Options can be entered in upper or lower case unless, like for c/C,
+there is a specific meaning for each case.
+
+
+CHECKSUM TESTING:
+
+Normally you will want to run UUdecode with all checksum options on.
+
+Occasionally you will encounter a file with junk appended to lines and
+UUdecode will display messages stating something is wrong with a
+specific line.  You may then accept or reject the line.  If you accept
+all the supposedly invalid lines and the resultant file proves correct,
+run UUdecode with the -L option to suppress these errors.  Also let me
+know of the details as this is some unknown UUencoder that I want to
+handle.  See the "contact" section at the end of this document.
+
+Some UUencoders insert checksum information which validates the encoded
+files and the resultant output file in the encoded file.  In many cases
+if the input file is bad, the output file is also bad.  If you get
+messages about checksum errors on input files and the output file is
+correct, run UUdecode with the -C (upper case) option to turn off input
+file checksum tests.
+
+It is possible, but unlikely, that the output file may have checksum
+errors and still be acceptable.  You can turn off all checksum testing
+with the -c (lower case) option.  -C or -c imply the -L option.
+
+FILE NAMING:
+
+INPUT FILE NAME:
+
+The problem with input file names is that you may be working with split
+files.  Perhaps file FOO.EXE is encoded in two parts and you have
+downloaded them as FOO1.UUE and FOO2.UUE.  If you supplied an input file
+name of FOO1.UUE, then UUdecode would find this file, decode it and go
+to FOO2.UUE automatically.
+
+However, most users, myself included, have the mind set that they are
+working with file FOO and "forget all this other stuff please".  To
+handle this situation, UUdecode scans for several variations of the
+input file name you supply.
+
+If you supply a file name with an extension, FOO.XYZ, that file name is
+used.  If not found, then UUdecode puts the number '1' after the file
+name (FOO1.XYZ) and UUdecode tries again.
+
+The more common case is where just the file name, with no extension is
+supplied:
+        UUDECODE FOO
+
+UUdecode tries the files in the following order:
+
+        FOO.UUE
+        FOO.XXE         xx encoded file
+        FOO1.UUE
+        FOO1.XXE
+        FOO.001
+        FOO.01
+        FOO.1
+        FOO.
+        FOO1.
+
+This may seem complicated, but it goes quickly.
+
+A drive and path may also be supplied:
+
+        UUDECODE C:\MYDIR\FOO
+
+All the above rules apply.  But the given drive & directory is scanned.
+
+
+OUTPUT FILE NAME:
+
+Normally the name of the output file is obtained from within the encoded
+file; it was put there when the file was encoded.  The decoded file is
+recreated with this file name.  The file is put into the current
+directory (the directory from which the UUdecode command is executed).
+
+There are several conventions to alter this.
+
+If you want to specify a specific output file name, optionally with
+drive and directory, specify it as the second file on the command line:
+
+        UUDECODE FOO  c:\ABC\MYOUT.XXX
+
+If you want to use the name from within the encoded file, but with a
+specific drive and directory, use the drive:directory with a '*' as the
+file name:
+
+        UUDECODE FOO  c:ABC\*
+
+If you want to use the drive and directory of the input file, use a '*'
+as the directory name:
+
+        UUDECODE c:ABC\FOO   *\             file name from encoded file
+        UUDECODE c:ABC\FOO   *\NAME.NEW
+
+************************************************************************
+
+CONTACTING THE AUTHOR:
+
+You can mail me:
+        Richard Marks
+        931 Sulgrave Lane
+        Bryn Mawr, PA  19010
+        USA
+
+If you encounter a problem I will need to see exactly what you are
+working with.  Please send me a diskette with whatever you think is
+important.  You can just put a 3 1/2" diskette in an envelope with no
+special precautions and a single stamp.
+
+You may telephone me at (610) 525-8993.  I am usually home after 7PM
+and stay up till 1AM - US Eastern Time; it is OK to call then.
+
+

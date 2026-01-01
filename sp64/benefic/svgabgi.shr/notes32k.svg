@@ -1,0 +1,75 @@
+SuperVGA 32768 BGI driver 
+Version 1.1
+June 12, 1992
+
+This is the newest version of my SuperVGA 32768 BGI driver.  All functions
+have been implemented, but there may still be bugs.
+
+Note:  Palette functions, and the mouse cursor will not work with this driver.
+
+  Using the HiColor driver:
+
+	Implementing the 32768 color driver involved several hacks, as
+	the BGI interface only supports 8-bit color values, but the driver
+	needed support for 15-bit color values.  The procedures that needed
+	to be changed were those that accepted color values, (SetColor,
+	SetFillStyle, SetFillPattern, PutPixel and Floodfill)  and those 
+	that return color values (GetColor and GetPixel).
+	As the HiColor modes do not support palettes, I decided to use
+	the SetRgbPalette call to set colors, as it accepts values for the 
+	R,G and B components of the color.
+
+	The format of a pixel in the HiColor modes is:
+		-Byte 1- -Byte 0-
+		xRRRRRGG GGGBBBBB
+
+	Several new functions are defined to make the color selection easier.
+	In addition, the macro RGB(rv,gv,bv) has been defined.  It packs
+	the R, G and B values into the format described above and returns the
+	combined color.
+
+	* RealDrawColor(); - Sets the current drawing color.
+	  Usage:
+	    setcolor(RealDrawColor(RGB(rval,gval,bval)); - HiColor modes
+	    setcolor(RealDrawColor(cval)); - (suggested for any other driver)
+
+	* RealFillColor(); - Sets the current fill color.
+	  Usage:
+	    setfillstyle(fillstyle,RealFillColor(RGB(rval,gval,bval)));
+	    setfillstyle(fillstyle,RealFillColor(cval));
+	    setfillpattern(fillpat,RealFillColor(RGB(rval,gval,bval)));
+	    setfillpattern(fillpat,RealFillColor(cval));
+
+	* RealColor(); - For putpixel, sets the color of the pixel
+		       - For floodfill, sets the color of the boundary
+	    putpixel(x,y,RealColor(RGB(rval,gval,bval)));
+	    putpixel(x,y,RealColor(cval));
+	    floodfill(x,y,RealColor(RGB(rval,gval,bval)));
+	    floodfill(x,y,RealColor(cval));
+
+	* GetPixel normally only returns an 8-bit value.  However, the
+	  value returned from the BGI driver is a 16-bit value in DX (the 
+	  BGI kernel loads the value into AX and clears the upper 8 bits),
+	  so to read the value of a pixel:
+
+	  In Pascal:
+	    Color := getpixel(x,y);
+	    inline($89/$56/<Color);  (* Loads 15-bit color value *)
+
+	  In C:
+	    Color = getpixel(x,y);
+	    Color = _DX;
+	  
+
+	* Support for the ATI XL card has been added (1.1) 
+	    ATI only supports 640x480x32k
+
+	* Paging has been added (1.1)
+
+	  Mode		Paging?		# of pages (with 1024k)
+	  320x200	yes		8
+	  640x350	yes		2
+	  640x400	yes		2
+	  640x480	no		1
+	  800x600	no		1
+

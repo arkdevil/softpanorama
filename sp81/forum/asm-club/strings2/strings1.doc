@@ -1,0 +1,849 @@
+STRINGS.COM  (Version 1.0)             Copyright (c) 1992 
+-------------------------------------------------------------------------
+            First Published in PC Magazine September 10, 1991 (Utilities)
+-------------------------------------------------------------------------
+This documentation is for STRINGS Version 1.0
+
+
+STRINGS:
+        STRINGS enables batch files to manipulate strings, request and
+interpret user input, process files, return system information, and
+perform simple math by adding functions to the batch file language.
+Stores information in either the local or the master environment.
+
+     Batch files are quick, simple--and frustratingly limited. They can't
+ask you questions or interpret your answers. They can't parse a filename,
+tell you how much space is left in your environment, or even perform
+simple math. Yet despite their shortcomings, a dozen times a day it's to
+batch files that we must turn for routine tasks.
+
+     By executing STRINGS.COM from within your batch files, however, you
+can make .BAT files do things they could never accomplish on their own.
+STRINGS removes many of the restrictions imposed by the limited batch
+file vocabulary. For example, you'll be able to perform standard string
+manipulations, such as separating a filename from its extension, finding
+one string in another, determining the length of a string, and even
+reading and writing files.
+
+     STRINGS can store its results in environment variables that other
+programs (or subsequent calls to STRINGS) can access. It provides simple
+functions that allow batch files to ask a user for input, determine
+exactly what he entered, and then pass that input to other programs.
+STRINGS even includes simple but effective math functions.
+
+USING STRINGS
+
+     To execute the program, either from within a batch file or from the
+DOS prompt, you enter STRINGS, followed by the desired command function
+and its necessary parameters. The full syntax is
+
+STRINGS [/?] [/M] [/Pc] [environment var =] FUNCTION [str1][, str2][, str3]
+
+Thus, for example, to return the left 6 characters of a string, you might
+enter
+
+             STRINGS LEFT this is a string, 6
+
+     To store the This i result you would simply insert the name of the
+destination environment variable, followed by an equal sign, before the
+command. Thus, to assign the results of this example in the environment
+variable VAR1, your command would be
+
+       STRINGS VAR1 = LEFT This is a stirng, 6
+
+STRINGS would find or create the environment variable VAR1 in the local
+environment and assign the value This i to it.
+
+     STRINGS defaults to using the local command-shell environment to
+store environment variable results, because that is what batch files use
+when substituting strings for environment variables. However, by including
+the /M switch before the variable name, you can force STRINGS to use the
+system master environment instead of the local command processor
+environment. As will be discussed in fuller detail later, you will
+use this ability in establishing communications among different DOS
+sessions running under Windows.
+
+     Another situation in which the /M switch comes in handy is when you
+"shell out" to DOS from within a running program. When a program shells
+out to DOS, a copy of COMMAND.COM and the accompanying environment are
+created. Any environment variable assignments STRINGS makes during this
+shelled session will be lost when you exit from DOS back into the original
+program, however. If you want to keep any STRINGS assignments made during
+a shelled session, use the /M switch.
+
+     STRINGS provides two additional command line options. The /? switch
+simply displays a help list of the STRINGS function commands. These are
+shown in the table below - Figure 1.
+
+     The second command line switch is /Pc. Since many strings contain
+spaces, by default, STRINGS uses commas instead of spaces to separate
+multiple command parameters. If any of the parameter strings themselves
+contain commas, however, you can use the /Pc switch to force STRINGS to
+employ any unused character as c to differentiate one string from another.
+Thus, for example, using /P$ changes the parse character to the dollar
+sign ($).
+
+     After a parse character is found, STRINGS scans for the first nonspace
+character to begin the next parameter. This process has the effect of
+ignoring any leading spaces a parameter may have. To force STRINGS to
+respect leading spaces, therefore, STRINGS has been written to interpret
+consecutive parse characters as the beginning of a parameter.
+
+     For example, if a string with leading spaces is to be written to a
+file, the line
+
+           STRINGS WRITE c:\file.out, ,,  This line has 3 leading spaces
+
+should be used. Without the consecutive commas, STRINGS would begin the
+next parameter with the letter T. Using the double parse characters,
+STRINGS will not append the commas to the line but will keep the proper
+number of spaces in the string before the word  This.
+
+     One additional character requires special handling. DOS uses the
+equal sign (=) in assigning a variable name to a value. What happens,
+then, if the string parameter you want STRINGS to read into a variable
+itself contains an equal sign? You might, for example, want STRINGS to
+read the line 
+
+              DEVICE=HIMEN.SYS
+
+from your CONFIG.BAT file and assign this as VAR2.
+
+     STRINGS handles this situation by changing the equal sign character
+within the string into the similar-looking but wider ASCII 205 (CDh)
+graphics character (=) before assigning the string to an environment
+variable. In this example, then, the string actually stored in the
+environment would then look like 
+
+                                 VAR2=DEVICE=HIMEN.SYS
+
+     When it reads an environment variable containing the graphics =
+character, STRINGS knows to make the reverse substitution of the normal
+equal sign. The only thing you need to be aware of is that a program
+other than STRINGS will not know about the need to convert the graphics
+equal sign back into a regular equal sign in environment variables stored
+by STRINGS.
+
+     A final reminder for using STRINGS: DOS limits the length of a program
+command line to a maximum of 127 characters. Long strings stored with short
+names may run up against this limitation when interpreted.
+
+COMMAND FUNCTIONS
+
+     Several of the STRINGS command functions have been used illustratively
+above, but a more systematic description of the complete function set is
+in order. The functions can be divided into four main groups: (1) string
+manipulation; (2) file operations; (3) system functions; and (4) math
+functions.
+
+     (1)   The string manipulation functions start with the LEFT and
+RIGHT functions. As shown in the first example, LEFT returns the first n
+characters of a string. RIGHT operates similarly: The first parameter
+you supply is the string, and the second parameter is the number of
+characters you want returned. In both cases, if the string is shorter
+than the number you specify, the entire string is returned. If the second
+parameter is 0, both functions return a null string.
+
+     Assigning a null string to an environment variable removes the
+variable from the environment. For example, if the environment contained
+the variable PLAY=1234 and the command
+
+                                       STRINGS PLAY = LEFT abcd, 0
+
+was entered, STRINGS would erase the variable PLAY from the environment. Note
+that STRINGS makes no attempt to display null strings on the screen.
+
+     The MID function is used to return a substring starting at any point
+within the original string. As with the LEFT and RIGHT commands, the first
+parameter you enter is the string itself. The second parameter is the
+numerical position of the starting character. The third parameter is the
+requested length of the string you want returned. If the starting character
+is higher than the length of the string, a null string is returned.
+
+     Not surprisingly, the LENGTH function returns the length of a string.
+The only parameter required for this function is the string itself. The
+number returned is itself an ASCII string. For example, if a string is 12
+characters long, LENGTH returns the number 12 as an ASCII 49 followed by
+an ASCII 50.
+
+     The FIND and FINDC functions search a string for a given string of
+characters. If the string is found, the number of the starting position
+of the string within the original string is returned. FIND searches for
+the string without regard to case; FINDC considers case in its search.
+
+     The LOWER and UPPER functions set the case of the string. LOWER
+reduces all the characters in a string to lowercase; UPPER capitalizes
+a string.
+
+     The CHAR and VAL functions in STRINGS correspond to the CHAR$ and
+VAL instructions in BASIC. The CHAR function returns an ASCII character
+for the number passed. For example, the STRINGS CHAR 65 command returns
+the character A, since 65 is the base 10 ASCII code for the character A.
+
+     The VAL function is the inverse of the CHAR function, it returns the
+ASCII number for a character. For example, the VAL B function returns the
+number 66.
+
+     (2)   The file operation group of STRINGS functions is best introduced
+starting with FILENAME, which parses out the filename from within the
+string supplied. For example, the command
+
+                                         STRINGS FILENAME C:\UTIL\EDIT.COM
+
+returns the string EDIT. Similarly, the FILEEXT function returns the file
+extension--in this case, COM. If a filename is longer than eight characters,
+only the first eight characters are returned; no more than three characters
+will be returned by FILEEXT. If the filename cannot be found within the
+string or if an illegal filespec is supplied, a null string is returned.
+
+     The file READ and WRITE functions allow batch files to perform
+rudimentary file processing. While file processing via a batch file is
+obviously slow, it can be useful in some situations.
+
+     The READ function reads a given line from a file. The parameters
+you must pass are the filename and the line number within the file to
+be read. STRINGS determines line numbers by counting the carriage returns
+(13h) in the file, starting with line 1. If an attempt is made to read
+either line 0 or a line beyond the end of the file, an error message is
+printed and an ERRORLEVEL code of 1 is returned.
+
+     A typical use for the READ function is in parsing the results produced
+by piping a find file utility to a file. STRINGS can then be used to read
+the filenames (which will each occupy one line) from the file. These
+filenames could then be used in conjunction with other DOS commands to
+process each of the files individually.
+
+     The WRITE function writes a string to the end of a file. If the file
+does not yet exist, it will be created. If the specified file has a
+read-only attribute, an error message is printed and an ERRORLEVEL code
+of 1 is returned. The WRITE command is functionally identical to the
+following batch file command
+
+                             ECHO string >> filename
+
+This command is included in STRINGS to complement the READ command.
+
+     The FILESIZE and LINESIZE functions both return information about
+the size of a file. FILESIZE returns the size of a file in bytes;
+LINESIZE returns the number of lines in the specified file.
+
+     The TRUENAME function creates a fully specified filename, complete
+with drive letter and path. This function corresponds to the undocumented
+TRUENAME function available in DOS 4.0 and later. Note that network names
+and aliases created from the JOIN, SUBST, and ASSIGN commands are resolved
+to produce the actual drive and path. If an illegal filename is passed
+to the function, a null string is returned.
+
+     (3)    Five system functions are provided to assist batch files in
+determining the system configuration: VER, ASK, ENVFREE, ENVSIZE, and
+MASTERVAR.
+
+     The VER function returns a string containing the current DOS version
+number. The major version number is reported in the hundreds position,
+and the minor version numbers are in the tens and ones places. Called
+under DOS 3.3, for example, VER returns the string "330".
+
+     The ASK function allows you to query the user and store his response
+as an environment variable. ASK can print a specified prompt string to
+the screen; it then waits for the user to respond with up to one line
+of input. For example, given the command line
+
+                        STRINGS NAME = ASK What is your name?
+
+      STRINGS will print the string "What is your name?" and then wait
+for the user to enter the response and press Enter. The response will
+be stored in the environment variable NAME.
+
+     One important application of the ASK function is in accepting piped
+output from another DOS command. For example, to create a string
+containing the current directory, the following line could be used:
+
+                        CD | STRINGS CURRDIR = ASK
+
+The environment variable CURRDIR would then contain the current directory.
+
+     Since the STRINGS utility depends so heavily on the environment
+block, it is only sensible to include the ENVFREE function, which returns
+the number of bytes free in the environment. If the /M parameter is used
+with this command, ENVFREE returns the bytes free for the master rather
+than the local environment.
+
+     The command ENVSIZE returns the total size of the environment block.
+This function is useful when a batch file needs a larger environment and
+must determine the new size of that environment. As with the ENVFREE
+command, ENVSIZE returns the size of the master environment if the /M
+switch is used.
+
+     The MASTERVAR function returns the value of an environment variable
+from the master environment block. This function allows a user to read a
+value from the master environment block and store it in the local command
+processor environment block.
+
+     As suggested earlier, one important use for the MASTERVAR function
+is in communicating between different DOS sessions running under Windows,
+DESQview, or similar programs. This is accomplished by using STRINGS with
+the /M switch to assign a value to a variable in the master environment.
+Then, when in another DOS session, STRINGS can be used to read the value
+of that variable by invoking the MASTERVAR function.
+
+     (4)   To round out STRINGS' capabilities, I've included simple
+unsigned arithmetic functions. The ADD function, as you would expect,
+sums two (base 10) numbers. The numbers are passed as strings, and the
+result is a string containing the sum. The remaining SUB, MUL, and DIV
+functions perform as would be expected, taking two numbers as input and
+returning the result.
+
+     If an illegal or overlarge number is passed to any of the math
+functions, the function is aborted, and a null string is returned. STRINGS
+also handles overflows, underflows, and divide by zero errors with the
+same null string result. Since STRINGS uses unsigned 32-bit arithmetic,
+however, the possible values for numbers range from 0 to a rather hefty
+4,294,967,295.
+
+     An additional function of the SUB command should be noted. SUB
+responds with an ERRORLEVEL code of 1 if the result is negative. This
+enables the function to serve as a useful compare command. For example,
+if one of your batch files uses the CALL command--which is available
+only under DOS 3.3 and later--you might want to include the following
+sequence: 
+
+                 STRINGS ver = VER
+                 STRINGS SUB %VER%, 330
+                 IF ERRORLEVEL 1 GOTO end
+                 CALL NEWFILE.BAT
+                 :END
+
+Useful examples of actual batch files that make use of STRINGS are presented
+and discussed in the next section.
+
+STRINGS AT WORK
+
+     The test of a utility such as STRINGS is not how good it sounds when
+described in an article but how useful it proves in your own batch files.
+Presented here, therefore, are some short batch files that use the commands
+in STRINGS to perform functions from simple looping to file processing.
+
+      One of the simple things that batch files cannot manage is a FOR
+loop with more than one line. LOOP.BAT (see Figure 2 below), is a short
+batch file, that uses the ADD function of STRINGS to loop though a
+sequence nine times.
+
+     A frequent batch file problem is to determine how a filename was
+entered. Did the user type just the filename or was the file extension
+included? There is no easy way to parse filenames with standard batch
+files, but with STRINGS, it's a piece of cake. PARSE.BAT (see Figure 3 below)
+uses STRINGS to parse the filename. This batch file examines the %1 parameter
+to see if the user typed the filename on the command line. If not, the ASK
+function of STRINGS is used to query the filename from the user.
+
+     Even after the filename has been entered, a problem remains: Does the
+filename have an extension?  The FILENAME function of STRINGS is used to
+ensure that there is no extension. (If no default extension was placed in
+%2, and one wasn't typed by the user, the use is ASKed for an extension.)
+Then the extension (either the default or user-entered) is appended with
+the DOS SET command.
+
+     Once the filename has been parsed, the DOS IF EXIST command is used
+to indicate whether the file actually exists. If the file does not exist,
+the .BAT file prints an error message, deletes the environment variable,
+and exits. If the file does exist, the environment variable, FNAME, now
+contains the correct filename.
+
+      One problem that STRINGS users will soon encounter is the dependence
+of the program on available space in the environment. To solve this problem,
+a technique demonstrated in the example SHELL.BAT (see Figure 4 below),
+can be used.
+
+     SHELL.BAT uses ENVFREE to determine whether enough space exists in
+the environment. The SUB command is used to compare the bytes free value
+returned by ENVFREE with the required space--in this case 300 bytes.
+
+     The SUB command returns an error code of 1 if the result is negative;
+this feature can be used to compare two numbers. The bytes free is subtracted
+from the required space. If the bytes free is less than the required space,
+an error code of 1 is returned.
+
+     To prevent printing an error message to the screen, the output of
+the SUB command is redirected to the NUL device. The IF ERRORLEVEL command
+is used to detect the overflow condition.
+
+     If there is enough space, the additional shell statement is not
+executed. If more environment space is needed, however, the batch file
+determines the required environment size by using ENVSIZE to get the
+current environment size and adds the necessary number of bytes.
+
+     The proper command shell is executed by using the COMSPEC environment
+variable, whose /E: switch sets the size of the environment of the shell.
+The shell statement simply executes the same batch file that was executed
+using the %0 command line parameter. Since the new shell will have enough
+environment space, the shell statement need only be executed once.
+
+     You've probably often wished that batch files could remember the
+current disk and directory. The SETLOCAL and ENDLOCAL commands in OS/2
+provide this function, but there is no DOS equivalent. SAVEDIR.BAT (see
+Figure 5 below), brings this capability to DOS.
+
+     SAVEDIR uses a combination of piping, redirection, and the STRINGS
+ASK commands to put the current disk and directory into the environment
+variable OLDDIR. SAVEDIR then changes the disk and directory.
+
+     The LEFT command is used to copy the first two characters from the
+string stored in OLDDIR to the variable DRIVE. Since the way to change
+the default drive in DOS is by typing the drive letter, a colon, and
+then hitting Enter, the variable DRIVE, containing the old disk letter,
+is simply executed to return to the proper drive. Return to the correct
+directory is achieved by simply using the CD command with the OLDDIR
+variable as the argument.
+
+     The final example uses STRINGS to process a file. CAPIT.BAT
+(see Figure 6 below), capitalizes the instructions in an assembly file
+without disturbing the comments. CAPIT uses a variety of STRINGS
+functions, including READ, WRITE, FIND, and UPPER.
+
+     CAPIT first calls PARSE.BAT to parse the input filename correctly.
+The output filename is then generated by stripping off the input filename
+extension and appending the .OUT extension.
+
+     The main processing loop of CAPIT first reads a line of the input
+file into the LINE environment variable. The line is then searched for
+a semicolon, which indicates the beginning of a comment. If one is found,
+the line is then split into two strings: one containing the characters
+before the semicolon, and one containing the characters after. The former
+are then capitalized using UPPER and the two lines are rejoined and
+written to the output file.
+
+     Note that CAPIT uses the /Pc switch to change the STRINGS parse
+character. Assembly files contain commas and therefore commas could not
+be used. The character~~************ was used, since it seldom occurs in
+assembly language files.
+
+       Note also that in CAPIT, double parse characters are used to
+indicate the start of a parameter. In ASM files, lines often begin with
+a series of spaces that are important for formatting. The use of the
+double parse character immediately before the parameter forces STRINGS
+to respect the leading spaces instead of ignoring them.
+
+     Batch files will be about as long as there is a C:> prompt. As you
+can see, from these examples, the functions provided by STRINGS can make
+your batch files more powerful, easier to write, and even a little more
+friendly.
+
+PROGRAMMING NOTES
+
+     Each time STRINGS runs, it must perform three basic steps: parse
+the command line, execute the command, and store the result. The job of
+parsing the command line is complicated by the fact that the different
+STRINGS commands have different required parameters.
+
+     To begin parsing, STRINGS finds the first nonspace character. If the
+character is a forward slash (/) the next character is assumed to be a
+command line switch. Since there are only two such command line switches,
+parsing is done by a simple compare. If a switch is found, the proper
+flag is set and the overall parsing continues.
+
+     When a word is found without the switch character prefix, an
+interesting problem arises. Is the word a function name or is it the
+name of an environment variable? Since there is no way to tell this early
+in the routine, STRINGS initially assumes that the word is a command and
+copies it into the command buffer.
+
+     The program then scans for the next nonspace character. If that
+character is an equal sign (=) then the first word must have been an
+environment variable name and not a command function. If so, STRINGS
+copies the variable name from the command buffer into the destination
+variable name buffer. The equal sign is skipped and the next word is
+copied into the command buffer. The CONSOLE OUT flag is cleared to
+indicate that the result of the command is to be assigned to an
+environment variable. If an equal sign is not found, then the first word
+is assumed to be a parameter.
+
+     Command parameters are copied into separate 128-byte buffers.
+STRINGS copies a string until the proper parse character (usually the
+comma) is found or until the end of the command line is detected.
+
+     If the first two characters in a parameter consist of the parse
+character itself, STRINGS skips these characters but starts the parameter
+immediately following the parse characters. This allows strings with
+leading spaces to be correctly processed.
+
+     After the command line has been parsed, the command must be
+validated and the proper routine must be called to execute it. To
+validate the command, STRINGS searches through a list of ASCIIZ
+strings, each of which is the name of a valid command. The end of
+the list is indicated by consecutive zero bytes.
+
+     The format of the command list is the same as the format of a DOS
+environment block. This allows the same routine that searches the command
+list for valid commands to be used later to search the environment block
+for environment variables.
+
+     Once the command name has been found in the list, the index into the
+list is used as an index into a jump table. This jump table contains
+pointers to each of the routines that implement the commands. The
+pointers are then used to call the proper command procedure.
+
+     The command procedures themselves are actually quite simple. Each
+procedure accesses the necessary command parameters by loading a pointer
+to the proper parameter buffer. The result of the command is stored in
+the destination data buffer. The resulting string will later either be
+used as the string assigned to the destination environment variable or
+it will be printed to the screen as indicated by the syntax of the
+command.
+
+     The carry flag is used to indicate an error occurring during
+execution of the command. If the carry flag is set, the result is
+discarded and the proper error message is printed to the screen. For
+all errors, STRINGS terminates with an error code of 1.
+
+     Depending on the state of the CONSOLE OUT flag (set in the command
+line parse routine), the result of the command is either printed to the
+screen or assigned to an environment variable.
+
+     Before a result can be assigned to an environment variable, however,
+the environment must be found. STRINGS can search for either the local
+command processor environment or the master environment block.
+
+     Until recently, a second copy of the command processor was only
+used when shelling out to DOS from within another program. With the
+popularity of programs such as Windows 3.0, secondary command processors
+now occur more frequently.
+
+     When Windows creates a DOS session, a second copy of COMMAND.COM is
+launched. This second copy of COMMAND.COM creates its own environment,
+using the strings stored in the master environment. Thus, when a SET
+command is used or an environment variable in a batch file is needed,
+it is the secondary environment, not the master environment that is
+referenced.
+
+     STRINGS defaults to using the secondary command processor environment.
+To find that environment, STRINGS uses an undocumented pointer, located
+at offset 16h in the program segment prefix (PSP) block. This pointer
+identifies the program that started STRINGS. It is not enough just to
+locate STRINGS' parent, however, so STRINGS uses the same pointer in
+the parent's PSP to identify its parent. The trace continues until
+STRINGS finds a PSP that is its own parent. This is the PSP of COMMAND.COM.
+
+     Even when the COMMAND.COM PSP is found, the job is still not over.
+STRINGS cannot use the environment pointer (located at 2Ch) in the
+COMMAND.COM PSP, since that points to the environment created for it
+when it was first launched. Secondary copies of COMMAND.COM create a
+new environment block to use when running, and this is the environment
+needed. This new environment is located above the copy of COMMAND.COM,
+and STRINGS traces the memory control block chain to find it.
+
+     While searching for the environment of the secondary command
+processor is accomplished by tracing the PSP blocks, finding the master
+environment involves tracing memory control blocks from the start of
+memory. Here the search is complicated by the fact that the rules for
+finding the master environment have changed recently.
+
+     Before DOS 4.0, finding the master environment was easy: It was
+the first memory block owned by the first installed program in memory.
+Finding the segment of the master environment was simply a matter of
+tracing the memory allocation blocks to find the first segment owned
+by itself, for this indicated that the block contained a PSP. Once found,
+the trace continued to find the first block owned by that PSP.
+
+     DOS 4.0 introduced a new wrinkle, because now, by using the INSTALL
+keyword in the CONFIG.SYS file, programs can be installed before
+COMMAND.COM. Fortunately, however, DOS 4.0 also provides a solution.
+Added to the memory control blocks in DOS 4.0 is the name of the program
+that owns the block. This allows the trace method to work, modified only
+to verify the name of the PSPs found.
+
+     Once the correct environment has been found, STRINGS must still
+assign the result to the right variable. The environment is searched for
+the variable name, and if it is found, the variable string is removed by
+copying the remaining variables over the target variable. The new string,
+composed of the environment variable, its value, and the joining equal
+sign, is then appended to the end of the environment strings.
+
+     STRINGS checks the size of the environment block to determine
+whether the new string will fit. If the block is too small, STRINGS
+calls DOS function 4Ah to reallocate memory for the environment block.
+If the reallocation call fails, STRINGS terminates with an Out of
+Environment Space message.
+
+Douglas Boling is a contributing editor of PC Magazine.
+
+==============================================================================
+The table below lists the functions supported by STRINGS, together with
+the parameters to supply.
+
+FUNCTION        DESCRIPTION                             PARAMETERS TO SUPPLY
+
+LEFT            Returns left n characters               String, number of
+                                                        characters
+RIGHT           Returns right n characters              String, number of
+                                                        characters
+MID             Returns middle n characters             String, starting
+                                                        character, length
+LENGTH          Returns string length                   String
+FIND            Finds position of findstring            String, findstring
+FINDC           Case-sensitive FIND                     String, findstring
+LOWER           Returns string all lowercase            String
+UPPER           Returns string all uppercase            String
+CHAR            Returns ASCII value of character        Character
+
+VAL             Returns ASCII character of number       Number
+
+READ            Returns a line from a file              Filename, line number
+WRITE           Writes string to end of file            Filename, string
+FILESIZE        Returns file size                       Filename
+LINESIZE        Returns number of lines                 Filename
+FILENAME        Returns filename                        Filespec
+FILEEXIT        Returns file extension                  Filespec
+TRUENAME        Returns qualified filename              Filename
+ASK             Returns user response                   [Prompt string]
+VER             Returns the DOS version number
+ENVFREE         Returns the bytes free in the 
+                environment
+ENVSIZE         Returns size of the environment
+MASTERVAR       Returns a variable from the
+                master environment
+ADD             Returns sum of two numbers              Number,number
+SUB             Returns difference of two numbers       Number,number
+MUL             Returns product of two numbers          Number,number
+DIV             Returns quotient of two numbers         Number,number
+
+Figure 1:
+========================================================================
+
+LOOP.BAT
+------------------
+@echo off
+REM ===================================================================
+REM Loop 10 times using STRINGS to increment a loop variable.
+REM ===================================================================
+
+SET count=1
+:LABEL1
+ECHO %COUNT%
+STRINGS count = ADD %COUNT%, 1
+IF NOT .%COUNT%==.10 GOTO LABEL1
+SET count=
+
+Figure 2:  LOOP.BAT uses STRINGS's ADD function to create a looping
+           batch file.
+=======================================================================
+
+PARSE.BAT
+-------------------
+@ECHO off
+REM ===================================================================
+REM
+REM PARSE.BAT - A batch file that parses a filename.
+REM
+REM Entry: %1 is the filename entered by the user
+REM  %2 is the default filename extension desired.
+REM
+REM Exit:  %FNAME% contains the parsed filename
+REM
+REM ===================================================================
+
+SET fname=%1
+SET fext=%2
+
+IF .%1==. STRINGS fname = ASK Please enter the name of the file
+
+STRINGS fname = FILENAME %fname%
+
+IF .%2==. STRINGS fext = ASK Please enter the extension of the file
+
+STRINGS fname = FILENAME %FNAME%
+
+SET fname=%FNAME%.%FEXT%
+IF EXIST %FNAME% GOTO END
+
+ECHO The filename %FNAME% does not exist.
+SET fname=
+GOTO end
+
+:END
+SET fext=
+
+Figure 3:  PARSE.BAT uses the STRINGS utility to parse filenames.
+========================================================================
+
+SHELL.BAT
+-------------------
+
+@ECHO off
+REM ===================================================================
+REM
+REM Shell out to a new copy of COMMAND.COM to increase environment size
+REM
+REM ===================================================================
+
+REM
+REM Determine the bytes free in the current environment.  If there are not
+REM 300 bytes free, shell out to increase the size of the environment.
+REM
+
+STRINGS efree = ENVFREE
+STRINGS SUB 300, %EFREE% > NUL
+IF ERRORLEVEL 1 GOTO main
+
+
+ECHO Bytes free in current environment:
+STRINGS ENVFREE
+
+REM
+REM Determine the size of the necessary environment by adding the
+REM required bytes to the current environment size.
+REM
+
+STRINGS esize = ENVSIZE
+STRINGS esize = ADD %ESIZE%, 300
+
+REM
+REM Shell out using the COMSPEC variable.  The %0 parameter is the name
+REM of the batch file being executed.
+REM
+
+%COMSPEC% /e:%ESIZE% /c %0
+GOTO end
+
+REM
+REM This is the main body of the batch file.  Since this is only an
+REM example, the only work done here is to print the number of bytes free
+REM in the shelled environment.
+REM
+
+:MAIN
+ECHO.
+ECHO Bytes free in shelled environment
+STRINGS ENVFREE
+
+:END
+SET EFREE=
+SET ESIZE=
+
+Figure 4:  SHELL.BAT can be used to increase environment space.
+========================================================================
+
+SAVDIR.BAT
+-------------------
+@ECHO off
+REM ===================================================================
+REM
+REM Use strings to save the current disk and directory.
+REM
+REM ===================================================================
+
+
+REM
+REM Pipe the current drive and directory into a env var using the ASK
+REM command.
+REM
+
+CD | STRINGS olddir = ask > NUL
+
+REM
+REM Change to the root directory of the C: drive to leave where we were.
+REM
+
+C:
+CD \
+ECHO on
+DIR autoexec.bat
+@ECHO off
+
+REM
+REM Use the LEFT command to separate the drive letter from the directory
+REM string, then change to the proper disk.
+REM
+
+STRINGS drive = LEFT %OLDDIR%, 2
+%DRIVE%
+
+REM
+REM Use the MID command to return the directory string without the drive
+REM letter. Change to the proper directory using the CD command.
+REM
+
+CD %OLDDIR%
+
+SET drive=
+SET olddir=
+
+Figure 5:  SAVEDIR.BAT  saves the current disk and directory.
+========================================================================
+
+CAPIT.BAT
+-------------------
+@ECHO off
+REM ===================================================================
+REM
+REM Use strings to capitalize the opcodes in an ASM file.
+REM
+REM ===================================================================
+
+REM
+REM Use the previous example file PARSE to parse the filename.
+REM
+
+CALL PARSE %1 ASM
+
+IF .%fname%==. GOTO end
+
+STRINGS fileout = FILENAME %FNAME%
+SET fileout=%FILEOUT%.OUT
+
+SET lnum=1
+
+REM
+REM Read the line to the variable 'LINE'.  If no more lines are in the
+REM file, STRINGS will return a nonzero return code.  Pipe the output
+REM to the NUL driver to avoid the 'Line not found' error message.
+REM
+:LABEL1
+
+SET line=
+SET part1=
+SET part2=
+
+STRINGS line = READ %FNAME%, %LNUM% > NUL
+IF ERRORLEVEL 1 GOTO end
+
+REM
+REM Find the offset of the ; character in the line.  Don't capitalize
+REM characters after the ; since they are part of the comment.
+REM
+
+STRINGS /p~ offset = FIND ~~%LINE%~ ;
+IF .%OFFSET%==.0 SET offset=128
+
+STRINGS /p~ part1 = LEFT ~~%LINE%~ %OFFSET%
+
+STRINGS offset = ADD %OFFSET%, 1
+
+STRINGS /p~ part2 = MID ~~%LINE%~ %OFFSET%~ 128
+
+STRINGS /p~ part1 = UPPER ~~%PART1%
+
+REM
+REM Write the line to the file.  Change the parse character to ~ since
+REM the line may contain a comma.  Use double parse characters ~~ to
+REM force STRINGS to respect any leading spaces in the parameters.
+REM
+
+STRINGS /p~ WRITE %FILEOUT%~ ~~%PART1%%PART2% >NUL
+
+STRINGS lnum = ADD %LNUM%, 1
+
+GOTO label1
+
+:END
+SET var=
+SET fname=
+SET fileout=
+SET lnum=
+SET offset=
+SET line=
+SET part1=
+SET part2=
+
+Figure 6:  CAPIT.BAT improves the readability of assembly language files
+           by uppercasing instructions but not comments.
+========================================================================

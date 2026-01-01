@@ -1,0 +1,1041 @@
+
+#!/usr/bin/perl
+
+# webxref
+# ------
+# Webxref is a WWW link checker and cross referencing tool, intended
+# to quickly check a local set of HTML documents for missing files,
+# anchors etc. You simply call webxref with a HTML document as the parameter.
+# Webxref compiles a list of HTML documents, URLs, name anchors, images etc
+# and the html files that reference those, i.e. a cross-reference list.
+#
+# usage: webxref [-nohttp -htmlonly -avoid regexp] file.html
+#
+#   -nohttp tells webxref *not* to check http:// URLs via the network
+#
+#   -htmlonly tells webxref to *only* inspect files with the .html
+#             extension for further links.
+#
+#   -silent tells webxref to only output error messages and keep quiet
+#             about things that are ok.
+#
+#   -avoid regexp: when regexp matches a filename/URL/... the item is
+#             not further inspected. Make sure this parameter is
+#             supplied in quotes, else the shell will interpret various
+#             characters like *,$,.,?,...
+#
+# Examples
+#   webxref file.html
+#             checks file.html and files/URLs referenced from file.html
+#   webxref -nohttp file.html
+#             checks file.html, but not external URLs
+#   webxref -htmlonly file.html
+#             checks file.html, but no files without .html extension
+#   webxref -avoid '.*Archive.*' file.html
+#             checks file.html but avoids files with names containing
+#             'Archive'
+#   webxref -avoid '.*Archive.*|.*Distribution.*' file.html
+#             Same as above, but also files with names containing
+#             'Distribution' are skipped.
+#
+# Lists are made of:
+# - html files
+# - directories
+# - binary files (images)
+# - named anchors
+# - mailto's
+# - news
+# - ftp
+# - telnet
+# - gopher
+# - external URLs
+# - cgi-bin scripts
+# - file:'s
+# - files that can't be found
+# - files that are not world readable
+# - directories that can't be found
+# - name anchors that can't be found
+# - http:// ok references
+# - http:// failed references
+#
+# Written July 1995 by Rick Jansen at SARA as part of the SURFACE project
+# (SURFnet Advanced Communication Environment)
+# email:  rick@sara.nl
+# url:    http://www.sara.nl/Rick.Jansen
+#
+# 11-JUL-95 lcheck version 0.0.0
+# 18-JUL-95 renamed webxref 0.0.1
+# 20-JUL-95 webxref 0.0.2
+# 21-JUL-95 webxref 0.0.3 root handling
+# 27-JUL-95 webxref 0.0.4 metachar interpretation in substitutions fixed
+# 28-JUL-95 webxref 0.0.5 pass associative array to sub
+# 08-AUG-95 webxref 0.0.6 parsing with temp file
+# 08-AUG-95 webxref 0.0.7 handle Welcome/welcome/index.html in case of dir
+# 08-AUG-95 webxref 0.0.8 'file:' refs
+# 10-AUG-95 webxref 0.0.9 Extensible default_files
+# 14-AUG-95 webxref 0.1.0 Some perl lint removed, cgi-bin added
+# 28-SEP-95 webxref 0.1.1 1-level external URL checking added
+# 04-OCT-95 webxref 0.1.2 options -nohttp -htmlonly and -avoid added
+# 04-OCT-95 webxref 0.1.3 Restriction on tags not being allowed to spread
+#                         over more than 1 source line removed, thanks to
+#                         Hans Hoppe (hopha@sci.kun.nl)
+# 10-OCT-95 webxref 0.1.4 -silent option
+#
+#
+# New versions can be obtained from:
+#   http://www.sara.nl/Rick.Jansen
+
+
+#---------------------------------------------
+# Configurable things:
+
+# Files to try in case of a directory reference like ../..
+@default_files = ('Welcome.html','welcome.html','index.html',
+                  'index.shtml','README.html');
+#---------------------------------------------
+
+$debug = 0;
+
+$temp_file = "/tmp/webxref.$$";
+
+#---------------------------------------------
+# HTTP status codes and messages
+
+%OkStatusMsgs = (
+  200, "OK 200",
+  201, "CREATED 201",
+  202, "Accepted 202",
+  203, "Partial Information 203",
+  204, "No Response 204",
+);
+
+%FailStatusMsgs = (
+  -1,  "Could not lookup server",
+  -2,  "Could not open socket",
+  -3,  "Could not bind socket",
+  -4,  "Could not connect",
+  301, "Found, but moved",
+  302, "Found, but data resides under different URL (add a /)",
+  303, "Method",
+  304, "Not Modified",
+  400, "Bad request",
+  401, "Unauthorized",
+  402, "PaymentRequired",
+  403, "Forbidden",
+  404, "Not found",
+  500, "Internal Error",
+  501, "Not implemented",
+  502, "Service temporarily overloaded",
+  503, "Gateway timeout ",
+  600, "Bad request",
+  601, "Not implemented",
+  602, "Connection failed (host not found?)",
+  603, "Timed out",
+);
+
+
+#---------------------------------------------
+# Process parameters
+
+$Do_External_URLs = 1; # Default we do check external URLs
+
+$HTML_only = 0;        # If 0, referenced files are checked for links
+                       # even if the file has no .html extension
+
+$Avoid = "";           # Regexp to avoid certain URLs, files,...
+
+$Silent = 0;           # If silent=1 only error msgs will be printed
+
+$InFile = "";
+while ($ARGV[0] =~ /^-/) {
+  if ($ARGV[0] eq "-help") {&PrintHelp;}
+  elsif ($ARGV[0] eq "-nohttp") {$Do_External_URLs = 0; }
+  elsif ($ARGV[0] eq "-htmlonly") {$HTML_only = 1; }
+  elsif ($ARGV[0] eq "-silent") {$Silent = 1; }
+  elsif ($ARGV[0] eq "-avoid") {
+    shift;
+    $Avoid = $ARGV[0];
+    print "Avoided: $Avoid\n";
+    }
+  else {&PrintUsage;}
+
+  shift;
+}
+$InFile = $ARGV[0];
+
+if ($InFile eq "") {
+  print "No input file.\n";
+  exit;
+}
+
+
+#---------------------------------------------
+
+# Does the file exist at all?
+stat($InFile);
+die "Cannot find file $InFile\n" unless -e $InFile;
+
+
+#---------------------------------------------
+
+if ($debug) {
+print "=======================\n";
+print "\n input file: $InFile\n";
+}
+
+# Assume webxref is called in the document root directory
+$root = `pwd`;
+chop($root);
+
+if (!$Silent) { print "\nChecking $InFile\n\n"; }
+&Get_Refs($InFile,"<none>");
+
+&Print_Lists;
+
+# Check external URLs
+if ($Do_External_URLs) {
+  if (! $Silent) {
+  print <<"E_O_T";
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - -
+Going to really check external URLs via the network.
+This may take some time. Simply abort webxref if you
+are out of patience.
+- - - - - - - - - - - - - - - - - - - - - - - - - - -
+E_O_T
+
+  }
+
+  &Check_External_URLs(%HTTPList, "Checking external URLs:");
+  print "\nAll done.\n";
+}
+
+
+exit;
+
+
+sub PrintUsage {
+
+print <<"E_O_T";
+
+Usage: webxref -help -nohttp -htmlonly -silent -avoid regexp file.html
+
+E_O_T
+
+exit;
+}
+
+
+
+sub PrintHelp {
+
+print <<"E_O_T";
+
+Usage: webxref -help -nohttp -htmlonly -silent -avoid regexp file.html
+
+ -nohttp: do not check external URLs
+ -htmlonly: only inspect files with the .html extension
+ -silent: only output error/problem messages
+ -avoid regexp: avoid files with names matching regexp for inspection
+
+ Examples
+   webxref file.html
+             checks file.html and files/URLs referenced from file.html
+   webxref -nohttp file.html
+             checks file.html, but not external URLs
+   webxref -htmlonly file.html
+             checks file.html, but only files with the .html extension
+   webxref -avoid '.*Archive.*' file.html
+             checks file.html but avoids files with names containing
+             'Archive'
+   webxref -avoid '.*Archive.*|.*Distribution.*' file.html
+             Same as above, but also files with names containing
+
+E_O_T
+
+exit;
+}
+
+#---------------------------------------------
+
+sub Get_PWD {
+
+# Get the pwd, make sure it ends with a slash
+
+local($dir);
+
+$dir = `pwd`;
+$dir =~ s/\n//g;
+if (!($dir =~ m#.*/$#)) {
+  $dir = "$dir/";
+}
+
+return $dir;
+
+}
+
+
+
+sub Get_Refs {
+
+# Recursively get all referenced files a from the file
+
+local(%newlist);
+local($file);
+local($dir);
+local($Old_Dir);
+local($filename);
+
+$dir=&Dir_Name($_[0]);
+if ($dir eq "") {
+  $dir = &Get_PWD;
+}
+$file=&Base_Name($_[0]);
+#print "--------------------\n";
+if ($debug) {
+print "arg=$_[0]\n";
+print "dir=$dir\n";
+print "file=$file\n";
+}
+
+
+
+# http?
+if ($_[0] =~ m/.*(http:.*)/i) {
+  if (!defined($HTTPList{$1})) {
+    $HTTPList{$1} = $_[1];
+    }
+  else {
+    $HTTPList{$1} = "$HTTPList{$1} $_[1]";
+  }
+  return;
+}
+
+
+
+# ftp?
+if ($_[0] =~ m/.*(ftp:.*)/i) {
+  if (!defined($FTPList{$1})) {
+    $FTPList{$1} = $_[1];
+    }
+  else {
+    $FTPList{$1} = "$FTPList{$1} $_[1]";
+  }
+  return;
+}
+
+
+# telnet?
+if ($_[0] =~ m/.*(telnet:.*)/i) {
+  if (!defined($TelnetList{$1})) {
+    $TelnetList{$1} = $_[1];
+    }
+  else {
+    $TelnetList{$1} = "$TelnetList{$1} $_[1]";
+  }
+  return;
+}
+
+
+# gopher?
+if ($_[0] =~ m/.*(gopher:.*)/i) {
+  if (!defined($GopherList{$1})) {
+    $GopherList{$1} = $_[1];
+    }
+  else {
+    $GopherList{$1} = "$GopherList{$1} $_[1]";
+  }
+  return;
+}
+
+
+
+# mailto?
+if ($_[0] =~ m/.*(mailto:.*)/i) {
+  if (!defined($MailList{$1})) {
+    $MailList{$1} = $_[1];
+    }
+  else {
+    $MailList{$1} = "$MailList{$1} $_[1]";
+  }
+  return;
+}
+
+
+# news?
+if ($_[0] =~ m/.*(news:.*)/i) {
+  if (!defined($NewsList{$1})) {
+    $NewsList{$1} = $_[1];
+    }
+  else {
+    $NewsList{$1} = "$NewsList{$1} $_[1]";
+  }
+  return;
+}
+
+
+# file:?
+if ($_[0] =~ m/.*(file:.*)/i) {
+  if (!defined($ExtFileList{$1})) {
+    $ExtFileList{$1} = $_[1];
+    }
+  else {
+    $ExtFileList{$1} = "$ExtFileList{$1} $_[1]";
+  }
+  return;
+}
+
+
+# cgi-bin script?
+if ($_[0] =~ m#(^/cgi-bin/.*)#i) {
+  $_[0] =~ m#(^/cgi-bin/.*)=.*#i;  # Delete cgi-parameters
+
+  if (!defined($CGIList{$1})) {
+    $CGIList{$1} = $_[1];
+    }
+  else {
+    $CGIList{$1} = "$CGIList{$1} $_[1]";
+  }
+  return;
+}
+
+
+# directory reference?
+if ($file eq "") {
+
+  if ($debug) {
+    print "$dir must be a dir, refd by $_[1]!\n";
+  }
+  if (-d $_[0]) {
+    if (!defined($DirList{$_[0]})) {
+      $DirList{$_[0]} = $_[1];
+      }
+    else {
+      $DirList{$_[0]} = "$DirList{$_[0]} $_[1]";
+    }
+  }
+  else {
+
+    if (!defined($DirNotFoundList{$_[0]})) {
+      $DirNotFoundList{$_[0]} = $_[1];
+    }
+    else {
+      $DirNotFoundList{$_[0]} = "$DirNotFoundList{$_[0]} $_[1]";
+    }
+  }
+
+  return;
+}
+
+
+
+# Move to the specified directory
+$Old_Dir = &Get_PWD;
+if ($debug) {
+  print "Chdir to $dir\n";
+}
+chdir($dir);
+$dir=&Get_PWD;
+if ($debug) {
+  print "Now in $dir\n";
+}
+$filename = $dir . $file;
+
+if (! $Silent) {
+  print "Checking: $filename\n";
+}
+
+# Is it a reference to a specific section? (a file#section reference)
+if ($filename =~ m/(.+)#(.+)/) {
+  $filename = "$1#$2";
+  if (&CheckAnchor($1, $2) ) {
+    #print "** Anchor $2 is present in file $1\n";
+
+    # Add to the list of anchors
+    if (!defined($AnchorList{$filename})) {
+      $AnchorList{$filename} = $_[1];
+      }
+    else {
+      $AnchorList{$filename} = "$AnchorList{$filename} $_[1]";
+    }
+  }
+  else {
+    print "xx Anchor $2 is NOT present in file $1\n";
+    print "xx Referenced by: $_[1]\n";
+    #print "Anchor filename: $filename\n";
+
+    # Add to the list of lost anchors
+    if (!defined($LostAnchorList{$filename})) {
+      $LostAnchorList{$filename} = $_[1];
+      }
+    else {
+      $LostAnchorList{$filename} = "$LostAnchorList{$filename} $_[1]";
+    }
+
+  }
+  return;
+}
+
+#
+# Add to the list of already tested files
+#
+
+# If the "file" is a directory try Welcome/welcome/index.html
+if (-d $filename) {
+  #print "xx $filename is a directory, trying Welcome/welcome/index.html.\n";
+
+  $found = 0;
+  foreach $default_file (@default_files) {
+    #print "Trying $default_file\n";
+    if (-f ($file . '/' . $default_file)) {
+      $dirname=$filename;
+      $file= $default_file;
+      $found = 1;
+      last;
+    }
+  }
+
+  if (! $found) {
+    print "xx No Welcome/welcome/index.html can be found in $filename\n";
+    print "xx Referenced by: $_[1]\n";
+
+    # Add to list of lost files
+    if (!defined($LostFileList{$filename})) {
+      $LostFileList{$filename} = $_[1];
+      }
+    else {
+      $LostFileList{$filename} = "$LostFileList{$filename} $_[1]";
+    }
+    return;
+  }
+
+  # Move to the specified directory
+  if ($debug) {
+    print "Chdir to $dirname\n";
+  }
+  chdir($dirname);
+  $dir=&Get_PWD;
+  if ($debug) {
+    print "Now in $dir\n";
+  }
+  $filename = $dir . $file;
+  if ($debug) {
+    print "** Filename is now: $filename\n";
+    print "** Dirname is now: $dir\n";
+  }
+}
+
+if (! -f $filename) {
+  print "xx $filename cannot be found\n";
+  print "xx Referenced by: $_[1]\n";
+
+  # Add to list of lost files
+  if (!defined($LostFileList{$filename})) {
+    $LostFileList{$filename} = $_[1];
+    }
+  else {
+    $LostFileList{$filename} = "$LostFileList{$filename} $_[1]";
+  }
+
+  return;
+}
+
+# Binary file? (pictures,...)
+if (-B $filename) {
+  if ($debug) {
+    print "** Binary file added to images";
+  }
+  if (defined($ImageFileList{$filename})) {
+    return;
+  }
+  if (!defined($ImageFileList{$filename})) {
+    $ImageFileList{$filename} = $_[1];  # Define!
+    }
+  else {
+    $ImageFileList{$filename} = "$ImageFileList{$filename} $_[1]";
+  }
+  if ($debug) {
+    print "\n\nAdded: $filename to list of images\n";
+  }
+
+  return;
+}
+
+# else it's a text (html)file
+if (!defined($FileList{$filename})) {
+  $FileList{$filename} = $_[1];  # Define!
+  }
+else {
+  $FileList{$filename} = "$FileList{$filename} $_[1]";
+
+  return;  # Already did this file
+}
+if ($debug) {
+  print "** Added: $filename \n";
+}
+
+
+# World readable?
+($_,$_,$mode) = stat($filename);
+$readmode = ($mode & 4);
+if ($readmode == 0) {
+  # Not world readable, add to list
+  #print "xx Warning: $filename is not world readable\n";
+  if (!defined($UnreadableList{$filename})) {
+    $UnreadableList{$filename} = $_[1];
+    }
+  else {
+    $UnreadableList{$filename} = "$UnreadableList{$filename} $_[1]";
+  }
+}
+
+if ($HTML_only) {
+  # Filename *must* have extension .html, else we don't inspect it.
+  if ($filename !~ /.*\.html$/i) {return;}
+}
+
+# Apply the regexp to avoid certain files
+if ($Avoid ne "") {
+  if ($filename =~ $Avoid) {
+    print "** The above file is avoided.\n";
+    return;
+  }
+}
+
+
+$err = 0;
+open(HTML, $filename) || ($err = 1);
+if ($err) {
+  print "xx Could not open file $filename\n";
+  return;
+}
+
+# Make sure all <somethings start on a new line in temp file,
+# resulting in one thingie per line
+
+#Old:
+#open(TEMP,">$temp_file") || die "Could not create $temp_file\n";
+#while (<HTML>) {
+#  s/</\n</g;
+#  print TEMP;
+#}
+#close(TEMP);
+
+# Read the file into a big string and remove crud in between tags.
+# Code thanks to Hans Hoppe (hopha@sci.kun.nl) 04-OCT-95
+open(TEMP,">$temp_file") || die "Could not create $temp_file\n";
+$offset=0;
+do {
+  $size=read(HTML,$html_text,32768,$offset);
+  $offset=$offset+$size;
+} until $size != 32768;
+close(HTML);
+#$html_text =~ s/\n/ /gs;
+$html_text =~ s/\n/ /g;
+$html_text =~ s/[^<]*//;
+$html_text =~ s/(<[^>]*>)[^<]*/\1\n/g;
+print TEMP "$html_text";
+$html_text="";
+close(TEMP);
+
+open(HTML, $temp_file) || die "Could not open $temp_file\n";
+while (<HTML>) {
+  chop;
+
+  # <a href=...
+  if (/<a\s+.*href\s*=/i) {
+    s/<a\s+.*href *=//i;   # <a href=  at start
+    s/\s+.*//;
+    s/\s+.*>.*//;          # trailing stuff
+    s/>.*$//i;             # remove >'s
+    s/"//g;                # Unquote file names
+    s/^\s*//;              # Remove spaces at start
+    s/\s*$//;              # Remove spaces at end
+
+    # Link to section within current document?
+    if (m/^#.*/) {
+      $file_w_anchor = $filename;
+      $file_w_anchor =~ s#.*/##;
+      if ($debug) {
+        print "file_w_anchor: $file_w_anchor\n";
+        print "Added to newlist: $file_w_anchor$_\n";
+      }
+      $newlist{"$file_w_anchor$_"} = 1;  # Check this file plus anchor later
+      }
+    # Link to another document?
+    else {
+      if ($debug) {
+        print "added to newlist: $_\n";
+      }
+      $newlist{$_} = 1;
+    }
+
+  }
+
+  # <img src=...
+  # NB: <img and src= must be on same line
+  if (/<img\s+.*src\s*=/i) {
+    s/<img\s+.*src\s*=//i;
+    s/\s+.*//;
+    s/\s+.*>.*//;
+    s/>.*$//i;             # remove >'s
+    s/"//g;                # Unquote file names
+    s/^\s*//;              # Remove spaces at start
+    s/\s*$//;              # Remove spaces at end
+
+    # Add file to the list
+    $newlist{$_} = 1;
+  }
+
+}
+
+close(HTML);
+
+chdir($Old_Dir);
+
+if ($debug) {
+  # List files
+  print "\nNewlist:\n";
+  foreach $file (keys(%newlist)) {
+    print "$file \n";
+  }
+}
+
+# Walk the list
+foreach $file (keys(%newlist)) {
+  # if file is //something insert a http:
+  if ($file =~ m#^//.*#) {
+    $file = "http:" . $file;
+  }
+
+  $Notlocal_file = $dir . $file;
+
+  # If file is /something it's a reference from the root document.
+  # It can also be a cgi-bin reference!
+  if ($file =~ m#^/cgi-bin/.*#) {
+    $Notlocal_file = $file;
+    }
+  elsif ($file =~ m#^/.*#) {
+    $Notlocal_file = "$root$file";
+  }
+
+  $Notlocal_ref_filename = $filename;
+  if ($debug) {
+    print "\nCalling GR with $Notlocal_file\n";
+    print "Referenced by: $Notlocal_ref_filename\n";
+  }
+  &Get_Refs($Notlocal_file, $Notlocal_ref_filename);
+}
+
+unlink($temp_file);
+
+} #sub Get_Refs
+
+#---------------------------------------------
+
+sub Base_Name {
+
+# return basename,
+# e.g. /home/sscprick/.WWW/Welcome.html
+# returns: Welcome.html
+
+local($local_filename)=$_[0];
+$local_filename =~ s#.*/##;  # remove the directory name -> file name
+
+$local_filename;
+}
+
+sub Dir_Name {
+
+# return dirname,
+# e.g. /home/sscprick/.WWW/Welcome.html
+# returns: /home/sscprick/.WWW/
+
+local($local_filename)=$_[0];
+$local_filename =~ s#.*/##;  # remove the directory name -> file name
+local($local_dirname) = $_[0];
+$local_filename =~ s/(\W)/\\$1/g;  # escape regexp chars
+$local_dirname =~ s/$local_filename$//; # wipe filename at end -> dir name
+
+$local_dirname;
+}
+
+
+sub CheckAnchor {
+
+# See if #section anchor is present in file
+
+local($fn, $anchor) = @_;
+$anchor =~ s/(\W)/\\$1/g;  # quote rexep chars
+
+open(CH_HTML, $fn) || die "xx Could not open $fn\n";
+while (<CH_HTML>) {
+  chop;
+  if (/<a +name *= *"*$anchor"*/i) {
+    close(CH_HTML);
+    return 1;
+  }
+}
+
+close(CH_HTML);
+return 0;
+
+} # sub CheckAnchor
+
+
+#---------------------------------------------
+
+sub Check_External_URLs {
+
+
+local(%list, $header) = @_;
+local($URL);
+
+if (!$Silent) { print "\n\n----------------\n$header\n"; }
+@TheList=keys(%list);
+@SortedList = sort @TheList;
+
+foreach $URL (@SortedList) {
+  if (! $Silent) { print "$URL \n"; }
+
+  if (defined($HTTPStatusList{$URL})) {
+    # Already checked on this one
+    next;
+  }
+  else {
+    $rcode = &Check_URL($URL);
+  }
+
+  if (defined($OkStatusMsgs{$rcode})) {
+    # URL is ok, server responds and all.
+    if (! $Silent) { print "  Ok\n"; }
+    $HTTP_OK_List{$URL} = $HTTPList{$URL};  # The references
+  }
+  else {
+    # Something is wrong.
+    if (defined($FailStatusMsgs{$rcode})) {
+      if (! $Silent) { print "  xx Failed: $FailStatusMsgs{$rcode}\n"; }
+    }
+    else {
+      if (! $Silent) { print "  xx Failed with code $rcode\n"; }
+    }
+    $HTTP_Fail_List{$URL} = $rcode;
+  }
+}
+
+if (! $Silent) { &Print_List(%HTTP_OK_List,"URLs checked ok:"); }
+&Print_Failed_URL_List(%HTTP_Fail_List, "Failed URLs:");
+
+}
+
+
+
+sub Print_Failed_URL_List {
+
+local(%list, $header) = @_;
+local($URL);
+
+# Don't list empty lists
+if (! %list) {return};
+
+print "\n\n----------------\n$header\n";
+@TheList=keys(%list);
+@SortedList = sort @TheList;
+
+foreach $URL (@SortedList) {
+  print "$URL \n";
+  $rcode = $HTTP_Fail_List{$URL};
+  print "  Status: $rcode ($FailStatusMsgs{$rcode})\n";
+
+  @lost = split(/ /,$HTTPList{$URL});
+  @sortlost = sort @lost;
+  print "  Referenced by:\n";
+  foreach $lostURL (@sortlost) {
+    print "  $lostURL\n";
+  }
+}
+
+}  # sub Print_Failed_URL_List
+
+
+
+
+
+sub Check_URL {
+
+# http://host:port/path
+
+local($URL) = @_;
+
+if ($URL !~ m#^http://.*#i) {
+  print "wrong format http!\n";
+  return;
+}
+else {
+
+  #if ($URL =~ m#^http://([\w-\.]+)(:|$|/)#) {
+
+  # Get the host and port
+  if ($URL =~ m#^http://([\w-\.]+):?(\d*)($|/(.*))#) {
+    $host = $1;
+    $port = $2;
+    $path = $3;
+  }
+  if ($path eq "") { $path = '/'; }
+  if ($port eq "") { $port = 80; }
+
+  # Delete name anchor. (check if the anchor is present in the doc?)
+  $path =~ s/#.*//;
+  # Delete parameters
+  #$path =~ s/\?.*//;
+
+  #print "-->\n URL: $URL\n host: $host\n port: $port\n path: $path\n";
+}
+
+
+# The following is largely taken from the Camel book, chapter 6
+
+$AF_INET = 2;
+$SOCK_STREAM = 1;
+
+$sockaddr = 'S n a4 x8';
+
+chop($hostname = `hostname`);
+
+($name,$aliases,$proto) = getprotobyname('tcp');
+($name,$aliases,$port) = getservbyname($port,'tcp') unless $port =~ /^\d+$/;
+($name,$aliases,$type,$len,$thisaddr) = gethostbyname($hostname);
+if (!(($name,$aliases,$type,$len,$thataddr) = gethostbyname($host))) {
+  return -1;
+}
+
+$this = pack($sockaddr, $AF_INET, 0, $thisaddr);
+$that = pack($sockaddr, $AF_INET, $port, $thataddr);
+
+# Make the socket filehandle.
+if (!(socket(S, $AF_INET, $SOCK_STREAM, $proto))) {
+  return -2;
+}
+
+# Give the socket an address
+if (!(bind(S, $this))) {
+  return -3;
+}
+
+if (!(connect(S,$that))) {
+  return -4;
+}
+
+select(S); $| = 1; select(STDOUT);
+
+print S "HEAD $path HTTP/1.0\n\n";
+
+$response = <S>;
+($protocol, $status) = split(/ /, $response);
+while (<S>) {
+  #print;
+}
+close(S);
+
+#print "Status: $status\n";
+return $status;
+
+}
+
+
+
+
+
+
+
+#---------------------------------------------
+
+sub Print_List {
+
+local(%list, $header) = @_;
+local($file);
+
+# Don't list empty lists
+if (! %list) {return};
+
+print "\n\n----------------\n$header\n";
+@TheList=keys(%list);
+@SortedList = sort @TheList;
+
+foreach $file (@SortedList) {
+  print "$file \n";
+  @lost = split(/ /,$list{$file});
+  @sortlost = sort @lost;
+  print "  Referenced by:\n";
+  foreach $lostfile (@sortlost) {
+    print "  $lostfile\n";
+  }
+}
+
+}  # sub Print_List
+
+
+
+
+sub Print_Lists {
+
+# Print lists
+
+# List all files found
+if (!$Silent) { &Print_List(%FileList,"Web documents found:");}
+
+# List of directories referenced
+if (!$Silent) { &Print_List(%DirList,"Directories:");}
+
+# List of images referenced
+if (!$Silent) { &Print_List(%ImageFileList,"Images:");}
+
+# List of mailto's
+if (!$Silent) { &Print_List(%MailList,"Mailto:");}
+
+# List of ftp's
+if (!$Silent) { &Print_List(%FTPList,"ftp:");}
+
+# List of telnets
+if (!$Silent) { &Print_List(%TelnetList,"telnet:");}
+
+# List of gophers
+if (!$Silent) { &Print_List(%GopherList,"gopher:");}
+
+# List of news
+if (!$Silent) { &Print_List(%NewsList,"News:");}
+
+# List of http's
+if (!$Silent) { &Print_List(%HTTPList,"External URLs:");}
+
+# List of file:'s
+if (!$Silent) { &Print_List(%ExtFileList,"External file:");}
+
+# List of cgi-bin scripts/forms
+if (!$Silent) { &Print_List(%CGIList,"cgi-bin scripts/forms:");}
+
+# List of name anchors
+if (!$Silent) { &Print_List(%AnchorList,"Name anchors found:");}
+
+# List of files that can't be found
+&Print_List(%LostFileList,"Files not found:");
+
+# List of files that are not world readable
+&Print_List(%UnreadableList,"Files not world readable:");
+
+# List of directories that can't be found
+&Print_List(%DirNotFoundList,"Directories not found:");
+
+# List of name anchors not found
+&Print_List(%LostAnchorList,"Name anchors not found:");
+
+if ($HTML_only) { print "\nDone.\n"; }
+
+} #sub Print_Lists
+
+
+
+# This is the last line of the webxref script really.
+# If this line is missi
+
+

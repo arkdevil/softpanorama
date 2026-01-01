@@ -1,0 +1,843 @@
+$macro_file gsv_shel;
+
+{ DIR SHELL.
+  23 ноября 91г.
+  Разработчик: Гурин C.В. Томский политехнический институт, кафедра
+               электрических станций, раб. тел. 49-25-07
+  Версия Multi-Edit: 5.00P
+
+  Этот макрофайл применяется в связке с макрофайлами:
+    gsv_stat - начальные установки и служебные макросы
+    gsv_sup  - вызов Dir Shell макросом gsv_sup^gsvds, который производит
+               загрузку и выгрузку макросов Dir Shell
+    gsv_dsmf - макросы расширенного набора операций Dir Shell
+    gsv_tree - выбор каталога по дереву
+    gsv_dos  - реализация DOS-функций
+    dskeymap - назначение меток функциональных клавиш Dir Shell
+}
+
+
+$macro gsvds_change_dir from DOS_SHELL;
+{ Изменение текущего диска и каталога в соответствии с dir_mask или
+  путем, заданным в return_str.
+  Макрос возвращает return_int = FALSE при нормальном исходе и TRUE
+  при ошибке.
+  Опции: /UD=1 - новый путь задается в return_str
+}
+  def_str(path[80]);
+  if (parse_int('/UD=', mparm_str) = 1) then path := caps(return_str);
+  else                                       path := caps(get_path(dir_mask));
+  end; {if}
+  r_ax := $0E00;
+  r_dx := ascii(path) - 65;
+  intr($21);
+  if ((str_char(path, svl(path)) = '\') and (svl(path) <> 3)) then
+    change_dir(copy(path, 1, svl(path) - 1));
+  else
+    change_dir(path);
+  end; {if}
+  if (error_level <> 0) then return_int := TRUE;
+  else                       return_int := FALSE;
+  end; { if error }
+  error_level := 0;
+end_macro; { gsvds_change_dir }
+
+
+$macro gsvds_setcur from DOS_SHELL;
+{ Макрос устанавливает текущий файл в каталоге по номеру, заданному в
+  return_int.
+  Опции: /M=1 - обновить список файлов с текущей маской
+         /M=2 - обновить список файлов с маской, заданной в return_str
+         /NU=1 - не перерисовывать панель
+}
+  def_int(cur, flag);
+  cur  := return_int;
+  flag := parse_int('/M=', mparm_str);
+  if    (flag = 1) then run_macro('gsvds_draw ' + dir_mask);
+  elsif (flag = 2) then run_macro('gsvds_draw ' + return_str);
+  end;
+  refresh := FALSE;
+  if (cur < 1) then
+    cur := 1;
+  end;
+  dos_home;
+  while ((cur <> dir_num) and (dir_num < dir_total)) do
+    dos_right;
+  end;
+  refresh := TRUE;
+  if (parse_int('/NU=', mparm_str) <> 1) then
+    update_dir;
+  end; {if}
+end_macro; { gsvds_setcur }
+
+
+$macro gsvds_save_parm from DOS_SHELL;
+{ сохранение параметров обоих окон DIR_SHELL в глобальных строковых переменных
+  gsvds_w1 и gsvds_w2
+}
+  def_int(wn);
+  goto start;
+
+set_parm: { формирование строки параметров окна: wn - номер окна }
+  switch_dir(wn);
+  set_global_str('gsvds_w' + str(wn), '/sort=' + dir_sort_str +
+                 '/file=' + str(dir_num) + '/mode=' + str(dir_mode) +
+                 '/mask=' + dir_mask);
+  ret;
+
+start:
+  wn := 1; call set_parm;
+  wn := 2; call set_parm;
+  switch_dir(global_int('gsvds_wn'));
+end_macro;
+
+
+$macro gsvds_color from DOS_SHELL;
+{ Цветовое выделение имени текущего файла.
+  Значение атрибута цвета/фона для выделения передается через переменную
+  return_int.
+}
+  def_int(len);
+
+  if (dir_mode = 0) then len := dir_x2 - dir_x1 - 1;
+  else                   len := 15;
+  end;
+  draw_attr(wherex - 1, wherey, return_int, len);
+end_macro;
+
+
+$macro gsvds_draw from DOS_SHELL;
+{ Перерисовка окна в соответствии с заданной маской
+    run_macro('gsvds_draw ' + маска_файлов_окна);
+  Маска файлов должна включать полный путь и шаблон имени файлов. Шаблон
+  может содержать универсальные сопоставления (wildcards) * и ?.
+  Перерисовывается только оформление окна, но список файлов не выводится.
+  Номер окна задается в глобальной целой переменной gsvds_wn.
+  Предварительно заданные характеристики окна:
+    dir_sort_str                   - тип сортировки
+    dir_num                        - номер текущего файла
+    dir_mode                       - мода окна
+    dir_x1, dir_x2, dir_y1, dir_y2 - координаты окна
+}
+  def_int(x, width);
+  def_str(path[80]);
+  dir(mparm_str);
+  if error_level <> 0 then
+    run_macro('meerror');
+  else
+    x := dir_x1 + 2;
+    width := dir_x2 - dir_x1 - 3;
+    if (length(dir_mask) > (width - 2)) then
+      path := ' ' + lower(copy(dir_mask, 1, width - 5)) + '  ';
+    else
+      path := ' ' + lower(dir_mask) + ' ';
+    end;
+    draw_char(205, x, dir_y1, d_b_color, width);
+    x := x + ((width - length(path)) / 2);
+    write(path, x, dir_y1, 0, d_s_color);
+    x := dir_x1 + ((dir_x2 - dir_x1 - 19) / 2);
+    write(' <Enter> ', x, dir_y2, 0, d_s_color);
+    write(' <Esc> ', x + 11, dir_y2, 0, d_s_color);
+    run_macro('gsvds_change_dir');
+  end;
+end_macro;
+
+
+$macro gsvds_open_win from DOS_SHELL;
+{ Открытие окна с номером, заданным в глобальной переменной gsvds_wn.
+  Полный вывод окна и установка всех его параметров
+}
+  def_int(wn, cur_file);
+  wn := global_int('gsvds_wn');
+  if not(dir_active(wn)) then
+    open_dir(wn);
+  end;
+  switch_dir(wn);
+  if (wn = 1) then size_dir( 1, 3, 32, screen_length - 1, 0);
+  else             size_dir(33, 3, 80, screen_length - 1, 0);
+  end;
+  dir_mode     := parse_int('/mode=', global_str('gsvds_w' + str(wn)));
+  dir_sort_str := parse_str('/sort=', global_str('gsvds_w' + str(wn)));
+  cur_file     := parse_int('/file=', global_str('gsvds_w' + str(wn)));
+  refresh := TRUE;
+  redraw_dir;
+  return_str := parse_str('/mask=', global_str('gsvds_w' + str(wn)));
+  return_int := cur_file;
+  run_macro('gsvds_setcur /M=2');
+  mou_set_pos(wherex, wherey);
+  return_int := d_s_color; run_macro('gsvds_color');
+end_macro;
+
+
+$macro gsvds_tgwin from DOS_SHELL;
+{ Переключение на другое окно. Номер текущего окна определен в глобальной
+  целой переменной gsvds_wn
+}
+  def_int(wn);
+  return_int := d_s_color; run_macro('gsvds_color');
+  wn := (global_int('gsvds_wn') and 1) + 1;
+  set_global_int('gsvds_wn', wn);
+  switch_dir(wn);
+  update_dir;
+  return_int := d_h_color; run_macro('gsvds_color');
+  run_macro('gsvds_change_dir');
+end_macro;
+
+
+$macro gsvds_tgmode from DOS_SHELL;
+{ Переключение моды окны текущего окна. }
+
+  return_int := d_s_color; run_macro('gsvds_color');
+  dir_mode := dir_mode xor 1;
+  update_dir;
+  return_int := d_h_color; run_macro('gsvds_color');
+end_macro;
+
+
+$macro gsvds_create_win from DOS_SHELL;
+{ Создание, инициализация и отображение обоих окон DIR SHELL
+}
+  if global_int('gsvds_wn') = 1 then
+    set_global_int('gsvds_wn', 2);
+    run_macro('gsvds_open_win');
+    set_global_int('gsvds_wn', 1);
+    run_macro('gsvds_open_win');
+  else
+    set_global_int('gsvds_wn', 1);
+    run_macro('gsvds_open_win');
+    set_global_int('gsvds_wn', 2);
+    run_macro('gsvds_open_win');
+  end;
+  return_int := d_h_color; run_macro('gsvds_color');
+end_macro;
+
+
+$macro gsvds_pgup from DOS_SHELL;
+{ Перемещение маркера на страницу вверх }
+  def_int(i);
+  refresh := 0;
+  i := dir_num - (dir_y2 - dir_y1 - 2);
+  if i <= 0 then
+    i := 1;
+  end;
+  if (i <> 1) and (i = dir_num) then
+    --i;
+  end;
+  while (dir_num <> i) do
+    dos_left;
+  end;
+  refresh := 1;
+  update_dir;
+end_macro;
+
+
+$macro gsvds_pgdown from DOS_SHELL;
+{ Перемещение маркера на страницу вниз }
+  def_int(i);
+  refresh := 0;
+  i := dir_num + (dir_y2 - dir_y1 - 2);
+  if i > dir_total then
+    i := dir_total;
+  end;
+  if (i <> dir_total) and (i = dir_num) then
+    ++i;
+  end;
+  while dir_num <> i do
+    dos_right;
+  end;
+  refresh := 1;
+  update_dir;
+end_macro;
+
+
+$macro gsvds_num_mark from DOS_SHELL;
+{ Этот макрос определяет число отмеченых файлов в текущем каталоге.
+  Число отмеченных файлов возвращается в переменной return_int
+}
+  def_int(ref, current_file);
+  return_int := 0;
+  if dir_total <> 0 then
+    ref := refresh;
+    refresh := FALSE;
+    current_file := dir_num;
+    dos_home;
+    loop:
+      if file_marked then
+        return_int := return_int + 1;
+      end;
+      if (dir_num < dir_total) then
+        dos_right;
+        goto loop;
+      end;
+    dos_home;                        { восстановление текущего состояния }
+    while current_file <> dir_num do
+      dos_right;
+    end;
+    refresh := ref;
+  end;
+end_macro;
+
+
+$macro gsvds_select_pan from DOS_SHELL;
+{ Переключение окон в зависимости от выбора панели: L или R. Имя панели
+  передается как параметр макроса.
+}
+  if mparm_str = 'L' then
+    if global_int('gsvds_wn') = 2 then
+      run_macro('gsvds_tgwin');
+    end;
+  elsif mparm_str = 'R' then
+    if global_int('gsvds_wn') = 1 then
+      run_macro('gsvds_tgwin');
+    end;
+  end;
+end_macro;
+
+
+$macro gsv_dir_shell from EDIT;
+{ Главный макрос DIR SHELL
+}
+  def_int(i, sel, num_file, len_dir, num_mark, len_mark);
+  def_str(name[80], find_name[80], dig[9]);
+
+  mode := dos_shell;
+  push_labels;
+  if (file_exists(me_path + 'dskeymap.mac')) then
+    run_macro('dskeymap');
+  end;
+  d_t_color := w_t_color;
+  d_s_color := w_s_color;
+  d_b_color := w_b_color;
+  d_h_color := w_h_color;
+  make_message('Файловая оболочка GSVDS 1.1. Гурин С.В.');
+  macro_to_key(<ENTER>, 'gsvds_enter', DOS_SHELL);
+  goto start;
+
+select: { выбор или отмена выбора файлов каталога }
+  run_macro('userin^verify /H=gsv_shel^1.2/T=' + name);
+  if return_int = FALSE then
+    ret;
+  end;
+  refresh := FALSE;
+  i := dir_num;
+  dos_home;
+  while (dir_num < dir_total) do
+    call mark_filter;
+  end;
+  call mark_filter;
+  dos_home;
+  while i <> dir_num do
+    dos_right;
+  end;
+  refresh := TRUE;
+  update_dir;
+  ret;
+
+mark_filter: { выбор или отмена маркировки одного файла каталога }
+  if (((dos_file_attr and $18) = 0) and
+      (((sel = 1) and not(file_marked)) or ((sel = 0) and file_marked))) then
+    mark_file;
+  end;
+  dos_right;
+  ret;
+
+inf_file: { накопление информации по файлам }
+  first_file(dir_entry);
+  if file_marked then
+    ++num_mark;
+    len_mark := len_mark + last_file_size;
+  end;
+  ++num_file;
+  len_dir := len_dir + last_file_size;
+  ret;
+
+long_int: { перевод длинного числа sel в более удобный строковый вид name }
+  dig := str(sel);
+  i   := svl(dig);
+  if ((i > 3) and (i < 7)) then
+    name := copy(dig, 1, i - 3) + '.' + copy(dig, i - 2, 3);
+  elsif (i > 6) then
+    name := copy(dig, 1, i - 6) + '.' + copy(dig, i - 5, 3) +
+                                  '.' + copy(dig, i - 2, 3);
+  else
+    name := dig;
+  end;
+  ret;
+
+inform: { информация по диску и каталогу }
+  len_dir  := 0;
+  num_file := 0;
+  num_mark := 0;
+  len_mark := 0;
+  if dir_total <> 0 then
+    refresh := FALSE;
+    i := dir_num;
+    dos_home;
+    while (dir_num < dir_total) do
+      call inf_file;
+      dos_right;
+    end;
+    call inf_file;
+    dos_home;
+    while i <> dir_num do
+      dos_right;
+    end;
+    refresh := TRUE;
+    update_dir;
+  end;
+  put_box(dir_x1 + 1, dir_y1 + 1, dir_x1 + 44, dir_y1 + 8,
+          0, m_b_color, '', 1);
+  sel := disk_free(ascii(caps(dir_mask)) - 64);
+  call long_int;
+  write('Свободная дисковая память : ' + name,
+         dir_x1 + 3, dir_y1 + 2, 0, m_t_color);
+  write('Число файлов в каталоге   : ' + str(num_file),
+         dir_x1 + 3, dir_y1 + 3, 0, m_t_color);
+  sel := len_dir;
+  call long_int;
+  write('Суммарная длина файлов    : ' + name,
+         dir_x1 + 3, dir_y1 + 4, 0, m_t_color);
+  write('Число отмеченных файлов   : ' + str(num_mark),
+         dir_x1 + 3, dir_y1 + 5, 0, m_t_color);
+  sel := len_mark;
+  call long_int;
+  write('Длина отмеченных файлов   : ' + name,
+         dir_x1 + 3, dir_y1 + 6, 0, m_t_color);
+  read_key;
+  kill_box;
+  ret;
+
+key_ins: { отметка файла с переходом к следующему }
+  if (dos_file_attr and $18) = 0 then
+    mark_file;
+  end;
+  dos_right;
+  ret;
+
+key_ctrl_ins: { отметка файла с переходом к предыдущему }
+  dos_left;
+  if (dos_file_attr and $18) = 0 then
+    mark_file;
+  end;
+  ret;
+
+key_end: { переход в конец списка }
+  refresh := 0;
+  while dir_num < dir_total do
+    dos_down;
+  end;
+  refresh := 1;
+  update_dir;
+  ret;
+
+key_enter: { операция над файлом или списком отмеченных файлов по Enter }
+  run_macro('gsvds_enter');
+  if return_int = FALSE then
+    goto exit;
+  end;
+  ret;
+
+left_key_mouse: { операция над файлом или списком отмеченных файлов по Mevent}
+  run_macro('gsvds_left_mouse');
+  if return_int = FALSE then
+    goto exit;
+  end;
+  ret;
+
+macro_keys: { выполнение действий по клавишам, ассоциированным с макро }
+  i := inq_key(key1, key2, mode, name);
+  if i = 1 then      { клавиша ассоциирована с макросом }
+    return_int := 0;
+    make_message('');
+    run_macro(name);
+    if return_int = 31415926 then { пароль для выхода из DIR SHELL }
+      goto exit;
+    end;
+  elsif i = 2 then   { клавиша ассоциирована с клавишным макро }
+    i := global_int('@KMTRANS_KEY' + parse_str('@KMTRANS_BUF', name));
+    play_key_macro((i and $FF), (i shr 8), mode);
+  else
+    if i = 323 then key_record;
+    end;
+  end;
+  ret;
+
+redir: { перерисовка панелей }
+  run_macro('gsvds_save_parm');
+  refresh := TRUE;
+  update_status_line;
+  run_macro('gsv_restore');
+  run_macro('gsvds_create_win');
+  ret;
+
+root_dir: { переход в корневой каталог диска }
+  run_macro('gsvds_draw ' + copy(dir_mask, 1, 2) + '\*.*');
+  update_dir;
+  ret;
+
+quick_find: { поиск файла по начальным символам имени }
+  name := caps(find_name + char(key1));
+  refresh := FALSE;
+  i := dir_num;
+  sel := length(name);
+  dos_home;
+  loop_find:
+    if name = caps(copy(truncate_path(dir_entry), 1, sel)) then
+      find_name := name;
+      refresh := TRUE;
+      update_dir;
+      make_message('Заготовка для быстрого поиска файла: ' + lower(find_name));
+    elsif (dir_num < dir_total) then
+      dos_right;
+      goto loop_find;
+    else
+      dos_home;
+      while (dir_num <> i) do
+        dos_right;
+      end;
+      refresh := TRUE;
+    end;
+  ret;
+
+start:
+  { первоначальное определение умалчиваемых параметров DIR SHELL }
+  if global_str('gsvds_w1') = '' then
+    set_global_str('gsvds_w1', '/file=1/sort=n/mode=1/mask='+me_path+'*.*');
+  end;
+  if global_str('gsvds_w2') = '' then
+    name := global_str('gsv_path');
+    if str_char(name, svl(name)) = '\' then name := name + '*.*';
+    else                                    name := name + '\*.*';
+    end;
+    set_global_str('gsvds_w2', '/file=1/sort=n/mode=1/mask=' + name);
+  end;
+  if global_int('gsvds_wn') = 0 then
+    set_global_int('gsvds_wn', 2);
+  end;
+  run_macro('gsvds_create_win');
+
+  while 1 do
+    find_name := '';
+    loop:
+    read_key;
+    if key1 <> 0 then
+      if    (key1 =  27) then {******* ESC *************}
+        goto exit;
+      elsif key1 =   9 then {******* TAB *************}
+        run_macro('gsvds_tgwin');
+      elsif key1 =  13 then {******* ENTER ***********}
+        call key_enter;
+      elsif key1 =  12 then {******* CtrlL ***********}
+        call inform;
+      elsif key1 =  18 then {******* CtrlR ***********}
+        call redir;
+      elsif key1 =  28 then {******* Ctrl\ ***********}
+        call root_dir;
+      elsif (key1 =  43) and (key2 =  78) then {******* GRAY+ ***********}
+        sel := 1;
+        name := ' Отметка файлов каталога ';
+        call select;
+      elsif (key1 =  45) and (key2 =  74) then {******* GRAY- ***********}
+        sel := 0;
+        name := ' Сброс отметки файлов каталога ';
+        call select;
+      elsif (key1 >  20) and (key1 < 127) then {*** символьные клавиши **}
+        call quick_find;
+        goto loop;
+      else                                     {*** остальные клавиши ***}
+        call macro_keys;
+      end;
+    else
+      if    key2 =  72 then {******* UP **************}
+        dos_up;
+      elsif key2 =  80 then {******* DOWN ************}
+        dos_down;
+      elsif key2 =  77 then {******* RIGHT ***********}
+        dos_right;
+      elsif key2 =  75 then {******* LEFT ************}
+        dos_left;
+      elsif key2 =  71 then {******* HOME ************}
+        dos_home;
+      elsif key2 =  68 then {******* F10 *************}
+        goto exit;
+      elsif key2 = 148 then {******* CtrlTAB *********}
+        run_macro('gsvds_tgmode');
+      elsif key2 =  79 then {******* END *************}
+        call key_end;
+      elsif key2 =  73 then {******* PgUP ************}
+        run_macro('gsvds_pgup');
+      elsif key2 =  81 then {******* PgDOWN **********}
+        run_macro('gsvds_pgdown');
+      elsif key2 =  82 then {******* INS *************}
+        call key_ins;
+      elsif key2 = 146 then {******* CtrlINS *********}
+        call key_ctrl_ins;
+      elsif key2 =  68 then {******* F10 *************}
+        goto exit;
+      elsif key2 = 250 then {******* LEFT MOUSE ******}
+        call left_key_mouse;
+      elsif key2 = 251 then {******* RIGHT MOUSE *****}
+        run_macro('gsvds_tgmode');
+      elsif key2 = 252 then {******* MIDDLE MOUSE ****}
+        call key_ins;
+      else                  {*** остальные клавиши ***}
+        call macro_keys;
+      end;
+    end;
+  end;
+
+exit:
+  run_macro('gsvds_save_parm');
+  close_dir(1);
+  close_dir(2);
+  unassign_key(<ENTER>, DOS_SHELL);
+  mode := edit;
+  pop_labels;
+  new_screen;
+  run_macro('gsv_restore all');
+end_macro;
+
+
+$macro gsvds_enter from DOS_SHELL;
+{ Реализация клавиши выбора для различных текущих файлов:
+    каталог ..\     - переход к родительскому каталогу
+    каталог xxx\    - переход в данный каталог
+    файл    xxx.exe - запускается
+    файл    xxx.com - запускается
+    файл    xxx.bat - по выбору: запускаются или загружаются
+    остальные файлы - загружаются
+  Если в окне есть отмеченные файлы, то они, независимо от текущего файла,
+  загружаются для редактирования.
+  Макрос возвращает return_int = TRUE если работа в DOS SHELL продолжается,
+  иначе return_int = FALSE.
+}
+  def_str(ext[3], name[12], path[80], mask[80]);
+  def_int(current_file, num_mark, num_load);
+
+  mask     := truncate_path(dir_mask);
+  path     := get_path(dir_mask);
+  ext      := caps(get_extension(dir_entry));
+  name     := truncate_path(dir_entry);
+  num_load := 0;
+  goto start;
+
+find_current: { поиск текущего файла }
+  refresh := FALSE;
+  dos_home;
+  while current_file <> dir_num do
+    dos_right;
+  end;
+  ret;
+
+load_marked: { если файл отмечен, то его загрузка с контролем }
+  if file_marked then
+    call load_current_verify;
+  end;
+  ret;
+
+load_current_verify: { загрузка в редактор файла с контролем }
+  run_macro('userin^verify /S=0/H=gsv_shel^*/T= Редактировать файл ' +
+             lower(truncate_path(dir_entry)) + '? ');
+  if return_int = TRUE then
+    return_str := dir_entry;
+    run_macro('gsv_load');
+    if (error_level = 0) then
+      ++num_load;
+    end; {if}
+    if (return_int = 1) then
+      make_message('Файл ' + lower(return_str) + ' уже загружен');
+    elsif (return_int = 2) then
+      make_message('Файл ' + lower(return_str) + ' загружен');
+    end;
+  end;
+  ret;
+
+load_files: { загрузка в редактор отмеченных файлов }
+  run_macro('userin^verify /S=0/H=gsv_shel^*/T= Загрузить в редактор отмеченные файлы? '+
+            '/BL= Число отмеченных файлов - ' + str(num_mark) + ' ');
+  refresh := FALSE;
+  if return_int = TRUE then
+    dos_home;
+    while (dir_num < dir_total) do
+      call load_marked;
+      dos_right;
+    end;
+    call load_marked;
+  end;
+  call find_current;
+  ret;
+
+start:
+  if dir_total = 0 then                     { No Files Found... }
+    run_macro('gsvds_draw ' + me_path + '*.*');
+    update_dir;
+    goto exit;
+  end;
+  current_file := dir_num;
+  run_macro('gsvds_num_mark');
+  num_mark := return_int;
+  if num_mark <> 0 then                     { есть отмеченные файлы }
+    call load_files;
+  elsif (dos_file_attr and $08) <> 0 then ; { ничего не делать, если VolumeId}
+  elsif (dos_file_attr and $10) <> 0 then   { каталог }
+    refresh := TRUE;
+    if name = '..' then
+      path := copy(path, 1, length(path) - 1);
+      path := get_path(path);
+    else
+      path := path + name + '\';
+    end;
+    run_macro('gsvds_draw ' + path + mask);
+    update_dir;
+  else
+    refresh := TRUE;
+    if ext = 'BAT' then
+      save_box(1, screen_length, screen_width, screen_length);
+      run_macro('userin^xmenu /B=1/H=gsv_shel^Enter/T=0/S=2' + '/L= Файл ' +
+                 lower(name) + ' /M= Выполнить () Редактировать () ');
+      kill_box;
+      if return_int = 1 then
+        run_macro('gsvds_save_parm');
+        return_str := dir_entry;
+        make_message(return_str);
+        run_macro('gsv_exec /WAIT=1/CMD=1/SCREEN=2');
+      elsif return_int = 2 then
+        return_str := dir_entry;
+        run_macro('gsv_load');
+        if (error_level = 0) then
+          ++num_load;
+        end; {if}
+      end;
+    elsif (ext = 'COM') or (ext = 'EXE') then
+      save_box(1, screen_length, screen_width, screen_length);
+      run_macro('userin^verify /S=0/H=gsv_shel^Enter/T= Выполнить программу ' +
+                  lower(name) + '? ');
+      kill_box;
+      if return_int = TRUE then
+        run_macro('gsvds_save_parm');
+        return_str := dir_entry;
+        make_message(return_str);
+        run_macro('gsv_exec /WAIT=1/CMD=1/SCREEN=2');
+      end;
+    else
+      call load_current_verify;
+    end;
+  end;
+
+exit:
+  refresh := TRUE;
+  if num_load <> 0 then return_int := FALSE;
+  else                  return_int := TRUE;
+  end;
+end_macro;
+
+
+$macro gsvds_left_mouse from DOS_SHELL;
+{ Реализация функций мышки, выполняемых по нажатию левой клавиши
+}
+  def_int(x, y, width, pos_curs, pos_mous, i, xx, yy);
+  goto start;
+
+scroll:
+  while (mou_last_status and 1) = 1 do
+    if y = (dir_y1 + 1) then dos_up;
+    else                     dos_down;
+    end;
+    delay(50);
+    mou_check_status;
+  end;
+  ret;
+
+  coordinate:  { вычисление относительной позиции имени файла по xx и yy }
+    i := xx - dir_x1 - 1;
+    if    i <  0 then i := 0;
+    elsif i > 44 then i := 44;
+    end;
+    i := i / width;
+    i := i + (yy * ((dir_x2 - dir_x1) / width));
+  ret;
+
+select:
+  if dir_mode = 0 then width := dir_x2 - dir_x1 - 1;
+  else                 width := 15;
+  end;
+  xx := wherex; yy := wherey; call coordinate; pos_curs := i; { позиция курс }
+  xx := x;      yy := y;      call coordinate; pos_mous := i; { позиция мыши }
+  i := pos_curs - pos_mous;
+  if i > 0 then            { переместить курсор вверх до маркера мыши }
+    i := dir_num - i;
+    refresh := FALSE;
+    while (dir_num <> i) and (dir_num <> 0) do
+      dos_left;
+    end;
+    refresh := TRUE;
+    update_dir;
+  elsif i < 0 then         { переместить курсор вниз до маркера мыши }
+    i := dir_num - i;
+    refresh := FALSE;
+    while (dir_num <> i) and (dir_num < dir_total) do
+      dos_right;
+    end;
+    refresh := TRUE;
+    update_dir;
+  else                     { выбрать операцию с файлом аналогично Enter }
+    run_macro('gsvds_enter');
+    goto exit;
+  end;
+  ret;
+
+start:
+  mou_check_status;
+  y := mou_last_y;
+  x := mou_last_x;
+  if (y >= dir_y1) and (y <= dir_y2) then   { маркер в пределах окон }
+    if (x <= dir_x2) and (x >= dir_x1) then { маркер в текущем окне }
+      if y = dir_y1 then                    { маркер в строке имени пути }
+        run_macro('gsvds_drive');
+      elsif y = dir_y2 then                 { нижняя строка окна }
+        xx := dir_x1 + ((dir_x2 - dir_x1 - 19) / 2);
+        if (x >= xx) and (x <= (xx + 8)) then
+          run_macro('gsvds_enter');
+          goto exit;
+        elsif (x >= (xx + 11)) and (x <= (xx + 17)) then
+          return_int := FALSE;
+          goto exit;
+        end;
+      elsif x = dir_x2 then                 { маркер на правой границе окна }
+        if (y = (dir_y1 + 1)) or (y = (dir_y2 - 1)) then  { скроллинг  }
+          call scroll;
+        elsif ((y >= (dir_y1 + 2)) and (y <= (dir_y2 - 2))) then
+          i := ((y - dir_y1 - 1) * dir_total) / (dir_y2 - dir_y1 - 3);
+          if (i < 1) or (y = (dir_y1 + 2)) then
+            i := 1;
+          end;
+          if (i > dir_total) or (y = (dir_y2 - 2)) then
+            i := dir_total;
+          end;
+          refresh := FALSE;
+          dos_home;
+          while (dir_num <> i) do
+            dos_right;
+          end;
+          refresh := TRUE;
+          update_dir;
+        end;
+      else                                  { выбор файла }
+        call select;
+      end;
+    else                                    { маркер в противоположном окне }
+      run_macro('gsvds_tgwin');
+    end;
+  elsif y = screen_length then              { меню F-клавиш }
+    r_ax := $0200;                          { AH = 02H }
+    intr($16);                              { получение статуса клавиатуры }
+    if    (r_ax and 3) <> 0 then i := 84;   { нажата клавиша Shift }
+    elsif (r_ax and 8) <> 0 then i := 104;  { нажата клавиша Alt }
+    elsif (r_ax and 4) <> 0 then i := 94;   { нажата клавиша Ctrl }
+    else                         i := 59;
+    end;
+    push_key(0, ((x - 1) / 8) + i);         { передача символа в буфер клав. }
+  end;
+  return_int := TRUE;
+exit:
+end_macro;

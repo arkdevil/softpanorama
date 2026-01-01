@@ -1,0 +1,340 @@
+Newsgroups: bit.listserv.xedit-l
+Message-ID: <BCC150FAE6BF0214B6@ada3.iasl.ca.boeing.com>
+Date: Fri, 9 Sep 1994 09:41:05 LCL
+From: Phil Braniff <BRANIFF@WBV1.PROFS.CA.BOEING.COM>
+Subject: XEDIT Block Functions
+
+To: MAILGATE--CAMG     Internet
+
+Phil Braniff - BCS VM Technical Service - (316)526-9328
+Subject: XEDIT Block Functions
+
+ There is a way to copy blocks of data multiple times using XEDIT
+ macros. I have included the macro that we use and some doc. in
+ this note.
+
+ Sorry, but this uses the PREFIX area for those of you that no
+ longer use it (go figure?). The 'MCC' block function works the same
+ way as 'CC' block except you do not have to redefine the 'CC' block
+ each time. (Unfortunately, the only way I could find to end the
+ 'MC'&'MCC' functions was to issue an 'MEND' in the PREFIX area, or
+ by spacing over the MCC block or MC command in the PREFIX areas.)
+
+ There are also some other commands that might be of use for heavy
+ XEDIT users. One that I find useful is 'TT'&'KK' blocks which allow
+ 'taking' a block of records from one XEDIT session to another
+ concurrent XEDIT session (using 'G' on the prefix to pull the
+ records into the other session, the 'G' can be issued more than
+ once on the receiving session if needed.) This is just an easier
+ way to use the PUT and GET functions.
+
+ The first file is PRFSTACK SCRIPT which is just documentation.
+ The second file is PRFSTACK SOURCE which can be renamed to XEDIT
+ or compiled and called XEDIT (the way we use it). Most of this
+ code originally came from somewhere in IBM. It hasn't been modified
+ here since 1989 but it is used daily.
+
+ Sorry, our gateway has a fire wall that prevents sending files so
+ I'll have to include them in this note.
+
+ File: PRFSTACK SCRIPT
+
+                      PRFSTACK XEDIT Macro
+
+  The  PRFSTACK XEDIT macro provides a series of useful PREFIX
+  commands for working within a single edit session or  multi-
+  ple  edit sessions.  The macro uses the stack for storage of
+  lines of a file and allows transfer of these lines within  a
+  single  file.  It  also  allows for transfer of data between
+  multiple files in CONCURRENT XEDIT session.
+
+  Simple commands to Upper Case (UU, and  U)  and  Lower  case
+  (LL, and L) single lines or blocks of lines.
+
+  The format of the PREFIX commands are:
+
+     U   Upper case this line.
+     UU  Block Upper case, put UU on the first and last lines
+         of a block to be change to ALL UPPER CASE.
+
+     L   Lower case this line.
+     LL  Block Lower case, put LL on the first and last lines
+         of a block to be change to all lower case.
+
+  Simple commands to take a block of data from one XEDIT session
+  to another session. (TT, T, KK, K and G commands.)
+
+  The format of the PREFIX commands are:
+
+     G   "G"et the stack and insert the lines FOLLOWING this line.
+         This should not be confused with the XEDIT GET command.
+         This must be entered in the PREFIX area to work correctly.
+
+     T   Place this line on the stack (CLEARS THE STACK FIRST)
+     TT  Block line stack, put TT on the first and last lines
+         of a block to be stacked. You can use this to "TAKE"
+         entries from one XEDIT session and "G"et the entries
+         the other (concurrent) XEDIT session.
+
+     K   Append this line on the stack (WITH/OUT CLEARING THE STACK)
+     KK  Block append of lines to the stack.
+         Use this the same as "T"/"TT" except that this will allow
+         several (2nd part on) parts of one file to be 'taken' to
+         another file.
+
+  Also  included  in  this  macro  are the Block multiple copy
+  (MCC) and Single line multiple copy (MC) functions. As  well
+  as  the  command  to  end  the  multiple  copy (MEND). These
+  options follow the same convention as the 'CC' and 'C'  PRE-
+  FIX  commands  except that the multiple commands require the
+  MEND command to terminate the multiple copy function.
+
+  The format of the PREFIX commands for this are:
+
+     MC   Copy this line (single line) into multiple places in a file.
+
+    MCC   Block copy function to copy the defined block into
+          multiple places into the file. Enter MCC in the PREFIX
+          area on the first and last lines that you wish to copy
+          to several places in a file.
+
+    MEND  End the Multiple copy function
+
+ The  single  lines or blocks of lines are placed in the file
+ by using the F (following) and/or the P (preceding)  PREFIX
+ commands.
+
+ USAGE NOTES:
+
+ The  following  lines  should be added to your PROFILE XEDIT
+ file to enable the functions.
+
+ * DEFINE CPS PREFIX SYNONYMS
+ SET PREFIX SYNONYM G PRFSTACK
+ SET PREFIX SYNONYM T PRFSTACK
+ SET PREFIX SYNONYM TT PRFSTACK
+ SET PREFIX SYNONYM K PRFSTACK
+ SET PREFIX SYNONYM KK PRFSTACK
+ SET PREFIX SYNONYM L PRFSTACK
+ SET PREFIX SYNONYM LL PRFSTACK
+ SET PREFIX SYNONYM U PRFSTACK
+ SET PREFIX SYNONYM UU PRFSTACK
+ SET PREFIX SYNONYM MC PRFSTACK
+ SET PREFIX SYNONYM MCC PRFSTACK
+ SET PREFIX SYNONYM ME PRFSTACK
+ SET PREFIX SYNONYM MEN PRFSTACK
+ SET PREFIX SYNONYM MEND PRFSTACK
+
+ *********************** That's all for PRFSTACK SCRIPT ******
+
+ File: PRFSTACK SOURCE
+ /*                                                           */
+ /*  USE THIS MACRO TO SIMULATE THE ICCF PREFIX COMMANDS:     */
+ /*  "STACK", "KEEP", "INSERT"                                */
+ /*                                                           */
+ parse Source . . . . . Name .               /*save macro name*/
+ arg Pref Function Fline Operator Leftover   /*parse arguments*/
+ /*get current screen lines and message mode*/
+ "COMMAND EXTRACT /FLSCREEN /MSGMODE"
+ /*These commands must be issued from the PREFIX area. */
+ /*Use of SHADOW lines is not allowed.                 */
+ select
+    when Pref ^= "PREFIX"    then call Not_PREFIX_Command
+    when Function = "SHADOW" then call Display_Error_MSG ,
+                      "Not valid from SHADOW line."
+    when Function = "CLEAR" then exit 0     /*pending has peen reset*/
+    when LeftOver ^= "" then call Display_Error_MSG ,
+                       "Extraneous data:" LeftOver
+    when abbrev("MEND",Name,2) then signal Block_Move_Process
+    when abbrev("MCC",Name,2)  then signal Block_Move_Process
+    when abbrev("GET",Name,1)  then do
+          "COMMAND L :"Fline  /*Position at line with PREFIX command.*/
+          "COMMAND GET"                /*Insert "STACKED" lines*/
+       end
+    when length(Name) = 1 & (Name = "L" | Name = "U") then do
+          if Operator = "" then Operator = 1
+          if datatype(Operator,"W") then do
+             StrtPln  = Fline
+             NbrLines = Operator
+             call Shift_Case
+          end
+       end
+    when length(Name) = 1 then do
+          if Operator = "" then Operator = 1
+          if datatype(Operator,"W") then do
+             StrtPln  = Fline               /*pass starting line*/
+             NbrLines = Operator            /*and number of lines*/
+             /* upper/lower case function */
+             if Name = "L" | Name = "U"
+                then call Shift_Case
+                else call Keep_Take_Function   /*stack function*/
+          end
+          else call Invalid_Operand
+       end
+    when length(Name)=2 then do
+          if Operator ^= "" then call Invalid_Operand
+          /*Determine pending for this macro.*/
+          "COMMAND EXTRACT /PENDING BLOCK" Name ":0 * /"
+          if Pending.0 ^= 0 then do                 /*previous pending*/
+             "COMMAND :"pending.1 "SET PENDING OFF" /*reset pending stat*/
+             if Fline < Pending.1 then do
+                StrtPln  = Fline                   /*starting line*/
+                NbrLines = Pending.1 - Fline + 1   /*number of lines*/
+             end
+             else do
+                StrtPln  = Pending.1                /*pass starting line*/
+                NbrLines = Fline - Pending.1 + 1    /*+ number of lines*/
+             end
+             if Name = "LL" | Name = "UU"
+                then call Shift_Case  /*upper/lower case function*/
+                else call Keep_Take_Function   /*stack function*/
+          end
+          else "COMMAND :"fline "COMMAND SET PENDING BLOCK" Name
+          /*set for next entry*/
+       end
+    otherwise call Display_Error_MSG "PRFSTACK: INVALID MACRO SYNONYM"
+ end
+ exit 0
+
+
+
+ /*                  */
+ /*    Shift Case    */
+ /*                  */
+ Shift_Case:
+    if substr(Name,1,1)="L"
+       then "COMMAND :" StrtPln "LOWERCAS" NbrLines /*lower case func.*/
+       else "COMMAND :" StrtPln "UPPERCAS" NbrLines /*upper case func.*/
+ return
+
+
+
+ /*                                                       */
+ /*   Get any saved lines and add new ones to the STACK   */
+ /*                                                       */
+ Keep_Take_Function:
+    if substr(Name,1,1)="K" then do   /*keep function*/
+       "COMMAND SET MSGMODE OFF"      /*Insure no error messages*/
+       "COMMAND EXTRACT /SIZE"        /*Get current file lines*/
+       "COMMAND BOTTOM"               /*Position at bottom of file*/
+       "COMMAND GET"              /*Retrieve any previously saved lines*/
+    end
+    "COMMAND L :"strtpln        /*Position at start of lines to be saved*/
+    "COMMAND PUT" nbrlines         /*Pickup new lines*/
+    if substr(Name,1,1)="K" then do /*keep function*/
+       "COMMAND BOTTOM"            /*Position at bottom of file*/
+       "COMMAND GET"               /*Retrieve new lines to be saved*/
+       "COMMAND L :"size.1 + 1 /*Position at start of prev. saved lines*/
+       "COMMAND PUTD *"            /*Pickup all lines*/
+       "COMMAND SET MSGMODE" msgmode.1 msgmode.2 /*Restore message mode*/
+    end
+    "COMMAND L :"flscreen.1           /*Restore screen start line*/
+ return                               /*return to caller*/
+
+
+
+ /*        Process commands:                                 */
+ /*        Multiple COPY of single line        = MC          */
+ /*        Multiple COPY of BLOCK of lines     = MCC         */
+ /*        End of Multiple COPY                = MEnd        */
+ Block_Move_Process:
+    if abbrev("MEND",Name,2) then do
+       "COMMAND EXTRACT /PENDING BLOCK MCC :1 */"
+       if pending.0 ^= 0 then do
+          "COMMAND :"pending.1 "SET PENDING OFF"
+          "COMMAND EXTRACT /PENDING BLOCK MCC :1 */"
+          "COMMAND :"pending.1 "SET PENDING OFF"
+       end
+       "COMMAND EXTRACT /PENDING BLOCK MC :1 */"
+       if pending.0 ^= 0 then "COMMAND :"pending.1 "SET PENDING OFF"
+       exit 0
+    end
+    func  = Function                /*  Initialize variables */
+    pline = Fline
+    op    = Operator
+    stuff = Leftover
+    MCC_topmsg = Name "Invalid above top of file."
+    MCC_eofmsg = Name "Invalid beyond end of file."
+    "COMMAND EXTRACT /PENDING BLOCK" Name ":1" pline "/SIZE/"
+    if pending.0 = 0 then do
+       if pline = 0      then call Display_Error_MSG MCC_topmsg
+       if pline > size.1 then call Display_Error_MSG MCC_eofmsg
+       "COMMAND :"pline "COMMAND SET PENDING BLOCK" Name
+       /* Is this MCC first time thru? */
+       if Name = "MCC" then exit 0
+    end
+    select
+       when Name = "MCC" then do
+             if pline = 0      then call Display_Error_MSG MCC_topmsg
+             if pline > size.1 then call Display_Error_MSG MCC_eofmsg
+             "COMMAND :"pline "COMMAND SET PENDING BLOCK" Name
+             "COMMAND EXTRACT /PENDING BLOCK" Name ":1 :"pline "/SIZE/"
+             StartLine  = pending.1
+             "COMMAND EXTRACT /PENDING BLOCK" Name ":"pending.1+1 ":"size.1"/"
+             EndLine    = pending.1 + 1
+          end
+       when Name = "MC" then do
+             StartLine = pline
+             EndLine = pline + 1
+          end
+       otherwise exit 0
+    end
+    pendingend = "0"
+    do until pendingend
+       "COMMAND EXTRACT /PENDING OLDNAME P :0/"
+       if pending.0 ^= 0 then do
+          pend1 = pending.1 - 1
+          if pend1 < 1 then pend1 = 0
+          "COMMAND :"StartLine
+          "COMMAND COPY :"EndLine ":"pend1
+          "COMMAND EXTRACT /PENDING OLDNAME P :0 /"
+          "COMMAND :"pending.1 "SET PENDING OFF"
+       end
+       else pendingend = "1"
+    end
+    pendingend = "0"
+    do until pendingend
+       "COMMAND EXTRACT /PENDING OLDNAME F :0 /SIZE/"
+       if pending.0 ^= 0 then do
+          floc = pending.1
+          lastrec = size.1
+          "COMMAND :"StartLine
+          "COMMAND COPY :"EndLine ":"pending.1
+          "COMMAND :"pending.1 "SET PENDING OFF"
+          if floc > lastrec then do
+             pendingend = "1"
+             "COMMAND EXTRACT /PENDING OLDNAME F :0 /"
+             "COMMAND :"pending.1 "SET PENDING OFF"
+          end
+       end
+       else pendingend = "1"
+    end
+ exit 0
+
+
+
+ /*                       */
+ /*    Error Displays     */
+ /*                       */
+ Invalid_Operand:          /*Invalid Operand*/
+    call Display_Error_MSG "INVALID OPERAND:" Operator
+ return
+
+
+
+ Not_PREFIX_Command:         /*Non-Prefix area invocation*/
+    call Display_Error_MSG "Macro must be invoked from the PREFIX area."
+ return
+
+
+
+ Display_Error_MSG: parse arg T
+    "COMMAND EMSG" T
+ exit 4
+
+ *********************** That's all for PRFSTACK SOURCE ******
+
+.
+:...... Phil Braniff      M/S: K79-30
+: OfficeVision/VM: WBV1(BRANIFF) or IBMMAIL(USBOE8H3)
+

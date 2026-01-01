@@ -1,0 +1,591 @@
+                        VB BOOK 1.0 Source Code
+
+
+NOTE:  This is older code so do NOT use this code to modify VB BOOK!  It 
+is included here only to show people without Visual Basic what makes 
+VB BOOK click.  
+
+The Global form (VBBOOK.BAS):
+-----------------------------
+Type Flags                           'Misc flag variables
+  CurDate As Integer
+  DoHeader As Integer
+  FileTitle As Integer
+  LineLen As Integer
+  LineWrap As Integer
+  PgNumber As Integer
+End Type
+
+'The VBBOOK.FRM form: (used for the first little box that goes away in 5 sec's.)
+'--------------------
+'(No code in this form.  Just displays a message for 5 secs)
+
+'The VBBOUT.FRM form:
+'--------------------
+'(No code in this form.  It's a blank, full-page form used to cover up the
+'desktop.  There should be a better way to do this!)
+
+'The Main module, VBBINP.FRM: (This is where all the selections are done.)
+'----------------------------
+'Declarations section:
+'Note that Dim Shared is not really needed but VB done it during the automatic
+'conversion from QuickBasic code so I left it that way.  
+Dim Shared ESC$, FF$, LF$, filename$, OUTFILE$, NL$
+Dim Shared page%, num$, tune%
+Dim Shared PC As Flags
+Dim lastchange As Integer
+
+Const fileboxclick = 0, dirsboxclick = 1         'Used by file selection routine
+Const true = -1, false = 0
+
+'Now the Subs start:
+Static Sub BuildArray (ptrarray&(), pgcount%)
+   MaxLines% = 66                                'Maximum number of lines
+   Offset& = 1                                   'Start of file (seek point)
+   Open filename$ For Binary Access Read As #1 Len = 1   'Open file to check
+   TotalSize& = LOF(1)                           'Get LEN of file so we don't read too far
+   FileLeft& = TotalSize&                        'Setup a counter to show whats left
+   'FRE is not supported by VB.  Just set it to 64K
+   MemAvail& = 65536                             'FRE(FileName$) - 2048            'Check available string memory
+   If MemAvail& < 2048 Then Error 14             'Force out of memory error
+   SixteenK% = 16384
+
+   If TotalSize& > SixteenK% Then                'Set a buffer size
+      If MemAvail& > SixteenK% Then              'If the file is larger than 16K
+         BufAvail& = SixteenK%                   'Set it to 16k
+      Else
+         BufAvail& = MemAvail&
+      End If
+   Else
+      If TotalSize& < MemAvail& Then             'Otherwise set it to file size
+         BufAvail& = TotalSize&
+      End If
+      BuffSize% = BufAvail&
+   End If
+
+   pgcount% = 1                                  'Initialize page count
+   ptrarray&(pgcount%) = 1                       'First pointer is always 1
+   LnCount% = 0                                  'Initialize line count
+
+GetPage:                                         'Read the file
+                                                 
+  If FileLeft& < BufAvail& Then                  'Check amount left to read
+     Buffer$ = Space$(FileLeft&)                 'If less than our buffer, use lessor
+  Else
+     Buffer$ = Space$(BufAvail&)                 'Otherwise use full buffer size
+  End If
+
+  Get #1, Offset&, Buffer$                       'Read in a buffers worth
+  stptr% = 1                                     'Pointer into buffer$
+  LastLine% = 0                                  'remember last position
+
+PageCheck:
+  TempLn% = InStr(stptr%, Buffer$, LF$)          'Position of next linefeed
+  temppg% = InStr(stptr%, Buffer$, FF$)          'Position of next pagefeeds
+
+  If temppg% Then                                'If there was a page feed
+     If temppg% < TempLn% Or TempLn% = 0 Then    '  was it before our linefeed?
+        pgcount% = pgcount% + 1                  '  yes then bump page count
+        ptrarray&(pgcount%) = Offset& + temppg%  '  set next array element
+        stptr% = temppg% + 1                     '  set instr pointer
+        LnCount% = 0                             '  reset linecount
+        If stptr% < Len(Buffer$) Then GoTo PageCheck 'and loop back for more
+      End If
+  End If
+
+  If TempLn% Then                                'Linefeed
+    If PC.LineWrap Then                           'If Line Wrap, check length
+        If TempLn% - stptr% > PC.LineLen Then     'Greater than 80?
+            Do                                   'check for line wrap
+                LnCount% = LnCount% + 1          'increment line
+                If LnCount% = MaxLines% Then
+                    GoTo PageBreak               '> 66 lines
+                End If
+                stptr% = stptr% + PC.LineLen
+            Loop While TempLn% - stptr% > PC.LineLen
+        End If
+    End If
+    LnCount% = LnCount% + 1                      'Increment page count
+
+PageBreak:
+     If LnCount% = MaxLines% Then
+        pgcount% = pgcount% + 1
+            If pgcount% > 512 Then
+               msg$ = "Too may pages - printing only 512."
+               MsgBox msg$, 0, "Notice"
+               GoTo EndBuild
+            End If
+        ptrarray&(pgcount%) = Offset& + TempLn%  'point to next in point in file
+        LnCount% = 0
+     End If
+     
+     stptr% = TempLn% + 1                        'point ahead 1 byte for next scan
+     If stptr% <= Len(Buffer$) Then
+        GoTo PageCheck                           'keep checking
+     End If
+  End If
+
+  Offset& = Offset& + Len(Buffer$)              'Pointer into file (tally)
+  stptr% = 1                                    'Reset Buffer pointer
+  FileLeft& = TotalSize& - Offset&              'Calculate how much is left
+  If Offset& < TotalSize& Then GoTo GetPage     'If more text in file, keep going
+
+EndBuild:
+  ptrarray&(pgcount% + 1) = TotalSize&          'Set last pointer to end of file
+
+Close #1                                        'Close input file
+End Sub                                         'End of BuildArray Sub
+
+Static Sub DoMacro (num$)
+    Print #2, ESC$; "&f"; num$; "y2X";     'execute the macro
+End Sub
+
+Static Sub EndMacro (num$)
+    Print #2, ESC$; "&f"; num$; "y1X";          'Send end of macro command
+    Print #2, ESC$; "&f"; num$; "y9X";          'Make it temporary (10 to be permanent)
+End Sub
+
+Static Sub Header (page%)
+    hdr$ = Space$(PC.LineLen)                     'Create a string to print
+   
+    If PC.FileTitle Then                          'Print the filename
+        Mid$(hdr$, 40 - Len(filename$) \ 2) = UCase$(filename$)
+    End If
+
+    If PC.PgNumber Then                           'Print the current page
+        PTemp$ = "Page" + Str$(page%)
+        If page% Mod 2 Then
+            Mid$(hdr$, PC.LineLen - Len(PTemp$)) = PTemp$ 'odd page, right side
+        Else
+            Mid$(hdr$, 1) = PTemp$               'even page, left side
+        End If
+    End If
+
+    If PC.CurDate Then                            'Print the current date
+        If page% Mod 2 Then
+            Mid$(hdr$, 1) = Date$                'even page, left side
+        Else
+            Mid$(hdr$, PC.LineLen - Len(Date$)) = Date$  'odd page, right side
+        End If
+    End If
+    Print #2, hdr$                               'Print the Header
+    Print #2,                                    ' and skip a line for readability
+
+End Sub
+
+Static Sub LJLocate (X%, Y%)                'Laser Jet cursor locate
+    Temp$ = ESC$ + "&a" + LTrim$(Str$(Y%)) + "r" + LTrim$(Str$(X%)) + "C"
+    Print #2, Temp$;
+End Sub
+
+Static Sub printlogo ()                  'Banner logo (About VB Box!)
+    msg$ = "                   VB Book" + NL$
+    msg$ = msg$ + "     Converted to Visual Basic" + NL$
+    msg$ = msg$ + "             by Dennis Scott." + NL$
+    msg$ = msg$ + NL$
+    msg$ = msg$ + "Send Comments/Suggestions to:" + NL$
+    msg$ = msg$ + "               CompuDirect" + NL$
+    msg$ = msg$ + "             7711 Bulter Rd" + NL$
+    msg$ = msg$ + "             Myrtle Beach, SC" + NL$
+    msg$ = msg$ + "               (803)650-7452" + NL$
+    MsgBox msg$, 0, "About VB Book"
+End Sub
+
+Sub PrintSetup ()                               'Send codes to prepare printer
+    Print #2, ESC$; "E";                        'Reset laserjet (simple isn't it!)
+    Print #2, ESC$; "&l1o5.45C";                'Select lineprinter font"
+    Print #2, ESC$; "(s0p16.66H";               '  and pitch
+    Print #2, ESC$; "&l0L";                     'Turn off page feed at 66 lines
+
+    If PC.LineWrap Then                          'Wrap lines > 80 chars
+       Print #2, ESC$; "&s0C";
+    End If
+
+    Print #2, ESC$; "&l2E";                     'Top margin 2 lines
+
+    Call StartMacro("1")                        'Left side macro
+         Print #2, ESC$; "9";                   'Reset left - right margins
+         Print #2, ESC$; "&a0l80M";             'set left margin 0, right 80
+    Call EndMacro("1")
+
+    Call StartMacro("2")                        'Right side macro
+         Print #2, ESC$; "9";                   'Reset left - right margins
+         Print #2, ESC$; "&a95l175M";           'set left margin 95, right 175
+    Call EndMacro("2")
+
+End Sub
+
+Static Sub StartMacro (num$)
+    Print #2, ESC$; "&f"; num$; "Y";            'Macro will have an id of Num$
+    Print #2, ESC$; "&f0X";                     'Start the macro now
+End Sub
+
+Sub Form_Click ()
+    'If user clicks anywhere on the form, call the about box
+    Call printlogo
+End Sub
+
+'This is the main code - everything is actually called from here and this
+'is where most of the VB changes are located
+Sub go_click ()
+
+'VB Code for Drive, Directory, and File selections
+If index >= 3 Then End
+If lastchange = dirsboxclick Then
+    dir1.path = dir1.list(dir1.listindex)
+Else
+    If file1.filename <> "" Then
+        ChDrive drive1.drive
+        ChDir file1.path
+        filename$ = file1.filename
+    Else
+        msg$ = "Sorry!  You must first select a file."
+        abort% = MsgBox(msg$, 49, "No application chosen.")
+        If abort% = 2 Then                     'cancel button
+            End
+        End If
+    End If
+End If
+lastchange = fileboxclick
+
+ReDim ptrarray&(513)                            'total number of pages (512)
+On Error GoTo ErrorDept                         'Error trapping
+
+'Ensure that we have a file name (user may have clicked DoIt without
+'entering a filename)
+
+GetName:
+    If Len(filename$) = 0 Then
+       If tune% Then Beep
+        msg$ = "Enter a file name to print: "
+        Title$ = "Filename"                             ' Set title.
+        Default$ = ""
+        NewName$ = InputBox$(msg$, Title$, Default$)    ' Get user input.
+        If Len(NewName$) = 0 Then                       ' Check if valid.
+            msg$ = "You did not input a valid Filename." + NL$
+            msg$ = msg$ + "Click on OK to End Program"
+            MsgBox msg$, 0, Title$                      ' Display message.
+            GoTo OutHere
+        End If
+    End If
+
+'Build index array for pages in FileName$
+   'Have not converted status display
+   'Print
+   'Print "Reading file "; filename$
+   Call BuildArray(ptrarray&(), page%)          'Built pointer array
+
+'Figure number of pages needed
+   If page% Mod 4 Then                          'Even multiples of 4 only
+      page% = page% + (4 - page% Mod 4)         '  correct for less
+   End If
+
+   'Have not converted status display
+   'Print
+   'Print "You will print "; Page% \ 4; "sheets" 'Report total number of pages
+   'Print
+
+   'JustCount% is set to false always due to status section not being
+   'converted to VB
+   If JustCount% Then
+      Print "Press any key to continue, or ESC to cancel printing"
+      GoSub KeyIn
+   End If
+
+    Open OUTFILE$ For Output As #2              'Open printer or output file
+    Call PrintSetup                             'Set up printer
+
+'Page parsing variables
+   LeftSide% = page%
+   RightSide% = 1
+   FirstPass% = -1
+
+Open filename$ For Binary As #1                 'Open the input file
+    'Have not converted status display
+    'Print "Printing Side 1 to "; outfile$;     'Track what is going on
+
+'Start of print routine
+
+DoPass:
+   Bookmark% = (page% \ 4)                      'Flag for halfway through
+   If Bookmark% = 0 Then Bookmark% = 1          'Force 1 if too small
+
+'Read text and send to printer or file
+Do                                              'Print the right side of the page first
+    If ptrarray&(RightSide% + 1) = 0 Then       'If blank, then skip it
+       GoTo NextPage
+    End If
+    Call DoMacro("2")                           'Start on right side
+    LJLocate 95, 0                              'Home the cursor
+
+    If PC.DoHeader Then Call Header(RightSide%) 'Header if needed
+    Buffer$ = Space$(ptrarray&(RightSide% + 1) - ptrarray&(RightSide%))
+
+    Get #1, ptrarray&(RightSide%), Buffer$      'Read in a page
+
+    If InStr(Buffer$, FF$) Then                 'If the last character is a PF
+       Print #2, Left$(Buffer$, InStr(Buffer$, FF$) - 1); 'print only text
+    Else
+       Print #2, Buffer$;                       'Otherwise print full line
+    End If
+
+NextPage:
+    If ptrarray&(LeftSide% + 1) = 0 Then        'Don't print blank pages
+       GoTo NextPage1
+    End If
+    Call DoMacro("1")                           'Reset margins for left side
+    LJLocate 0, 0                               'Home the cursor
+    If PC.DoHeader Then Call Header(LeftSide%)   'Header if needed
+    Buffer$ = Space$(ptrarray&(LeftSide% + 1) - ptrarray&(LeftSide%))                'Setup buffer for input
+    If LeftSide% = 0 Then                       'If pointing at blank page, skip
+       GoTo NextPage1
+    End If
+    Get #1, ptrarray&(LeftSide%), Buffer$       'Read in a page
+
+    If InStr(Buffer$, FF$) Then                 'if the last character is a PF
+       Print #2, Left$(Buffer$, InStr(Buffer$, FF$) - 1); 'print only text
+    Else                                        'print only text
+       Print #2, Buffer$;                       'otherwise print all
+    End If
+
+NextPage1:
+    Print #2, FF$;                              'Page feed
+    LeftSide% = LeftSide% - 2                   'Calculate next page in series
+    RightSide% = RightSide% + 2
+    Bookmark% = Bookmark% - 1                   'Track our progress
+
+Loop Until Bookmark% = 0                        'Print pages until halfway through
+
+'Pause between sides to allow for paper reinsertion
+    If FirstPass% Then                          'If side one, prompt and get 2nd side
+       msg$ = "First Pass has been Completed." + NL$
+       msg$ = msg$ + "Insert paper back in tray and Click OK"
+       If tune% Then Beep
+
+WaitKey:                                        'Press any key to continue loop
+      MsgBox msg$, 0, "Waiting"
+      FirstPass% = 0                            'Flag for second pass
+      'Have not converted status display
+      'msg$ = "Printing Side 2 to " + outfile$
+      'Print msg$                                'Report on progress
+      GoTo DoPass
+    End If                                      'End of first pass
+
+    'Printing is done now
+    msg$ = "Printing completed."
+    If tune% Then Beep
+    MsgBox msg$, 64, "Done"
+
+PrtReset:
+    Print #2, ESC$; "E";                        'Reset laserjet
+
+OutHere:
+    Close                                       'Close all files
+    End                                         'Thats all for now
+
+'Error handler.  Converted to VB errors.
+ErrorDept:
+    Beep
+    msg$ = "*** Error ***" + NL$
+    Select Case Err
+      Case 482
+         msg$ = msg$ + "Printer error."
+      Case 68
+         msg$ = msg$ + "Device is unavailable."
+      Case 71
+         msg$ = msg$ + "Insert a disk in the drive and close the door."
+      Case 57
+         msg$ = msg$ + "Device Input/Output Error (Check Printer!)."
+      Case 61
+         msg$ = msg$ + "Disk is full."
+      Case 64, 52
+        msg$ = msg$ + "That filename is illegal."
+      Case 76
+        msg$ = msg$ + "That path doesn't exist."
+      Case 54
+        msg$ = msg$ + "Can't open your file for that type of access."
+      Case 55
+        msg$ = msg$ + "This file is already open."
+      Case 62
+        msg$ = msg$ + "This file has a nonstandard end-of-file marker" + NL$
+        msg$ = msg$ + "or an attempt was made to read beyond the end-" + NL$
+        msg$ = msg$ + "of-file marker."
+      Case Else
+         msg$ = msg$ + "Error number " + Str$(Err)
+      End Select
+      GoSub AWayOut
+      Resume
+
+AWayOut:
+   abort% = MsgBox(msg$, 17, "ERROR")
+
+KeyIn:
+      If abort% = 2 Then                     'If user presses Cancel, Exit
+         Close
+         End
+      End If
+Return
+
+'End of main module
+End Sub
+
+Sub Dir1_Change ()
+    file1.path = dir1.path
+    file1.SetFocus
+End Sub
+
+Sub Dir1_Click ()
+    lastchange = dirsboxclick
+End Sub
+
+Sub File1_Click ()
+    'use the following line to put filename in frame
+    'if using a frame:
+    'inname.caption = "Load " + file1.filename
+    lastchange = fileboxclick
+End Sub
+
+Sub File1_DblClick ()
+    'Allow the user to double-click on an input file and start printing
+    Call go_click
+End Sub
+
+'CLKx Subs are the Check Boxes for selecting whether to use speaker, etc
+Sub clk1_Click ()
+      'Toggle on/off
+      If PC.FileTitle = 0 Then
+        PC.FileTitle = -1
+        PC.DoHeader = -1
+      Else
+        PC.FileTitle = 0
+        'Still have to do the Header if clk2 or clk3 buttons are checked
+        If (clk2.value = -1) Or (clk3.value = -1) Then
+            PC.DoHeader = -1
+        Else
+            PC.DoHeader = 0
+        End If
+      End If
+End Sub
+
+Sub clk2_Click ()
+      'Toggle on/off
+      If PC.CurDate = 0 Then
+        PC.CurDate = -1
+        PC.DoHeader = -1
+      Else
+        PC.CurDate = 0
+        'Still have to do the Header if clk1 or clk3 buttons are checked
+        If (clk1.value = -1) Or (clk3.value = -1) Then
+            PC.DoHeader = -1
+        Else
+            PC.DoHeader = 0
+        End If
+      End If
+End Sub
+
+Sub clk3_Click ()
+      'Toggle on/off
+      If PC.PgNumber = 0 Then
+        PC.PgNumber = -1
+        PC.DoHeader = -1
+      Else
+        PC.PgNumber = 0
+        'Still have to do the Header if clk1 or clk2 buttons are checked
+        If (clk1.value = -1) Or (clk2.value = -1) Then
+            PC.DoHeader = -1
+        Else
+            PC.DoHeader = 0
+        End If
+      End If
+End Sub
+
+Sub clk4_Click ()
+    'Toggle on/off
+    tune% = Not tune%
+End Sub
+
+Sub clk5_Click ()
+      'Toggle on/off
+      PC.LineWrap = Not PC.LineWrap
+End Sub
+
+Sub Drive1_Change ()
+    dir1.path = drive1.drive
+End Sub
+
+Sub Cancel_Click ()
+    'If user clicks on the Cancel button then ...
+    Close
+    End
+End Sub
+
+'This Sub is ran when the VBBINP.FRM is loaded (ie, Showed)
+Sub Form_Load ()
+    'Put the options in the output port/filename Combobox
+    comboutname.AddItem "LPT1"
+    comboutname.AddItem "LPT2"
+    comboutname.AddItem "COM1"
+    comboutname.AddItem "COM2"
+    comboutname.AddItem "file"
+    comboutname.text = comboutname.list(0)    'default to LPT1
+    OUTFILE$ = "LPT1"
+    'set default check-box values
+    tune% = -1
+    PC.FileTitle = -1
+    PC.DoHeader = -1
+    PC.CurDate = -1
+    PC.PgNumber = -1
+    PC.LineWrap = -1
+    'set some variables
+    ESC$ = Chr$(27)                      'Standard ESC code
+    FF$ = Chr$(12)                       'Page Feed
+    LF$ = Chr$(10)                       'Line Feed
+    NL$ = Chr$(13) + Chr$(10)            'CR and LF (New Line)
+    JustCount% = 0                       'Not allowing "just counting"
+    PC.LineLen = 80                       'Maximum length of line
+End Sub
+
+'User clicks on the Combobox
+Sub comboutname_Click ()
+    'Select where to send the output
+    Select Case comboutname.text
+    Case "LPT1"
+        OUTFILE$ = "LPT1"
+    Case "LPT2"
+        OUTFILE$ = "LPT2"
+    Case "COM1"
+        OUTFILE$ = "COM1"
+    Case "COM2"
+        OUTFILE$ = "COM2"
+    Case "file"
+        If file1.filename = "" Then           'If no input filename is selected
+            comboutname.text = "LPT1"         ' default back to LPT1
+            OUTFILE$ = "LPT1"
+            msg$ = "You must select an input filename first!"
+            MsgBox msg$, 32
+            file1.SetFocus                    'set focus to file list box
+            Exit Sub
+        End If
+
+        'Now make up a default output filename with same 
+        'name and PRN as the extension
+        OUTFILE$ = UCase$(Left$(file1.filename, InStr(file1.filename, ".")) + "PRN")
+        
+	msg$ = "WAIT" + NL$ + "Enter filename to print to:"
+        OUTFILE$ = InputBox$(msg$, "Output File Name", OUTFILE$) 'Get a filename
+        If OUTFILE$ <> "" Then
+            comboutname.text = UCase$(OUTFILE$)         'put filename in combo box
+            go.SetFocus
+        Else
+            'Insist on a filename
+            comboutname.text = "LPT1"
+            OUTFILE$ = "LPT1"
+            file1.SetFocus                              'set focus to file list box
+        End If
+    End Select
+End Sub
+
+Sub Picture1_Click ()
+    Call printlogo                          'Show the "about" box
+End Sub
+

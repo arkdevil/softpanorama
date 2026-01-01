@@ -1,0 +1,100 @@
+/* dbmseq.c - Visit all elements in the database.  This is the NDBM
+   interface. */
+
+/*  This file is part of GDBM, the GNU data base manager, by Philip A. Nelson.
+    Copyright (C) 1990  Free Software Foundation, Inc.
+
+    GDBM is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 1, or (at your option)
+    any later version.
+
+    GDBM is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with GDBM; see the file COPYING.  If not, write to
+    the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+
+    You may contact the author by:
+       e-mail:  phil@wwu.edu
+      us-mail:  Philip A. Nelson
+                Computer Science Department
+                Western Washington University
+                Bellingham, WA 98226
+        phone:  (206) 676-3035
+       
+*************************************************************************/
+
+/*
+ * MS-DOS port (c) 1990 by Thorsten Ohl, ohl@gnu.ai.mit.edu
+ *
+ * To this port, the same copying conditions apply as to the
+ * original release.
+ *
+ * IMPORTANT:
+ * This file is not identical to the original GNU release!
+ * You should have received this code as patch to the official
+ * GNU release.
+ *
+ * MORE IMPORTANT:
+ * This port comes with ABSOLUTELY NO WARRANTY.
+ *
+ * $Header: e:/gnu/gdbm/RCS/dbmseq.c'v 1.4.0.1 90/08/16 09:22:15 tho Exp $
+ */
+
+#include <stdio.h>
+#include <sys/types.h>
+#ifndef MSDOS
+#include <sys/file.h>
+#endif /* not MSDOS */
+#include <sys/stat.h>
+#include "gdbmdefs.h"
+#include "extern.h"
+
+
+/* NDBM Start the visit of all keys in the database.  This produces
+   something in hash order, not in any sorted order.  DBF is the dbm file
+   information pointer. */
+
+datum
+dbm_firstkey (dbf)
+     gdbm_file_info *dbf;
+{
+  datum ret_val;
+
+  /* Free previous dynamic memory, do actual call, and save pointer to new
+     memory. */
+  ret_val = gdbm_firstkey (dbf);
+  if (_gdbm_memory.dptr != NULL) free (_gdbm_memory.dptr);
+  _gdbm_memory = ret_val;
+
+  /* Return the new value. */
+  return ret_val;
+}
+
+
+/* NDBM Continue visiting all keys.  The next key in the sequence is returned.
+   DBF is the file information pointer. */
+
+datum
+dbm_nextkey (dbf)
+     gdbm_file_info *dbf;
+{
+  datum ret_val;
+
+  /* Make sure we have a valid key. */
+  if (_gdbm_memory.dptr == NULL)
+    return _gdbm_memory;
+
+  /* Call gdbm nextkey with the old value. After that, free the old value. */
+  ret_val = gdbm_nextkey (dbf,_gdbm_memory);
+  if (_gdbm_memory.dptr != NULL) free (_gdbm_memory.dptr);
+  _gdbm_memory = ret_val;
+
+  /* Return the new value. */
+  return ret_val;
+}
+

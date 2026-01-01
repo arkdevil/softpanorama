@@ -1,0 +1,922 @@
+From: y-pisan@nwu.edu (Yusuf Pisan)
+Newsgroups: alt.sources
+Subject: get-news: Perl program to scan newsgroups and save articles
+Date: 09 Sep 1994 20:05:24 GMT
+Organization: The Institute for The Learning Sciences
+Message-ID: <Y-PISAN.94Sep9150524@SPD-13.ils.nwu.edu>
+
+
+Archive-name: 	get-newsv001
+Submitted-by:	Yusuf Pisan <y-pisan@nwu.edu>
+
+get-news is a perl program that reads a configuration file, scans
+newsgroups mentioned in the configuration file and saves articles that
+match the regular expressions specified.  get-news accesses news using
+NNTP, so it will not work with a local news spool.
+
+get-news is also temporarily available from
+(129.105.100.93) speedy.ils.nwu.edu:/pub/yusuf/get-newsv001.tar.Z
+
+There are two files in this message get-news and nntp.pl
+
+Please send me comments (good or bad) if you try out get-news.
+
+Yusuf Pisan
+
+
+
+#!/usr/local/bin/perl
+#
+# 123
+#
+#
+# 	$Id: get-news,v 1.9 1994/09/09 19:27:57 yusuf Exp $	
+#
+# get-news: get news articles with matching subject lines using nntp
+#
+#  Yusuf Pisan <y-pisan@nwu.edu>
+#
+#
+# get-news v0.01  9/94		Basic functianality
+#
+#
+# This code is offered as-is.  Anyone is welcome to make improvements, 
+# provided that my notice of authorship is retained.  I accept no 
+# responsibility for loss or damage caused by this program, nor do I accept
+# responsibility for supporting it.
+#
+#      get-news -h		Print a short help
+# 
+# 
+#
+# DEPENDENCIES:
+#	nntp.pl		written by Nedim Fresko <fresko@cs.purdue.edu>
+#	getopts.pl	Standard perl distribution library
+#       chat2.pl        Standard perl distribution library
+#
+#
+#
+# Acknowledgements:
+#
+# I used aub as a template when writing the program.  aub is an
+# excellent program for assembling binaries.  It is written by Mark
+# Stantz (stntz@sgi.com, stantz@sierra.stanford.edu).
+#
+# nntp.pl package is written by Nedim Fresko <fresko@cs.purdue.edu>.
+# It is the cleanest nntp package I have seen.
+#
+#
+#
+#
+# CONSTANTS:
+# 
+#
+# $config_file		Configuration file
+#
+# $gnrc			Keeps track of last read articles
+#
+# $version		Version Number
+#
+#
+# Globals:
+#
+# $server               NNTPSERVER
+#
+# @groups		List of groups to scan
+#
+# $directory{$group}	Directory to save files for the group
+#
+# $regex{$group}	Regular expression to match subject lines of
+#			the articles in group
+#
+# $nregex{$group}       Regular expression that will not match the
+#                       subject line of the articles in group
+#
+# $bregex{$group}	Regular expression to match the body of the
+#			articles in group
+#
+# $headers{$group}	Headers to save when articles are saved in
+#			the group (regular expression)
+#
+# $opt_d		Debugging level set by command line options or
+#			by configuration file
+#
+#
+#
+
+
+
+$config_file 	= join("/", $ENV{"HOME"}, ".gnconfig");
+$gnrc 		= join("/", $ENV{"HOME"}, ".gnrc");
+$version 	= "v0.01 Date: 9/1994";
+
+
+push(@INC,join("/", $ENV{"HOME"}, "/local/lib/perl"));
+
+require 'nntp.pl';
+require 'getopts.pl';
+
+
+&Getopts('cd:hHv');
+
+&display_long_help if ($opt_H);		# Does not return
+&display_short_help if ($opt_h);	# Does not return
+
+&display_version if ($opt_v);		# Does not return
+
+#debug 3 extreme, 2 some, 1 info, 0 silent
+
+
+&load_config_file;	# Find which groups to process, where is the
+		  	# NNTPSERVER  and so on.
+
+
+&load_get_news_rc;	# Find the last article read
+
+if (@groups) {
+    &open_nntp;
+
+    foreach(@groups) {
+	&process_group($_);
+    }
+
+    
+    print "Closing nntp...\n" if ($opt_d);
+    nntp'close;
+    &save_get_news_rc;
+}
+
+
+
+exit(0);
+
+### END OF MAIN PROGRAM ###
+
+
+sub open_nntp {
+# Open nntp connection
+    local($status);
+    &nntp'open($server) || 
+      die "Could not open connection to server '$server': $!\n";
+    $status = &nntp'get_line;
+    if ($status =~ /^[45]/) {
+	&nntp'close;
+	die $status;
+    }
+}
+
+
+
+sub process_group {
+#
+# Scan subject lines and save articles that match expression
+#
+    local($gname) = pop @_;
+    local($ft,$lt,$status,@article_head,@article_whole);
+
+    print "Processing group $gname\n" if ($opt_d);
+    $status = &nntp'group($gname);
+    if ($status !~ /^211/) {
+	print "Unexpected response $status from server\n";
+	print "Skipping $gname\n";
+	return;
+    }
+    ($ft,$lt) = ($status =~ /^211\s+\d+\s+(\d+)\s+(\d+)/);
+    print "Looking for REGEX:--$regex{$gname}--\n" if ($opt_d > 2);
+    print "Looking for NREGEX:--$nregex{$gname}--\n" if ($opt_d > 2);
+    print "Looking for BREGEX:--$bregex{$gname}--\n" if ($opt_d > 2);
+    $ft = $last{$gname} if ($last{$gname} > $ft);
+    print "First: $ft, Last: $lt\n" if ($opt_d > 1);
+    print "Catching up on $gname\n" if ($opt_c && $opt_d);
+    while (($ft <= $lt) && (!$opt_c)){
+	print "Processing article $ft\n" if ($opt_d > 2);
+        $| = 1;
+        print "." if ($opt_d && (!($ft % 10)));
+        $| = 0;
+	@article_head = &get_header($ft) if $regex{$gname};
+	if (&check_regex($gname,@article_head)) {
+	    @article_whole = &get_article($ft);
+	    if (&check_bregex($gname,@article_whole)) {
+		&save_article($gname,$ft,@article_whole);
+	    }
+	}
+	$ft++;
+    }
+    $lt++;
+    $last{$gname} = $lt;
+    print "\n" 
+}
+
+sub get_header {
+#
+# Get header for article number
+    local($num) = pop @_;
+    local($status,@article_h);
+    ($status,@article_h) = &nntp'head($ft);
+    return(@article_h) if ($status =~ /^221/);
+}
+
+sub get_article {
+#
+# Get header+body for the article number
+    local($num,$status,@article) = pop @_;
+    print "Getting the ARTICLE of article $num\n"
+	if ($opt_d > 2);
+    ($status,@article) = &nntp'article($num);
+    return (@article) if ($status =~ /^2/);
+}
+
+sub get_subject_line {
+#
+# Given a header return subject line
+    local(@article_h) = @_;
+    foreach(@article_h) {
+	if (/Subject:/) {
+	    chop;
+	    s/^Subject:\s+//;
+	    return($_);
+	}
+    }
+}
+
+sub check_regex {
+    local($group,@article_h) = @_;
+    local($subj);
+    print "Checking regex $regex{$group} for $group\n" if ($opt_d > 2);
+    return(1) unless ($regex{$group});
+    return(0) unless (@article_h);
+    $subj = &get_subject_line(@article_h);
+    if ($subj =~ $regex{$group}) {
+	#Check if there is a nregex
+	print "Checking nregex $nregex{$group} for $group\n" if ($opt_d > 2);
+	if ($nregex{$group}) {
+	    if ($subj !~ $nregex{$group}) {
+		print "Article subject matches\n" if ($opt_d > 2);
+		1;
+	    } else {
+		print "Article subject does not match\n" if ($opt_d > 2);
+		0;
+	    }
+	} else {
+	    print "Article subject matches\n" if ($opt_d > 2);
+	    1;   
+	}
+    } else { 
+	print "Article subject does not match\n" if ($opt_d > 2);
+	0;
+    }
+}
+
+sub check_bregex {
+    local($group,@article_w) = @_;
+    local($art);
+    print "Checking bregex for $group\n" if ($opt_d > 2);
+    return(1) unless ($bregex{$group});
+    return(0) unless (@article_w);
+    $art = join('',@article_w);
+    if ($art =~ $bregex{$group}) {
+	print "Article body matches\n" if ($opt_d > 2);
+	1;
+    } else { 
+	print "Article body does not match\n" if ($opt_d > 2);
+	0;
+    }
+}
+
+sub save_article {
+    local($group,$num,@art) = @_;
+    local($file,$started);
+    $file = "$directory{$group}/$group-$num";
+    print "Saving article $num $file\n" if ($opt_d);
+    # Default is to include all headers
+    if ($headers{$group}) {
+	$started = 0;
+    } else {
+	$started = 1;
+    }
+    if (-e $file) {
+	#Rescue the old file
+	print "A file named $file already exists moving it to $file.rescued\n"
+	    if ($opt_d > 1);
+	warn "Renaming $file to $file.rescued failed!\n"
+	    if (!rename($file,"$file.rescued"));
+    }
+    if (!open (F,"> $file")) {
+	warn "Can't save article at $file \n";
+	return;
+    }
+    foreach (@art) {
+	$started = 1 if /^\n$/;
+	if ($started) {
+	     print F "$_";
+	} else {
+	    print F "$_" if ($_ =~ $headers{$group});	   
+	}
+    }
+    close(F);
+}
+
+sub load_config_file {
+#
+# Loads configuration file $HOME/.gnconfig
+# Sets @groups,$directory{$group}, $regex{$group}, $server
+#
+    local($cmd,$value,$value2,$current_group,$line);
+    (-e $config_file) || 
+	die ("Can't find $config_file.\n" .
+	     "Execute get-news -H if you need help for creating " .
+	     "configuration file\n");
+    open (F, $config_file) ||
+	die "Can't open configuration file $config_file $!\n";
+    while (<F>) {
+	s/\n$//;		# Trim <CR>
+	$line = $_;		# For signalling errors
+	s/#.*$//;		# Remove comments
+	next if m/^\s*$/;	# Skip blanks
+	s/\s+/ /g;		# Fold \s+ to \s
+	s/^\s//;		# Drop leading whitespace
+	s/\s$//;		# Drop trailing whitespace
+ 
+	($cmd, $value) = split(/\s+/,$_,2);
+	print "Read: $_ -->$cmd : $value\n" if ($opt_d > 2);
+	if ($cmd =~ m/^group/i) {
+	    # GROUP
+	    print "Setting current_group to $value\n" if ($opt_d > 1);
+	    &check_group_config($current_group) if ($current_group);
+	    die "Error on line $line\n" unless ($value);
+	    $current_group = $value;
+	    push(@groups,$value);
+	} elsif ($cmd =~ m/^dir/i) {
+	    # Directory
+	    print "Setting directory of $current_group to $value\n"
+		if ($opt_d > 1);
+	    die "No current group to set directory for: $line\n"
+		unless ($current_group);
+	    die "Error on line $line\n" unless ($value);
+	    $value =~ s/\/$//;		# Get rid of trailing /
+	    $directory{$current_group} = $value;
+	} elsif ($cmd =~ m/^regex/i) {
+	    # REGEX	    
+	    ($value, $value2) = split(' ',$value);
+	    print "Setting regex of $current_group to $value nregex to $value2\n"
+		if ($opt_d > 1);
+	    die "No current group to set regex for: $line\n"
+		unless ($current_group);
+	    die "Error on line $line\n" unless ($value);
+	    $regex{$current_group} = $value;
+	    $nregex{$current_group} = $value2;
+	} elsif ($cmd =~ m/bregex/i) {
+	    # Bregex
+	    print "Setting bregex of $current_group to $value\n"
+		if ($opt_d > 1);
+	    die "No current group to set bregex for: $line\n"
+		unless ($current_group);
+	    die "Error on line $line\n" unless ($value);
+	    $bregex{$current_group} = $value;
+	} elsif ($cmd =~ m/header/i) {
+	    # Header
+	    print "Setting headers of $current_group to $value\n"
+		if ($opt_d > 1);
+	    die "No current group to set headers for: $line\n"
+		unless ($current_group);
+	    die "Error on line $line\n" unless ($value);
+	    $headers{$current_group} = $value;
+	} elsif ($cmd =~ m/debug/i) { 
+	    # Debug
+	    print "Setting debugging level to $value\n"
+		if ($opt_d > 1);
+	    die "Error on line $line\n" unless ($value);
+	    $opt_d = $value unless ($opt_d);
+	} elsif ($cmd =~ m/^nntp/i) {
+	    # NNTP
+	    print "Setting nntpserver to $value\n" if ($opt_d > 1);
+	    die "Error on line $line\n" unless ($value);
+	    $server = $value;
+	} else { die "Unexpected line in configuration file $line\n";}
+    }
+    close(F);
+    die "There has to be at least on group in configuration file\n"
+	unless ($current_group);
+    &check_group_configuration($current_group);
+    $server = $ENV{'NNTPSERVER'} if $ENV{'NNTPSERVER'};
+    die ("Can't find NNTPSERVER. Specify in configuration file or as " .
+	 "environment variable\n") if (!$server);
+}
+
+sub check_group_configuration {
+    local($group) = pop @_;
+    print "Checking configuration for $group\n" if ($opt_d > 2);
+    die "No Directory specified for $group\n"
+	unless ($directory{$group});
+    die "Either a regex or bregex has to be specified for each group\n"
+	unless ($regex{$group} || $bregex{$group});
+
+}
+
+sub load_get_news_rc {
+#
+# Load .gnrc file
+# Set $last{$group}
+# 
+    local (@rc);
+    if (! -e $gnrc) {
+	foreach(@groups) {
+	    $last{$_} = 0;
+	}
+    } else {
+	if (!open(F,"$gnrc")) {
+	    warn "Can't read $gnrc\n";
+	    return;
+	}
+	chop(@rc = <F>);
+	close(F);
+	foreach(@rc) {
+	    if (m/^([^:]+):(.+)$/) {
+		print "Last: $1:$2\n" if ($opt_d > 2);
+		$last{$1} = $2;
+	    }
+	}
+    }
+}
+
+
+sub save_get_news_rc {
+#
+# Save .gnrc file
+    
+    if (!open(F,"> $gnrc")) {
+	warn "Can't write to $gnrc \n";
+	return;
+    }
+    foreach(@groups) {
+	print F "$_:$last{$_}\n";
+    }
+    close(F);
+}
+
+
+
+
+sub display_long_help {
+#
+# long help
+#
+   print <<EOF;
+		
+		Introduction to get-news
+
+   1.	What is get-news?
+   
+   get-news is a perl program to find articles of interest on usenet.
+Usenet is getting bigger and bigger.  There are many groups where one
+would like to read, but can not due to time constraints.  get-news is
+designed to save articles based on keyword search.  get-news is not a
+news reader.  
+
+   2.	How does get-news work?
+
+   get-news reads the \$HOME/.gnconfig file for a list of newsgroups
+to scan and regular expressions to search for in those newsgroups.
+Regular expressions can be used to match either the subject line of the
+article or for the body of the article.
+
+   3.	What do I need on my system to run get-news?
+
+   You will need Larry Wall's perl interpreter and Nedim Fresko's
+nntp.pl package.  perl is available via anonymous ftp from
+ftp.uu.net, archive.cis.ohoi-state.edu and jpl-devvax.jpl.nasa.gov.
+
+   Your machine must also have access to news via NNTP protocol (Maybe
+I'll extend get-news to access raw files too)
+
+   4. How do I install get-news?
+
+	There are two things you need to do.
+	1) Put nntp.pl where it can be found by perl.  Either in
+/usr/local/lib/perl (or wherever other perl libaries are residing) or
+in \$HOME/local/lib/perl
+
+	2) You might need to modify the first line of get-news to
+point to where your perl interpreter is on your machine (but you
+should probably install perl in /usr/local/bin/perl in the future)
+
+   5. How do I configure get-news?
+
+   Configuration files are line oriented; each line is processed
+separately.  '#' begins a comment and the rest of the line is
+discarded. 
+
+   Each non-blank line must begin with a recognized keyword.  The case
+of the keywords is not significant.
+  Keywords are: NNTPSERVER, GROUP, REGEX, BREGEX, HEADERS, DIRECTORY,
+DEBUG
+
+Keywords are explained below.  The values for keywords (including the
+regular expressions) must not contain spaces.  The GROUP keyword
+starts a new record, so must always appear before REGEX, BREGEX,
+HEADERS and DIRECTORY.  NNTPSERVER and DEBUGGING can appaer anywhere
+in the configuration file.  Using BREGEX is tricky.  The article
+contains <newlines> so the regular expression has to contain \\n to
+match it.  REGEX can take an optional second argument.  If there is a
+second argument the subject line must match the first argument and
+must not match the second argument.
+
+
+   6. How do I use get-news?
+
+   After you've built your configuration file just run 'get-news'.
+
+   If you are running get-news for the first time you might want to
+use the -c flag to catch up on all the articles.
+
+  7. Environment variables used by get-news
+
+  If NNTPSERVER environment variable is set it overrides the
+NNTPSERVER defined in the configuration file.  
+
+
+  8. Command Line Options:
+
+	-c		Catchup mode.  Does not save articles
+	-dN		Set debugging level to N 
+			(0 silent, 1 info, 2 some, 3 extreme)
+	-H		Display long help message (this document)
+	-h 		Display short help message
+	-v		Display version number
+
+   Files Used
+
+	.gnrc		Keeps track of last read articles
+	.gnconfig 	get-news configuration file see example.
+
+  9. Commands for configuration file:
+	
+	NNTPSERVER	<servername>	Specifies nntpserver
+
+	GROUP		<groupname>	Group to scan articles
+
+	REGEX		<regex>	<regex2>  Regular expression to search
+					in the subject line of the
+					article. <regex2> is optional
+					if used the subject lines will
+					have to match <regex> and not
+					match <regex2>
+
+	BREGEX		<regex>		Regular expression to search
+					in the body of the article
+					using this is expensive since
+					articles can be really long.
+					To match multiple lines you
+					must include \n in the regex.
+					(both REGEX and BREGEX can be
+					used for a group)
+
+	HEADERS		<regex>		Headers that match the regular
+					expression are saved.  Default
+					is to save all headers.
+
+	DIRECTORY	<directory>	Directory specifying where to
+					save the files in the group
+					mentioned before
+	DEBUG		<level>		Set debugging level
+					0 silent, 1 info, 2 some, 3
+					everything you ever wanted to
+					know
+
+
+
+	
+   # Sample .gnconfig file #1
+   # Specify NNTPSERVER either by name or IP number
+   NNTPSERVER		news.universal.edu
+
+   # Specify group/directory/regex
+   GROUP		alt.satelite.tv.forsale
+   DIRECTORY		/tmp/tv
+   # Get the news
+   REGEX		deep\sdish
+
+   GROUP		alt.forsale
+   DIRECTORY		/tmp/to-buy
+
+   # This will also catch motorcycle using \b might be better
+   REGEX		(bike|cycle|car|boat)
+
+
+
+
+   # Sample .gnconfig file #2
+   # Get the NNTPSERVER from environment
+
+   GROUP		alt.forsale
+
+   # Do not get any replies
+   # This gets rid of all subject lines starting with RE:
+   REGEX		.     ^RE:
+
+   # Mentions some sort of transportain in the article
+   BREGEX		(bike|cycle|car|boat)
+   HEADERS		(^Subject:|^From)
+   DIRECTORY		/tmp/save
+
+    # Print lots of information while doing this
+   DEBUGGING		2
+
+
+
+
+   # Sample .gnconfig file #3
+
+   NNTPSERVER		news.universal.edu
+   GROUP		alt.forsale
+
+   # Save everything, need to have some value
+   REGEX		.
+   DIRECTORY		/tmp/save
+
+
+
+   # Sample .gnconfig file #4
+   NNTPSERVER		news.universal.edu
+
+   GROUP		alt.wanted
+   
+   # Sell the racing bike
+   BREGEX		racing\s+bike
+   DIRECTORY		/tmp/save
+
+
+
+
+   10. What to do if I have problems installing or configuring get-news?
+
+   Try to identify the problem yourself, ask friends for help, ask (bribe)
+your system administrator to get some help.  When all else fails, send
+me mail with 'Subject: Problem with get-news $version'.  I might be
+able to fix your problem, but response time can be long if I am busy
+at the time.
+
+
+
+    This software is offered as-is, with no guarantees or promises
+made by me whatsoever.  I disclaim all responsibility for loss or
+damage caused by the program.
+
+						Yusuf Pisan
+						y-pisan@nwu.edu
+						9/94
+
+   Have a blast!
+
+
+EOF
+   exit(1);
+
+}
+
+sub display_short_help {
+#
+# short help
+#
+   print <<EOF;
+
+  Command Line Options:
+
+	-c		Catchup mode.  Does not save articles
+	-dN		Set debugging level to N 
+			(0 silent, 1 info, 2 some, 3 extreme)
+	-H		Display long help message 
+	-h 		Display short help message (this document)
+	-v		Display version number
+
+   Files Used
+
+	.gnrc		Keeps track of last read articles
+	.gnconfig 	get-news configuration file see example.
+
+  Commands for configuration file:
+	
+	NNTPSERVER	<servername>	Specifies nntpserver
+	GROUP		<groupname>	Group to scan articles
+	REGEX		<regular-ex>	Regular expression to search
+					in the subject line of the
+					article
+					(both REGEX and BREGEX can be used)
+	BREGEX		<regular-ex>	Regular expression to search
+					in the body of the article
+					using this is expensive since
+					articles can be really long
+					(both REGEX and BREGEX can be used)
+	HEADERS		<headers>	Headers to include in the file
+					A regular expression
+	DIRECTORY	<directory>	Directory specifying where to
+					save the files in the group
+					mentioned before
+	DEBUG		<level>		Set debugging level
+					0 silent, 1 info, 2 some, 3
+					everything you ever wanted to
+					know
+
+
+	This software is offered as-is, with no guarantees or promises made 
+by me whatsoever.  I disclaim all responsibility for loss or damage caused
+by the program.
+
+						Yusuf Pisan
+						y-pisan@nwu.edu
+						9/94
+
+   Have a blast!
+
+EOF
+   exit(1);
+
+}
+
+sub display_version {
+#
+# Version
+#
+   print <<EOF;
+
+This is get-news, version $version
+
+	This software is offered as-is, with no guarantees or promises made 
+by me whatsoever.  I disclaim all responsibility for loss or damage caused
+by the program.
+
+						Yusuf Pisan
+						y-pisan@nwu.edu
+						9/94
+EOF
+
+  exit(1);
+
+}
+
+
+#!/usr/local/bin/perl
+#
+# Package to interact with an NNTP server
+#
+# Uses Randal Schwartz's excellent 'chat2.pl' package to 'talk' to the server.
+#
+# The open command returns a handle which can be ignored if only one 
+# 'conversation' is to be made with a server. In that case, all commands
+# refer to the same connection. 
+# 
+# In the case of more than one connection, all commands take as their last 
+# argument an optional handle to refer to a specific connection.
+#
+# Implemented are the NNTP stat, group, article, head, body etc. commands.
+#
+# For example, after opening a connection with &nntp'open($server):
+#
+# &nntp'group('comp.lang.perl') 'GROUP's comp.lang.perl, etc.
+#
+# These are implemented with the two following generic commands, which
+# may be used instead:
+#
+# nntp'command_with_line($command [, @ARGS [, $handle]]);
+# nntp'command_with_body($command [, @ARGS [, $handle]]);
+#
+# The first is for 'group', 'stat' etc., which only return one line.
+#
+# The second is used for commands which have a body terminated by '.' on a line
+# by itself, like 'HEAD', 'LIST', 'BODY' etc. This command returns an array
+# of lines, the first of which is the status line.
+#
+# In order to add commands to the list, (for example, non-standard X* commands)
+# modify @commands_with_line and @commands_with_body below.
+# 
+# There are also the following general commands:
+# nntp'get_line([$handle]);
+# nntp'put_line([$handle]);
+# nntp'get_text([$handle]); (Which returns .\r\n terminated text in an array)
+# nntp'put_text(@text [,$handle]); (Which sends lines in @text to server).
+#
+# The default timeout for responses from the server is 30 seconds, and may be
+# changed by assigning to the variable $nntp'timeout.
+#
+# Nedim Fresko <nedim@actcom.co.il>
+#
+# $Header: /u/ac/nedim/sn/RCS/nntp.pl,v 1.3 1994/06/29 15:29:53 nedim Exp $
+#
+
+package nntp;
+
+require 'chat2.pl';
+
+$timeout = 30;
+
+@commands_with_line = ('GROUP', 'STAT', 'LAST', 'NEXT', 'IHAVE', 'POST');
+@commands_with_body = ('LIST', 'HEAD', 'BODY', 'ARTICLE', 'HELP', 
+                       'NEWNEWS', 'NEWGROUPS');
+
+foreach (@commands_with_line) {
+    eval<<EOF;
+sub \L$_\E {
+    &command_with_line($_, \@_);
+}
+EOF
+}
+    
+foreach (@commands_with_body) {
+    eval<<EOF;
+sub \L$_\E {
+    &command_with_body($_, \@_);
+}
+EOF
+}
+    
+sub open {
+    local($server, $port) = @_;
+
+    return 0 unless $server =~ /\S/;
+    $port = 119 unless $port;
+    ($handle = &chat'open_port($server, $port)) || return 0;
+    $handle;
+}
+
+sub close {
+    local($bye);
+
+    $bye = &command_with_line('QUIT', @_);
+    &chat'close($handle);
+    $bye;
+}
+
+sub command_with_line { # Commands which have one-line responses
+    local($command) = shift(@_);
+    local($handle) = pop(@_) if $_[$#_] =~ /^$chat'nextpat/;
+    
+    &put_line("$command " . join(' ', @_) . "\n", $handle);
+    &get_line($handle);
+}
+
+sub command_with_body { # Commands with responses and text term. by \r\n.\r\n
+    local($command) = shift(@_);
+    local($handle) = pop(@_) if $_[$#_] =~ /^$chat'nextpat/;
+
+    &put_line("$command " . join(' ', @_) . "\n", $handle);
+    &get_text($handle);
+}
+
+sub get_text { # Get text from server terminated by \r\n.\r\n
+    local($handle) = @_;
+    local($status, @text, $_);
+
+    $status = &get_line($handle);
+    unless ($status =~ /^[45]/) { # Unless there was an error, get the body.
+	while ($_ = &get_line($handle)) {
+	    last if /^\.$/;
+	    push(@text, $_);
+	}
+    }
+    ($status, @text);
+}
+
+sub put_text { # Put text from server terminated by \r\n.\r\n
+    local($handle) = pop(@_) if $_[$#_] =~ /^$chat'nextpat/;
+    local(@text) = @_;
+    local($_);
+
+    foreach(@text) {
+	s/^\./../;
+        s/\r|\n//g;
+	&put_line("$_\r\n", $handle);
+    }
+    &put_line(".\r\n", $handle);
+}
+
+sub get_line {
+    local($handle) = @_;
+    local($line);
+
+    if ($handle) {
+	$line = &chat'expect($handle, $timeout, '^.*\r\n', '$&');
+    } else {
+	$line = &chat'expect($timeout, '^.*\r\n', '$&');
+    }
+    $line =~ s/^\.\././;
+    $line =~ s/\r$//;
+    $line;
+}
+
+sub put_line {
+    local($line, $handle) = @_;
+
+    if ($handle) {
+	&chat'print($handle, $line);
+    } else {
+	&chat'print($line);
+    }
+}
+
+1;
+
+--
+--
+Yusuf Pisan
+y-pisan@nwu.edu
+

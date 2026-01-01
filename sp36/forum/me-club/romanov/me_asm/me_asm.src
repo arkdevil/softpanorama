@@ -1,0 +1,187 @@
+$MACRO ME_ASM TO <ShftF8>;		{ Written by Alex Romanov, 1991 }
+{
+This Multi-Edit 5.00 macro is a preprocessor that resolves references to
+"inline assembly includes" in macro language programs. ME_ASM recognizes
+the following two extensions to Multi-Edit macro language:
+
+	int_handle := Binary_Code (<.asm file>, <batch file>);
+
+	Kill_Binary_Handle (int_handle);
+
+where int_handle is a local integer variable, <.asm file> is constant string
+being the name of assembly source file that is to be "included", <batch file>
+is constant string that specifies program name to be invoked to compile and
+link the assembly source. (Typically, a batch file is invoked. TASMLINK and
+MASMLINK are sample batch files that do it.)
+	The preprocessor determines whether the binary file is up to date,
+recompiles assembly source if necessary, and stores the resulting code into a
+properly initialized local string variable. The integer handle it returns is
+actually user interrupt vector number that is set to point to our binary code.
+Binary_Code statement is thus an initialization, so it should be done in a
+program only once, and outside the scope of any loops. Whenever you need to
+call your binary routine, initialize registers properly, and call user
+interrupt by macro language statement
+
+	Intr (int_handle);
+
+At the end of your macro program you should dispose of the handle you no
+longer need by issuing the command Kill_Binary_Handle (int_handle). This
+will be translated by ME_ASM into a statement clearing the used entry of
+interrupt vector table.
+	This preprocessor is NOT a sophisticated production tool. It has a lot of
+obvious shortcomings that are pointed out in the paper. Therefore I did not
+bother to perform numerous checks a truly robust preprocessor should do. It is
+assumed that NO OTHER macro language statements can be on the line where
+Binary_Code is encountered. The preprocessor also allows only binary file
+format (ORG 0 assembler directive). All in all, ME_ASM seems to be a beautiful
+but not very practical tool. In fact, using just BINREAD macro (incidentally,
+called by ME_ASM) is in most cases quite sufficient.					}
+
+
+	Def_Str (filename, temp_str_name);
+	Def_Int (old_win_id, old_c_line, old_c_col, old_c_row, includes_count, filelength);
+
+	Refresh := FALSE;
+	Working;
+	If File_Changed Then
+		Make_Message (' Saving ' + File_Name + ' ...');
+		Save_File;
+	End;
+	Make_Message (' Searching for assembly includes ...');
+	old_c_line := C_Line;
+	old_c_col := C_Col;
+	old_c_row := C_Row;
+	Tof;
+	Insert_Mode := TRUE;
+	Undo_Stat := FALSE;
+	Reg_Exp_Stat := TRUE;
+	Ignore_Case := TRUE;
+	includes_count := 0;
+	While Search_Fwd ('{Binary_Code}||{Kill_Binary_Handle}',0) Do
+		If Caps (Found_Str) = 'KILL_BINARY_HANDLE' Then
+			Del_Chars (18);
+			Text ('Memp');
+			Forward_Till (')');
+			Text (' shl 2, 0');
+			GoTo continue_loop;
+		End;
+		++ includes_count;
+		temp_str_name := '______code' + Str (includes_count);
+		Mark_Pos;
+		Forward_Till ('''');
+		Right;
+		filename := Fexpand (Get_Word (''''));
+		If First_File (filename) Then
+			Beep;
+			Make_Message (' Error: Cannot find ' + filename);
+			Pop_Mark;
+			GoTo exit;
+		Else
+			Return_Int := Last_File_Time;
+		End;
+		If Not (First_File (Truncate_Extension (filename) + '.BIN')) Then
+			If Last_File_Time >= Return_Int Then
+				filelength := Last_File_Size;
+				GoTo skip_recompile;
+			End;
+		End;
+		Right;
+		Forward_Till ('''');
+		Right;
+		Return_Str := Get_Word ('''') + ' ' + Truncate_Extension (filename);
+		Make_Message (' Compiling ' + filename + ' ...');
+		RM ('Meutil1^Exec /CMD=1');
+		If Not (First_File (Truncate_Extension (filename) + '.BIN')) Then
+			If Last_File_Time >= Return_Int Then
+				filelength := Last_File_Size;
+				GoTo skip_recompile;
+			End;
+		End;
+		Make_Message (' Compilation of ' + filename + ' failed.');
+		Pop_Mark;
+		GoTo exit;
+ skip_recompile:
+		filelength := filelength + 16;	{ allow for paragraph alignment }
+		Goto_Mark;
+		RM ('Deleol');
+		Text ('$60;');
+		First_Word;
+		Return_Str := Get_Word (' :=');
+		Eol; Cr;
+		Text ('While (Memp (' + Return_Str + ' shl 2) <> 0) and (' + Return_Str + ' < $FD) Do');
+		Cr; Tab_Right;
+		Text ('++ ' + Return_Str + ';');
+		Cr;
+		Text ('End;');
+		Cr;
+		Text ('Def_Str (' + temp_str_name + '[' + Str (filelength) +']);');
+		Cr;
+		Text ('Def_Int (______codeseg);');
+		Cr;
+		Text (temp_str_name + ' := |39|39;');
+		Cr;
+		Text ('Return_Int := (Ofs (' + temp_str_name +') + 4) mod $10;');
+		Cr;
+		Text ('______codeseg := ((Ofs (' + temp_str_name +') + 20 - Return_Int) shr 4 + Seg (' + temp_str_name +')) shl 16;');
+		Cr;
+		Text ('If Return_Int Then');
+		Cr; Tab_Right;
+		Text ('While Return_Int < $10 Do');
+		Cr; Tab_Right; Tab_Right;
+		Text (temp_str_name + ' := ' + temp_str_name + ' + |39|32|39;');
+		Cr; Tab_Right; Tab_Right;
+		Text ('Return_Int := Return_Int + 1;');
+		Cr; Tab_Right;
+		Text ('End;');
+		Cr;
+		Text ('End;');
+		Cr;
+		Text ('Memp (' + Return_Str + ' shl 2, ______codeseg);');
+		Cr;
+		Text (temp_str_name + ' := ' + temp_str_name + ' + ');
+		RM ('Binread /F=' + Truncate_Extension (filename) + '.BIN');
+		Make_Message (' Searching for next assembly include ...');
+ continue_loop:
+	End;
+	If Not (includes_count) Then
+		Make_Message (' No includes found. Compiling ' + File_Name + ' ...');
+		GoTo compile;
+	End;
+	Refresh := FALSE;
+	Working;
+	temp_str_name := File_Name;
+	File_Name := Temp_Path + 'MEASMTMP.SRC';
+	Make_Message (' Compiling ' + File_Name + ' ...');
+	Save_File;
+ compile:
+	Return_Str := 'memac -p' + Me_Path + ' ' + File_Name + ' > ' + User_Id + 'meerr.tmp';
+	RM ('Meutil1^Exec /CMD=1');
+	old_win_id := Window_Id;
+	If Not (Switch_File (Fexpand (User_Id + 'meerr.tmp'))) Then
+		Create_Window;
+		Window_Attr := $96;
+	End;
+	Load_File (User_Id + 'meerr.tmp');
+	If Search_Fwd ('Output-file = ',0) Then
+		Goto_Col (C_Col + 14);
+		Return_Str := Get_Word ('');
+		Load_Macro_File (Return_Str);
+		Tof;
+		Make_Message (' No errors. Macro-file = ' + Return_Str);
+		Switch_Win_Id (old_win_id);
+		Load_File (temp_str_name);
+		While C_Row < old_c_row Do
+			Down;
+		End;
+		Goto_Line (old_c_line);
+		Goto_Col (old_c_col);
+	Else
+		Switch_Win_Id (old_win_id);
+		RM ('Language^Cmperror');
+	End;
+ exit:
+	Undo_Stat := TRUE;
+	Refresh := TRUE;
+	Redraw;
+
+END_MACRO;

@@ -1,0 +1,71 @@
+{(C) 1991 by Ol}
+$MACRO 10;
+{Удаление из файла пустых (смежных) >= 1 строк}
+Def_Int(n := 0,chislo,v := 1);
+chislo := global_int('chislo');
+set_global_int('IINT_1',chislo);
+set_global_str('IPARM_1','/T=Сколько пустых строчек оставить: /C=1/L=2/W=3/H=DATABOX/TP=1');
+RM('USERIN^Data_In /#=1/S=1/A=2/X=10/Y=4/T=Удаление смежных пустых строк');
+chislo := global_int('IINT_1');
+set_global_int('chislo',chislo);
+if chislo < 0 then chislo := (-1) * chislo; end;
+Refresh := FALSE;
+Insert_Mode := TRUE;
+Make_Message('Поехали...');
+tof;
+WHILE AT_EOF <> TRUE DO
+n := n + 1;
+eol;
+if c_col = 1 then
+if chislo > 1 then
+first: while v < chislo do
+       down;
+       eol;
+	if c_col = 1 then
+	v := v + 1;
+	goto first;
+	else
+	v := 1;
+	goto off;
+	end;
+       end;
+ if v = chislo then
+ down; eol;
+second:	while c_col = 1 do
+		if c_col = 1 then
+		call delete;
+		eol;
+		goto second;
+		else
+		v := 1;
+		goto off;
+		end;
+	end;
+ end;
+v := 1;
+else
+	if chislo = 1 then
+        down;
+        eol;
+            if c_col = 1 then
+            up;
+	    call delete;
+            end;
+	elsif chislo = 0 then
+	call delete;
+	end;
+end;
+goto off;
+end;
+DOWN;
+off:
+END;
+goto escape;
+ delete:
+ goto_col(1);
+ Make_Message('Удаляется ' + str(n) + '-я строка...');
+ DEL_CHAR;
+ ret;
+escape:
+Make_Message('Alles!');
+END_MACRO;

@@ -1,0 +1,100 @@
+From: grahamb@iaccess.za (Graham Bingham)
+Newsgroups: comp.lang.rexx
+Subject: Re: Uuencode Uudecode In Rexx
+Date: 28 Dec 1994 14:06:00 +0200
+Organization: Internet Access public-access service
+Message-ID: <3drkb8$go5@mickey.iaccess.za>
+
+In article <paul.19vp@serena.iaehv.nl>,
+Paul Kolenbrander <paul@serena.iaehv.nl> wrote:
+>In article <788430952.MC0280@mclink.it> Luca Regoli <MC0280@mclink.it> writes:
+>> I'm looking for a piece of code to rewrite an UUEncode/Decoder in REXX,
+>> does anybody know the algorithm ??
+>
+>Here comes, I found this one way back. Never tried it though.
+>[followed by some code...]
+
+I took the code you posted and hacked it to work on OS/2.  I say work - 
+it seems to work.  It's quite a bit slower than uudecode.exe for OS/2 off 
+ftp site though...
+
+------------------------------------------------------ cut here
+/* */
+   signal on NOVALUE
+/* Based on original by Stefan Haubenthal 1992/94 */
+/* Hacked for OS/2 by Graham Bingham (grahamb@iacces.za), Dec 1994 */
+
+   parse arg input
+   do forever
+      do until datatype(mode)='NUM'
+         line=linein(input)
+         if stream( input,'S')<>'READY' then 
+            exit
+         parse value line with "begin" mode dest .
+      end
+      say "uudecoding "dest"..."
+      if stream(dest,'C','QUERY EXISTS')<>'' then
+         '@ERASE' dest
+
+      call time('e')
+      do lines=1
+         line=linein( input)
+         if line="end" then 
+            leave
+         len=c2d( decode( left( line,1)))*4/3
+         if len>0 then 
+            call charout dest,decode( substr( line,2,trunc(len)))
+      end
+      say trunc( lines/time('e')*60)" lines per minute"
+      call stream dest,'C','CLOSE'
+   end
+exit
+
+/* xx765432 xx107654 xx321076 xx543210 -> 76543210 76543210 76543210 */
+DECODE: procedure
+/* sub & del */
+   bin=c2b(translate(arg(1),xrange("00"x,"5f"x),xrange("20"x,"7f"x)))
+   do n=1 to length(bin) by 6
+      bin=delstr(bin,n,2)
+   end
+return b2c(bin)
+
+c2b: procedure
+  r = ''
+  do i=1 to length( arg(1))
+     r = r || right( d2b( c2d( substr( arg(1),i,1))),8,'0')
+  end /* do */
+return r
+
+b2c: procedure
+  r = ''
+  do i=1 to length( arg(1)) by 8
+     r = r || d2c( b2d( strip( substr( arg(1),i,8))))
+  end /* do */
+return r
+
+b2d: procedure
+  Sum = 0
+  Pow = 1
+  do i=length(arg(1)) to 1 by -1
+     Sum = Sum + Pow*substr(arg(1),i,1)
+     Pow = Pow*2
+  end /* do */
+return( Sum)
+
+d2b: procedure
+  Binary = ''
+  Sum = arg( 1)
+  do until Sum<=1
+     Binary = (Sum // 2) || Binary
+     Sum = Sum % 2
+  end /* do */
+  Binary = Sum || Binary
+return( Binary)
+---------------------------------------------- end cut here
+-- 
++------------------------------------------------+
+ \    Graham Bingham, grahamb@iaccess.za          \
+ /    Phone: +27 21 4037354, Fax: +27 21 4037332  /
++------------------------------------------------+
+

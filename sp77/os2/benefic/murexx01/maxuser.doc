@@ -1,0 +1,899 @@
+
+                          MaxUserREXX Version 1.01
+
+            Maximus v2.xx USER.BBS Manipulator DLL for OS/2 REXX
+           Copyright 1994, by Craig Morrison, All Rights Reserved.
+
+
+ What is it?
+ -----------
+
+  MaxUserREXX is a REXX callable dynamic link library for OS/2's REXX
+ Procedures Language/2. With MaxUserREXX and REXX you can write REXX command
+ scripts that will allow you to manipulate your Maximus v2.xx USER.BBS and
+ LASTUSER.BBS files. It will also allow you to query and change system
+ information that relates to the user in the files IPCxx.BBS, BBSTATxx.BBS and
+ MTAG.BBS. This allows you as a REXX programmer almost complete control over
+ your user information from the command line.
+
+
+ How Much is it?
+ ---------------
+
+  For non-commercial/private use, MaxUserREXX is _absolutely_ free.
+
+  For commercial use of MaxUserREXX the pricing schedule is as follows:
+
+                     ┌────────────────────────┐
+                     │ Copies          Cost   │
+                     ├───────────┬────────────┤
+                     │ 1-5       │     $10.00 │
+                     │ 6-10      │     $ 8.00 │
+                     │ 11-20     │     $ 7.00 │
+                     │ 21-40     │     $ 6.00 │
+                     │ 41+       │     $ 4.00 │
+                     └───────────┴────────────┘
+
+  For developers wishing to distribute MaxUserREXX with their applications
+ there is a one-time license fee of $48.00. Further royalties are not required,
+ unless the product for distribution is of a developer's kit in nature.
+
+  For commercial volume purchases of 6 or more copies or for developers
+ purchasing a distribution license the Borland C source code to MaxUserREXX is
+ provided.
+
+  For the author's contact information and purchase form please see the end of
+ this document.
+
+
+ Installing MaxUserREXX
+ ----------------------
+
+  Simply copy the file MAXUSER.DLL to a directory on your LIBPATH, or into the
+ directory you will be running your REXX command scripts from.
+
+  THAT'S IT!
+
+
+ Using MaxUserREXX
+ -----------------
+
+  It would be to your benefit to use a BACKUP copy of your USER.BBS while you
+ are getting comfortable with MaxUserREXX. MaxUserREXX will NOT do anything you
+ don't tell it to do. As long as you don't call CommitUser() your USER.BBS is
+ safe.
+
+  First you need to know how to write a REXX script. Writing a REXX script is
+ well beyond the scope of this document, please refer to the OS/2 REXX
+ Procedures Language/2 Online Reference provided with OS/2 for more
+ information.
+
+  It would also be to your benefit to have the record layout for the
+ USER.BBS file handy. While MaxUserREXX makes it so that you don't need
+ to know the exact layout of the file, the user structure definition
+ does contain some useful information that deals with the real purpose
+ of each field.
+
+  MaxUserREXX provides 60+ functions that allow you to manipulate every aspect
+ of a user record in either a USER.BBS or LASTUSER.BBS file. You will need to
+ be familiar with the REXX functions RXFUNCADD and RXFUNCDROP to load and drop
+ functions. However, two of the functions provided by MaxUserREXX allow you to
+ easily load and drop all the functions available.
+
+  The functions are basically divided into two groups, QueryUser... and
+ SetUser..., the QueryUser functions return information about a particular
+ record and the SetUser functions modify the user information of a record.
+
+  Let's get on with the functions.. A complete list follows with the function
+ being listed first then an explanation of what it does and what arguments are
+ needed. All the functions will return ERROR if something goes wrong, except
+ where specified.
+
+  All index numbers into the user files are _ZERO_ (0) _NOT_ one (1) based.
+
+  You can only have ONE user file open at a time per REXX script.
+
+    UserLoadFuncs()
+
+        Loads all the MaxUserREXX functions in one fell swoop. Sample
+        usage:
+
+            Call RxFuncAdd 'UserLoadFuncs', 'MaxUser', 'UserLoadFuncs'
+            Call UserLoadFuncs
+
+        If you are going to be using only a small portion of the
+        functions available, you may wish to just load those functions
+        using RxFuncAdd.
+
+    UserDropFuncs()
+
+        Drops all loaded functions. MAKE SURE IF YOU HAVE CALLED
+        OpenUserFile() THAT YOU CALL CloseUserFile() BEFORE CALLING THIS
+        FUNCTION.
+
+    OpenUserFile(UserFileName)
+
+        Allocates in memory structures needed to manipulate
+        UserFileName. UserFileName can be either a USER.BBS or
+        LASTUSER.BBS file. Returns the number of users in the file on
+        success.
+
+    CommitUser(UserIndex)
+
+        Commits all modifications made to the user record at UserIndex
+        by writing the changes to disk.
+
+    CloseUserFile()
+
+        Closes out and releases all in-memory structures for the last
+        Open'ed user file. MAKE SURE YOU CALL THIS FUNCTION _BEFORE_
+        CALLING UserDropFuncs()!
+
+    CopyUserToFile(UserIndex, TargetFile)
+
+        Appends the user record at UserIndex to TargetFile, creating
+        TargetFile if necessary.
+
+        This function can be used to perform a `pack' of the main user
+        file by looping through the user records, calling
+        QueryUserFlags() for each record. If the DEL flag is not set
+        then call this function to write the record to a new user file.
+
+        Something similar to:
+
+            usercount = OpenUserFile('USER.BBS')
+            do userindex = 0  to usercount-1
+                if Pos('DEL', QueryUserFlags(userindex))=0 then
+                    call CopyUserToFile userindex, 'NEWUSER.BBS'
+                else
+                    Say 'User 'QueryUserName(userindex)' purged..'
+            end
+            Call CloseUserFile
+
+        You can also add a user to the user file with this function.
+        EXERCISE CAUTION WHEN ADDING A USER WITH THIS FUNCTION! What
+        you will need to do is something like:
+
+            usercount = OpenUserFile('TEMPLATE.BBS')
+            if usercount<>'ERROR' then do
+                call CopyUserToFile '0', 'USER.BBS'
+                call CloseUserFile
+            end
+
+        TEMPLATE.BBS would be a file that could hold one or more user
+        templates. Make sure to test for the presence of ACTIVExx.BBS
+        files, so you don't stomp on Maximus' efforts to work with the
+        user file.
+
+    SwapUsers(UserIndex1, UserIndex2)
+
+        Swaps the user records at UserIndex1 and UserIndex2. Make sure
+        you CommitUser() BOTH records after calling this function.
+
+    FindUser(StartIndex, UserName)
+
+        Returns the zero based index of UserName starting from
+        StartIndex. Returns StartIndex if UserName is not found. Both
+        the Name and Alias fields of the user records are compared to
+        UserName to find a match. NOTE: This is a brute force search.
+
+    QueryUserName(UserIndex)
+
+        Returns the Name of the user at UserIndex or an empty string if
+        UserIndex is out of range.
+
+    QueryUserAlias(UserIndex)
+
+        Returns the Alias of the user at UserIndex or an empty string if
+        UserIndex is out of range.
+
+    QueryUserLocation(UserIndex)
+
+        Returns the City/St/Province of the user at UserIndex or an
+        empty string if UserIndex is out of range.
+
+    QueryUserPhone(UserIndex)
+
+        Returns the Phone Number of the user at UserIndex or an empty
+        string if UserIndex is out of range.
+
+    QueryUserLastReadOffset(UserIndex)
+
+        Returns the Last Read Offset of the user at UserIndex or an empty
+        string if UserIndex is out of range. NOTE: This is an offset
+        into the LASTREAD.BBS files for *.MSG areas or the offset into
+        the *.SQL files for Squish areas. If you don't understand this
+        part of the user record it is best for you to leave it alone.
+
+    QueryUserTimeRemaining(UserIndex)
+
+        Returns the time remaining for the current call. This is useless
+        unless you are working with a LASTUSER.BBS file.
+
+    QueryUserPassword(UserIndex)
+
+        Returns the Password of the user at UserIndex or an empty string
+        if UserIndex is out of range.
+
+    QueryUserSystemCalls(UserIndex)
+
+        Returns the number of System calls of the user at UserIndex or
+        an empty string if UserIndex is out of range.
+
+    QueryUserHelpLevel(UserIndex)
+
+        Returns one of the four Help Levels; NOVICE, REGULAR, EXPERT or
+        HOTFLASH or an empty string if UserIndex is out of range.
+
+    QueryUserVideoMode(UserIndex)
+
+        Returns one of the three Video Modes; TTY, ANSI or AVATAR or an
+        empty string if the UserIndex is out of range.
+
+    QueryUserNulls(UserIndex)
+
+        Returns the number of Nulls to be transmitted for this user or
+        an empty string if UserIndex is out of range.
+
+    QueryUserBits(UserIndex)
+
+        Returns a string containing the Bits Flag settings or an empty
+        string if UserIndex is out of range. The returned string may
+        contain one or more of the following separated by commas:
+
+            HOTKEYS     If present the user wants to use hotkeys.
+
+            NOCHAT      If present the user is NOT available for chat.
+
+            FSR         If present the Full Screen Reader will be used
+                        when the user is browsing messages.
+
+            NERD        If present the sysop bell will not ring when a
+                        the user yells.
+
+            NOULIST     If present the user will NOT appear in the
+                        userlist displayed by Maximus.
+
+            TABS        If present Maximus will send tabs rather than
+                        expand tabs into spaces before transmission.
+
+    QueryUserBits2(UserIndex)
+
+        Returns a string containing the Bits2 Flag settings or an empty
+        string if UserIndex is out of range. The returned string may
+        contain one or more of the following separated by commas:
+
+            HACKED      If present the user's last logon attempt was
+                        bad.
+
+            IBMCHARS    If present the user wants IBM Characters.
+
+            BOREDUSER   If present the user gets to edit messages with
+                        the BorED line editor.
+
+            MORE        If present the user wants the "More?" prompt.
+
+            USEDMAX     If present it means that the user account has
+                        been configured.
+
+            CLS         If present, the appropriate screen clearing code
+                        will be sent when Maximus needs to clear the
+                        screen.
+
+    QueryUserPriviledge(UserIndex)
+
+        Returns a string containing the name of the priviledge level of
+        the user at UserIndex or an empty string if UserIndex is out of
+        range.
+
+    QueryUserTimeToday(UserIndex)
+
+        Returns the total amount of time the user at UserIndex has been
+        online for the day or an empty string if UserIndex is out of
+        range.
+
+    QueryUserFlags(UserIndex)
+
+        Returns the status of the two User Flags for the user at
+        UserIndex; DEL or PERM or an empty string if UserIndex is out of
+        range.
+
+    QueryUserScreen(UserIndex)
+
+        Returns the Width and Length of the user at UserIndex or an
+        empty string if UserIndex is out of range. The string returned
+        will be the Width followed by the length, separated by a comma:
+
+        E.G:    80,25
+
+    QueryUserCredit(UserIndex)
+
+        Returns the Netmail Credits of the user at UserIndex or an
+        empty string if UserIndex is out of range.
+
+    QueryUserDebit(UserIndex)
+
+        Returns the Netmail Debits of the user at UserIndex or an empty
+        string if UserIndex is out of range.
+
+    QueryUserExpiryInfo(UserIndex)
+
+        Returns a string containing the Expiry Information for the user
+        at UserIndex or an empty string if UserIndex is out of range.
+        The string returned will vary depending the Expiry options set
+        for the user. Examples of the most common returns are:
+
+            DAYS,<days_left_to_expiry>,NONE
+            DAYS,<days_left_to_expiry>,AXE
+            DAYS,<days_left_to_expiry>,DEMOTE,<priv_level>
+            MINUTES,<mins_left_to_expiry>,NONE
+            MINUTES,<mins_left_to_expiry>,AXE
+            MINUTES,<mins_left_to_expiry>,DEMOTE,<priv_level>
+            NONE,NONE
+
+        This string should ALWAYS be parsed from left to right.
+
+    QueryUserLastCallDate(UserIndex)
+
+        Returns the Last Call Date and Time for the user at UserIndex or
+        an empty string if UserIndex is out of range. The string will be
+        formatted as "MM-DD-YYYY HH:MM:SS".
+
+        E.G:    10-25-1994 12:13:30
+
+    QueryUserKeys(UserIndex)
+
+        Returns a string containing the keys of the user at UserIndex or
+        an empty string if UserIndex is out of range. If the user were
+        to have all keys set, the following string would be returned:
+
+            12345678ABCDEFGHIJKLMNOPQRSTUVWX
+
+    QueryUserLanguage(UserIndex)
+
+        Returns the _index_ of the Language for the user at UserIndex or
+        an empty string if UserIndex is out of range.
+
+    QueryUserProtocol(UserIndex)
+
+        Returns the _index_ of the Default Protocol for the user at
+        UserIndex or an empty string if UserIndex is out of range.
+
+    QueryUserUploads(UserIndex)
+
+        Returns the number of k-bytes Uploaded by the user at UserIndex
+        or an empty string if UserIndex is out of range.
+
+    QueryUserDownloads(UserIndex)
+
+        Returns the number of k-bytes Downloaded by the user at
+        UserIndex or an empty string if UserIndex is out of range.
+
+    QueryUserDownloadsToday(UserIndex)
+
+        Returns the number of k-bytes Downloaded on the current day by
+        the user at UserIndex or an empty string if UserIndex is out of
+        range.
+
+    QueryUserLastMessageArea(UserIndex)
+
+        Returns the name of the Last Message area for the user at
+        UserIndex or an empty string if the UserIndex is out of range.
+
+    QueryUserLastFileArea(UserIndex)
+
+        Returns the name of the Last File area for the user at
+        UserIndex or an empty string if the UserIndex is out of range.
+
+    QueryUserCompressor(UserIndex)
+
+        Returns the _index_ of the Compressor for the user at UserIndex
+        or an empty string if UserIndex is out of range.
+
+    QueryUserExtra(UserIndex)
+
+        Returns the contents of the extra field for the user at
+        UserIndex or an empty string if UserIndex is out of range.
+
+    SetUserName(UserIndex, Name)
+
+        Sets the name field of the user record at UserIndex to Name.
+
+    SetUserAlias(UserIndex, Alias)
+
+        Sets the alias field of the user record at UserIndex to Alias.
+
+    SetUserLocation(UserIndex, Location)
+
+        Sets the city field of the user record at UserIndex to Location.
+
+    SetUserPhone(UserIndex, PhoneNumber)
+
+        Sets the phone field of the user record at UserIndex to
+        PhoneNumber.
+
+    SetUserLastReadOffset(UserIndex, Offset)
+
+        Sets the last read offset for the user record at UserIndex to
+        Offset. As mentioned earlier, if you don't know what this field
+        is used for leave it alone or you will trash the last read
+        pointers for the user.
+
+    SetUserTimeRemaining(UserIndex, TimeLeft)
+
+        Sets the time remaining field for the user at UserIndex to
+        TimeLeft. This field is only useful when changing time
+        allotments for a LASTUSER.BBS file.
+
+        A possible use for modifying this field would be for a time bank
+        or other similar application for a user who is online.
+
+    SetUserPassword(UserIndex, Password)
+
+        Sets the password field for the user at UserIndex to Password.
+
+    SetUserSystemCalls(UserIndex, NumberOfCalls)
+
+        Sets the system calls field of the user at UserIndex to
+        NumberOfCalls.
+
+    SetUserHelpLevel(UserIndex, HelpLevel)
+
+        Sets the help level field of the user at UserIndex to HelpLevel.
+        HelpLevel should contain _one_ of the following strings in all
+        uppercase letters:
+
+            NOVICE
+            REGULAR
+            EXPERT
+            HOTFLASH
+
+    SetUserVideoMode(UserIndex, VMode)
+
+        Sets the video mode field for the user at UserIndex to VMode.
+        VMode should contain one of the following strings in all
+        uppercase letters:
+
+            TTY
+            ANSI
+            AVATAR
+
+    SetUserNulls(UserIndex, NumberOfNulls)
+
+        Sets the nulls field of the user at UserIndex to NumberOfNulls.
+
+    SetUserBits(UserIndex, BitsFlags)
+
+        Sets the bits field of the user at UserIndex to BitsFlags.
+        BitsFlags is a string containing one or more of the following
+        strings in all uppercase letters separated by commas:
+
+            HOTKEYS
+            NOCHAT
+            FSR
+            NERD
+            NOULIST
+            TABS
+
+        You must specify ALL the flags you want set for the user, if a
+        flag is not present in the string it is NOT set.
+
+    SetUserBits2(UserIndex, Bits2Flags)
+
+        Sets the bits2 field of the user at UserIndex to BitsFlags.
+        BitsFlags is a string containing one or more of the following
+        strings in all uppercase letters separated by commas:
+
+            HACKED
+            IBMCHARS
+            BORED
+            MORE
+            USEDMAX
+            CLS
+
+        You must specify ALL the flags you want set for the user, if a
+        flag is not present in the string it is NOT set.
+
+    SetUserPriviledge(UserIndex, PrivLevel)
+
+        Sets the priviledge level field of the user at UserIndex to
+        PrivLevel. The priviledege level should be ONE of the following
+        strings:
+
+            TWIT
+            DISGRACE
+            LIMITED
+            NORMAL
+            WORTHY
+            PRIVIL
+            FAVORED
+            EXTRA
+            CLERK
+            ASSTSYSOP
+            SYSOP
+            HIDDEN
+
+    SetUserTimeToday(UserIndex, Minutes)
+
+        Sets the time online today field of the user at UserIndex to
+        Minutes.
+
+    SetUserFlags(UserIndex, Flags)
+
+        Sets the user flags field of the user at UserIndex to Flags.
+        Flags should be a string containing one or more of the following
+        strings separated by commas:
+
+            DEL
+            PERM
+
+        You must specify ALL the flags you want set for the user, if a
+        flag is not present in the string it is NOT set.
+
+    SetUserScreen(UserIndex, Width, Length)
+
+        Sets the screen width and length fields of the user at UserIndex
+        to Width and Length.
+
+    SetUserCredit(UserIndex, Credits)
+
+        Sets the netmail credits of the user at UserIndex to Credits.
+
+    SetUserDebit(UserIndex, Debits)
+
+        Sets the netmail debits of the user at UserIndex to Debits.
+
+    SetUserExpiryInfo(UserIndex, XType, DaysMins, XAction, XPriv)
+
+        Sets the expiry information fields of the user at UserIndex
+        based on XType, DaysMins, XAction and XPriv. All arguments must
+        be present even if they are not needed for the type of expiry
+        you want to set with this function.
+
+        XType can be ONE of the following:
+
+            DAYS
+            MINUTES
+            NONE
+
+        DaysMins depends on XType. See the table below:
+
+            XType               DaysMins Setting
+            ------------------  ------------------------------
+            DAYS                Days to expiry.
+            MINUTES             Minutes to expiry.
+            NONE                Ignored but MUST be present.
+
+        XAction can be ONE of the following:
+
+            AXE
+            DEMOTE
+            NONE
+
+        XPriv should be set to a valid priviledge level if XAction is
+        set to DEMOTE, for AXE and NONE it doesn't have to contain
+        anything useful but it must STILL be present. See:
+        SetUserPriviledge() for the valid priviledge level names.
+
+    SetUserLastCallDate(UserIndex, Month, Day, Year, Hours, Minutes,
+                        Seconds)
+
+        Sets the last call date field of the user at UserIndex based on
+        the Month, Day, Year, Hours, Minutes and Seconds specified. All
+        arguments MUST be present. Year should be a four digit year.
+        Hours should be specified in 24 hour format.
+
+        NOTE: It is your responsibility to do the range checking on the
+        arguments passed to this function. MaxUserREXX does NOT check
+        the arguments for valid dates or times.
+
+    SetUserKeys(UserIndex, Keys)
+
+        Sets the keys field of the user at UserIndex to Keys. Keys
+        should be a string containing the letter(s) of the key(s) you
+        want set for the user. Each key you want set in the user record
+        must be present in the string.
+
+    SetUserLanguage(UserIndex, LanguageIndex)
+
+        Sets the language index field of the user at UserIndex to
+        LanguageIndex.
+
+    SetUserProtocol(UserIndex, ProtocolIndex)
+
+        Sets the protocol index field of the user at UserIndex to
+        ProtocolIndex.
+
+    SetUserUploads(UserIndex, UploadKBytes)
+
+        Sets the uploaded k-bytes field of the user at UserIndex to
+        UploadKBytes.
+
+    SetUserDownloads(UserIndex, DownloadKBytes)
+
+        Sets the downloaded k-bytes field of the user at UserIndex to
+        DownloadKBytes.
+
+    SetUserDownloadsToday(UserIndex, DownloadKBytes)
+
+        Sets the downloaded today k-bytes field of the user at UserIndex
+        to DownloadKBytes.
+
+    SetUserLastMessageArea(UserIndex, MessageArea)
+
+        Sets the last message area field of the user at UserIndex to
+        MessageArea.
+
+    SetUserLastFileArea(UserIndex, FileArea)
+
+        Sets the last file area field of the user at UserIndex to
+        FileArea.
+
+    SetUserCompressor(UserIndex, CompressorIndex)
+
+        Sets the compressor index field of the user at UserIndex to
+        CompressorIndex.
+
+    SetUserExtra(UserIndex, ExtraInfo)
+
+        Sets the extra field of the user at UserIndex to ExtraInfo.
+        MaxUserREXX is expecting a number in ExtraInfo, as this field is
+        defined as a `dword' in the header files for Maximus.
+
+    QueryBBS_Stats(BBSStatFile)
+
+        Returns the BBS statistics for BBSStatFile as a string formatted
+        in the following manner:
+
+          total_calls msgs_written total_dl total_ul todays_calls
+
+        BBSStatFile will be BBSTATxx.BBS where xx is the task number in
+        hexadecimal format, padded with a leading zero to make it two
+        characters if necessary.
+
+    SetBBS_Stats(BBSStatFile, TotCalls, MsgsOut, TotDL, TotUL, TodayCalls)
+
+        Sets the BBS statistics for BBSStatFile.
+
+        BBSStatFile will be BBSTATxx.BBS where xx is the task number in
+        hexadecimal format, padded with a leading zero to make it two
+        characters if necessary.
+
+    QueryQWKTags(MTagBBS, UserName)
+
+        Retrieves the tagged QWK message areas for UserName from MTagBBS
+        as a string. The string will consist of each tagged area name
+        separated by a blank, for example (without the quotes):
+
+            " 0 1 3 HINTS TIPS MUFFIN TUB"
+
+        MTagBBS should be the MTAG.BBS residing in your Maximus root
+        directory. If Max is in D:\MAX, MTagBBS would be:
+
+            D:\MAX\MTAG.BBS
+
+        UserName is the users REAL name.
+
+    SetQWKTags(MTagBBS, UserName, QWKTags)
+
+        Sets the tagged QWK message areas for UserName into MTagBBS from
+        the string QWKTags. The QWKTags string consists of each area
+        name to be tagged, each name should be separated from the others
+        by a blank, it should also start with a blank, for example
+        (without the quotes):
+
+            " MECCA MUFFIN TUB OS2BBS"
+
+        MTagBBS should be the MTAG.BBS residing in your Maximus root
+        directory. If Max is in D:\MAX, MTagBBS would be:
+
+            D:\MAX\MTAG.BBS
+
+        UserName is the users REAL name.
+
+    SetIPCStatus(IPCFile, UserName, StatusMsg)
+
+        Writes an IPCFile for UserName with StatusMsg.
+
+        IPCFile should be IPCxx.BBS where xx is the task number in
+        hexadecimal format, padded with a leading zero to make it two
+        characters if necessary.
+
+    SendUserMsg('stemvar')
+
+        Creates a message and writes it to a Squish or *.MSG message
+        base. The message is built from the information stored in the
+        compound stem variable 'stemvar'.
+
+        The elements of the message that need to be placed in 'stemvar'
+        are as follows:
+
+            stemvar.msgpath  - is the root path of the message area to
+                               place the message in.
+
+            stemvar.msgproc  - is the executable name and switches
+                               needed to run your mail tosser/packer,
+                               this one is optional, if it isn't defined
+                               it is ignored.
+
+            stemvar.msgtype  - this defines the type of message base and
+                               must be one of:
+
+                                   SQUISH
+                                   MSG
+                                   MSGECHO
+
+            stemvar.msgflag  - is the message flag you want to use for
+                               this message, it must be one of:
+
+                                   HOLD [,PRIVATE]
+                                   NORMAL [,PRIVATE]
+                                   CRASH [,PRIVATE]
+                                   DIRECT [,PRIVATE]
+
+                               ALL uppercase, please.
+
+            stemvar.to       - is the name to address the message to, if
+                               it isn't defined it defaults to 'All'.
+
+            stemvar.toaddr   - this the FTN style address of the
+                               recipient of the message. It must be in
+                               the format Zone:Net/Node.Point, I.E,
+                               1:201/60.0, if not defined it defaults to
+                               stemvar.fromaddr.
+
+            stemvar.from     - is the name the message is from, this one
+                               is required.
+
+            stemvar.fromaddr - is the address of who the message is
+                               from, in other words, the originating
+                               FTN address. This one is also required.
+
+            stemvar.subject  - this gets put in the subject field of the
+                               message. If not defined it defaults to
+                               'Hello!'.
+
+            stemvar.text     - is the text of the message. Paragraphs
+                               should be terminated by a carriage return
+                               only, no linefeeds.
+
+            stemvar.origin   - this is the text that will get put in the
+                               origin line of the message. All you need
+                               to enter is what text you want added in
+                               between the " * Origin: " and your FTN
+                               address. This is optional, if it is not
+                               defined no origin line is generated.
+
+   ------------------------------------------------------------------
+
+                               ORDER FORM
+                            MaxUserREXX v1.01
+                            -----------------
+
+                       CASH, CHECK or MONEY ORDER
+                       --------------------------
+
+    Please complete the following information and return this form with
+    your check or money order (I will take no responsibility for cash
+    sent through the mail) to the address below.  Please make all checks
+    and money orders for U.S. funds payable to Craig Morrison.
+
+   ------------------------------------------------------------------
+
+                          CREDIT CARD ORDERING
+                          --------------------
+
+    To order using VISA, Mastercard or American Express, fill out this
+    form and mail it to the address below. You may also either netmail
+    this form to the Fidonet address listed below, or call the BBS
+    number listed below and upload the form.
+
+    Credit card purchases will be turned around in 24-48 hours.
+
+   ------------------------------------------------------------------
+
+    <Please Type or Print Clearly>
+
+            Name: __________________________________________________
+
+         Company: __________________________________________________
+
+         Address: __________________________________________________
+
+                  __________________________________________________
+
+            City: _____________________  St or Prov: _______________
+
+     Postal Code: ________________  Country: _______________________
+
+    Phone Number: __________________________________________________
+
+ Fidonet Address: __________________________________________________
+
+Internet Address: __________________________________________________
+
+            Date: ___-___-______
+
+
+    I would like to purchase:
+                                                               Totals
+
+____ MaxUserREXX Developer's License @ 48.00:               $___________
+     (Source code included)
+
+____ Copy(s) of MaxUserREXX @ 10.00 per copy:               $___________
+     (1-5 copies)
+
+____ Copy(s) of MaxUserREXX @  8.00 per copy:               $___________
+     (6-10 copies and source code)
+
+____ Copy(s) of MaxUserREXX @  7.00 per copy:               $___________
+     (11-20 copies and source code)
+
+____ Copy(s) of MaxUserREXX @  6.00 per copy:               $___________
+     (21-40 copies and source code)
+
+____ Copy(s) of MaxUserREXX @  4.00 per copy:               $___________
+     (41+ copies and source code)
+
+
+____ I am including a check or money order for:              ___________
+
+____ Please charge this purchase to my:
+
+        [ ] VISA
+        [ ] Mastercard
+        [ ] American Express
+
+     In the amount of:                                       ___________
+
+     Card Number:             _______________________________
+
+     Card Expiration Date:    ____/____
+
+     Signature (required):    _______________________________
+     (Or name as it appears on card for mail orders.)
+
+    ------------------------------------------------------------------
+
+    <Optional information>
+
+    Kind of Work You Do:
+            < > Programming      < > CAD/CAM         < > Engineering
+            < > Accounting       < > Word Processing
+            < > Other (Please Specify) _____________________________
+
+
+    Where did you first hear about MaxUserREXX? ____________________
+
+    ________________________________________________________________
+
+    Where did you find this product: _______________________________
+
+    Comments/Suggestions about this product:
+
+    _________________________________________________________________
+
+    _________________________________________________________________
+
+    _________________________________________________________________
+
+    _________________________________________________________________
+
+    _________________________________________________________________
+
+
+
+   ------------------------------------------------------------------
+
+    Please remit to:
+
+    Fidonet:   Craig Morrison, 1:201/60@fidonet.org
+    Internet:  Craig Morrison, cam@wpc.cioe.com
+    BBS:       Workplace Connection, (317) 742-2680
+    SnailMail: Craig Morrison
+               1316 Ferry St.
+               Lafayette, IN 47901-1533
+               USA
+
+

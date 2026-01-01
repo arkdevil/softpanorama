@@ -1,0 +1,1021 @@
+
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+                               Table of Contents
+
+
+    1. INTRODUCTION...................................... 2
+        1.1. Purpose of TbClean.......................... 2
+        1.2. A quick start............................... 2
+        1.3. What is cleaning?........................... 2
+        1.4. Conventional cleaners....................... 3
+        1.5. Generic cleaner............................. 4
+            1.5.1. Repair cleaner........................ 4
+            1.5.2. Heuristic cleaner..................... 4
+        1.6. Benefits.................................... 4
+            1.6.1. Reliability........................... 5
+            1.6.2. Removal of polymorphic viruses........ 5
+            1.6.3. Removal of encrypting viruses......... 5
+            1.6.4. No updates required................... 5
+        1.7. How many viruses can it remove.............. 5
+
+    2. USAGE OF THE PROGRAM.............................. 6
+        2.1. System requirements......................... 6
+        2.2. Program invocation.......................... 6
+        2.3. While cleaning.............................. 6
+        2.4. The messages................................ 7
+        2.5. The result................................. 10
+        2.6. Command line options....................... 11
+            2.6.1. help ................................ 11
+            2.6.2. pause ............................... 11
+            2.6.3. mono ................................ 11
+            2.6.4. noav ................................ 12
+            2.6.5. noems ............................... 12
+            2.6.6. showloop ............................ 12
+            2.6.7. list ................................ 12
+        2.7. Cleaning multiple files.................... 12
+        2.8. Examples:.................................. 13
+
+    3. CONSIDERATIONS AND RECOMMENDATIONS............... 14
+        3.1. Why cleaning?.............................. 14
+        3.2. After cleaning............................. 14
+        3.3. Cleaning limitations....................... 15
+        3.4. Safety of TbClean.......................... 15
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Page i
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     Page 1
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+1.  INTRODUCTION
+
+
+  1.1.  Purpose of TbClean
+
+    TbClean is a program that separates a virus from an infected
+    program.  After this separation, the program can be used as
+    before, without any risk of infecting or damaging other files.
+
+
+  1.2.  A quick start
+
+    Although we highly recommend a complete reading of this manual,
+    here are some directions for a quick run of TbClean:
+
+    Type 'TbClean <filename>' at the DOS prompt to clean the program
+    with name <filename>. So, if the program to be cleaned is named
+    TEST.EXE you should type:
+
+        TBCLEAN TEST.EXE
+
+    The invocation syntax is:
+
+        TBCLEAN [<path>]<filename> [<options>]...
+
+    For fast online help, type 'TbClean ?' or 'TbClean help'. The latter
+    will provide a more detailed description of the command line options.
+
+
+  1.3.  What is cleaning?
+
+    Before we can answer this question, we have to know how a virus
+    infects a program. The basic principle is not difficult. A virus -
+    a program by itself - adds itself to the end of the program. The
+    size of the program increases due to this addition of the viral
+    code. Appending a virus program to another program is however not
+    enough, the virus code should also be executed. To make this
+    happen, the virus overwrites the first bytes of the file with a
+    'jump' instruction, that makes the processor jump to the viral
+    code. The virus now gains control when the program is invoked, and
+    it will finally pass control to the original program.  Since the
+    first bytes of the file are overwritten by the jump instruction the
+    virus has to 'repair' these bytes first. After that the virus just
+    jumps to the beginning of the original program, and most often this
+    program works as usual.
+
+
+
+
+
+
+
+
+
+
+                                     Page 2
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    original program                      infected program
+
+    +--------------+                      +--------------+
+    | p            |                 100: |jump          |
+    | r            |                      |to 2487       |
+    | o            |                      | o            |
+    | g            |                      | g            |
+    | r            |                      | r            |
+    | a            |                      | a            |
+    | m            |                      | m            |
+    |              |                      |              |
+    | c            |                      | c            |
+    | o            |                      | o            |
+    | d            |                      | d            |
+    | e            |                      | e            |
+    |              |                      |              |
+    +--------------+                      +--------------+
+                                    2487: |              |
+                                          |  VIRUS!    p |
+                                          |            r |
+                                          |jmp 100       |
+                                          +--------------+
+
+    To clean an infected program, it is of vital importance to restore
+    the bytes being overwritten by the jump to the virus code. The
+    virus has to restore these bytes also, so somewhere in this virus
+    code these original bytes are stored. The cleaner searches those
+    bytes, puts them back on their original location, and truncates the
+    file to the original size.
+
+
+  1.4.  Conventional cleaners
+
+    A conventional cleaner has to know which virus to remove. Suppose
+    your system is infected with a Jerusalem/PLO virus. You invoke your
+    cleaner and it proceeds like this:
+
+    "Hey, this file is infected with the Jerusalem/PLO virus. Ok, this
+    virus is 1873 bytes in size, and it overwrites the first three
+    bytes of the original program with a jump to itself. The original
+    bytes are located at offset 483 in the viral code. So, I have to
+    take those bytes, copy them to the beginning of the file, and I
+    have to remove 1873 bytes of the file. That's it!"
+
+    Pitfalls!
+
+    The cleaner has to know the virus it has to remove. It is
+    impossible to remove an unknown virus.
+
+    The virus should be the same as the virus known to the cleaner.
+    Imagine what whould happen if the virus used in the example was
+    modified and now 1869 bytes in size instead of 1873... The cleaner
+
+
+
+                                     Page 3
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    would remove too much! This is not an exception, but it happens
+    quite often since there are so many mutants. For instance, the
+    Jerusalem/PLO family now contains more than 30 mutants!
+
+
+  1.5.  Generic cleaner
+
+    TbClean works completely different. First of all, it does not
+    recognize any virus! It's disinfection scheme is completely
+    different and it works with almost any virus. Actually, the TbClean
+    program contains two cleaners: a 'repair' cleaner, and a
+    'heuristic' cleaner.
+
+    1.5.1.  Repair cleaner
+
+        This type of cleaning needs the file Anti-Vir.Dat generated by
+        TbSetup before the infection occured. In this Anti-Vir.Dat file
+        a lot of information is stored, like the original file size,
+        the bytes at the beginning of the program, a cryptographic
+        checksum to verify the results, etc. This information is enough
+        to disinfect almost every file, regardless of the virus it is
+        infected with, known or unknown.  The only things that the
+        cleaner should do is restore the bytes at the beginning of
+        the program, truncate the file to the original size, and verify
+        the result by using the checksum.
+
+    1.5.2.  Heuristic cleaner
+
+        TbClean is the first cleaner in the world that has a heuristic
+        cleaning mode. In the heuristic cleaning mode TbClean does not
+        need any information about viruses, nor does it need any
+        information about the program in its original state. This
+        cleaning mode is excellent if your system is infected with an
+        unknown virus and you haven't used TbSetup to generate the
+        Anti-Vir.Dat files in time.
+
+        The basic principle of heuristic cleaning is simple. TbClean
+        loads the infected file and starts emulating the program code.
+        It uses a combination of disassembly, emulation and sometimes
+        execution to trace the flow of the virus, and to emulate what
+        the virus is normally doing. When the virus restored the
+        original instructions and jumps back to the original program
+        code, TbClean stops the emulation process, and says 'thank you'
+        to the virus for its cooperation in restoring the original
+        bytes.  The now repaired start of the program is copied back to
+        the program file on disk, and the part of the program that
+        gained 'execution' will be removed. An additional analysis of
+        the cleaned program file will be performed to be on the safe
+        side.
+
+
+  1.6.  Benefits
+
+
+
+                                     Page 4
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    By now many different virus cleaners/disinfectors have been
+    developed.  However, TbClean has a number of important and unique
+    advantages over other cleaners. These are:
+
+    1.6.1.  Reliability
+
+      The reliability of TbClean is excellent. The 'repair' mode of
+      TbClean makes it possible to verify the results based on a
+      cryptographic 32-bit CRC. If this checksum of the cleaned file
+      matches the checksum of the original file, it is almost certain
+      that the file is completely the same.
+
+      The heuristic cleaning mode of TbClean is also highly reliable.
+      Due to the cleaning approach, there is no risk that TbClean
+      removes too much from an infected file, or that it restores the
+      wrong bytes. Both would irreversibly damage the file so that
+      subsequent cleaning attempts fail anyway, which happens quite
+      often with other cleaners.
+
+    1.6.2.  Removal of polymorphic viruses
+
+      TbClean removes 'difficult' viruses. Due to its approach, it
+      doesn't matter whether the virus is polymorphic and/or encrypts
+      itself. It removes a MTE or Washburn related virus with the same
+      ease as a Jerusalem virus! Try this with other cleaners!
+
+    1.6.3.  Removal of encrypting viruses
+
+      Some viruses encrypt the original program, making it nearly
+      impossible for other cleaners to restore it.  TbClean however
+      uses the virus itself to decrypt the original file, so for
+      TbClean is does not matter how the file is encrypted. Even MTE
+      encrypted programs can be restored.
+
+    1.6.4.  No updates required
+
+      Since TbClean does not need to know anything about the virus to
+      remove it, it has the same success rate when dealing with unknown
+      viruses as with known viruses. You do not need frequent updates
+      of the cleaning program.
+
+
+  1.7.  How many viruses can it remove
+
+    This question is difficult to answer since TbClean does not contain
+    any information about a specific virus. If the Anti-Vir.Dat records
+    are available, TbClean cleans about 95% of the viruses. If heuristic
+    cleaning is the only option, still 80% of the viruses can be
+    removed. This is still more than many conventional cleaners achieve!
+
+
+
+
+
+
+                                     Page 5
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+2.  USAGE OF THE PROGRAM
+
+
+  2.1.  System requirements
+
+    TbClean runs perfectly on standard machines, in line with our
+    philosophy that there should be a limit to limitations.
+
+    +   TbClean requires at least 96 Kb of free memory. In the
+        heuristic cleaning mode TbClean needs a lot more, depending on
+        the size of the infected file. TbClean can also use expanded
+        memory (EMS).
+
+    +   TbClean can be executed under DOS version 3.00 (and all later
+        versions). However, DOS 3.3 or higher is recommended, since
+        TbClean has been designed primarily for use with these DOS
+        versions.
+
+
+  2.2.  Program invocation
+
+    TbClean is easy to use. The syntax is as follows:
+
+            TBCLEAN [<path>]<filename> [<outputname>] [<options>]...
+
+    If you specify only one filename TbClean will make a backup of the
+    program in a file with the same name but with the extension '.VIR'.
+    The program will then be disinfected. If you specify two filenames,
+    TbClean will not alter the first file, but the disinfected file
+    will get the name of the second filename specified.
+
+
+  2.3.  While cleaning
+
+    The screen of TbClean will be similar to the screens of TbSetup and
+    TbScan. The lower window is used to display the disassembly and
+    register contents, the blue bar in the middle contains the name of
+    the program being cleaned, and directly above this bar you will
+    find the history window that displays useful information. The upper
+    part of this window will be defined in two status screens, one with
+    information of the infected file, the other with information of the
+    original file. If TbClean has found a suitable Anti-Vir.Dat file
+    the state of the original file is known and will be displayed, but
+    when TbClean uses heuristic cleaning it will dynamically generate
+    this information when the disassembly and emulation proceeds.
+
+
+
+
+
+
+
+
+
+
+                                     Page 6
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    ===
+    Thunderbyte clean util (C) 1992 Thunderbyte BV The Netherlands
+    +----------------------------+ +-----------------------------+
+    | Entry point      1234:5678 | | Entry point      0A34:0100  |
+    | File length         123456 | | File length          17856  |
+    | Cryptographic CRC 1234ABCD | | Cryptographic CRC ABCD1234  |
+    +----------------------------+ +-----------------------------+
+      Anti-Vir.Dat record not found, trying emulation           *
+      Disassembly terminated: program jumped back to entry point.
+    > Program has been successfully cleaned!               *    .
+    C:\VIRUS\VIRUS.EXE               * . . .               .    .
+     CS:IP    Instruction    AX  BX  CX  DX. DS  SI  ES  DI. BP .
+                                           .               .    .
+    0200:0100 jmp 0347                     .               .    .
+                                           .               .    .
+    0200:0347 inc ax                       .               .    .
+    0200:0348 inc bx                       .           *   .    .
+    0200:0349 mov cx,0ABCD                 .           .   .    .
+                                           .           .   .    .
+    ===                                    .           .   .    .
+                            Filename . . .             .   .    .
+                                 Emulation window . . .    .    .
+                                      History window  . . .     .
+                                           Status window . . . .
+
+    It is not necessary to understand the information displayed in the
+    emulation window. It is just there for people who want to see what
+    is going on.
+
+    The process can be aborted by pressing Ctrl-Break.
+
+
+  2.4.  The messages
+
+    While cleaning, TbClean displays messages in the history window.
+    Most messages will be clear enough, but here is some additional
+    information about them.
+
+    Starting clean attempt. Analyzing infected file...
+
+        TbClean is analyzing the infected file and tries to locate the
+        Anti-Vir.Dat record.
+
+    Anti-Vir.Dat record found: reconstructing original state...
+
+        The Anti-Vir.Dat record that belongs to the infected file has
+        been found. The information will be used to reconstruct the
+        file.
+
+    Anti-Vir.Dat record found: information matches the current state of
+    file. Anti-Vir.Dat file was created after the infecton. Trying
+    emulation...
+
+
+
+                                     Page 7
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+        The Anti-Vir.Dat record has been found, but the information
+        matches the current state of the file. The Anti-Vir.Dat record
+        has been created after the file got infected, or the file is
+        not changed at all. TbClean is going to emulate the file to
+        clean it heuristically.
+
+    Reconstruction failed. Program might be overwritten. Trying
+    emulation...
+
+        TbClean tried to reconstruct the original file with help of the
+        information stored in the Anti-Vir.Dat record. However, the
+        attempt failed. TbClean is going to emulate the file to try to
+        clean it heuristically.
+
+    Reconstruction successfully completed.
+
+        The file has been reconstructed to its original state with help
+        of the information of the Anti-Vir.Dat record. The CRC
+        (checksum) of the original file and the cleaned file are
+        completely equal, so the cleaned file is almost certain equal
+        to the original file.
+
+    Anti-Vir.Dat record not found: original state unknown. Trying
+    emulation...
+
+        The Anti-Vir.Dat file did not exist or did not contain
+        information of the infected program, so the original state of
+        the infected program is unknown to TbClean. TbClean will switch
+        to its heuristic mode to determine the state of the original
+        file.
+
+        Note: to prevent a situation like this, make sure to use the
+        TbSetup program to generate the Anti-Vir.Dat records. These
+        records are of great help to TbClean. When the file is already
+        infected it is too late to generate the Anti-Vir.Dat records.
+
+    Emulation terminated: <reason>
+
+        The emulation process has been terminated for the reason
+        specified. TbClean will now consult the collected information
+        to see if it can disinfect the file.
+
+        <reason> can be one of the following:
+
+        Jump to BIOS code.
+
+                The virus tried to perform a call or jump directly to
+                BIOS code. This process can not be emulated so it will
+                be aborted. The program can probably not be disinfected.
+
+        Approached stack crash.
+
+
+
+
+                                     Page 8
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+                The emulated program is approaching a crash. Something
+                went wrong while emulating the program so it will be
+                aborted. The program can probably not be disinfected.
+
+        Attempt to violate license agreements.
+
+                TbClean will not disassemble this program for obvious
+                reasons.
+
+        Encountered keyboard input request.
+
+                The emulated program tries to read the keyboard. This
+                is very unusual for viruses, so the file is probably
+                not infected at all.
+
+        Encountered an invalid instruction.
+
+                The emulator encountered an unknown instruction. For
+                some reason the emulation failed. The program can
+                probably not be disinfected.
+
+        DOS program-terminate request.
+
+                The emulated program requests DOS to stop execution.
+                The program is not infected at all, or infected by an
+                overwriting virus that does not pass control to its
+                host program. The program can not be disinfected.
+
+        Jumped to original program entry point.
+
+                The program jumped back to the start position. It is
+                very likely it is infected. The program can probably be
+                disinfected.
+
+        Undocumented DOS call with pointers to relocated code.
+
+                This is very common for viruses that add themselves in
+                front of the COM type program. The program can probably
+                be disinfected.
+
+        Encountered an endless loop.
+
+                TbClean encountered a situation in which the program is
+                executing the same instruction sequences over and over
+                again for hundreds of thousands of times. It is
+                unlikely that the program will ever escape from this
+                loop, so the emulation will be aborted.
+
+        Ctrl-break pressed.
+
+                The user pressed Control-break so the clean attempt is
+                aborted.
+
+
+
+                                     Page 9
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+        Emulation aborted for unknown reason.
+
+                This reason should never be specified. If this happens
+                please send a copy of the file being emulated to
+                Thunderbyte BV or one of the support BBSs.
+
+    Sorry, the collected information is not sufficient to clean file...
+
+        The heuristic cleaning mode of TbClean is aborted and has not
+        been successful. The only option left is to restore the file
+        from a backup or to re-install the program.
+
+    Collected enough information to attempt a reliable clean
+    operation...
+
+        The emulation of the virus provided TbClean with all
+        information necessary to disinfect the file.
+
+    Some DOS error occured. Clean aborted!
+
+        Some DOS error occured while trying to clean the file. Check
+        that no files are read-only or located on a write protected
+        disk, and make sure there is a reasonable amount of free disk
+        space.
+
+    The clean attempt seems to be successful. Test the file
+    carefully!
+
+        It seems that TbClean removed the virus from the file.  No
+        doubts about the virus: it is gone. However, take care and test
+        the file carefully to see if it works as expected.
+
+
+  2.5.  The result
+
+    The result is called successful if the functionality of the
+    original program is restored, and the functionality of the virus
+    has been reduced to zero. Note that this does not imply that the
+    cleaned file is 100% equal to the original.
+
+    When TbClean used heuristic cleaning to disinfect the program, the
+    file will most likely not be exactly the same as in its original
+    state. This is not an indication of failure of TbClean, nor does it
+    mean the file is still infected in some way. First of all, it is
+    normal that the heuristically cleaned file is still larger than the
+    original. This is normal because TbClean tries to be on the safe
+    side and it will avoid removing too much. The bytes left at the end
+    of the file are 'dead' code, the instructions will never be
+    executed again since the jump at the beginning of the program has
+    been removed. If the cleaned file is an EXE type file, it is likely
+    that some bytes in front of the program - the exeheader - are
+    different. There are many suitable solutions to reconstruct the
+
+
+
+                                    Page 10
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    exeheader, and TbClean can of course never know the original state
+    of the program. The functionality of the cleaned file will
+    nevertheless be the same!
+
+    Note that this only applies to heuristic cleaning: if there is a
+    suitable Anti-Vir.Dat record available, the cleaned program will
+    normally be exactly the same as the original clean file.
+
+    It is possible that the infected file is infected with multiple 
+    viruses, or multiple instances of the same virus! Some viruses keep 
+    on infecting files, and in such cases the infected files will keep 
+    growing. If TbClean used its heuristic cleaning mode, it is very 
+    likely that TbClean removed only one instance of the virus. In this 
+    case, it is necessary to repeat the cleaning process until TbClean 
+    reports that it can not remove anything anymore.
+
+
+  2.6.  Command line options
+
+    It is possible to specify options on the command line.  TbClean
+    recognizes option short-keys and option words. The words are
+    easier to memorize, and they will be used in this manual for
+    convenience.
+
+    optionword  parameter short  explanation
+    ----------  --------- ----- -------------------------------------
+
+    help                    he  =help (-? = short help)
+    pause                   pa  =enable 'Pause' prompt
+    mono                    mo  =force monochrome
+    noav                    na  =do not use Anti-Vir.Dat record
+    noems                   ne  =do not use expanded memory
+    showloop                sl  =show every loop iteration
+    list [=<filename>]      li  =create list file
+
+
+   2.6.1.  help (he)
+
+    If you specify this option TbClean displays the contents of the
+    TBCLEAN.HLP file if it is available in the home directory of
+    TbClean.  If you specify the '?' option you will get the summarized
+    help info as listed above.
+
+   2.6.2.  pause (pa)
+
+    When you enter option 'pause' TbClean will stop after producing one
+    screen with disassembly info.  This gives you the possibility to
+    examine the results.
+
+    * This option is available for registered users only.
+
+   2.6.3.  mono (mo)
+
+
+
+                                    Page 11
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    This option forces TbClean to refrain from using colors in the
+    screen output. This might enhance the screen output on some LCD
+    screens or color-emulating monochrome systems.
+
+   2.6.4.  noav (na)
+
+    This option causes TbClean to behave as it would if there were no
+    Anti-Vir.Dat record available.
+
+   2.6.5.  noems (ne)
+
+    If TbClean detects the presence of expanded memory it will use it
+    when heuristically cleaning programs. However, if your expanded
+    memory is very slow or your expanded memory manager is not very
+    stable, you can disable the use of expanded memory with option
+    'noems'.
+
+   2.6.6.  showloop (sl)
+
+    Normally TbClean keeps track of looping conditions, to keep a loop
+    that would be emulated thousands of times from being listed on your
+    screen over and over again. With this option TbClean 'works out'
+    every loop. Note that the speed of TbClean will be reduced
+    drastically and it can take literally hours to finish!. Do NOT
+    combine this option with option 'list' because the list file might
+    grow to megabytes of data!
+
+   2.6.7.  list (li)
+
+    If you specify this option TbClean will generate a list file which
+    contains a chronologic disassembly of the virus being removed. You
+    may optionally specifiy a filename. If you omit the filename, the
+    list file will get the name of the output file with the extension
+    '.LST'.
+
+    * This option is available for registered users only.
+
+
+  2.7.  Cleaning multiple files
+
+    TbClean has no provisions for cleaning multiple programs in
+    one run. There are two reasons for this omission:
+
+    -   TbClean can not search for viruses automatically since it does
+        not know any virus.
+
+    -   We highly recommend to clean the system on a file-by-file
+        approach. Clean one file, verify the result, and proceed with
+        the next file. This helps you to keep track of which file is
+        clean, which file is damaged and should be restored from a
+        backup, and which file is still infected.
+
+
+
+
+                                    Page 12
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+  2.8.  Examples:
+
+        TbClean VIRUS.EXE
+
+            TbClean will make a backup with the name VIRUS.VIR and it
+            will disinfect VIRUS.EXE
+
+        TbClean VIRUS.EXE TEST.EXE
+
+            TbClean will copy VIRUS.EXE to TEST.EXE and disinfect
+            TEST.EXE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    Page 13
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+3.  CONSIDERATIONS AND RECOMMENDATIONS
+
+
+  3.1.  Why cleaning?
+
+    Why should you try to disinfect a contaminated file? You should
+    have a recent backup of your system anyway, so why not just restore
+    the infected programs from the backup? You can also use the
+    original program distribution disks to install the clean program
+    again. A virus removal utility should not be your last resort!
+
+    There is however one occasion in which cleaning can be recommended:
+
+    You have a company or are responsible for it, and you want to
+    disturb business as little as possible. Note that when dealing with
+    viruses, the goal should not be removal of the virus at any price,
+    but to minimize the damage to the company as much as possible!
+    Restoring a backup of a large network can be very time consuming,
+    and can be very expensive if the normal operations in the company
+    are disturbed. In this case you have a valid reason to disinfect
+    all contaminated programs and delay a large restore operation until
+    night or weekend.
+
+    Note that TbClean is not an excuse to stop making frequent backups
+    or to start using illegal software! If you don't have a recent
+    backup, make one NOW! If you use illegal software you are taking a
+    great risk and you will experience the results sooner or later.
+
+
+  3.2.  After cleaning.
+
+    A successful use of TbClean is not the end of the story! Your job
+    is just partially completed.
+
+    Some viruses damage data. They randomly change bytes on your disk,
+    swap sectors, or perform other nasty tricks. A cleaning utility
+    NEVER repairs your data! Check your data thoroughly and consult a
+    virus expert to get information about the virus. If there is any
+    doubt, you had better restore your data!
+
+    UNDER NO CIRCUMSTANCES SHOULD YOU CONTINUE TO USE CLEANED SOFTWARE!
+
+    Cleaning is a temporary solution to allow you to delay a large
+    restore operation until low-working hours. You should not rely on
+    a cleaned program forever. This has nothing to do with the
+    anti-virus product you have used to clean the software. If your
+    data is valuable to you, you should care for it as much as
+    possible, and using original software only is an elementary
+    precaution.
+
+    Restore the original software as soon as possible!
+
+
+
+
+                                    Page 14
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+  3.3.  Cleaning limitations.
+
+    Although TbClean has a very high success rate and is able to clean
+    programs that other cleaners refuse to process, not all viruses can
+    be removed, and not all files can be cleaned.
+
+    Viruses that can not be removed from an infected file:
+
+    -   Overwriting viruses.
+        Overwriting viruses are viruses that do not add themselves to
+        the end of the original program, they just copy themselves over
+        the original file. These viruses do not attempt to invoke the
+        original program anymore and just return to DOS after
+        invokation.  Normally these viruses hang the machine or put
+        you back to the DOS prompt. Since the original file is
+        overwritten and damaged, no cleaner can remove the virus.
+
+    -   Some encrypted viruses.
+        TbClean is usually able to decrypt the virus. However, some
+        viruses use anti-debugger features that TbClean can not yet
+        deal with.
+
+    Programs that can not be cleaned:
+
+    -   EXE-programs with internal overlays.
+        Some EXE-programs have internal overlays. TbScan prints an 'i'
+        after the programs that have internal overlays. These programs
+        can not be infected without damaging them. Some viruses
+        recognize such programs and do not infect them, but most
+        viruses infect these programs anyway, resulting in a corrupted
+        program. No cleaner can cure such damage.
+
+    -   Programs with sanity check routines.
+        Some programs - mostly anti-virus software or copy-protected
+        programs - perform some kind of sanity check. Heuristic
+        cleaning of an infected program normally results in a program
+        that is not physically identical to the original. Although the
+        virus is removed from the program and the program is
+        functionally identical to the original, the sanity check will
+        usually detect the few bytes that are still added to the
+        program or the stack that has been changed slightly.
+
+
+  3.4.  Safety of TbClean
+
+    Some people will notice that a good emulation is identical to an
+    execution and has the same effect. Since the heuristic cleaning
+    mode will emulate, disassemble and eventually execute the virus it
+    is wise to consider the dangers of using TbClean. What have we done
+    to get a reliable and safe emulation and to avoid all potential
+    dangers?
+
+
+
+
+                                    Page 15
+
+ Thunderbyte clean utility v5.00 (C) 1989-1992 Thunderbyte B.V.
+
+
+    Although the virus is allowed to execute some instructions in a
+    strictly controlled environment, a lot of instructions that have a
+    dangerous potential are NEVER allowed to execute. Among these
+    instructions are all DOS and BIOS system calls, instructions to
+    send data to IO-ports, instructions to change non-owned memory
+    - such as DOS or interrupt tables - are never executed but instead
+    emulated.  Jumps to DOS or BIOS or other non-owned memory are
+    prohibited. Although for the virus it may seem to be a normal
+    DOS environment, it isn't at all. As an extra safety bonus, before
+    termination of TbClean all memory accessed to store data will be
+    wiped or restored to its original state.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                    Page 16

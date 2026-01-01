@@ -1,0 +1,186 @@
+This directory contains source codes for 'lzpipe' library, which
+implements two most popular compression methods: LZW and deflate.
+Both of these methods are de-facto lossless compression standards;
+LZW is used in well-known 'compress' utility and deflate is used
+by number of utilities starting from 'pkzip' by PKWare Inc. to,
+let's say, 'gzip' utility.
+
+The library was intended to give a programming capability
+analogous to UNIX pipes for systems like MS-DOS, but it also
+allows access to compressed files as well. In comparison to all
+compression sources I've ever seen, this library allows to process
+compressed data in open()/read()/write()/close() style.
+
+These source codes implement pure compression, I made no attempt
+to approach zip directory service.
+
+Source codes for both LZW compression and decompression are
+derived from sources of 'compress' utility initially written by
+Joe Orost.
+
+Source codes for deflate compression and inflate decompression are
+derived from Info-Zip zip/unzip utilities sources. 'Inflate'
+decompressor was initially written by Mark Adler and 'deflate'
+compressor was initially written by Jean-loup Gailly.
+
+Keep in mind that unlike LZW, deflate implementation development
+is still continued and this library may be obsoleted by future
+versions of Info-Zip software and/or gzip utility.
+
+Info-ZIP's software (Zip, UnZip and related utilities) is free and
+can be obtained as source code or executables from various
+anonymous-ftp sites, including ftp.uu.net:/pub/archiving/zip/*.
+
+All the codes must work in same fashion under most existing
+operating systems; I tested them under MS-DOS and FreeBSD.
+
+This software is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+          Copyright issues
+
+1) All the decompression codes are in the public domain.
+
+2) LZW compression code is in the public domain as well, but keep
+   in mind that LZW compression method is protected by US patent.
+   This partially means you can not sell inside US a product using
+   LZW compression (until you have patent owner permittion).
+
+3) Since deflate compression code was borrowed from Info-Zip
+   distribution it is commited to Info-Zip license, which
+   in particular says:
+"Permission is granted to any individual or institution to use, copy, or
+redistribute this software so long as all of the original files are included,
+that it is not sold for profit, and that this copyright notice is retained."
+
+     and
+
+"Q.Can I use the source code of zip and unzip in my commercial application?
+
+A. Yes, so long as you include in your product an acknowledgment and an
+   offer of the original compression sources for free or for a small
+   copying fee, and make clear that there are no extra or hidden charges
+   resulting from the use of the compression code by your product. In other
+   words, you are allowed to sell only your own work, not ours."
+
+     See Info-Zip distribution for more details.
+
+
+Well, now let's speak about sources itself. Here is very short
+library description (all the definitions below are contained in
+'lzpipe.h' header file):
+
+        Zip file format arguments:
+#define ZIP_ANY 0
+#define ZIP_PKW 1
+#define ZIP_GNU 2
+
+        Value to indicate unpredictable data size for LZW
+compression:
+#define LZW_ANYSIZE 0x7fffffffL
+
+        Error code and corresponding messages list:
+extern int lzerror;
+extern char *lzerrlist[];
+
+        Individual error codes:
+#define ZNOPEN 0
+#define ZNOMEM 1 /* Not enough memory */
+#define ZMAGIC 2 /* Bad magic header */
+#define ZUNSUP 3 /* Reserved field or compression method */
+#define ZHDEOF 4 /* EOF while processing header */
+#define ZMOULD 5 /* Invalid compressed data */
+#define ZNOEOF 6 /* More data to process at close */
+#define ZBADSZ 7 /* Real size differs from recorded */
+#define BADCRC 8 /* It is */
+#define ZWRITE 9 /* Error writing output file */
+#define ZERROR 10 /* Generic/internal error */
+
+        If no other said, the functions below return 0 on success
+or -1 on error and place corresponding value into 'lzerror'
+variable:
+
+int  unzalloc (void) - allocates a memory for inflate
+        decompression; as a rule you have not call this function.
+
+int  unzopen  (LZ_INP_TYPE, int) - initialise inflation process
+        first argument may be file or function pointer depending
+        on compilation options.
+
+int  unzread  (char *, unsigned) - read given number of
+        decompressed data into given buffer; returns number of
+        bytes read.
+
+int  unzclose (void) - terminates inflate processing; return
+        value above zero indicates warning message.
+
+void unzfree  (void) - as a rule you have not call this function.
+
+int  zipalloc (void) - allocates a memory for deflate
+        compression; as a rule you have not call this function.
+
+int  zipcreat (LZ_OUT_TYPE, int, int)  - initialise deflation
+        process; first argument may be file or function pointer
+        depending on compilation options, second and third
+        arguments stands for zip file format (see above) and
+        compression level (1-9).
+
+int  zipwrite (char *, unsigned) - writes given number of bytes
+        from given buffer, returns number of bytes accepted.
+
+void zipfree  (void) - as a rule you have not call this function.
+
+long zipclose (void) - terminates deflation process; returns total
+        size of compressed file or -1 on error.
+
+int  lzwalloc (int) - allocates memory for LZW compression with
+        bits factor not greater than given; returns maximum
+        possible bits factor.
+
+int  lzwcreat (LZ_OUT_TYPE, long, int) - initialise compression
+        process; first argument may be file or function pointer
+        depending on compilation options, second and third
+        arguments stands for uncompressed data size and bits
+        factor value.
+
+int  lzwwrite (char *, unsigned) - writes given number of bytes
+        from given buffer, returns number of bytes accepted.
+
+void lzwfree  (void) - as a rule you have not call this function.
+
+long lzwclose (void) - terminates deflation process; returns total
+        size of compressed file or -1 on error.
+
+int  lzwmark  (int) - allocates memory for LZW decompression with
+        bits factor not greater than given; returns maximum
+        possible bits factor.
+
+int  lzwopen  (LZ_INP_TYPE) - initialises decompression process;
+        the argument may be file or function pointer depending on
+        compilation options.
+
+int  lzwread  (char *, unsigned) - reads given number of
+        decompressed data into given buffer; returns number of
+        bytes read.
+
+void lzwrelease (void) - frees decompression buffers.
+
+The source directory also includes 'makefile' for UNIX and
+'makefile.tcc' for Turbo C 2.01 under MS-DOS to build demo
+programs: doz and dogzip. Both of them may be called as
+
+        do<z-you-want> -c|d <input_file> <output_file>
+
+where 'c' or 'd' options stand for compression and decompression
+respectively.
+Programs also have internal help, wich mention other options.
+
+The compilation default is for pipe capability, use -DLZFILE
+compilation option to biuld file access version.
+
+If you have questions concerning this library please E-mail to
+
+        Tim V.Shaporev          tim@rd.relcom.msk.su aka
+                                tim@shaporev.msk.su
+

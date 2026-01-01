@@ -1,0 +1,269 @@
+{(C) 1991 by Ol}
+$MACRO SNOS;
+{Макро для прямого форматирования текста по правой границе Right_Margin
+по части правил русского переноса (с возможностью подключения английских букв),
+а также без переноса;
+с автоматическим отступом (или без) и удалением концевых пробелов/табуляций,
+а также с заменой табуляций на пробелы во всех строках, включая пустые.
+Возможно включение автосдвига строк.}
+DEF_INT(n := 0,a,b,front,m,k,y,z,part,o,s,p);
+DEF_STR(TSTR,c,d,slowo,f);
+{установка начальных параметров}
+set_global_int('IINT_1',right_margin);
+set_global_str('IPARM_1','/T=Введите значение своей Right_Margin: /C=1/L=2/W=4/H=DATABOX/TP=1');
+set_global_str('ISTR_2','/F=Выкл/T=Вкл');
+set_global_int('IINT_2',1);
+set_global_str('IPARM_2','/T=Автоотступ /TP=5/C=1/L=3/W=4/H=DATABOX');
+set_global_str('ISTR_3','/F=Выкл/T=Вкл');
+set_global_int('IINT_3',1);
+set_global_str('IPARM_3','/T=Автосдвиг  /TP=5/C=1/L=4/W=4/H=DATABOX');
+set_global_str('ISTR_4','/F=Выкл/T=Вкл');
+set_global_int('IINT_4',1);
+set_global_str('IPARM_4','/T=Перенос русских слов                 /TP=5/C=1/L=5/W=4/H=DATABOX');
+RM('USERIN^Data_In /#=4/S=1/A=2/X=10/Y=4/T=Установки форматирования');
+right_margin := global_int('IINT_1');
+o := global_int('IINT_2');
+s := global_int('IINT_3');
+p := global_int('IINT_4');
+{if right_margin < 0 then right_margin := (-1)*right_margin; end;}
+if return_int = 0 then
+goto m;
+end;
+Make_Message(str(RIGHT_MARGIN) + ' = right margin.');
+Word_Delimits := '`[]~{}-=_+()*&^%$#@!?/\<>,."|||;: |255|9|12'; {без |39}
+Display_Tabs := 1;
+Explosions := 1;
+Put_Box(49,4,79,7,White,Blue,'',TRUE);
+Write('FORMATTING IN PROGRESS...',51,5,White,Black);
+Tab_Expand := 0;
+{Wrap_Stat := 1;
+Word_Wrap_Style := 0;}
+Insert_Mode := TRUE;
+Truncate_Spaces := TRUE;
+if o = 1 then
+Indent_Style := 1;
+else
+Indent_Style := 0;
+end;
+Refresh := 0;
+TOF;
+{начало цикла}
+WHILE AT_EOF <> TRUE DO
+TSTR := GET_LINE;
+TABS_TO_SPACES(TSTR);
+{SHORTEN_STR(TSTR);}
+First_Word;
+b := C_COL;
+EOL;
+a := (C_COL - b);
+First_Word;
+	IF C_COL >= Right_Margin THEN
+		IF a < Right_Margin THEN
+			if s = 1 then
+	 		While (C_COL + a) > Right_Margin Do
+			Back_Space;
+			END;
+			else
+			goto back;
+			end;
+			ELSE
+back:			While C_Col <> 1 Do
+			Back_Space;
+	 		END;
+
+		END;
+	ELSE
+        EOL;
+   IF C_COL > Right_Margin THEN
+	IF a < Right_Margin THEN
+	First_Word;
+		if s = 1 then
+		While (C_COL + a) > Right_Margin Do
+		Back_Space;
+		END;
+		{else
+		goto back;}
+		end;
+        ELSE
+	GOTO_COL(Right_Margin + 1); {начало проверки послеграничного символа}
+   IF (((ascii(CUR_CHAR) > 47) and (ascii(CUR_CHAR) < 58)) or ((ascii(CUR_CHAR) > 64)
+and (ascii(CUR_CHAR) < 91)) or ((ascii(CUR_CHAR) > 96) and (ascii(CUR_CHAR) < 123))
+or ((ascii(CUR_CHAR) > 127) and (ascii(CUR_CHAR) < 176)) or ((ascii(CUR_CHAR) > 223)
+and (ascii(CUR_CHAR) < 242)) or ((ascii(CUR_CHAR) > 251) and (ascii(CUR_CHAR) < 254))
+or (ascii(CUR_CHAR) = 248) or (ascii(CUR_CHAR) = 39)) THEN
+	Goto_Col(Right_Margin); {начало проверки на граничный знак}
+	IF (((ascii(CUR_CHAR) < 48) and (ascii(CUR_CHAR) <> 39)) or ((ascii(CUR_CHAR) > 57) and (ascii(CUR_CHAR) < 65))
+or ((ascii(CUR_CHAR) > 90) and (ascii(CUR_CHAR) < 97)) or ((ascii(CUR_CHAR) > 122)
+and (ascii(CUR_CHAR) < 128)) or ((ascii(CUR_CHAR) > 175) and (ascii(CUR_CHAR) < 224))
+or (ascii(CUR_CHAR) > 241)) THEN
+	goto skip;
+	ELSE
+	if p = 1 then {если заявлен перенос слов}
+	goto pere;
+	else
+	goto through;
+	end;
+{начало собственно переноса}
+pere:	front := Right_Margin;
+cycle:	Goto_Col(front);
+	If (((Str_Char(TSTR, front - 1) = ' ') and (Str_Char(TSTR, front + 1) <> ' ')) or (Str_Char(TSTR, front - 2) = ' ')) THEN
+	Word_Left;
+	Goto cr1;
+	ELSIF Str_Char(TSTR, front + 1) = ' ' THEN
+	Goto_Col(front + 1);
+	Goto cr;
+	ELSE
+	Word_Left;
+	slowo := Get_Word(Word_Delimits);
+	Word_Left;
+	part := front - C_Col; {число символов в слове до "-"}
+	m := svl(slowo) - part; {число символов в слове после "-"}
+	c := copy(slowo,1,part); {часть слова до "-"}
+	d := copy(slowo,part + 1,m); {часть слова после "-"}
+		if m < 2 then
+		front := front - 1;
+		goto cycle;
+		end;
+	Goto_Col(front);
+		if ((cur_char = 'ь') or (cur_char = 'Ь') or (cur_char = 'ъ') or
+(cur_char = 'Ъ') or (cur_char = 'й') or (cur_char = 'Й') or (cur_char = 'ы') or
+(cur_char = 'Ы')) then
+		front := front - 1;
+		goto cycle;
+		end;
+	k := 0;
+	y := 0;
+		while k < part do
+		k := k + 1;
+		f := str_char(c,k);
+		call prov;
+		y := y + z;
+		end;
+		if ((y = part) or (y = 0)) then
+		word_left;
+		goto cr1;
+		end;
+	k := 0;
+	y := 0;
+		while k < m do
+		k := k + 1;
+		f := str_char(d,k);
+		call prov;
+		y := y + z;
+		end;
+		if ((z = m) or (y = 0)) then
+		front := front - 1;
+		goto cycle;
+		end;
+	F := Str_Char(TSTR, front - 1); {начало запрета переноса гласной после согласной}
+	Call prov;
+	IF Z = 0 THEN
+	F := Str_Char(TSTR, front);
+	Call prov;
+	IF Z = 1 THEN
+	front := front - 1;
+	Goto cycle;
+	End;
+	ELSE {начало запрета переноса пары согласных после гласной}
+	F := Str_Char(TSTR, front);
+	Call prov;
+	  if z = 0 then
+	  f := str_char(tstr, front + 1);
+	  call prov;
+	    if z = 0 then
+	    front := front - 1;
+	    goto cycle;
+	    end;
+	  end; {конец запрета переноса пары согласных после гласной}
+	End; {конец запрета переноса гласной после согласной}
+	Goto_Col(front); {сам перенос}
+	Text('-');       {сам перенос}
+	Goto cr;         {сам перенос}
+	END;
+{конец собственно переноса}
+goto through;
+{**************** начало пп prov **************************}
+prov:
+z := 0;
+if ((f = 'а') or (f = 'А') or (f = 'е') or (f = 'Е') or
+(f = 'ё') or (f = 'Ё') or (f = 'и') or (f = 'И') or
+(f = 'о') or (f = 'О') or (f = 'у') or (f = 'У') or
+{(f = 'e') or (f = 'E') or (f = 'y') or (f = 'Y') or {можно подключить и английские буквы}
+(f = 'u') or (f = 'U') or (f = 'i') or (f = 'I') or
+(f = 'o') or (f = 'O') or (f = 'a') or (f = 'A') or}
+(f = 'э') or (f = 'Э') or (f = 'ю') or (f = 'Ю') or
+(f = 'я') or (f = 'Я') or (f = 'ы') or (f = 'Ы')) then
+z := 1;
+end;
+ret;
+{**************** конец пп prov **************************}
+{**************** начало пп gran *************************}
+gran:
+GOTO_COL(Right_Margin);
+IF ((CUR_CHAR = ']') or (CUR_CHAR = '}') or (CUR_CHAR = ')') or (CUR_CHAR = '-')
+or (CUR_CHAR = '%') or (CUR_CHAR = '!') or (CUR_CHAR = '?') or (CUR_CHAR = '>')
+or (CUR_CHAR = ',') or (CUR_CHAR = '.') or (CUR_CHAR = ';') or (CUR_CHAR = ':')
+or (CUR_CHAR = ' ') or (CUR_CHAR = '|248') or (CUR_CHAR = '|252') or (CUR_CHAR = '|253')) THEN
+RIGHT;
+END;
+ret;
+{**************** конец пп gran **************************}
+through:
+        Word_Left;
+	END; {конец проверки на граничный знак}
+cr1:	     IF C_Col = Indent_Level THEN
+skip:		 CALL GRAN;
+	     END;
+   ELSE
+			CALL GRAN;
+   END; {конец проверки послеграничного символа}
+cr:	if o = 0 then
+	goto cr2;
+	end;
+	Mark_Pos; {начало автоотступа}
+	Home;
+	Set_Indent_Level;
+	Goto_Mark;
+cr2:	CR; {конец автоотступа и обрезание строки}
+	END;
+   n := n + 1;
+   Make_Message('Wrap No. ' + str(n));
+   ELSE
+   DOWN;
+   END;
+        END;
+END;
+Kill_Box;
+{конец цикла}
+IF DISK_FREE(0) > CUR_FILE_SIZE THEN
+  IF File_Changed = 1 THEN
+  RM('USERIN^Verify /BL=ПЕРЕЗАПИСЬ ФАЙЛА/T=Вы решили пойти до конца?');
+  if return_int = 0 then
+  goto m;
+  end;
+  Make_Message(File_Name + ' saving...');
+  Save_File;
+  Make_Message(File_Name + ' saved.');
+    IF Error_Level <> 0 THEN
+    RM('MEERROR');
+    END;
+Make_Message(File_Name + ' loading...');
+Load_File(File_Name);
+Make_Message(File_Name + ' loaded.');
+  ELSE
+  Make_Message('Sorry, but file NOT CHANGED!');
+  beep; beep; beep;
+  END;
+    IF Error_Level <> 0 THEN
+    RM('MEERROR');
+    ELSE
+m:  BEEP;
+    Make_Message('O.K. Wraps = ' + str(n));
+    END;
+ELSE
+Make_Message('Sorry, disk FULL! I CAN|39T SAVE this file.');
+beep; beep; beep;
+END;
+{конец}
+END_MACRO;
+

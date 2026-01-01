@@ -1,0 +1,288 @@
+Newsgroups: comp.lang.smalltalk
+Subject: Smalltalk under Linux
+Message-ID: <1994Sep22.121310@ittpub>
+From: ahmad@nl101.ittpub.nl
+Date: 22 Sep 94 12:13:10 WET+0100
+Organization: ITT Publitec R+D BV, Amsterdam
+
+Hi guys !
+
+	The following information will help all those who want to use Smalltalk
+1.1.1 under Linux. 
+	Steve Byrne was kind enough to send me the following diffs (which he 
+in turn got from Mark Bush) to make smalltalk 1.1.1 run on Linux :
+have fun.
+
+						Sami Ahmad
+						ITT WD, Nederland.
+						samia@ittpub.nl
+===============================================================================
+
+diff -w -r -c --new-file smalltalk-1.1.1.old/config/m-linux.h smalltalk-1.1.1/config/m-linux.h
+*** smalltalk-1.1.1.old/config/m-linux.h
+--- smalltalk-1.1.1/config/m-linux.h	Mon Feb 15 21:22:30 1993
+***************
+*** 0 ****
+--- 1,36 ----
++ /*
++  * Copyright (C) 1990, 1991 Free Software Foundation, Inc.
++  * Written by Steve Byrne.
++  *
++  * This file is part of GNU Smalltalk.
++  *
++  * GNU Smalltalk is free software; you can redistribute it and/or modify it
++  * under the terms of the GNU General Public License as published by the Free
++  * Software Foundation; either version 1, or (at your option) any later 
++  * version.  GNU Smalltalk is distributed in the hope that it will be useful, 
++  * but WITHOUT ANY WARRANTY; without even the implied warranty of 
++  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General 
++  * Public License for more details.
++  * 
++  * You should have received a copy of the GNU General Public License along with
++  * GNU Smalltalk; see the file COPYING.  If not, write to the Free Software
++  * Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  
++  */
++ 
++ /* Linux on i386 or i486 */
++ 
++ /* Define this if the machine in question has a alloca.h that should be
++  * included to get a properly functioning alloca.
++  */
++ #define HAS_ALLOCA_H
++ 
++ /* Define this to use 14 character file names */
++ #define SHORTNAMES
++ 
++ #ifndef FOR_MAKE
++ /* This is the return type of routines that are declarable as signal handlers.
++  * may be void for some implementations
++  */
++ typedef void	signalType;
++ 
++ #endif
+diff -w -r -c --new-file smalltalk-1.1.1.old/mstinterp.c smalltalk-1.1.1/mstinterp.c
+*** smalltalk-1.1.1.old/mstinterp.c	Fri Sep 13 04:02:36 1991
+--- smalltalk-1.1.1/mstinterp.c	Mon Feb 15 21:10:12 1993
+***************
+*** 3618,3624 ****
+--- 3618,3626 ----
+   */
+  void initSignals()
+  {
++ #ifndef _POSIX_SOURCE
+    signal(SIGBUS, interruptHandler);
++ #endif
+    signal(SIGSEGV, interruptHandler);
+  
+    signal(SIGINT, stopExecuting);
+***************
+*** 3676,3684 ****
+--- 3678,3688 ----
+  int	sig;
+  {
+    switch (sig) {
++ #ifndef _POSIX_SOURCE
+    case SIGBUS:
+      errorf("Bus Error");
+      break;
++ #endif
+  
+    case SIGSEGV:
+      errorf("Segmentation violation");
+diff -w -r -c --new-file smalltalk-1.1.1.old/mstmain.c smalltalk-1.1.1/mstmain.c
+*** smalltalk-1.1.1.old/mstmain.c	Sat Sep 14 07:15:30 1991
+--- smalltalk-1.1.1/mstmain.c	Mon Feb 15 22:51:40 1993
+***************
+*** 86,92 ****
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <sys/file.h>
+! #if defined(USG)
+  #include <unistd.h>
+  #endif
+  
+--- 86,92 ----
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <sys/file.h>
+! #if defined(USG) || defined(_POSIX_SOURCE)
+  #include <unistd.h>
+  #endif
+  
+***************
+*** 222,232 ****
+    "Boolean.st",
+    "False.st",
+    "True.st",
+! #if !defined(USG) && !defined(atarist)
+!   "ProcessorScheduler.st",
+! #else
+!   "ProcSched.st",
+! #endif
+    "Delay.st",
+    "SharedQueue.st",
+    "Behavior.st",
+--- 222,228 ----
+    "Boolean.st",
+    "False.st",
+    "True.st",
+!   MAP_FILE("ProcessorScheduler.st",  "ProcSched.st"),
+    "Delay.st",
+    "SharedQueue.st",
+    "Behavior.st",
+diff -w -r -c --new-file smalltalk-1.1.1.old/mstoop.c smalltalk-1.1.1/mstoop.c
+*** smalltalk-1.1.1.old/mstoop.c	Fri Sep 13 04:02:39 1991
+--- smalltalk-1.1.1/mstoop.c	Mon Feb 15 23:14:27 1993
+***************
+*** 77,83 ****
+  #define	K		1024
+  
+  #ifndef atarist
+! #define MEM_SPACE_SIZE		(4 * K * K) 
+  #else
+  #define MEM_SPACE_SIZE		(1152 * K) 
+  #endif
+--- 77,83 ----
+  #define	K		1024
+  
+  #ifndef atarist
+! #define MEM_SPACE_SIZE		(2 * K * K) 
+  #else
+  #define MEM_SPACE_SIZE		(1152 * K) 
+  #endif
+diff -w -r -c --new-file smalltalk-1.1.1.old/mstpaths.h smalltalk-1.1.1/mstpaths.h
+*** smalltalk-1.1.1.old/mstpaths.h
+--- smalltalk-1.1.1/mstpaths.h	Mon Feb 15 20:58:53 1993
+***************
+*** 0 ****
+--- 1,63 ----
++ /***********************************************************************
++  *
++  *	Definitions for various path related things.  These are compiled into
++  *	the GNU Smalltalk interpreter and are used for finding various files
++  *	(the image file, the kernel .st files, etc.).
++  *
++  ***********************************************************************/
++ 
++ 
++ /***********************************************************************
++  *
++  * Copyright (C) 1990, 1991 Free Software Foundation, Inc.
++  * Written by Steve Byrne.
++  *
++  * This file is part of GNU Smalltalk.
++  *
++  * GNU Smalltalk is free software; you can redistribute it and/or modify it
++  * under the terms of the GNU General Public License as published by the Free
++  * Software Foundation; either version 1, or (at your option) any later 
++  * version.
++  * 
++  * GNU Smalltalk is distributed in the hope that it will be useful, but WITHOUT
++  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
++  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  * more details.
++  * 
++  * You should have received a copy of the GNU General Public License along with
++  * GNU Smalltalk; see the file COPYING.  If not, write to the Free Software
++  * Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  
++  *
++  ***********************************************************************/
++ 
++ 
++ 
++ /*
++  *    Change Log
++  * ============================================================================
++  * Author      Date       Change 
++  * sbyrne    15 Oct 89	  Created.
++  *
++  */
++ 
++ 
++ /***********************************************************************
++  *
++  *	You'll need to change these definitions if you do not install GNU
++  *	Smalltalk in the standard place (which, as defined here, is
++  *	/usr/local/smalltalk).  You should save this file as mstpaths.h and
++  *	leave mstpaths.h-dist in its original form.
++  *
++  ***********************************************************************/
++ 
++ 
++ #ifndef __MSTPATHS__
++ #define __MSTPATHS__
++ 
++ /* This defines where the kernel smalltalk (.st) files can be found */
++ #define KERNEL_PATH "/usr/local/mst111"
++ 
++ /* This defines where to search for the saved binary image */
++ #define IMAGE_PATH "/usr/local/mst111"
++ 
++ #endif /* __MSTPATHS__ */
+diff -w -r -c --new-file smalltalk-1.1.1.old/stix/socket.c smalltalk-1.1.1/stix/socket.c
+*** smalltalk-1.1.1.old/stix/socket.c	Thu May 24 23:31:02 1990
+--- smalltalk-1.1.1/stix/socket.c	Mon Feb 15 21:04:39 1993
+***************
+*** 252,258 ****
+  int	fd, timeout;
+  {
+    struct timeval time, *timePtr;
+! #ifdef SUNOS4
+    fd_set	fds;
+  
+    FD_ZERO(&fds);
+--- 252,258 ----
+  int	fd, timeout;
+  {
+    struct timeval time, *timePtr;
+! #if defined(SUNOS4) || defined(linux)
+    fd_set	fds;
+  
+    FD_ZERO(&fds);
+diff -w -r -c --new-file smalltalk-1.1.1.old/ymakefile smalltalk-1.1.1/ymakefile
+*** smalltalk-1.1.1.old/ymakefile	Fri Sep 13 04:02:45 1991
+--- smalltalk-1.1.1/ymakefile	Mon Feb 15 21:01:26 1993
+***************
+*** 121,130 ****
+  /* Compilation flags definitions */
+  CFLAGS_NORMAL   = -g EXTRA_CC_FLAGS 
+  CFLAGS_PROFILE  = -g -pg -DUSE_MONCONTROL EXTRA_CC_FLAGS 
+! CFLAGS_OPTIMIZE = -O -DOPTIMIZE EXTRA_CC_FLAGS 
+  
+  /* Actual compilation flags and compiler definition */
+! CFLAGS = $(CFLAGS_NORMAL) $(READLINEDEF)
+  
+  
+  
+--- 121,130 ----
+  /* Compilation flags definitions */
+  CFLAGS_NORMAL   = -g EXTRA_CC_FLAGS 
+  CFLAGS_PROFILE  = -g -pg -DUSE_MONCONTROL EXTRA_CC_FLAGS 
+! CFLAGS_OPTIMIZE = -O2 -DOPTIMIZE EXTRA_CC_FLAGS 
+  
+  /* Actual compilation flags and compiler definition */
+! CFLAGS = $(CFLAGS_OPTIMIZE) $(READLINEDEF)
+  
+  
+  
+***************
+*** 197,204 ****
+  	@echo "the diffs file that you've created.  End with Ctrl-D."
+  	@cat > mst.diffs.note
+  	@echo "-----------------------------------" >> mst.diffs.note
+! 	@### If there's a more portable/better way to do this, please
+! 	@### don't hesitate to fix this and send the new version back -- SBB
+  	@cat mst.diffs.note mst.diffs | mail $(MAINTAINER)
+  
+  diffs:
+--- 197,204 ----
+  	@echo "the diffs file that you've created.  End with Ctrl-D."
+  	@cat > mst.diffs.note
+  	@echo "-----------------------------------" >> mst.diffs.note
+! 	@### If there is a more portable/better way to do this, please
+! 	@### do not hesitate to fix this and send the new version back -- SBB
+  	@cat mst.diffs.note mst.diffs | mail $(MAINTAINER)
+  
+  diffs:
+
+

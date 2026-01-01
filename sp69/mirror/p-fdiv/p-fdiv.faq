@@ -1,0 +1,621 @@
+From: carlton@darkstar.isi.edu (Mike Carlton)
+Newsgroups: comp.sys.intel
+Subject: Pentium Divide Bug FAQ
+Date: 28 Nov 1994 17:24:39 -0800
+Organization: USC Information Sciences Institute
+Message-ID: <3bdvsn$eln@darkstar.isi.edu>
+
+Here is a first version of a FAQ on the Pentium FDIV bug.  You can also
+ftp it from: ftp://www.isi.edu/pub/carlton/pentium/FAQ
+
+Please email me any corrections directly--comp.sys.intel is getting too
+busy for me to read all articles.
+
+cheers,
+--mike carlton@isi.edu
+
+-------------------------------------------------------------------------------
+
+Pentium Divide Bug FAQ
+Version 1    28-Nov-94
+
+Contents
+
+0) Disclaimer
+1) What is the bug?
+2) How do I tell if my Pentium machine has the bug?
+3) What do single-precision, double-precision, exponent and mantissa mean?
+4) How many cases of the bug are there?
+5) How often does it occur?
+6) How big can the error get?
+7) What chips have the bug?
+8) When will it be fixed?
+9) Are there any other bugs in the Pentium chip?  
+10) Will Intel replace my buggy chip?
+11) What is the history of the bug's discovery?
+12) Is there a way to deal with the bug in software?
+13) Where can I get more information?
+14) Where can I find more discussion of the bug?
+15) Acknowledgments
+
+0) Disclaimer
+
+   This document summarizes what I understand about the Pentium FDIV
+   bug.  It is based upon my experiments and what I have read on the
+   net.  I have not yet been able to speak with Intel concerning this
+   matter.
+
+   All statements represent only what I have observed at this point in
+   time or what has been reported to me.  As more information becomes
+   available I will attempt to update this FAQ.
+
+   This document does not represent the position of the University of
+   Southern California or of the USC Information Sciences Institute.
+
+   Mike Carlton 
+   USC Information Sciences Institute
+   4676 Admiralty Way; Marina del Rey, CA  90292-6695
+   carlton@isi.edu   (310) 822-1511   FAX: (310) 823-6714
+
+1) What is the bug?
+
+   There are some rare cases when the Pentium chip divides two
+   floating-point numbers in which it returns an answer that is
+   slightly inaccurate (the precision of the result is less than
+   expected).  The bug affects both single-precision and double-
+   precision divides.  It does not appear to effect any other
+   instruction in the processor.
+  
+   The bug occurs only for certain pairs of numbers.  It is
+   repeatable--i.e. if a pair of numbers is known to be affected by
+   the bug, the pair will be affected every time it is tested on every
+   chip with the bug.  The bug is also independent of the speed of the
+   chip and any previously executed instructions.
+
+2) How do I tell if my Pentium machine has the bug?
+
+   Here are two simple tests that you can try on any calculator
+   program or spreadsheet running on a Pentium-based PC.
+
+   1) Divide 5505001 by 294911
+        The buggy answer is: 18.66600093 
+      The correct answer is: 18.66665197 
+
+   2) Divide 4195835 by 3145727 
+        The buggy answer is: 1.33373907 
+      The correct answer is: 1.33382045
+
+   If you get the buggy answer then that Pentium chip definitely has
+   the bug.  If you get the correct answer, the chip may or may not
+   have the bug.  Some programs use different methods which do not use
+   the floating-point divide instruction and so they are not affected. 
+   I've tried the cases above with the Microsoft Windows calculator
+   and Microsoft Excel and they do show the bug.  If you get the
+   correct answer with the Windows calculator or with Excel, then you
+   have a non-buggy chip.
+   
+3) What do single-precision, double-precision, exponent and mantissa mean?
+
+   The Pentium (along with every other major microprocessor) uses the
+   IEEE 754 standard to represent floating point numbers.  A floating-
+   point number stores a real number as sign*1.XXX*2^YYY, i.e. one
+   plus a fraction, raised to a power of two, along with the sign. 
+   The XXX part is the mantissa and the YYY part is the exponent.
+
+   The IEEE standard defines a single-precision number to have a
+   23-bit mantissa.  This provides 24-bit precision (counting the
+   leading one) and is equal to approximately 7 decimal digits.  A
+   double precision number has a 52 bit mantissa, giving 53-bit
+   precision; equal to about 15 decimal digits.
+
+4) How many cases of the bug are there?
+
+   The total number of cases (i.e. pairs of numbers) isn't known yet. 
+   If we limit our scope to cases involving single-precision numbers
+   and where the accuracy of the result is less than single-precision
+   then there are at least 1738 unique cases.  Of these, 87 have only
+   14-bit accuracy (approximately 4 decimal digits).
+   
+   Due to the nature of the bug, either number of a pair can be
+   multiplied (or divided) by any power of 2 and/or have its sign
+   changed and still be affected by the bug in the same way.  This is
+   because the bug is due to bit patterns in the mantissas of the
+   numbers and these operations do not change the mantissas.  All
+   numbers with the same mantissa are considered just one unique case. 
+   For convenience, examples of the bug usually refer to a mantissa in
+   the canonical form of the smallest positive integer that, as a
+   floating-point number, has that mantissa.  Note that this will be
+   an odd number.
+
+   Every unique single-precision dividend mantissa for each single-
+   precision divisor mantissa believed susceptible to the bug has been
+   checked.  Assuming Tim Coe's model of the divider bug is correct,
+   then the 1738 cases mentioned above are all the single-precision
+   pairs of numbers which are affected by the bug.
+   
+   In double-precision there are many more cases that exhibit less
+   than single-precision accuracy.  Note that the single-precision
+   numbers are a subset of the double-precision numbers, so the cases
+   above all fail when treated as double-precision.  Additionally, in
+   many cases the dividend or divisor can be slightly changed (adding
+   or subtracting a small fraction) and still be affected.  This
+   merely changes the least significant bits of the mantissa, while the
+   most significant bits, which are causing the bug, are the same. 
+   This has the effect that a range of numbers can exhibit the bug.
+   
+   If we expand our scope to double-precision cases with less than
+   double-precision accuracy (but more than single-precision), the
+   number of cases grows drastically.  However, these errors are quite
+   small (at least 7 digits are correct) and will concern fewer users.
+
+5) How often does it occur?
+
+   That is a hard question to answer.  Intel's statement (see below
+   for information on how to get this via automated fax) claims that
+   one in nine billion divides will exhibited reduced precision.
+
+   Here is a simple, back-of-the-envelope calculation which tends to
+   agree with Intel's statement.  There are 2^23 unique single-
+   precision mantissas.  Thus, if you pick 2 single-precision numbers
+   at random there are 2^46 (64 trillion) possibilities.
+
+   There are 1738 cases where two single-precision numbers produce
+   less than single-precision accuracy (thus there are at least this
+   many bug cases).  1738 is a little less than 2^11, so this implies
+   that there is about a 2^11/2^46 = one in 2^35 chance of hitting the
+   bug.  2^35 = 32 billion, so this is close to Intel's claim.  The
+   actual odds could be higher than this (e.g. if there are more bug
+   cases yet to be discovered or if the odds for double-precision
+   numbers are higher).
+
+   An important consideration is that a single division with reduced
+   accuracy is unlikely to affect a final result.  Thus the chances of
+   the bug affecting a final result are very dependent upon the
+   problem being solved and the methods used by a program.
+
+   Another important consideration is that the numbers people use in
+   practice are not necessarily random.  Depending on the distribution
+   of the numbers a particular problem and program uses, the results
+   could be more likely or less likely to be affected by the bug.
+
+6) How big can the error get?
+
+   The worst cases found yet have just 14-bit accuracy (both of the
+   simple examples above have just 14-bit accuracy).  This is roughly
+   4 decimal digits.
+
+   Another way to look at this question is to consider the relative
+   error (i.e. the amount of error divided by the correct result). 
+   The 14-bit accurate cases range from a relative error of
+   approximately 1 part in 32000 to the largest relative error found:
+   1 part in 16000.  There are just 8 cases (out of 64 trillion random
+   pairs of single-precision numbers) with this largest relative
+   error.
+
+   Additionally, when the bug affects a division, the magnitude of the
+   result returned is always slightly less than the correct result. 
+   This reflects the fact that when the bug occurs one or two bits
+   which should be set to one are instead set to zero.
+
+7) What chips have the bug?
+
+   The bug has only been reported in Pentium chips.  As of the time of
+   this writing there had not yet been a reported case of a Pentium-
+   based machine without the bug.  It has been reported in both the
+   60MHz and 90MHz versions.  I have not heard of any tests of 75MHz
+   or 100MHz Pentiums.
+
+8) When will it be fixed?
+
+   It has been reported on the net and in a New York Times article
+   that Intel states that they have fixed the bug in June.  The
+   November 7 EE Times also reports that it was fixed mid-year.  The
+   New York Times article states that Intel has only recently begun
+   providing the fixed chips to their largest customers.
+
+9) Are there any other bugs in the Pentium chip?  
+
+   There are no other publicly known bugs.
+
+10) Will Intel replace my buggy chip?
+  
+   At this time it is not clear what their policy on replacing chips
+   is.  They appear to be handling replacements on an individual
+   basis.  You can call Intel Technical Support at (800) 628-8686 and
+   speak to them directly.
+
+11) What is the history of the bug's discovery?
+
+   The bug was first found by Dr. Thomas R. Nicely of Lynchburg
+   College (nicely@acavax.lynchburg.edu).  He posted a message to
+   Compuserve on October 30, 1994 describing the case he had found. 
+   His example was 1/824633702441.  He had had an unexpected result in
+   one of his experiments and eventually tracked it down to a bug in
+   the Pentium divider, which Intel confirmed.  It was first reported
+   in the print media in the November 7 issue of EE Times.
+
+   Some early reports on the net, using random searches of
+   double-precision numbers, found a couple dozen more cases of the
+   bug.  Around November 10, Andreas Kaiser (ak@ananke.s.bawue.de)
+   posted, in comp.sys.intel, a list of 23 cases where a number of the
+   form 1/x failed.  The smallest of these was 1/12884897291.
+
+   Tim Coe of Vitesse Semiconductor (coe@vitsemi.com) developed a
+   model of how the divider was working and why it was failing.  He
+   posted a message to comp.sys.intel on November 16 describing his
+   model.  He included the case 4195835/3145727 which his model had
+   predicted would fail.  This was the first known case which had less
+   than single-precision accuracy.  It is equal to the least accuracy
+   (14 bit) and largest relative error (6.1*10^-05) found yet.
+
+   On November 21 Tim Coe posted another message to comp.sys.intel
+   with a refined model of the divider and pointed out that the bug
+   affected both single- and double-precision divides.  He included
+   the prediction that between 50 and 2000 single-precision pairs
+   would have less than single-precision accuracy.
+
+   Mike Carlton of USC/ISI (carlton@isi.edu), posted a program to
+   comp.sys.intel on November 21 which generates 819 more examples
+   with less than single-precision accuracy, 66 of which have just 14
+   bit accuracy.  This program performed an exhaustive search limited
+   to single-precision dividends and divisors of a forms generally
+   matching Tim Coe's model.  This post included the example
+   5505001/294911.
+
+   More recent searching (independently by Coe and Carlton) has
+   expanded this to 1738 single-precision cases and 87 with just
+   14-bit accuracy.
+
+12) Is there a way to deal with the bug in software?
+
+   Yes, the developers of MATLAB have devised a simple software
+   workaround so that programs running on a buggy Pentium can still
+   come up with the correct answer when dividing.  In essence, each
+   time they have to calculate a division they first perform the
+   divide and then check to see if there is an error in the result. 
+   If there is, they scale the numbers so that they do not cause the
+   bug (but do return the intended answer) and then divide again.
+    
+   This is a simple and efficient software solution.  It is estimated
+   to make a divide instruction take about twice as long as it would
+   without having to compensate for the bug.  The total effect on the
+   speed of a program will be minor unless the program is doing a very
+   large number of divides.  Of course, only the vendor of a piece of
+   software can incorporate such a fix.
+    
+   A copy of Cleve Moler's post to comp.sys.intel, complete with
+   source code and a detailed explanation, is on the MathWorks' WWW
+   server:
+   	http://www.mathworks.com/ 
+   Thanks to Cleve Moler and The MathWorks, Inc. for making this method 
+   publicly available.
+
+13) Where can I get more information?
+
+   Intel's WWW server is at:
+   	http://www.intel.com/
+
+   Intel also has an automated fax back service.  You can call them at
+   (800) 525-3019 and request document #9788 for a statement regarding
+   the bug.   Their technical support can be reached at (800) 628-8686
+   or (916) 356-3551.
+
+   Information the author of this FAQ has collected (including lists
+   of the known bug cases and programs to generate them) is available
+   for anonymous ftp at:
+   	ftp://www.isi.edu/pub/carlton/pentium/
+
+   The latest version of this FAQ is available at:
+   	ftp://www.isi.edu/pub/carlton/pentium/FAQ
+
+   Bill Broadley of UC Davis has also collected information about the
+   bug and made it available for anonymous ftp at:
+        ftp://math.ucdavis.edu/fdiv/
+
+   The MathWorks, Inc. has several documents related to the Pentium 
+   available on the WWW:
+   	http://www.mathworks.com/Pentium/README.html 
+
+   EE Times is on the WWW at:
+      http://www.wais.com/techweb/eet/current/hr.html
+
+   Edward Vielmetti of Msen Inc. has some documents available at:
+      http://www.msen.com/~emv/pentium/
+
+14) Where can I find more discussion of the bug?
+
+   It is beginning to be widely reported in the mass media.  It has
+   been covered on CNN and several major newspapers. 
+
+   The principal discussion of the bug on the Internet has taken place
+   in the newsgroup comp.sys.intel.  This will likely remain the
+   center of discussion for a while.
+
+15) Acknowledgments
+
+   Thanks to the following people for their efforts in finding, tracking
+   down, documenting and understanding the bug:
+        Dr. Thomas R. Nicely (nicely@acavax.lynchburg.edu)
+        Andreas Kaiser (ak@ananke.s.bawue.de)
+        Tim Coe (coe@vitsemi.com)
+        Cleve Moler (cleve@mathworks.com)
+        Edward Vielmetti (emv@Msen.com)
+        and the many readers of comp.sys.intel
+
+
+
+From ankh.iia.org!uunet!world!jbaker Sat Dec  3 16:11:09 1994
+Newsgroups: comp.sys.intel
+Path: ankh.iia.org!uunet!world!jbaker
+From: jbaker@world.std.com (John M Baker)
+Subject: Re: Pentium Divide Bug FAQ
+Message-ID: <D03J4F.FpA@world.std.com>
+Organization: The World Public Access UNIX, Brookline, MA
+X-Newsreader: TIN [version 1.2 PL2]
+References: <3bdvsn$eln@darkstar.isi.edu>
+Date: Wed, 30 Nov 1994 19:50:38 GMT
+Lines: 218
+
+Mike Carlton (carlton@darkstar.isi.edu) wrote:
+: Here is a first version of a FAQ on the Pentium FDIV bug.  You can also
+: ftp it from: ftp://www.isi.edu/pub/carlton/pentium/FAQ
+
+: Please email me any corrections directly--comp.sys.intel is getting too
+: busy for me to read all articles.
+
+: cheers,
+: --mike carlton@isi.edu
+
+From jbaker@world.std.com Wed Nov 30 14:42:23 1994
+Received: by world.std.com (5.65c/Spike-2.0)
+	id AA14326; Wed, 30 Nov 1994 14:40:02 -0500
+Date: Wed, 30 Nov 1994 14:40:02 +0001 (EST)
+From: John M Baker <jbaker@world.std.com>
+Sender: John M Baker <jbaker@world.std.com>
+Reply-To: John M Baker <jbaker@world.std.com>
+Subject: Intel
+To: John M Baker <jbaker@world.std.com>
+Message-Id: <Pine.3.89.9411301352.A10064-0100000@world.std.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
+
+	For the draft Pentium bug FAQ:
+
+	What legal remedies do I have if I have purchased a computer with
+a buggy Pentium? 
+
+	You may have rights, depending upon the state in which you live, 
+the use you make of your computer, and whether you are a business or a 
+consumer user.  Your rights are against the seller of the computer and 
+possibly against its manufacturer.  You probably do not have any rights 
+against Intel.
+	Every state has adopted some version of the Uniform Commercial 
+Code.  The UCC provides that every good sold by a merchant has an implied 
+warranty of merchantability and an implied warranty of fitness for its 
+particular purpose.  The relevant sections of law are as follows.  (This 
+is the uniform version; the actual statute varies in some states.)
+
+      U.C.C. - ARTICLE 2 - SALES
+      ..PART 3. GENERAL OBLIGATION AND CONSTRUCTION OF CONTRACT
+           _________________________________________________________________
+   
+    2-314. Implied Warranty: Merchantability; Usage of Trade.
+    
+   (1) Unless excluded or modified (Section 2-316), a warranty that the
+   goods shall be merchantable is implied in a contract for their sale
+   if the seller is a merchant with respect to goods of that kind. Under
+   this section the serving for value of food or drink to be consumed
+   either on the premises or elsewhere is a sale.
+   
+   (2) Goods to be merchantable must be at least such as
+     * (a) pass without objection in the trade under the contract
+       description; and
+     * (b) in the case of fungible goods, are of fair average quality
+       within the description; and
+     * (c) are fit for the ordinary purposes for which such goods are
+       used; and
+     * (d) run, within the variations permitted by the agreement, of even
+       kind, quality and quantity within each unit and among all units
+       involved; and
+     * (e) are adequately contained, packaged, and labeled as the
+       agreement may require; and
+     * (f) conform to the promise or affirmations of fact made on the
+       container or label if any.
+       
+   
+   
+   (3) Unless excluded or modified (Section 2-316) other implied
+   warranties may arise from course of dealing or usage of trade.
+     _________________________________________________________________
+
+   
+    2-315. Implied Warranty: Fitness for Particular Purpose.
+    
+   
+   
+   Where the seller at the time of contracting has reason to know any
+   particular purpose for which the goods are required and that the buyer
+   is relying on the seller's skill or judgment to select or furnish
+   suitable goods, there is unless excluded or modified under the next
+   section an implied warranty that the goods shall be fit for such
+   purpose.
+     _________________________________________________________________
+   
+    316. Exclusion or Modification of Warranties.
+    
+   
+   
+   (1) Words or conduct relevant to the creation of an express warranty
+   and words or conduct tending to negate or limit warranty shall be
+   construed wherever reasonable as consistent with each other; but
+   subject to the provisions of this Article on parol or extrinsic
+   evidence (Section 2-202) negation or limitation is inoperative to the
+   extent that such construction is unreasonable.
+   
+   (2) Subject to subsection (3), to exclude or modify the implied
+   warranty of merchantability or any part of it the language must
+   mention merchantability and in case of a writing must be conspicuous,
+   and to exclude or modify any implied warranty of fitness the exclusion
+   must be by a writing and conspicuous. Language to exclude all implied
+   warranties of fitness is sufficient if it states, for example, that
+   "There are no warranties which extend beyond the description on the
+   face hereof."
+   
+   (3) Notwithstanding subsection (2)
+     * (a) unless the circumstances indicate otherwise, all implied
+       warranties are excluded by expressions like "as is", "with all
+       faults" or other language which in common understanding calls the
+       buyer's attention to the exclusion of warranties and makes plain
+       that there is no implied warranty; and
+     * (b) when the buyer before entering into the contract has examined
+       the goods or the sample or model as fully as he desired or has
+       refused to examine the goods there is no implied warranty with
+       regard to defects which an examination ought in the circumstances
+       to have revealed to him; and
+     * (c) an implied warranty can also be excluded or modified by course
+       of dealing or course of performance or usage of trade.
+       
+   
+   
+   (4) Remedies for breach of warranty can be limited in accordance with
+   the provisions of this Article on liquidation or limitation of damages
+   and on contractual modification of remedy (Sections 2-718 and 2-719).
+   
+     _________________________________________________________________
+   
+	It is unclear whether computers with a buggy Pentium chip violate 
+the implied warranty of merchantability.  Sellers will argue that all 
+computer chips contain some flaws.  In light of the particularly serious 
+and unexpected nature of this flaw, buyers will probably have the better 
+argument, however.
+	There is a breach of the implied warranty of fitness for
+particular purpose if the seller knew that the buyer intended to use the
+computer for math-intensive uses.  Since most computers today are not used
+in math-intensive uses, however, it is questionable whether most sellers 
+will be in breach of this warranty. 
+
+	Sellers often try to disclaim these warranties.  Disclaimers 
+usually will be effective in nonconsumer transactions.  Disclaimers are 
+less likely to be effective in consumer transactions.  Some jurisdictions 
+(CT, DC, ME, MD, MA, MS, VT, WA) have amended the UCC to provide that 
+these implied warranties cannot be disclaimed in consumer transactions.  
+Many other states have consumer protection statutes that effectively 
+provide the same thing, or their courts independently have given 
+consumers that protection.
+
+
+	I've talked to the seller of my computer and it refuses to give 
+me a good chip or a refund.  Do I have to take it to small claims court 
+to have a remedy?
+
+	Maybe not.  If you purchased your computer with a credit card, 
+the card issuer may be under an obligation to assist in resolving the 
+dispute.  Here is section 226.12(c) of the Truth-in-Lending Regulations 
+(Title 12, Part 226 of the Code of Federal Regulations, commonly known as 
+Regulation Z).
+
+
+	(c) Right of cardholder to assert claims or defenses against card 
+issuer.  (1) General rule.  When a person who honors a credit card fails 
+to resolve satisfactorily a dispute as to property or services purchased 
+with the credit card in a consumer credit transaction, the cardholder may 
+assert against the card issuer all claims (other than tort claims) and 
+defenses arising out of the transaction and relating to the failure to 
+resolve the dispute.  The cardholder may withhold payment up to the 
+amount of credit outstanding for the property or services that gave rise 
+to the dispute and any finance or other charges imposed on that amount.
+
+	(2) Adverse credit reports prohibited.  If, in accordance with 
+paragraph (c)(1) of this section, the cardholder withholds payment of the 
+amount of credit outstanding for the disputed transaction, the card 
+issuer shall not report that amount as delinquent until the dispute is 
+settled or judgment is rendered.
+
+	(3) Limitations.  The rights stated in paragraphs (c)(1) and (2) 
+of this section apply only if:
+	(i) The cardholder has made a good faith attempt to resolve the 
+dispute with the person honoring the credit card; and
+	(ii) The amount of credit extended to obtain the property or 
+services that result in the assertion of the claim or defense by the 
+cardholder exceeds $50, and the disputed transaction occurred in the same 
+state as the cardholder's current designated address or, if not within 
+the same state, within 100 miles from that address.
+
+
+	Will there be a class action against Intel or the computer
+manufacturers? 
+
+	So far as is known, none has been filed to date.
+	It is very unlikely that there will be a class action against 
+Intel.  End-users' rights are against their sellers and their 
+manufacturers.  It's possible, of course, that the manufacturers will sue 
+Intel (although it's unlikely that Intel will fail to work things out 
+out-of-court with its major customers).
+	Class actions against large manufacturers are possible but 
+unlikely.  Class actions require a commonality of interests among the 
+members of the class.  However, the damages suffered by users will vary 
+widely, depending upon their individual needs.  Since controlling law 
+will vary from state to state, it's not clear that one set of rules 
+should apply across states.  Some users are consumers, while others are 
+businesses, and it is not always clear which group is appropriate.  And, 
+of course, many users will have obtained satisfaction without the need 
+for a suit.  For these reasons, a serious, well-financed class action is 
+unlikely.
+	Some will argue, of course, that the diminished resale value of 
+buggy computers is a damage suffered by all.  This argument has been 
+reflected by courts in at least some cases, since the UCC is directed at 
+individual losses.  It's possible, of course, that those courts were 
+wrong and that a court reviewing the Pentium situation would conclude 
+that all users were in fact harmed.
+	
+
+-- 
+John M. Baker <jbaker@world.std.com>
+Hutchins, Wheeler & Dittmar, 101 Federal St., Boston, MA  02110
+Phone 617/951-6623     Fax 617/951-1295
+
+
+From ankh.iia.org!uunet!world!jbaker Sat Dec  3 16:11:20 1994
+Newsgroups: comp.sys.intel
+Path: ankh.iia.org!uunet!world!jbaker
+From: jbaker@world.std.com (John M Baker)
+Subject: Re: Pentium Divide Bug FAQ
+Message-ID: <D03L4K.BHo@world.std.com>
+Organization: The World Public Access UNIX, Brookline, MA
+X-Newsreader: TIN [version 1.2 PL2]
+References: <3bdvsn$eln@darkstar.isi.edu> <D03J4F.FpA@world.std.com>
+Date: Wed, 30 Nov 1994 20:33:55 GMT
+Lines: 31
+
+
+	A further thought for the FAQ.
+
+	Will Intel bear any responsibility (beyond the reprisals of the
+marketplace) for its irresponsible concealment of the Pentium bug? 
+
+	The concealed existence of a known bug certainly strengthens 
+purchasers' argument that their computer breached the implied warranty of 
+merchantability and leaves Intel pretty much defenseless against claims 
+by manufacturers.
+	There are some purchasers, of course, who have sustained damages 
+over and above the cost of their computer.  For example, there are 
+researchers whose research was delayed while computations were re-run on 
+a bug-free machine.  In conventional legal analysis, it is hard to see 
+how these purchasers have a claim against Intel, with whom they had no 
+contractual dealings.  On the other hand, it seems only fair that Intel 
+should suffer the consequences for others' poor choice of computer and 
+inability to use workarounds as a result of its bad actions.  Such 
+purchasers should sue their seller, their manufacturer, and Intel in a 
+single suit.
+	A securities law class action by Intel stockholders can be 
+expected if its stock falls significantly.  Thus far, however, its stock 
+has held up amazingly well.
+
+
+
+-- 
+John M. Baker <jbaker@world.std.com>
+Hutchins, Wheeler & Dittmar, 101 Federal St., Boston, MA  02110
+Phone 617/951-6623     Fax 617/951-1295
+
+

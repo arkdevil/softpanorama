@@ -1,0 +1,395 @@
+
+
+   Home 
+   
+                            INSTALLING TAYLOR UUCP
+                                       
+   
+     _________________________________________________________________
+   
+   
+   
+Why should I run Taylor UUCP?
+
+   If you're using UUCP on a UNIX platform, and you're not running Taylor
+   UUCP, then you should switch. It's that simple. Why?
+   
+     * Taylor UUCP is much faster than what you're running now. The
+       UUCP-i protocol supported by Taylor UUCP has a default packet size
+       of 1024 and a window size of 16, as compared with a packet size of
+       256 and a window size of 3 for most UUCP-g implementations. I was
+       running a BSD UUCP variant before I switched to Taylor, and my
+       transfer rate has gone from 500-600 cps to over 1600 cps. This is
+       with a Telebit Worldblazer modem.
+       
+     * Taylor UUCP can run over TCP/IP as well as dialup. While other
+       UUCP variants can be made to run over TCP/IP, Taylor does it very
+       naturally, as part of the port setup file.
+       
+       
+     * Taylor UUCP is easy to install. How easy is easy? It took me under
+       two hours to get it going on a NeXT, and I'm going to give you the
+       benefit of my experience in this article. As a result, you should
+       be able to put together all the configuration files you need in
+       less than a half hour. Compiling Taylor UUCP for your machine will
+       take longer, but binaries may already be available for your brand
+       of hardware.
+       
+       
+     * Taylor UUCP can convert your existing HoneyDanBer, or V2
+       configuration files. However, unless your config files are really
+       complicated, this process may take longer than creating Taylor
+       configuration files from scratch.
+       
+       
+       
+What do I need?
+
+   To run Taylor UUCP, you need:
+   
+     * The Taylor UUCP source code.
+     * Taylor UUCP documentation.
+       
+   
+   
+   FS-UUCP is a version of UUCP for DOS that will support UUCP-i in
+   version 2.0, due to go into beta soon. If you need to run UUCP under
+   DOS, I encourage you to check out FSUUCP, or the commercial version in
+   preparation, UUcom. The latest version of FS-UUCP (currently v1.42
+   with 1.5 on the way) is available via the Fubar Systems BBS,
+   (805)-54-FUBAR. There is also a mailing list, which you can join via
+   mail fsuucp-request@toys.fubarsys.com.
+   
+Commands supported
+
+   The Taylor UUCP distribution includes the following commands, which by
+   default are placed within the /usr/local/bin/ directory:
+   
+     * uucp - Unix-to-unix copy; copies files between UUCP hosts.
+     * uux - Executes commands on a remote host.
+     * uustat - This can examine and manipulate the queue.
+     * uuname - Lists the remote hosts configured in your setup files.
+     * uulog - This displays entries in the UUCP log file.
+     * uuto,uupick - uuto is used to send a file to user on a remote
+       host, and uupick is used by the user to retrieve it.
+     * cu - This is a simple UNIX communications program without error
+       correcting transfer protocols.
+       
+   
+   
+   The following system daemons are also included, which by default are
+   placed in the /usr/local/lib/uucp/ directory:
+   
+     * uucico - This is the program that calls the remote host.
+     * uuxqt - This is started by uucico, and processes execution
+       requests.
+       
+   
+   
+   Finally there are the following miscellaneous utilities, by default
+   placed in the /usr/local/lib/uucp directory:
+   
+     * uuconv - This program converts HDB or V2 configuration files.
+     * uuchk - Checks for errors in Taylor UUCP configuration files.
+       
+   
+   
+Setup files
+
+   Taylor UUCP can be setup with only one setup file, sys, but I have
+   found it easier to split up the setup into several files, including:
+   
+     * call - This lists the system names, userIDs, and passwords, and
+       should be readable only by uucp.
+     * config - A general configuration file including the name of the
+       log and statistics files and the UUCP name.
+     * dial - A file that contains a script that dials the modem.
+     * port - A file defining ports for UUCP communications.
+     * sys - A systems configuration file.
+       
+  THE CALL FILE
+  
+   The call file contains the uucp host names, userIDs, and passwords of
+   those systems you'll be dialing into. Since this file contains the
+   crown jewels, it must be set so as not to be world-readable. Below is
+   an example file for dialing in to systems punky and venus. On the
+   punky system the UUCP login is mrgobs; on the venus system, it is
+   mrfoo. mypassword and anotherpass are the passwords on the two
+   systems.
+   
+   /usr/local/lib/uucp/call
+
+punky mrgobs mypassword
+venus mrfoo  anotherpass
+
+  THE CONFIG FILE
+  
+   The config file contains some basic configuration parameters such as
+   the location of the log and statistics files, and your UUCP name. So
+   as to be compatible with utilities for V2 UUCP, I made sure that the
+   logfile was stored as /usr/spool/uucp/LOGFILE, where it would be
+   expected.
+   
+   /usr/local/lib/uucp/config
+
+#if I wanted to have a separate sys file for each system I could do this:
+#sysfile /usr/local/lib/uucp/sys.holonet
+#sysfile /usr/local/lib/uucp/sys.netcom
+#
+# set the location of the log files in /usr/spool/uucp:
+logfile LOGFILE
+statfile STATFILE
+# set my UUCP name (can be overidden for a particular host in the sys file)
+uuname planet
+
+  THE DIAL FILE
+  
+   Dial is a file of modem dialing scripts. The purpose of this file is
+   to get the modem to dial the UUCP host phone number. After that,
+   scripts in the sys file take over. As a result, the only thing you
+   need to do here is to get the modem initialized, and dialing. Taylor
+   UUCP supports the standard expect-send-expect UUCP scripting. Special
+   symbols include:
+   
+     * \n - newline
+     * \s - space
+     * \t - tab
+     * \\ - backslash
+     * \K - BREAK
+     * \d - delay for one or two seconds
+     * \c - don't send the default carriage return after the text
+     * \D - the phone number to dial (set in the sys file)
+     * \L - the userID (set in the call file)
+     * \P - the password (set in the call file)
+       
+   
+   
+   /usr/local/lib/uucp/dial
+
+# This is dial
+dialer telebit
+
+#The chat script used to dial the phone
+chat "" ATZ\r\d\c OK ATDT\D CONNECT
+chat-fail BUSY
+chat-fail NO\sCARRIER
+complete \d\d+++\d\dATH\r\c
+abort \d\d+++\d\dATH\r\c
+
+  THE PORT FILE
+  
+   Port is where you define the ports to be used. In my case, I define
+   one port which has a Telebit modem on it. I previously had the speed
+   set to 19200, but I had some problems with flow control.
+   
+   /usr/local/lib/uucp/port
+
+port port1
+type modem
+device /dev/cufa
+dialer telebit
+speed 9600
+carrier true
+
+  THE SYS FILE
+  
+   The sys file contains the configuration information for each system.
+   The default location for the file is /usr/local/lib/uucp/sys, but you
+   can point to other file(s) in your config file. Below find the sys
+   file for my login to Holonet. Some notes:
+   
+     * The system command identifies what follows (up to the next system
+       command) as for this particular system.
+     * The myname command setups the UUCP name for that particular host.
+     * The phone command sets the phone number for that host.
+     * The call-login * and call-password * commands tell Taylor UUCP to
+       look for the userID and password in the /usr/local/lib/uucp/call
+       file. This is put into a separate file so that file can be
+       protected while the sys file need not be.
+     * The time any command tells UUCP that it can make outgoing calls at
+       any time.
+     * The port type TCP sequence defines the machine name to login to
+       over TCP/IP and the dialing sequence to use.
+     * The alternate command says that if that login fails, then try
+       port1 instead.
+     * The chat command describes the login sequence after the port1
+       dialer has dialed the phone number specified by the phone command.
+       This is in send-expect-send format, as usual.
+     * The protocol-parameter commands modify the timeout and retries for
+       UUCP-g protocol.
+       
+   
+   
+   /usr/local/lib/uucp/sys
+
+#This is for holonet
+system holonet
+
+#myname is only needed if you want to use a different
+#UUCP name with this particular system.
+myname planet
+phone 7041063
+# Login name and password are put in the call file
+# (so as to allow them to be protected)
+call-login *
+call-password *
+
+#We can send anything at any time
+time any
+
+#Use TCP port first, if it doesn't work, then try port1
+port type TCP
+address holonet.net
+chat ogin: \L word: \P
+
+alternate
+
+port port1
+chat service: holonet\r\c ): \L word: \P none: uucp\r\c
+
+#Increase the timeout and the number of retries
+protocol-parameter g timeout 20
+protocol-parameter g retries 20
+
+Permissions
+
+   By default, Taylor UUCP installs its files into /usr/local/lib/uucp.
+   In order for the UUCP daemon to be able to get at these files, you
+   must make sure that the /usr/local/lib/uucp directory is reachable by
+   uucp of the daemon group. You can do this via the following commands:
+   
+
+chmod +x /usr/local
+chmod +x /usr/local/lib
+chmod +x /usr/local/lib/uucp
+
+   
+   
+   You will also need to make sure that the files in the
+   /usr/local/lib/uucp directory are owned by the uucp daemon. To do
+   this, type the following:
+   
+
+cd /usr/local/lib/uucp
+/etc/chown uucp.daemon *
+
+   
+   
+   If you setup the configuration files the way I tell you to in this
+   article, then only the /usr/local/lib/uucp/call file will contain
+   password information. As a result, you will need to execute the
+   following permissions:
+   
+
+chmod 600 call
+chmod 644 config
+chmod 644 dial
+chmod 644 port
+chmod 644 sys
+
+   
+   
+   The end result of all this is that your /usr/local/lib/uucp directory
+   should appear as follows:
+   
+
+internaut.com:33# ls -lg
+total 3182
+-rw-------  1 uucp     daemon        23 Mar 13 12:10 call
+-rw----r--  1 uucp     daemon        48 Mar 13 13:30 config
+-rw-r--r--  1 uucp     daemon       197 Mar 13 13:08 dial
+-rw-r--r--  1 uucp     daemon        79 Mar 13 13:15 port
+-rw-r--r--  1 uucp     daemon       360 Mar 13 13:29 sys
+-rwx--x--x  1 uucp     daemon    461376 Mar 22  1993 uuchk*
+-r-sr-xr-x  2 uucp     daemon   1392408 Mar 22  1993 uucico*
+-rwx--x--x  2 uucp     daemon    564140 Mar 22  1993 uuconv*
+-r-xr-xr-x  2 uucp     daemon       306 Mar 22  1993 uusched*
+-r-sr-xr-x  2 uucp     daemon    791412 Mar 22  1993 uuxqt*
+
+   
+   
+   Similarly, your /usr/local/bin directory should appear as follows:
+   
+
+internaut.com:38# ls -lg uu*
+-r-sr-xr-x  1 uucp     daemon    715716 Mar 22  1993 uucp*
+-rwx--x--x  1 uucp     daemon    533816 Mar 22  1993 uulog*
+-r-sr-xr-x  1 uucp     daemon    389808 Mar 22  1993 uuname*
+-rwx--x--x  1 uucp     daemon    587492 Mar 22  1993 uupick*
+-r-sr-xr-x  1 uucp     daemon    755044 Mar 22  1993 uustat*
+-r-xr-xr-x  1 uucp     daemon       496 Mar 22  1993 uuto*
+-r-sr-xr-x  1 uucp     daemon    716996 Mar 22  1993 uux*
+
+Sendmail configuration
+
+   To inform Sendmail of the location of your newly installed Taylor
+   executables, you will need to modify the sendmail.cf file. This
+   principally affects the uux and uuname commands. If you don't include
+   the correct path to uux, Sendmail will continue to use your old uux,
+   and since the format of outgoing packets may differ between your
+   previous UUCP and Taylor, your outgoing mail will not be sent. Below
+   is an example specification for the uucp mailer; If you want the mail
+   to go out immediately, remove the -r:
+   
+
+Muucp,  P=/usr/local/bin/uux, F=msDFMhuU, S=13, R=23, E=\n, A=uux - -r $h!rmail
+ ($u)
+
+   
+   
+   You will also need to correctly specify the path to uuname, or
+   Sendmail will continue to use the uuname from your previous UUCP,
+   picking up the names of the uucp hosts from the old configuration
+   files. As a result, it will be confused as to what your local uucp
+   connections are. To specify the Taylor uuname, search for the line
+   including "uuname" in your sendmail.cf file, and change it to the
+   following:
+
+FV|/usr/local/bin/uuname
+
+Packet format
+
+   By default, Taylor stores outgoing packets in the directory
+   /usr/spool/uucp/system where system is the UUCP name of the remote
+   host. Within this directory, Taylor UUCP includes these directories:
+   
+
+# ls -lg
+total 5
+drwxr-xr-x  2 uucp     daemon      2048 Mar 18 10:09 C./
+drwxr-xr-x  2 uucp     daemon      2048 Mar 18 10:09 D./
+-rw-r--r--  1 uucp     daemon         4 Mar 18 10:09 SEQF
+
+   
+   
+   Within the C. directory are the control files, which have names such
+   as C.N0009, and look like this:
+   
+
+E D.0008 D.planetN0008 agent -C D.0008 0666 "" 0 rmail netcom.com!aboba
+
+   
+   
+   Here D.0008 is the name of the corresponding data file in the D./
+   directory; D.planetN0008 is the name of the file as it will be
+   received on the remote system; agent is the userID sending the file;
+   0666 is the permission of the file; and rmail netcom.com!aboba is the
+   command to be executed on the remote system.
+   
+Links to other utilities
+
+   If your version of UNIX has already had utilities and other elements
+   built around your previous version of UUCP, then you will need to
+   create links between from where your old utilities expect to find the
+   UUCP daemons or commands, to where Taylor stores them. Before messing
+   with your previous setup, I recommend that you archive your old
+   directories so that you can restore them if needed. I also recommend
+   that you flush out all remaining incoming and outgoing files before
+   doing the conversion, since your new setup may not be able to process
+   old files.
+     _________________________________________________________________
+   
+   Bernard Aboba, aboba@internaut.com, last modified: 5/29/94
+     _________________________________________________________________
+   
+   About Latest Internet Index Books Updates Tools Ordering 

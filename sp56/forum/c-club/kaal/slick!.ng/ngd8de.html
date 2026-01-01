@@ -1,0 +1,166 @@
+<HTML>
+<HEAD><TITLE>MacSoft's DESQview aware I/O Library - Long Entry</TITLE></HEAD>
+<BODY>
+
+<A HREF="ngbeb4.html">[&lt;&lt;Previous Entry]</A>
+<A HREF="ngbe79.html">[^^Up^^]</A>
+[Next Entry&gt;&gt;]
+<A HREF="menu.html" >[Menu]</A>
+<A HREF="info.html">[About The Guide]</A>
+<HR>
+<PRE>
+/*
+** ------ MENUENG.H
+**
+** (c) by MacSoft 1990, 1991
+**
+** Version 3.2, part of SLICK!
+*/
+
+typedef struct menuengstruc   ME_MENU;
+typedef struct menumsgstruc   ME_MSG;
+
+int far menueng(int function,...);
+enum { ME_MAKE, ME_MESSAGE };
+
+#ifndef byte
+    #define byte unsigned char
+#endif
+#ifndef word
+    #define word unsigned int
+#endif
+
+/*
+** The new method to make menus is to pass two structures
+** One is for colours and options, another contains screen
+** locations and data pointers to items.
+** This engine will call the startup function before spoiling the screen
+** and cleanup function after.
+** of screen.
+**
+** The way menu engine works is roughly:
+**
+** 1. It calculates the coordinates of rectangle it's going to spoil and
+**    calls startup function which can save the image. If startup function
+**    returns 0 it calls errhand() and returns. The size of rectangle is the
+**    area which  really gets spoiled, you have to expand it yourself if you
+**    want to draw frames.
+** 2. Writes all fields to screen
+** 3. Highlites the default field
+** 4. Goes to input loop which can take following actions:
+**    a) Recursively call the menu engine with another menu structure
+**    b) Calls a single function to perform some task
+**    c) Calls a function to toggle boolean switch
+**    d) Returns the selected field number to caller
+** 5. Before returning to caller it calls cleanup() and errhand() if
+**    cleanup fails.
+*/
+
+#define ME_MOVE_UP_KEY    0x4800
+#define ME_MOVE_DN_KEY    0x5000
+#define ME_MOVE_LT_KEY    0x4b00
+#define ME_MOVE_RT_KEY    0x4d00
+#define ME_ESC_KEY        0x011b
+#define ME_CR_KEY         0x1c0d
+#define ME_REDRAW_KEY     0x00ff
+
+typedef struct {
+        byte    normcolor,      /* color for normal menu item */
+                hicolor,        /* color for highlited character */
+                barcolor,       /* color for cursor bar */
+                barhicolor,     /* color for higlited character in cursor */
+                discolor,       /* color for disabled menu item */
+                disbarcolor;    /* cursor bar on disabled item */
+} ME_COLORS;
+
+/*
+** Item type is defined in bits as follows
+** 0x0001 normal item
+** 0x0002 door to new submenu
+** 0x0004 "boolean" item, value is in the next bit
+** 0x0008 value of boolean item (1=true)
+** 0x0010 door to single function
+** 0x0020 disabled item
+**
+** The void pointer is used as follows
+** 0x0001 not used
+** 0x0002 points to new rawmenu structure
+** 0x0004 points to function which will be called with pointer to
+**        menu and number of menu item. Function should change the
+**        boolean value bit if it can be changed.
+** 0x0010 points to function to be called if this field is selected
+** 0x0020 not used
+**
+*/
+#define ME_IT_NORM    0x0001
+#define ME_IT_DOOR    0x0002
+#define ME_IT_BOOL    0x0004
+#define ME_IT_FUNC    0x0010
+#define ME_IT_DIS     0x0020
+#define ME_IT_BBIT    0x0008
+
+typedef struct {
+        int        x,y,len;     /* field location and length */
+        word       type;        /* menu item type */
+        int        txtoff,      /* text offset in field */
+                   hioff;       /* highlited character offset in text */
+        word       context;     /* help context number */
+        char far * text;        /* item text */
+        void far * func;        /* functional pointer */
+        char far * help;        /* pointer to short help notice or NULL */
+}  ME_ITEMS;
+
+/*
+** And now we put them together for menu...
+**
+** Status bits are defined as
+** 0x0001 OK to use up arrow for moving to prev. entry
+** 0x0002 OK to use down arrow for moving to next entry
+** 0x0004 OK to use left arrow for moving to prev. entry
+** 0x0008 OK to use right arrow for moving to next entry
+** 0x0010 OK to use down arrow as CR
+** 0x0020 OK to quit on left or right arrow press
+*/
+#define ME_S_MOVE_UP     0x0001
+#define ME_S_MOVE_DN     0x0002
+#define ME_S_MOVE_LT     0x0004
+#define ME_S_MOVE_RT     0x0008
+#define ME_S_DNEQUCR     0x0010
+#define ME_S_LTRT_QT     0x0020
+#define ME_ERRSTARTUP    1
+#define ME_ERRCLEANUP    2
+
+
+struct menuengstruc {
+    word          count,        /* number of items in this menu */
+                  def;          /* default item selected */
+    word          status;       /* status bits ( moves allowed etc.) */
+    ME_COLORS far *colors;      /* colors for this item set */
+    ME_ITEMS far  *items;       /* items data for this menu */
+        void far      (*helpout)(ME_MENU far *);
+                                /* pointer to function to write help msgs */
+    int far       (*startup)(ME_MENU far *,int,int,int,int);
+                                /* pointer to startup function */
+    int far       (*cleanup)(ME_MENU far *);
+                                /* pointer to cleanup function */
+    void far      (*errhand)(ME_MENU far *,int);
+                                /* menu system error handler for this menu */
+    int far       (*scankey)(ME_MENU far *);
+                                /* keyboard input function */
+        ME_MENU far   *back;            /* points to previous menu */
+};
+
+struct menumsgstruc {
+    int           index;        /* index in message, set to -1 on end of msg */
+    int far *     message;      /* message data */
+        void far      (*eofmsg)(ME_MSG far *);
+                                /* call when message is over */
+};
+
+extern ME_MENU far   *_topmenu;
+extern ME_MENU far   *_curntmenu;
+extern ME_MSG far    *_curntmsg;
+</PRE>
+
+</BODY>
+</HTML>
